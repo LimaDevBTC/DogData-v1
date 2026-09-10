@@ -6,7 +6,8 @@
  * e a varredura que escolheu o sítio: npx tsx scripts/city/derby-sitio.ts
  */
 import * as THREE from 'three'
-import { caixaDoModulo, polyDoModulo, type Modulo } from './teia'
+import { caixaDoModulo, polyDoModulo, rumoDaFace, type Modulo } from './teia'
+import { centrarNaParcela, type Pt } from './podio'
 
 /** o id da peça no gerador; o NOME mudou para DOG Derby em 08/09, o id não */
 export const DERBY_ID = 'E02'
@@ -61,12 +62,44 @@ export const DERBY_PASSO_SONDA = 12
 export const DERBY_AMPLITUDE_MEDIDA = 11.01
 
 /** Centro/giro nascem exclusivamente da caixa das células, nunca de coordenadas. */
+/**
+ * ⚠️ O RUMO É O DA FACE DO DODECÁGONO E O CENTRO É CALCULADO, desde 09/09/2026.
+ * Antes a peça girava pelo eixo do bloco (137,143°) e pousava no ponto polar
+ * dele, e as duas coisas estavam erradas pelo mesmo motivo que a peça aquática:
+ *
+ *   · a face que cobre este bloco está em 135,000°, ou seja **2,143° de torção**,
+ *     que nos 424 m da peça dá **15,9 m de desalinhamento** contra as duas
+ *     bordas longas da parcela (o maior da cidade, porque é a maior peça);
+ *   · e as folgas para as duas ruas de anel eram 74,6 e 79,3 m, ou seja **4,6 m
+ *     fora do centro**, contra a regra do fundador ("mesma distância das ruas
+ *     paralelas").
+ *
+ * Medido depois do conserto: folgas de 84,7 e 84,8 m no par paralelo e 16,0 em
+ * cada lado do par radial, e a menor folga da peça SOBE de 15,7 para 16,0 m.
+ * Nada apertou.
+ */
 export function derbySitio(): { x: number; z: number; rumoDeg: number } {
+  return { x: _sitioDerby.x, z: _sitioDerby.z, rumoDeg: DERBY_RUMO }
+}
+
+/** o rumo da face do dodecágono que cobre o bloco, que é o esquadro das ruas */
+export const DERBY_RUMO = (() => {
+  const c = caixaDoModulo(DERBY_MOD)
+  return (THREE.MathUtils.radToDeg(rumoDaFace((c.a0 + c.a1) / 2)) + 360) % 360
+})()
+
+const _sitioDerby = (() => {
   const c = caixaDoModulo(DERBY_MOD)
   const a = (c.a0 + c.a1) / 2
-  return { x: Math.sin(a) * c.rm, z: -Math.cos(a) * c.rm,
-    rumoDeg: (THREE.MathUtils.radToDeg(a) + 360) % 360 }
-}
+  const base = { x: Math.sin(a) * c.rm, z: -Math.cos(a) * c.rm }
+  const giro = -THREE.MathUtils.degToRad(DERBY_RUMO)
+  const cs = Math.cos(giro), sn = Math.sin(giro)
+  const env = ([[-1, -1], [1, -1], [1, 1], [-1, 1]] as const).map(([dx, dz]) =>
+    [base.x + cs * (dx * DERBY_PECA_X / 2) + sn * (dz * DERBY_PECA_Z / 2),
+     base.z - sn * (dx * DERBY_PECA_X / 2) + cs * (dz * DERBY_PECA_Z / 2)] as Pt)
+  const d = centrarNaParcela(env, polyDoModulo(DERBY_MOD) as Pt[])
+  return { x: base.x + d.dx, z: base.z + d.dz }
+})()
 
 /**
  * Registrar em `buildVias.parcelas` para suprimir as ruas internas do bloco.

@@ -103,10 +103,8 @@ export const ORC_PEQUENA = 10
  * peça que vende anúncio, não detalhe de acabamento.
  */
 export const ROTULOS = {
-  marcaBtc: 'THE CHAIN',          // 9
-  marcaBtcAlt: 'BTC BLOCK',       // 9
   marcaDog: 'BTC RUNE',           // 8
-  marcaDogAlt: 'THE MOON',        // 8
+  marcaDogAlt: 'ON LUNA',         // 7
   precoSpot: 'USD SPOT',          // 8
   precoVar: '24H',                // 3
   volume: '24H VOL',              // 7
@@ -128,8 +126,6 @@ export const ROTULOS = {
   blocoVol: 'DOG MOVED',          // 9
   mintLotes: 'MINTED',            // 6
   mintDono: 'NEW OWNER',          // 9
-  krayNome: 'THE WALLET',         // 10
-  krayCustodia: 'YOUR KEYS',      // 9
   ocioso: 'SPHERE',               // 6
 } as const
 
@@ -193,6 +189,31 @@ export const COR_DADO_FRACO = misturarHex(COR_DADO, COR_ROTULO, 0.35)
 
 /** branco de painel, só para o intervalo comercial */
 export const COR_ANUNCIO = '#F2F4F7'
+
+/**
+ * ⚠️ O LARANJA DO BITCOIN É O DA MARCA DELE, `#F7931A`, E ISSO É EXCEÇÃO PEDIDA
+ * PELO FUNDADOR EM 09/09: *"a esfera com o logo do Bitcoin deve usar exatamente o
+ * tom de laranja que tá na logo"*. Medido no próprio `public/BTC.png` que ele
+ * mandou, e não copiado de memória: 70.251 das amostras opacas do disco são
+ * exatamente `#F7931A`, contra 22 do segundo colocado.
+ *
+ * ⚠️ E ELE NÃO SUBSTITUI `COR_DADO`. A casa continua em `#E8660D` para tudo o que
+ * é dado, e a regra contra o lava `#F56E0F` continua de pé: `#F7931A` é a
+ * identidade de OUTRA marca dentro da peça, exatamente como o preto e branco da
+ * Kray. Quem usar este laranja para publicar número da casa está trocando a
+ * paleta da casa pela de terceiro. Ele vale na pele do Bitcoin e em mais nada.
+ */
+export const COR_BITCOIN = '#F7931A'
+
+/**
+ * O BULLET DA MARCA CORRIDA, `●` de 5x5 LEDs (o separador padrão da casa é o `·`
+ * de 2x2, que é ponto de pedaço e não de marca).
+ *
+ * ⚠️ ELE SÓ VALE ONDE A LINHA É MARCA, e nunca num módulo de dado: sobre um preço
+ * ele viraria um caractere gordo disputando com o número, que é o oposto do que o
+ * `·` faz. Ver `SphereConteudo.sep`.
+ */
+export const SEP_MARCA = '●'
 
 /**
  * ⚠️ O GANHO É O QUE SEPARA MARCO DE CIDADE DE BOLA DE DISCOTECA.
@@ -496,13 +517,23 @@ interface Slot {
   restanteMs?: number
 }
 
+/**
+ * ⚠️ `orc` É EXCEÇÃO DECLARADA AO ORÇAMENTO, E ELA TEM UM DONO SÓ: o intervalo
+ * comercial. `ORC_GRANDE = 7` é um teto de LEITURA, medido em azimutes, e vale
+ * para DADO, onde o que importa é o número chegar inteiro ao olho. Marca corrida
+ * é outra coisa: `KRAY SPACE` são 10 caracteres pedidos pelo nome do parceiro, e
+ * cortar em silêncio para `KRAY SP` publicaria o nome dele errado, que é pior do
+ * que publicá-lo em menos azimutes. Quem usar isto para dado está burlando a
+ * medição, não ganhando espaço.
+ */
 const quadro = (
   grande: string,
   pequena: string,
   ms: number,
   extra: Partial<SphereConteudo> = {},
+  orc = ORC_GRANDE,
 ): Quadro => {
-  const g = grande.slice(0, ORC_GRANDE)
+  const g = grande.slice(0, orc)
   return {
     ms,
     c: {
@@ -560,9 +591,20 @@ function pintarCorpoKray(g: CanvasRenderingContext2D, w: number, h: number) {
   // seja a própria luminância é o alfa. `public/city/kray-marca.png` é ela
   // recortada na caixa do traço, com alfa suave para a borda não serrilhar ao ser
   // esticada pelas fatias de seno.
+  // ⚠️ A LOGO DESCEU E CRESCEU EM 09/09. Fundador: *"a cena da kray estava com a
+  // logo muito no alto... conseguimos usar mais área da logo, visto que toda a
+  // lateral, desde a base até o topo é visível"*. Ela ocupava de seno 0,90 a
+  // 0,46, ou seja 88 m de altura e 25,9% da área visível, inteira acima da faixa
+  // de dado. Agora vai de 0,84 a 0,04: **160 m de altura**, o dobro, e o friso do
+  // nome ocupa a faixa logo abaixo dela, em vez de disputar o meio da esfera.
+  //
+  // ⚠️ TRÊS CÓPIAS E NÃO SEIS, E É A LARGURA QUE MANDA. Com a marca quadrada
+  // (aspecto 1) uma cópia de 160 m pede 48° de longitude no equador e 82° na
+  // latitude mais alta dela; seis somariam 492° dos 360 e se comeriam. Três somam
+  // 246° e ficam igualmente espaçadas, com uma cópia inteira sempre à vista.
   const im = arte('/city/kray-marca.png')
   peleMarca(g, w, h, {
-    fundo: '#07080A', tinta: COR_ANUNCIO, n: 6, s0: 0.90, s1: 0.46,
+    fundo: '#07080A', tinta: COR_ANUNCIO, n: 3, s0: 0.84, s1: 0.04,
     aspecto: 1,
     desenhar: (og, larg, alt) => desenharArte(og, im, larg, alt),
   })
@@ -598,18 +640,14 @@ const PASSO_LED = 0.6151
 /** a latitude do centro óptico da silhueta, em linha de LED (ver sphere.ts) */
 const LINHA_CENTRO = 418
 /**
- * ⚠️ A MARCA FICA EM 230 E NÃO NO CENTRO ÓPTICO, E ISSO É DÍVIDA DECLARADA. Com
- * 418 ela cairia em cima da faixa de dado (linhas 368 a 496) e os dois viravam
- * sujeira. O preço, medido: a 33,0° do centro óptico, a borda de cima do glifo
- * sofre escorço `cos(54,98°) = 0,574` contra `cos(11,04°) = 0,982` da de baixo,
- * ou seja a altura aparente da base é 1,71x a do topo mesmo com a largura certa.
- *
- * O conserto de verdade é o quadro do Bitcoin SUPRIMIR a faixa (ele é identidade,
- * não dado) ou baixá-la para as linhas 590 a 640, que ainda cabem antes do corte
- * da casca na linha 658,7. Fica em aberto: mexer em `SPHERE_FAIXA_LINHA0/1` por
- * quadro faria o anel do `FS_LISO` saltar 172 linhas a cada volta do anel.
+ * ⚠️ A DÍVIDA DA LATITUDE FOI PAGA EM 09/09, E `LINHA_MARCA = 230` SAIU COM ELA.
+ * Ela existia porque a marca tinha de caber ACIMA da faixa de dado (linha 368) e
+ * por isso vivia a 33° do centro óptico, com a base 1,71x mais alta na aparência
+ * que o topo. O conserto que o próprio comentário indicava era o que se fez: a
+ * carta do Bitcoin suprime a faixa e a marca atravessa o centro óptico. Quem
+ * ainda mora acima da faixa é o mascote e o `$DOG`, e os dois são conteúdo de
+ * casca com faixa por baixo, não marca única centrada.
  */
-const LINHA_MARCA = 230
 
 
 /**
@@ -645,14 +683,19 @@ const LINHA_MARCA = 230
 function peleMarca(
   g: CanvasRenderingContext2D, w: number, h: number,
   o: {
-    fundo: string; tinta: string; n: number; s0: number; s1: number
+    /** `null` NÃO pinta fundo, e é o que permite empilhar camadas na mesma
+     *  casca (o `$DOG` em duas fileiras, a logo do parceiro mais o friso). Quem
+     *  empilha pinta o fundo na PRIMEIRA camada e passa `null` nas seguintes. */
+    fundo: string | null; tinta: string; n: number; s0: number; s1: number
     desenhar: (og: CanvasRenderingContext2D, larg: number, alt: number, cor: string) => void
     aspecto: number
   },
 ) {
   const L = h / 1024
-  g.fillStyle = o.fundo
-  g.fillRect(0, 0, w, h)
+  if (o.fundo !== null) {
+    g.fillStyle = o.fundo
+    g.fillRect(0, 0, w, h)
+  }
 
   const altAparente = SPHERE_R_M * (o.s0 - o.s1)
   const arcoTexels = (o.aspecto * altAparente) / PASSO_LED
@@ -714,115 +757,38 @@ function desenharArte(
 
 function pintarCorpoBitcoin(g: CanvasRenderingContext2D, w: number, h: number) {
   // ⚠️ A MARCA É A LOGO OFICIAL, NÃO UM DESENHO MEU. Eu errei este glifo três
-  // vezes seguidas à mão e o fundador reclamou as três: escala em X constante
-  // sobre 44° de latitude, falta da compensação de altura, e `stroke` de espessura
-  // fixa fechando o vazio da volta menor. A quarta reclamação, em 09/09, foi "a
-  // volta de cima do B menor ainda", e essa era desenho mesmo: eu levava a volta
-  // de cima até u=0,80 e a de baixo até u=1,00.
+  // vezes seguidas à mão e o fundador reclamou as três. `public/city/btc-marca.png`
+  // é o glifo recortado de `public/BTC.png`, que já vivia no repo, e a fidelidade
+  // dele está CONFERIDA em 09/09, pixel a pixel contra o original: mesma caixa
+  // (474 x 629, aspecto 0,7536) e **0,27% de pixels diferentes, todos de borda**.
+  // O arquivo nunca foi o problema.
   //
-  // `public/city/btc-marca.png` é o glifo recortado de `public/BTC.png`, que já
-  // vivia no repo: inundação a partir de fora marca o exterior, o que sobra em
-  // branco DENTRO do disco é a letra, e o alfa sai da distância relativa entre o
-  // laranja da moeda e o branco, para a borda não serrilhar. Conferido contra o
-  // original no mesmo enquadramento, pixel a pixel. Vem inclinado, como o oficial.
+  // ⚠️ O QUE ESTAVA ERRADO ERA A COR E O LUGAR, e as duas mudaram em 09/09 depois
+  // de o fundador ver a peça no ar (*"símbolo do BTC errado... vamos colocar ali
+  // um logo oficial do Bitcoin, imagem"*):
+  //
+  //   COR    o logo oficial é ₿ BRANCO sobre disco laranja. A tinta era `#140B04`,
+  //          um quase-preto, com a justificativa de que "o laranja é o fundo e a
+  //          marca é o buraco". Era invenção minha, não o logo: a esfera laranja
+  //          JÁ É o disco da moeda, e o que faltava para ela ser o logo oficial
+  //          era a marca branca.
+  //   LUGAR  a marca morava de seno 0,92 a 0,44, ou seja inteira ACIMA do centro
+  //          óptico da silhueta (seno 0,284, linha 418), espremida contra o polo
+  //          para não bater na faixa de dado. Vista de fora ela ficava no chapéu
+  //          da esfera, com a metade de baixo do disco vazia. Agora ela ATRAVESSA
+  //          o centro óptico, de 0,74 a -0,22, e a faixa é que sai (ver
+  //          `slotBitcoin`): esta pele é identidade, não dado.
+  //
+  // Medido, com R = 200,5 m: altura aparente **192,5 m** (48% do diâmetro visível,
+  // contra 63% do glifo no logo oficial), largura **145,1 m**, ou seja 236 texels
+  // e 41,5° de longitude por cópia. Quatro cópias somam 166° dos 360 e a leitura
+  // de um azimute satura em 116°, então há sempre uma marca inteira à vista.
   const im = arte('/city/btc-marca.png')
   peleMarca(g, w, h, {
-    fundo: '#E8660D', tinta: '#140B04', n: N_MARCAS, s0: 0.92, s1: 0.44,
+    fundo: COR_BITCOIN, tinta: '#FFFFFF', n: N_MARCAS, s0: 0.74, s1: -0.36,
     aspecto: 474 / 629,                       // a caixa medida do glifo oficial
     desenhar: (og, larg, alt, cor) => desenharArte(og, im, larg, alt, cor),
   })
-}
-
-/**
- * PELE 2: `$DOG` DANDO A VOLTA, EM LETRA DE 90 LINHAS.
- *
- * ⚠️ ELA USA A MESMA FONTE 5x7 DA FAIXA, e de propósito: a Sphere tem UMA
- * tipografia, e ela é a matriz do letreiro do Estádio e da Torre Central. Uma
- * fonte vetorial aqui faria a casca falar uma língua e a faixa outra.
- *
- * A letra tem 90 linhas de LED de altura contra as 56 da linha grande da faixa,
- * ou seja **1,6x**, e ela é o único conteúdo da casca: a faixa continua por cima
- * com o dado, porque quem vê de perto quer o número e quem vê de longe quer a
- * marca. Os dois registros não brigam, eles moram em latitudes diferentes.
- */
-/**
- * CARTA: A LUA CHEIA.
- *
- * ⚠️ A ESFERA VIRA O CHÃO EM QUE A CIDADE FOI CONSTRUÍDA, e é a única pele que
- * não precisa ser aprendida: todo mundo já sabe o que é. O Mar da Tranquilidade,
- * que é o distrito BTC da DogCity, cai exatamente sob a faixa de dado, e um ponto
- * laranja de 6 texels marca a cidade dentro dele. Ela fecha o "DOG to the moon"
- * sem gastar um caractere com a frase.
- *
- * ⚠️ A ELIPSE NÃO PODE SER APROXIMADA POR `a/cos(lat)`, e essa é a mesma classe de
- * erro do ₿ gordo. A aproximação é de primeira ordem e engorda a mancha nas
- * latitudes altas: medido em Procellarum, na linha 250, a meia largura exata é
- * 443,7 texels e a aproximada 526,5, **erro de 18,7%**. A forma exata sai de um
- * `acos` por linha e custa nada:
- *
- *     Δλ = acos( (cos ρ − sen φ0 · sen φ) / (cos φ0 · cos φ) )
- *
- * Ela devolve LONGITUDE, não arco, então não há divisão por cosseno em lugar
- * nenhum: a compensação de largura já está dentro dela.
- *
- * ⚠️ O SUL DA LUA NÃO EXISTE NESTA CASCA. O corte da malha é a linha 652,5, e com
- * ele Humorum some quase inteiro (centro na 650,9) e Nubium é cortado ao meio.
- * Desenhar abaixo disso é pintar o que não é desenhado.
- *
- * ⚠️ E METADE DA TEXTURA É O LADO OCULTO. Com longitude 0 na coluna 1.536 (a mesma
- * constante de fase que `repetirNaVolta` usa para encarar a praça), a face
- * visível ocupa as colunas 1.024 a 2.048, e a outra metade é planalto liso: quem
- * girar a câmera 180° acha o lado que ninguém conhece. Surpresa de graça.
- */
-const MARES: [string, number, number, number][] = [
-  // nome, latitude, longitude, diâmetro em graus de arco (selenográficos reais)
-  ['PROCELLARUM', 18.37, -57.0, 84.72],
-  ['IMBRIUM', 32.80, -15.6, 37.79],
-  ['FRIGORIS', 56.00, 1.4, 47.63],
-  ['SERENITATIS', 28.00, 17.5, 23.32],
-  ['CRISIUM', 17.00, 59.1, 18.34],
-  ['TRANQUILLITATIS', 8.50, 31.4, 28.82],
-  ['FECUNDITATIS', -2.00, 51.3, 27.77],
-  ['NECTARIS', -15.20, 34.6, 10.98],
-  ['NUBIUM', -21.30, -16.6, 23.55],
-]
-/** a linha em que a malha da casca acaba; abaixo disso não há o que pintar */
-const LINHA_CORTE = 652.5
-
-function pintarCorpoLua(g: CanvasRenderingContext2D, w: number, h: number) {
-  const L = h / 1024
-  g.fillStyle = '#9A9488'                    // o planalto aceso, nos dois lados
-  g.fillRect(0, 0, w, h)
-  const rad = (d: number) => (d * Math.PI) / 180
-  const latDaLinha = (v: number) => Math.PI / 2 - (Math.PI * (v + 0.5)) / 1024
-  const colunaDe = (lon: number) => (((0.75 + lon / 360) % 1) + 1) % 1 * 2048
-
-  g.fillStyle = '#101010'                    // LED apagado, literalmente
-  for (const [, lat0, lon0, diam] of MARES) {
-    const rho = rad(diam / 2), phi0 = rad(lat0)
-    const v0 = ((90 - lat0) / 180) * 1024
-    const vTopo = Math.max(0, v0 - rho * (1024 / Math.PI))
-    const vBase = Math.min(LINHA_CORTE, v0 + rho * (1024 / Math.PI))
-    const cx = colunaDe(lon0)
-    for (let v = Math.floor(vTopo); v <= Math.ceil(vBase); v++) {
-      const phi = latDaLinha(v)
-      const arg = (Math.cos(rho) - Math.sin(phi0) * Math.sin(phi)) / (Math.cos(phi0) * Math.cos(phi))
-      if (arg > 1) continue                                    // a linha passa fora
-      const dl = arg < -1 ? Math.PI : Math.acos(arg)            // o círculo envolve o polo
-      // ⚠️ A COSTA É IRREGULAR POR SEMENTE FIXA, nunca por sorteio: a textura é
-      // repintada dezenas de vezes por hora e um mar que muda de forma a cada
-      // repintura seria a única coisa que o olho enxergaria.
-      const meia = (dl / (2 * Math.PI)) * 2048
-        * (1 + 0.06 * Math.sin(3.1 * v) + 0.04 * Math.sin(7.7 * v + 1.3))
-      // envolve na volta, porque a mancha pode cruzar a costura do meridiano
-      for (const off of [-2048, 0, 2048]) {
-        g.fillRect((cx - meia + off) * L, v * L, 2 * meia * L, L + 1)
-      }
-    }
-  }
-  // a cidade, dentro do Mar da Tranquilidade
-  g.fillStyle = COR_DADO
-  g.fillRect(colunaDe(31.4) * L - 3 * L, 463 * L - 3 * L, 6 * L, 6 * L)
 }
 
 /**
@@ -936,40 +902,63 @@ function pintarCorpoMascote(g: CanvasRenderingContext2D, w: number, h: number) {
     // ⚠️ E ELE PARA ANTES DA FAIXA: `s1 = 0,44` põe a base na linha 363, com 5
     // linhas de folga até a faixa de dado em 368. Atravessá-la cortaria o cachorro
     // com o texto, que foi o que a primeira medição pegou.
-    fundo: COR_DADO, tinta: '#140B04', n: 6, s0: 0.94, s1: 0.44,
+    fundo: COR_DADO, tinta: '#140B04', n: 4, s0: 0.82, s1: -0.35,
     // a proporção da arte recortada: 1359 por 2159
     aspecto: 1359 / 2159,
     desenhar: (og, larg, alt) => desenharArte(og, im, larg, alt),
   })
 }
 
+/**
+ * PELE: `$DOG CITY` DANDO A VOLTA, EM DUAS LINHAS.
+ *
+ * ⚠️ ELA ERA A CASCA PRETA QUE O FUNDADOR FOTOGRAFOU EM 09/09: *"essa versão do
+ * banner DOG continua com essa parte de baixo toda preta"*. O fundo era
+ * `#0A0B0D` e o único conteúdo era uma linha de letras na latitude 235, ou seja
+ * a peça inteira apagada com quatro palavras acesas no alto. Ela agora é a mesma
+ * pele do mascote e a do Bitcoin: **fundo laranja pleno, letra escura**. Três
+ * defeitos caíram juntos:
+ *
+ *   1. **a casca apagada.** Medida a média linear da textura, esta pele valia
+ *      0,019 contra 0,235 da pele do Bitcoin. De longe ela não era uma esfera
+ *      escura escrita, era um buraco.
+ *   2. **a tipografia de fora.** Ela desenhava com `g.font` do sistema
+ *      (JetBrains Mono), e a peça tem UMA tipografia, que é a matriz 5x7 do
+ *      Estádio. Era a única pele que falava outra língua, e é o `$` de serifa
+ *      que aparece na foto.
+ *   3. **a projeção à mão.** Ela compensava latitude com um escalar único,
+ *      admitindo no próprio comentário um erro residual de 4,6%. `peleMarca` já
+ *      resolve as duas compensações (altura por seno constante, largura por
+ *      1/cos φ) e é o que o mascote, o ₿ e o tipo gigante usam.
+ *
+ * ⚠️ E ELA PARA ANTES DA FAIXA, como todas: `s1 = 0,44` põe a base na linha 363,
+ * com 5 linhas de folga até a faixa de dado em 368.
+ */
 function pintarCorpoDog(g: CanvasRenderingContext2D, w: number, h: number) {
-  const L = h / 1024
-  g.fillStyle = '#0A0B0D'
-  g.fillRect(0, 0, w, h)
-  const alt = 90 * L
-  g.fillStyle = COR_DADO
-  g.textAlign = 'center'
-  g.textBaseline = 'middle'
-  g.font = `bold ${Math.round(alt)}px ui-monospace, "JetBrains Mono", monospace`
-  // ⚠️ QUATRO CÓPIAS E NÃO SEIS: `$DOG` é largo, e seis se encostariam. Quatro
-  // dão uma cópia por quadrante, ou seja sempre uma inteira à vista.
-  const cyTopo = 235 * L      // acima da faixa, em latitude de boa leitura
-  // ⚠️ ESTA FUNÇÃO NÃO COMPENSAVA LATITUDE NENHUMA, e foi citada duas vezes como
-  // referência de "N = 4" sem ninguém olhar a largura. Em `cyTopo` a latitude é
-  // +48,68° e `cos = 0,6606`: o `$DOG` saía **34% mais estreito** do que foi
-  // desenhado. Aqui o glifo é uma linha só de 90 linhas de LED (5,1° de latitude),
-  // então um escalar único basta: o erro residual entre o topo e a base da letra
-  // é de 4,6%, contra os 280% que a marca do Bitcoin tinha com 250 linhas.
-  const latDog = Math.PI / 2 - (Math.PI * 235) / 1024
-  const escX = 1 / Math.max(Math.cos(latDog), 0.2)
-  for (let i = 0; i < 4; i++) {
-    g.save()
-    g.translate(((i + 0.5) / 4) * w, cyTopo)
-    g.scale(escX, 1)
-    g.fillText('$DOG', 0, 0)
-    g.restore()
-  }
+  // ⚠️ `$DOG CITY` EMPILHADO EM DUAS LINHAS, E A ESCOLHA É MEDIDA. Pedido do
+  // fundador em 09/09: *"o último, `$DOG` pode virar `$DOG CITY`"*. Numa esfera,
+  // texto largo é caro: a largura vai com o número de casas e a janela de leitura
+  // de um azimute satura em 116,5° de longitude, então uma linha só de `$DOG CITY`
+  // (9 casas, aspecto 10,29) obriga a escolher entre letra pequena e nome cortado:
+  //
+  //     uma linha, n=3, letra 40,1 m   cada cópia 124° > janela: NUNCA inteiro
+  //     uma linha, n=4, letra 36,1 m   cada cópia 111°, no fio da janela
+  //     **empilhado, n=4, letra 56,1 m  cada cópia 83°, sobra 34° de folga**
+  //
+  // Empilhar devolve 56% de altura de letra e mete o nome inteiro dentro da
+  // janela em qualquer azimute. As duas fileiras têm 4 casas cada, então elas
+  // alinham coluna a coluna sozinhas, e o vão entre elas (seno 0,18 a 0,10, 16 m)
+  // é o que faz as duas lerem como uma marca e não como duas palavras soltas.
+  peleMarca(g, w, h, {
+    fundo: COR_DADO, tinta: '#140B04', n: 4, s0: 0.46, s1: 0.18,
+    aspecto: (4 * 8) / 7,
+    desenhar: (og, larg, alt, cor) => escreverGlifos(og, '$DOG', larg, alt, cor ?? '#140B04'),
+  })
+  peleMarca(g, w, h, {
+    fundo: null, tinta: '#140B04', n: 4, s0: 0.10, s1: -0.18,
+    aspecto: (4 * 8) / 7,
+    desenhar: (og, larg, alt, cor) => escreverGlifos(og, 'CITY', larg, alt, cor ?? '#140B04'),
+  })
 }
 
 /**
@@ -988,36 +977,33 @@ function pintarCorpoDog(g: CanvasRenderingContext2D, w: number, h: number) {
  */
 const GANHO_MARCA = 0.78
 
-function slotBitcoin(altura: number | null): Slot | null {
+function slotBitcoin(_altura: number | null): Slot | null {
   // ⚠️ SEM A ARTE O SLOT NÃO ENTRA, ele cede a vez para o próximo do anel. A pele
   // sem a marca seria só laranja liso: não mente, mas gasta 48 s de uma volta de
   // 408 s dizendo nada. Com o precarregamento isto não deve acontecer nunca; é
   // rede de segurança, e é a mesma regra de `slotMascote`.
   if (!arte('/city/btc-marca.png')) return null
-  const base: Partial<SphereConteudo> = {
-    ganho: GANHO_MARCA,
-    // ⚠️ A FAIXA INVERTE NA PELE LARANJA: sobre `#E8660D` o texto laranja some.
-    // O escuro do próprio recorte do ₿ é o que dá contraste aqui.
-    cor: '#140B04',
-    corRotulo: '#140B04',
-    pintarCorpo: pintarCorpoBitcoin,
-    peleId: 'marca-btc',
-    // ⚠️ SEM CHÃO DE FAIXA: quem pinta a casca inteira é dono do fundo dela. Com
-    // o padrão cinza-chumbo, o retângulo da faixa era carimbado por cima do
-    // laranja e virava uma tarja escura atravessando a esfera.
-    faixaFundo: null,
-  }
   return {
     classe: 'dado',
     nome: 'marca-btc',
     quadros: [
-      // ⚠️ O VALOR E O RÓTULO NÃO PODEM DIZER A MESMA COISA. Ao encurtar os
-      // rótulos para o teto de 10, `marcaBtc` virou `BITCOIN` e o quadro passou a
-      // publicar `BITCOIN` em cima de `BITCOIN`: duas linhas gastas com uma
-      // palavra, numa peça em que a linha pequena é lida por 100% dos azimutes.
-      // A casca já carrega o ₿; a faixa carrega o que o ₿ não diz.
-      quadro('BITCOIN', ROTULOS.marcaBtc, MS_MODULO / 2, base),
-      quadro(altura ? String(altura) : 'BITCOIN', ROTULOS.marcaBtcAlt, MS_MODULO / 2, base),
+      // ⚠️ A FAIXA SAI NESTA CARTA, E A DÍVIDA ESTAVA DECLARADA DESDE 08/09 em
+      // `LINHA_MARCA`: *"o conserto de verdade é o quadro do Bitcoin SUPRIMIR a
+      // faixa (ele é identidade, não dado)"*. Enquanto a faixa mandava, a marca
+      // tinha de caber acima da linha 368 e ficava no chapéu da esfera. Sem ela,
+      // o ₿ ocupa o meio do disco e a peça vira a moeda.
+      //
+      // ⚠️ E NÃO SE PERDE DADO NENHUM. Os dois quadros que saíram eram
+      // `BITCOIN` / `THE CHAIN` (que não diz nada que o ₿ não diga) e a altura do
+      // bloco. A altura continua publicada onde ela é notícia: no EVENTO de bloco
+      // minerado (`eventoBloco`, com as tx de DOG dentro) e no módulo do
+      // snapshot. Um quadro de 48 s, sem troca de layout no meio.
+      quadro('', '', MS_MODULO, {
+        ganho: GANHO_MARCA,
+        pintarCorpo: pintarCorpoBitcoin,
+        peleId: 'marca-btc',
+        faixaFundo: null,
+      }),
     ],
   }
 }
@@ -1034,17 +1020,17 @@ function slotMascote(): Slot | null {
     ganho: GANHO_MARCA,
     pintarCorpo: pintarCorpoMascote,
     peleId: 'mascote',
-    // sobre o laranja pleno, a tinta da faixa é a escura, como na pele do ₿
-    cor: '#140B04',
-    corRotulo: '#140B04',
+    // ⚠️ SEM FAIXA, COMO A CARTA DO BITCOIN, E PELO MESMO MOTIVO: a faixa era
+    // dona do meio da esfera e empurrava o mascote para o chapéu. Sem ela ele
+    // vai de seno 0,82 a −0,35, ou seja **234,6 m de altura e 87,7% da área
+    // visível**, contra 100,2 m e 28,7% de antes. O que a faixa dizia aqui era
+    // `$DOG` e `DOGCITY` sobre um desenho que já é o $DOG.
+    faixaFundo: null,
   }
   return {
     classe: 'dado',
     nome: 'marca-mascote',
-    quadros: [
-      quadro('$DOG', ROTULOS.marcaDog, MS_MODULO / 2, base),
-      quadro('DOGCITY', ROTULOS.marcaDogAlt, MS_MODULO / 2, base),
-    ],
+    quadros: [quadro('', '', MS_MODULO, base)],
   }
 }
 
@@ -1053,39 +1039,26 @@ function slotDog(): Slot {
     ganho: GANHO_MARCA,
     pintarCorpo: pintarCorpoDog,
     peleId: 'marca-dog',
-    // mesma razão da pele do Bitcoin: o casco escuro dela já é o fundo do texto
+    // ⚠️ SEM CHÃO DE FAIXA E COM TINTA ESCURA, exatamente como a pele do ₿ e a do
+    // mascote: quem pinta a casca inteira é dono do fundo dela, e sobre laranja
+    // pleno o chão laranja padrão seria carimbo invisível e a letra laranja
+    // sumiria. Foi assim que a "tarja preta no meio dela" nasceu em 08/09.
     faixaFundo: null,
   }
   return {
     classe: 'dado',
     nome: 'marca-dog',
     quadros: [
-      quadro('$DOG', ROTULOS.marcaDog, MS_MODULO / 2, base),
-      // ⚠️ A LUA ENTRA AQUI, e o ganho dela é 0,62 e não os 0,78 das outras
-      // marcas. Medido: o planalto `#9A9488` tem Y linear 0,2989, e com os mares
-      // em cerca de 14% da casca a média fica em **0,2575**, contra 0,2402 da
-      // pele do Bitcoin: 7% mais clara e ACROMÁTICA, que é a receita de ler como
-      // bola branca. O ajuste é no ganho e não na cor do planalto, porque
-      // planalto mais escuro deixa de ler como Lua.
-      //
-      // ⚠️ E A FAIXA É VÉU, NÃO TARJA. `faixaFundo` aceita qualquer `fillStyle`,
-      // então um preto a 70% escurece o planalto sob o texto sem apagá-lo: o
-      // dado fica em 4,2:1 contra o planalto e em 53:1 contra o mar. Foi assim
-      // que a tarja de 08/09 devia ter sido resolvida desde o começo.
-      quadro('$DOG', ROTULOS.marcaDogAlt, MS_MODULO / 2, {
-        ganho: 0.62,
-        pintarCorpo: pintarCorpoLua,
-        peleId: 'lua',
-        faixaFundo: 'rgba(6,6,6,0.70)',
-        cor: COR_DADO,
-        corRotulo: '#EDE7DA',
-      }),
+      // ⚠️ UM QUADRO DE 48 s, SEM FAIXA. O segundo quadro era a carta da Lua, que
+      // saiu, e a faixa saiu junto: o texto da casca JÁ É `$DOG` em duas fileiras
+      // de 56 m, e uma faixa por cima dele escreveria `$DOG` uma terceira vez no
+      // meio das duas.
+      quadro('', '', MS_MODULO, base),
     ],
   }
 }
 
 function slotAnuncio(): Slot {
-  const ms = Math.round(MS_ANUNCIO / 2)   // 36 s por quadro, dois quadros
   const base: Partial<SphereConteudo> = {
     ganho: GANHO_ANUNCIO,
     cor: COR_ANUNCIO,
@@ -1097,26 +1070,37 @@ function slotAnuncio(): Slot {
     // `pintarTextura`); a Kray é casco preto com marca branca, e branco sobre
     // laranja seria a peça da casa vestida de parceiro.
     faixaFundo: '#0A0B0D',
+    // o bullet cheio, e ele é o pedido literal do fundador (ver `SphereConteudo.sep`)
+    sep: SEP_MARCA,
+    // ⚠️ O FRISO DO NOME DESCE PARA DEBAIXO DA LOGO. Na latitude padrão ele
+    // partiria a marca ao meio; aqui ele vira a base da peça, e a logo fica com
+    // a lateral inteira acima dele. As linhas 530 a 630 ficam bem acima do topo
+    // do colar (644), que é o que oclui a casca por baixo.
+    faixaLinhas: [530, 630] as [number, number],
   }
   return {
     classe: 'anuncio',
     nome: 'kray',
     quadros: [
-      // ⚠️ A LINHA GRANDE FICA NO ANUNCIANTE OS 72 s INTEIROS, e trocá-la era
-      // defeito de PRODUTO, não de estética. Ela era `KRAY`, depois `WALLET`,
-      // depois `TOWER`: o anunciante saía da tela em 48 dos 72 s comprados, e o
-      // espectador via "kray, self custody, wallet, tower" como quatro coisas
-      // soltas. Foi exatamente o que o fundador relatou vendo a peça no ar.
+      // ⚠️ UM QUADRO SÓ, E `THE WALLET` SAIU POR PEDIDO DO FUNDADOR EM 09/09:
+      // *"tire o 'the wallet', queremos • Kray Space • Kray Space • Kray Space
+      // •…. exatamente assim, e a logo"*. Com o nome do parceiro correndo na
+      // volta e a marca dele na casca, o intervalo passou a ter UMA leitura, e é
+      // o mesmo conserto que 08/09 já tinha feito pela metade: o anunciante saía
+      // da tela em 48 dos 72 s comprados quando a linha grande trocava, e agora
+      // ele não sai em segundo nenhum.
       //
-      // ⚠️ E `KRAY` É O TEXTO CERTO POR MEDIÇÃO, não por ser o nome. Com 4
-      // caracteres ele é lido inteiro em 76% dos azimutes a 1 km, contra 36% de
-      // `WALLET` (6) e 49% de `TOWER` (5): quanto mais curto, mais azimutes veem
-      // a marca fechada. Quem varia é o RÓTULO, que é onde a mensagem cabe.
-      // ⚠️ DOIS QUADROS, NÃO TRÊS, E O DA TORRE SAIU. O fundador: "não precisa
-      // tower nem nada disso". Sobra o que o anunciante vende: o nome dele e a
-      // custódia própria. O tempo comprado não muda, os 72 s se dividem em dois.
-      quadro('KRAY', ROTULOS.krayNome, ms, base),
-      quadro('KRAY', ROTULOS.krayCustodia, ms, base),
+      // ⚠️ E A LINHA PEQUENA FICA VAZIA, DE PROPÓSITO. Ela era o lugar da
+      // mensagem (`THE WALLET`, `YOUR KEYS`), e sem mensagem um rótulo qualquer
+      // seria enchimento sobre tempo vendido. `escrever` com texto vazio não
+      // desenha nada: sobra casco preto, que é a peça da Kray.
+      //
+      // ⚠️ O PREÇO DE LEITURA ESTÁ MEDIDO E É DECLARADO: `KRAY SPACE` tem 10
+      // caracteres contra os 4 de `KRAY`, então ele cabe em 2 cópias na volta em
+      // vez de 4, e a fração de azimutes que veem o nome INTEIRO cai. Foi pedido
+      // pelo nome certo do parceiro, e nome de anunciante não se abrevia por
+      // orçamento tipográfico: quem paga escolhe como é chamado.
+      quadro('KRAY SPACE', '', MS_ANUNCIO, base, 10),
     ],
   }
 }
@@ -1421,6 +1405,31 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
   // cor por completo a cada ~2,8 min.
   const ANEL = ['preco', 'marca-btc', 'volume', 'marca-mascote', 'pulso', 'marca-dog', 'snapshot', 'anuncio'] as const
 
+  /**
+   * ⚠️ A TRAVA DE CONFERÊNCIA, E ELA EXISTE PORQUE A PEÇA NÃO ERA CONFERÍVEL. Uma
+   * volta do anel leva 408 s: quem abre a cidade para julgar uma carta vê a que
+   * estiver passando, e para ver a Kray (posição 8) espera até 5,6 min. Foi assim
+   * que quatro defeitos de carta chegaram ao fundador em vez de a uma chapa, que
+   * é a inversão exata do que o portão de `scripts/city/chapas.mjs` existe para
+   * impedir.
+   *
+   *   ?pele=marca-btc     trava o anel nessa carta, indefinidamente
+   *   ?pele=anuncio&quadro=0   trava também o quadro, para a chapa não depender
+   *                            de acertar a janela de 24 s de cada quadro
+   *
+   * Nomes válidos: os do `ANEL`. Sem a trava nada muda, e ela não desliga evento:
+   * um bloco minerado ainda interrompe, porque a peça em conferência tem de
+   * continuar sendo a peça que vai ao ar.
+   */
+  const busca = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search)
+    : null
+  const TRAVA = busca?.get('pele') ?? null
+  const TRAVA_QUADRO = busca?.get('quadro') != null ? Number(busca.get('quadro')) : null
+  if (TRAVA && !ANEL.includes(TRAVA as typeof ANEL[number])) {
+    console.warn(`[sphere] ?pele=${TRAVA} não é carta do anel; ignorado. Válidos: ${ANEL.join(', ')}`)
+  }
+
   // ⚠️ A ARTE É PEDIDA AGORA, NÃO NA VEZ DELA, e este é o conserto de um defeito
   // que foi ao ar em 09/09: `arte()` disparava o download no instante em que o
   // slot entrava, e naquele instante devolvia nulo. Com MS_MODULO de 48 s, uma
@@ -1602,6 +1611,13 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
     // evento tem precedência sobre o anel, sempre
     const ev = fila.shift()
     if (ev) return ev
+    // ⚠️ A TRAVA VEM ANTES DO ANEL, e ela não tem plano B: se a carta travada não
+    // monta (fonte fora do ar, arte que não chegou), a peça vai para o neutro em
+    // vez de girar para a próxima. Girar esconderia justamente o que se foi
+    // conferir, que é o defeito que a trava existe para não repetir.
+    if (TRAVA) {
+      return montar(TRAVA, t) ?? { classe: 'dado', nome: 'ocioso', quadros: [quadroOcioso()] }
+    }
     // e o anel gira até achar um módulo com dado válido; se nenhum tiver,
     // a peça cai no neutro em vez de mentir
     for (let k = 0; k < ANEL.length; k++) {
@@ -1634,8 +1650,13 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
   const entrarNo = (s: Slot, t: number) => {
     fecharConta(t)
     slot = s
-    iQuadro = 0
-    fimQuadro = t + s.quadros[0].ms
+    // ⚠️ COM `?quadro=` O QUADRO NÃO ANDA, e `Infinity` é o que segura: o tick só
+    // avança quando `t >= fimQuadro`. Assim a chapa não precisa acertar a janela
+    // de 24 s de cada quadro, que é onde uma conferência visual vira sorteio.
+    iQuadro = TRAVA_QUADRO != null
+      ? Math.max(0, Math.min(TRAVA_QUADRO, s.quadros.length - 1))
+      : 0
+    fimQuadro = TRAVA_QUADRO != null ? Infinity : t + s.quadros[iQuadro].ms
     // ⚠️ UM PULSO POR EVENTO, NA ENTRADA DO SLOT, e só para evento. O intervalo
     // comercial já sobe para ganho 0,90 o tempo todo e não precisa de swell; o
     // módulo de dado é o estado sóbrio por definição. Pulsar em tudo seria
@@ -1653,7 +1674,7 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
       if (s.nome === 'bloco') o.fx?.('varredura', pesoDoEvento(s))
       else o.fx?.('radial', pesoDoEvento(s))
     }
-    trocarPara(s.quadros[0], t)
+    trocarPara(s.quadros[iQuadro], t)
   }
 
   /**

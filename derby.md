@@ -443,6 +443,91 @@ vez que a peça se mexeu, e numa dessas a chapa saiu fotografando o chão.
 Marcadas como `'view'`, elas pedem o mesmo `viewFor` que o tour usa e acompanham
 a peça sozinhas.
 
+## A rodada de arquitetura de 10/09, e os três defeitos que ela consertou
+
+O fundador reprovou a peça construída: **"me parece, claramente, que o canódromo
+tá um nível abaixo do the geode e da $DOG ARENA. Não vi a lebre no suporte, a
+curva sem proteção nenhuma, os cães podem simplesmente sair da pista,
+arquitetura fraca."** As três críticas eram verificáveis no código, e as três
+estavam certas.
+
+### 1. A curva não tinha proteção, e no celular não havia proteção em lugar nenhum
+
+`detail_rails` desenhava guarda-corpo **só nas retas**, **só no bordo interno**, e
+morava no **detalhe**, que o celular nunca baixa. Ou seja: no telefone a pista
+inteira corria sem cerca, e no desktop as duas curvas corriam sem cerca.
+
+A causa da parte "só nas retas" vale registrar, porque é estrutural: a costura
+reta-curva-reta-curva estava escrita à mão em quatro laços diferentes, e dois
+foram esquecidos. Agora existe `oval_path(raio)`, que devolve a volta inteira
+com o peralte já aplicado, e **todo elemento que dá a volta usa ela**: as duas
+cercas, o trilho da lebre e os prumos.
+
+⚠️ **Cerca é segurança, e segurança não é ornamento de desktop.** A regra que
+fica: o que explica como a peça funciona vai na BASE; o que enfeita vai no
+detalhe. As duas cercas custam 4 triângulos por trecho, porque são duas faces
+opostas e não uma caixa: caixa custaria 12 e, com 128 trechos, seriam 1.536
+triângulos só nelas. Uma face só também não serve, porque com backface culling
+ela some do lado de fora e a chapa aérea mostraria a curva sem proteção de novo.
+
+### 2. A lebre não existia
+
+Havia o nome dela num comentário e mais nada. Sem lebre a pista não explica o que
+faz o cão correr, e ela é o único elemento móvel de um canódromo. Agora tem
+calha na volta inteira, carro, **braço de 4,6 m** e a isca, mais a casa onde ela
+para. É o braço que a torna legível: a isca tem 40 cm e não se vê de longe; o L
+que projeta a isca sobre a pista, sim.
+
+### 3. A arquitetura era um galpão, e o partido nasceu da própria pista
+
+A parede externa do peralte eram **8,4 m de concreto liso dando a volta**, sem
+uma sombra e sem dizer o que sustenta o quê. O partido novo sai da geometria que
+já existia:
+
+- **O tabuleiro avança em voadiço e o fechamento recua 2,2 m**, em material
+  escuro. De fora se lê uma fita clara suspensa sobre uma sombra contínua.
+- **Costelas claras a cada 4 segmentos de arco**, uma a cada 24 m de
+  desenvolvimento, aparecendo dentro dessa sombra. A cada 2 segmentos elas
+  fechavam numa parede listrada e custavam o dobro sem ganho.
+- ⚠️ A costela nasceu em GRAPHITE e **sumia dentro do DARK do fechamento**:
+  existia na malha e não na chapa. Estrutura que não lê não é partido, é
+  triângulo pago à toa. Foi para CONCRETE.
+- **A tribuna recebeu a mesma gramática**: o térreo recua 6 m e é escuro, o
+  último nível avança 2 m, e entre os dois nasce a horizontal profunda que uma
+  tribuna tem. Os pilares retos do chão ao topo viraram **costelas em V**, na
+  mesma cadência de 10 m das costelas da curva.
+- **O pórtico da chegada**, 26 m sobre a pista, é o vertical que faltava. O ARENA
+  tem a massa de obsidiana, a GEODE tem a casca, o atletismo tem a coroa orbital;
+  o Derby tinha uma barra de 190 m deitada e nada que subisse. O pórtico é
+  vertical, é funcional (juiz, cronômetro, placar) e amarra a tribuna à curva.
+
+⚠️ **E um defeito meu que a planta do gerador revelou**: o detalhe desenhava
+**cinco linhas de raia** na reta, como pista de atletismo, enquanto o cabeçalho
+da peça diz "sem raias: galgo corre solto atrás da lebre". Elas dominavam a reta
+principal e faziam a peça ler como o DOG Athletics, que é justamente de quem ela
+precisa se distinguir. Removidas. O que marca a pista de galgo é a linha de
+chegada, uma só, e ela agora nasce com o pórtico.
+
+### O que isso custou, e por que continua dentro do padrão
+
+| | antes | **depois** |
+|---|---:|---:|
+| base, triângulos | 5.486 | **8.362** |
+| base, bytes | 37.816 | **60.236** |
+| base, chamadas de desenho | 10 | **11** |
+| total com detalhe | 17.918 | **20.698** |
+| total, bytes | 79.988 | **101.868** |
+| texturas | 0 | **0** |
+
+Para comparar, o DOG Athletics tem **13.370 triângulos** na base e 129 KB no
+total: o Derby continua mais leve que ele. Os tetos do portão de navegador
+subiram junto, com a razão escrita ao lado deles, porque teto que não acompanha
+o modelo medido deixa de acusar regressão.
+
+**O que entrou na base e por quê**: as duas cercas, as costelas, a lebre e o
+pórtico. Todos são o que explica a peça, e o celular precisa deles. **O que ficou
+no detalhe**: os prumos das cercas, os 608 assentos, os mullions e as juntas.
+
 ## Um defeito de fundo que a chapa revelou e que NÃO é desta peça
 
 **Há ruas da teia cruzando a parcela do E02.** Visível nas três chapas de

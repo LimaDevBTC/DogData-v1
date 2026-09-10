@@ -11,10 +11,12 @@ import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 import { AVENIDAS, anelPonto, caixaDoModulo, polyDoModulo } from '../../app/city/plaza/teia'
 import {
-  AQUATICS_MOD, AQUATICS_Y, AQUATICS_PECA_X, AQUATICS_PECA_Z, AQUATICS_FOLGA_Y, FRANJA, CALCADA,
-  PODIO_TOPO, aquaticsParcela, aquaticsSitio, comPodioAquatics, criarAquatics, envelopeAquatics,
-  lajeDoAquatics, muroDoAquatics, naLajeAquatics, pecaNaLaje, assentarAquatics,
+  AQUATICS_MOD, AQUATICS_Y, AQUATICS_PECA_X, AQUATICS_PECA_Z, AQUATICS_FOLGA_Y, AQUATICS_RUMO,
+  AQUATICS_DESLOC, PODIO_TOPO, aquaticsParcela, aquaticsSitio, aquaticsFolgas, comPodioAquatics,
+  criarAquatics, envelopeAquatics, lajeDoAquatics, muroDoAquatics, naLajeAquatics, pecaNaLaje,
+  assentarAquatics,
 } from '../../app/city/plaza/aquatics'
+import { rumoDaFace } from '../../app/city/plaza/teia'
 import * as THREE from 'three'
 
 type Pt = [number, number]
@@ -186,6 +188,44 @@ async function main() {
     assert(bytes <= teto, `${arquivo} passou do teto: ${bytes} > ${teto}`)
     console.log(`11. ${arquivo}: ${bytes.toLocaleString('pt-BR')} bytes (teto ${teto.toLocaleString('pt-BR')})`)
   }
+
+  // 12. ESQUADRO: a peça paralela às ruas que dá para ser paralelo
+  //
+  // ⚠️ REGRA NASCIDA DA CHAPA DE PRODUÇÃO, 09/09/2026. O fundador viu a peça na
+  // laje e disse "tá meio torto". A causa foi girar pelo eixo do bloco (77,143°)
+  // em vez do meio da face do dodecágono (75,000°), que é a direção das duas
+  // bordas longas: 2,143° de torção, 12,1 m de desalinhamento nos 324 m.
+  const faceDeg = rumoDaFace((cx.a0 + cx.a1) / 2) * 180 / Math.PI
+  assert(Math.abs(AQUATICS_RUMO - faceDeg) < 1e-6,
+    `a peça não está no rumo da face: ${AQUATICS_RUMO.toFixed(3)}° contra ${faceDeg.toFixed(3)}°`)
+  const { arestas, pares } = aquaticsFolgas()
+  for (const par of pares) {
+    if (!par.paralelas) continue
+    const dirA = arestas[par.a].direcao
+    let torcao = Math.abs(dirA - AQUATICS_RUMO) % 180
+    if (torcao > 90) torcao = 180 - torcao
+    torcao = Math.abs(90 - torcao) > 45 ? torcao : Math.abs(90 - torcao)
+    assert(torcao < 0.01, `peça fora de esquadro com a rua paralela ${par.a}: ${torcao.toFixed(3)}°`)
+  }
+  console.log(`12. esquadro: peça no rumo da face ${faceDeg.toFixed(3)}° (o eixo do bloco é ${(((cx.a0 + cx.a1) / 2) * 180 / Math.PI).toFixed(3)}°), `
+    + `paralela às duas bordas de anel`)
+
+  // 13. EQUIDISTÂNCIA: mesma folga para as duas ruas de cada par oposto
+  //
+  // ⚠️ REGRA DO FUNDADOR: "ele tem que estar na mesma distância das ruas
+  // paralelas". Metade das ruas de uma cidade radial NÃO é paralela (aqui o par
+  // radial diverge 8,363°), então o teste cobra tolerância diferente: o par
+  // paralelo tem de fechar no centímetro, e o divergente é igualado em metros
+  // por iteração, o que sobra como um resíduo pequeno.
+  for (const par of pares) {
+    const teto = par.paralelas ? 0.01 : 0.5
+    assert(par.diferenca <= teto,
+      `ruas ${par.a} e ${par.b} (${par.paralelas ? 'paralelas' : `divergem ${par.foraDeParalelo.toFixed(3)}°`}): `
+      + `folgas ${par.folgaA.toFixed(1)} e ${par.folgaB.toFixed(1)} m, diferença ${par.diferenca.toFixed(2)} m > ${teto}`)
+    console.log(`13. par ${par.a}/${par.b} ${par.paralelas ? 'paralelo    ' : `divergente ${par.foraDeParalelo.toFixed(2)}°`}: `
+      + `${par.folgaA.toFixed(1)} e ${par.folgaB.toFixed(1)} m, diferença ${par.diferenca.toFixed(3)} m`)
+  }
+  console.log(`13. a peça andou ${AQUATICS_DESLOC.toFixed(2)} m do ponto polar do módulo para ficar centrada`)
 
   if (avisos.length) console.log('\navisos:\n' + avisos.map((a) => '  · ' + a).join('\n'))
   console.log('\nDOG AQUATICS: parcela conferida.')

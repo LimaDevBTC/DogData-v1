@@ -104,14 +104,19 @@ try {
   assert.equal(requests.filter((r) => /base/.test(r.url)).length, 1)
   assert.equal(requests.filter((r) => /detail/.test(r.url)).length, mobile ? 0 : 1)
   // ⚠️ OS TETOS SÃO OS DO MODELO MEDIDO MAIS FOLGA, e não números redondos: base
-  // 5.306 triângulos em 9 malhas, total 17.738 em 14. Teto redondo não acusa
+  // 8.362 triângulos em 11 malhas, total 20.698 em 14. Teto redondo não acusa
   // regressão; teto justo acusa.
-  assert(report.near.triangles <= (mobile ? 7000 : 20000),
+  // ⚠️ SUBIRAM EM 10/09 e o motivo tem de ficar escrito, senão vira hábito: as
+  // duas cercas na volta inteira, as costelas da curva, a lebre e o pórtico da
+  // chegada entraram na BASE, porque são o que explica a peça e o celular
+  // precisa deles. A base foi de 5.306 para 8.362 triângulos e de 36 para 60 KB.
+  // Para comparar, o DOG Athletics tem 13.370 na base: continuamos abaixo dele.
+  assert(report.near.triangles <= (mobile ? 10000 : 24000),
     `triângulos visíveis: ${report.near.triangles}`)
   // ⚠️ O TETO DE MALHAS SUBIU DE 10 PARA 11 EM 09/09, e o motivo é o letreiro:
   // "$DOG DERBY" é material próprio (emissivo forte no laranja de marca), e
   // material novo é uma chamada de desenho nova. A base foi de 9 para 10.
-  assert(report.near.meshes <= (mobile ? 11 : 16), `malhas visíveis: ${report.near.meshes}`)
+  assert(report.near.meshes <= (mobile ? 13 : 18), `malhas visíveis: ${report.near.meshes}`)
   await page.screenshot({ path: `${out}/${perfil}-derby.jpg`, type: 'jpeg', quality: 90, timeout: 180000 })
   // Vista baixa e aproximada, por contrato de câmera local da própria peça.
   await page.evaluate(() => {

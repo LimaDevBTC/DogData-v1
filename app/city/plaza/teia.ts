@@ -143,6 +143,27 @@ export function caixaDoModulo(m: Modulo) {
  * `r` é a APÓTEMA (a menor distância do centro à face). No vértice o raio sobe
  * para `r / cos(15°)`, 3,5% a mais.
  */
+/**
+ * O rumo do MEIO DA FACE do dodecágono que cobre um ângulo qualquer.
+ *
+ * ⚠️ ELE NÃO É O EIXO DO BLOCO, E CONFUNDIR OS DOIS DEIXA A PEÇA TORTA. As
+ * bordas de anel de uma parcela são cordas retas da face do dodecágono, ou seja
+ * elas são perpendiculares a ESTE rumo, não ao eixo do bloco. Um bloco cujo eixo
+ * não caia no meio da face (o que é o caso comum: só um em cada doze cai) gira a
+ * peça alguns graus fora das próprias bordas.
+ *
+ * Medido em 09/09/2026: DOG AQUATICS tem eixo em 77,143° e a face dela está em
+ * 75,000°, ou seja **2,143° de torção**, que dá **12,1 m de desalinhamento nos
+ * 324 m da peça** contra as duas bordas longas. O $DOG ARENA não sofre disso por
+ * sorte de endereço: o eixo dele cai em 105,000°, que é exatamente o meio de uma
+ * face, e por isso o campus parece no esquadro.
+ */
+export function rumoDaFace(ang: number): number {
+  const PASSO = Math.PI / 6
+  const rel = ((ang % PASSO) + PASSO) % PASSO - PASSO / 2
+  return ang - rel
+}
+
 export function raioDodeca(r: number, ang: number): number {
   const PASSO = Math.PI / 6            // 30°, o setor de uma face
   let rel = ((ang % PASSO) + PASSO) % PASSO - PASSO / 2

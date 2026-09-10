@@ -474,6 +474,42 @@ export const SPHERE_FAIXA_LINHA0 = 368
 export const SPHERE_FAIXA_LINHA1 = 496
 
 /**
+ * O CHÃO PINTADO DA FAIXA, QUE É MAIOR QUE A CAIXA DE TEXTO.
+ *
+ * ⚠️ ELE NASCEU DE UMA QUEIXA MEDIDA DO FUNDADOR EM 09/09: *"quando a esfera muda
+ * pro modo tira de info, a visibilidade baixa, contraste tá baixo"*. As duas
+ * metades da queixa têm causas diferentes, e só uma delas era de contraste:
+ *
+ *   CONTRASTE  dentro da faixa ele está em **6,47:1** (letra `#140B04` sobre
+ *              `#E8660D`, com o painel refletido já atenuado por `uPainelFaixa`
+ *              a 0,45). Não é o gargalo, e mexer nele custaria ou ganho (que é a
+ *              hierarquia dado < evento < marca < anúncio) ou tipografia (e a
+ *              escala 8 é o único ponto da curva em que 7 caracteres aparecem
+ *              inteiros).
+ *   VISIBILIDADE **essa era o gargalo, e é de ÁREA.** A faixa acesa ocupava
+ *              30,3% da casca visível e os outros 69,7% eram LED apagado. Ao
+ *              lado de uma pele de casca inteira, a tira de info lê como a
+ *              esfera se apagando, que é literalmente o que ele descreveu.
+ *
+ * Então o chão cresce e o TEXTO NÃO ANDA UM PIXEL. Medido, com o corte da casca
+ * em seno −0,435:
+ *
+ *     chão 368-496 (o de antes)   30,3% da casca visível
+ *     **chão 330-540 (este)       48,9%**, +61% de área acesa
+ *
+ * A média linear da casca num quadro de dado sobe de **0,0824 para 0,1069**
+ * (+30%), contra os 0,0490 do painel apagado refletindo o sol: a tira de info
+ * deixa de ser mais escura que a própria superfície da peça.
+ *
+ * ⚠️ E `uFaixaV` CONTINUA NA CAIXA DE TEXTO, de propósito. A atenuação do painel
+ * refletido compra contraste onde há letra e VENDE brilho onde não há: aplicada
+ * ao chão inteiro, ela escureceria as 18,6% de área nova (0,1825 para 0,1555).
+ * Onde não há tinta, o painel é bem-vindo.
+ */
+export const SPHERE_CHAO_LINHA0 = 330
+export const SPHERE_CHAO_LINHA1 = 540
+
+/**
  * ⚠️ A FAIXA FOI DE 108 PARA 128 LINHAS EM 08/09, E NÃO PARA DAR AR AO TEXTO DE
  * PERTO: foi para caber o REGISTRO DE LONGE. Pedido do fundador: *"só tá faltando
  * a esfera mostrar os dados mesmo a grandes distâncias"*.
@@ -827,6 +863,37 @@ export interface SphereConteudo {
    * paga a cortina.
    */
   peleId?: string
+  /**
+   * O SEPARADOR ENTRE AS CÓPIAS DA LINHA GRANDE. O padrão é `·`, o ponto médio de
+   * 2x2 LEDs que existe para um pedaço de texto se anunciar como pedaço.
+   *
+   * ⚠️ ELE EXISTE PARA O ANUNCIANTE, e o pedido foi literal: *"queremos
+   * • Kray Space • Kray Space • Kray Space •…. exatamente assim"*. Marca corrida
+   * não é dado cortado: aqui o separador é PARTE da peça comprada, e o `●` de
+   * 5x5 é o único glifo da matriz que lê como bullet a distância. Num módulo de
+   * dado ele continuaria sendo ruído, e por isso a mudança é por quadro e não na
+   * constante da casa.
+   */
+  sep?: string
+  /**
+   * ONDE A FAIXA DE TEXTO MORA NESTE QUADRO, em linhas de LED. O padrão é
+   * `[SPHERE_FAIXA_LINHA0, SPHERE_FAIXA_LINHA1]`, o meio da esfera.
+   *
+   * ⚠️ ELE EXISTE PARA A MARCA PODER OCUPAR O MEIO, e a razão é geométrica: a
+   * MEDIANA DE ÁREA da casca visível cai na linha 452, ou seja bem dentro da
+   * faixa padrão. Enquanto a faixa foi dona do meio, toda marca teve de caber
+   * acima dela, no chapéu da esfera, onde a área é pouca e o escorço é muito.
+   * Medido em 09/09, e é a queixa do fundador com número: o mascote ocupava
+   * 28,7% da área visível, a Kray 25,9%, o `$DOG` 18,8%, e **70,2% da casca
+   * ficava abaixo do seno 0,44, sem uso nenhum**.
+   *
+   * ⚠️ O PREÇO É O ANEL DO MATERIAL LISO MUDAR DE LATITUDE entre cartas, porque
+   * `uFaixaV` acompanha. Além de 7,6 km a peça mostra o anel e não o texto, e
+   * ele saltaria a cada troca. Só a carta do parceiro usa isto, e a troca vem
+   * coberta pela cortina de dissolve; as cartas de marca da casa suprimem a
+   * faixa em vez de movê-la, que não tem esse custo.
+   */
+  faixaLinhas?: [number, number]
 }
 
 /**
@@ -1657,7 +1724,7 @@ const JANELA_FRACAO = 3.09
  * fechava exata.
  */
 function repetirNaVolta(
-  texto: string, nChars: number, repAlvo?: number, fracAlvo?: number,
+  texto: string, nChars: number, repAlvo?: number, fracAlvo?: number, sep = SEPARADOR,
 ): { volta: string; rep: number; frac: number } {
   const t = texto.toUpperCase()
   if (!t.length) return { volta: ' '.repeat(nChars), rep: 1, frac: 0.75 }
@@ -1694,7 +1761,7 @@ function repetirNaVolta(
     const vao = larg - L - 2                       // 2 casas dos separadores
     const esq = Math.max(0, Math.floor(vao / 2))
     const dir = Math.max(0, vao - esq)
-    casas.push(' '.repeat(esq) + SEPARADOR + t + SEPARADOR + ' '.repeat(dir))
+    casas.push(' '.repeat(esq) + sep + t + sep + ' '.repeat(dir))
   }
   const volta0 = casas.join('')
 
@@ -1761,11 +1828,12 @@ function escrever(
   f: number,
   repAlvo?: number,
   fracAlvo?: number,
+  sep?: string,
 ): { rep: number; frac: number } {
   g.fillStyle = cor
   const avanco = 8 * escala          // 5 de largura + 3 de vão, em LEDs
   const s = escala * f               // pixels de canvas por pixel de glifo
-  const { volta, rep, frac } = repetirNaVolta(texto, nChars, repAlvo, fracAlvo)
+  const { volta, rep, frac } = repetirNaVolta(texto, nChars, repAlvo, fracAlvo, sep)
   for (let i = 0; i < nChars; i++) {
     const glifo = FONTE.get(volta[i])
     if (!glifo) continue
@@ -1898,7 +1966,13 @@ function pintarTextura(
   //
   // Quem quiser o inverso pede explicitamente, como a Kray faz com a paleta dela.
   const corFaixa = c.faixaFundo === undefined ? COR_DADO : c.faixaFundo
-  const y0 = SPHERE_FAIXA_LINHA0 * f, y1 = SPHERE_FAIXA_LINHA1 * f
+  // ⚠️ O CHÃO É `SPHERE_CHAO_*` E O TEXTO É `SPHERE_FAIXA_*`, e desde 09/09 os
+  // dois são coisas diferentes: ver `SPHERE_CHAO_LINHA0`.
+  // ⚠️ COM `faixaLinhas` O CHÃO ACOMPANHA O TEXTO, mantendo a mesma sobra em
+  // cima e embaixo que o chão padrão tem (38 e 44 linhas).
+  const [t0, t1] = c.faixaLinhas ?? [SPHERE_FAIXA_LINHA0, SPHERE_FAIXA_LINHA1]
+  const y0 = (t0 - (SPHERE_FAIXA_LINHA0 - SPHERE_CHAO_LINHA0)) * f
+  const y1 = (t1 + (SPHERE_CHAO_LINHA1 - SPHERE_FAIXA_LINHA1)) * f
   if (corFaixa !== null) {
     g.fillStyle = corFaixa
     g.fillRect(0, Math.round(y0), W, Math.round(y1 - y0))
@@ -1918,15 +1992,15 @@ function pintarTextura(
   // depende da grade: comprar alcance VENDE janela de leitura, sempre, e a janela
   // já é o gargalo. A escala 8 é o único ponto da curva em que um valor de 7
   // caracteres chega a aparecer inteiro.
-  const lGrande = SPHERE_FAIXA_LINHA0 + FX_MARGEM
+  const lGrande = (c.faixaLinhas?.[0] ?? SPHERE_FAIXA_LINHA0) + FX_MARGEM
   const lPequena = lGrande + 7 * FX_GRANDE_ESCALA + FX_VAO
   // ⚠️ A GRANDE MANDA E A PEQUENA SEGUE. O valor define quantas cópias dão a
   // volta, e o rótulo herda o número: é isso que põe cada legenda debaixo do seu
   // número em vez de deixar as duas passeando em passos diferentes.
   const valor = escrever(g, c.grande, lGrande, FX_GRANDE_ESCALA, SPHERE_CHARS_GRANDE,
-    c.cor ?? COR_TINTA_FAIXA, f)
+    c.cor ?? COR_TINTA_FAIXA, f, undefined, undefined, c.sep)
   escrever(g, c.pequena, lPequena, FX_PEQUENA_ESCALA, SPHERE_CHARS_PEQUENA,
-    c.corRotulo ?? COR_TINTA_FAIXA, f, valor.rep, valor.frac)
+    c.corRotulo ?? COR_TINTA_FAIXA, f, valor.rep, valor.frac, c.sep)
 
   // ── as duas médias, e as duas são MEDIDAS do canvas, nunca estimadas ─────
   const amostra = g.getImageData(0, 0, W, H).data
@@ -2293,6 +2367,14 @@ export function buildSphere(o: SphereOpts): Sphere {
       const m = pintarTextura(cv, c, f)
       uniformes.uMedia.value = m.media
       uniformes.uCorFaixa.value = m.corFaixa
+      // ⚠️ `uFaixaV` ACOMPANHA A FAIXA DO QUADRO, e sem isto o material liso
+      // continuaria acendendo o anel na latitude antiga enquanto a textura já
+      // escreveu na nova: o texto de perto e o anel de longe diriam lugares
+      // diferentes. Ver `SphereConteudo.faixaLinhas`.
+      {
+        const [t0, t1] = c.faixaLinhas ?? [SPHERE_FAIXA_LINHA0, SPHERE_FAIXA_LINHA1]
+        uniformes.uFaixaV.value.set(1 - t1 / SPHERE_GRADE_ROWS, 1 - t0 / SPHERE_GRADE_ROWS)
+      }
       uniformes.uGanho.value = c.ganho ?? 0.42
       temArte = !!c.pintarCorpo
       tex.needsUpdate = true

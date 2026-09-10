@@ -25,8 +25,8 @@
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
-import { montarPodio, dentroDoPoly, type Pt } from './podio'
-import { caixaDoModulo, type Modulo } from './teia'
+import { montarPodio, dentroDoPoly, centrarEntreParalelas, paresDeRuas, folgasDaPeca, type Pt } from './podio'
+import { caixaDoModulo, rumoDaFace, type Modulo } from './teia'
 
 /** a parcela: dois módulos da banda Bairro, r 3.024 a 3.564, rumo 72,96 a 81,32 */
 export const AQUATICS_MOD: Modulo = { i: 11, nr: 3, j: 34, ns: 2 }
@@ -84,10 +84,28 @@ const P = montarPodio({ mod: AQUATICS_MOD, cota: AQUATICS_Y, nome: 'AQUATICS',
 
 /** o topo da laje: é aqui que a peça pousa */
 export const PODIO_TOPO = P.topo
-/** o rumo do eixo do bloco, em graus */
-export const AQUATICS_RUMO = P.rumo
+
+/**
+ * ⚠️ O RUMO DA PEÇA É O DA FACE DO DODECÁGONO, NÃO O EIXO DO BLOCO, e isso é
+ * conserto de defeito visto na chapa de produção. O fundador olhou a peça na
+ * laje e disse: "tá meio torto, não tá no esquadro perfeito". Medido depois:
+ * o eixo do bloco está em 77,143° e a face em 75,000°, ou seja **2,143° de
+ * torção contra as duas bordas longas da laje**, que dá **12,1 m de
+ * desalinhamento nos 324 m da peça**.
+ *
+ * As bordas de anel de uma parcela são cordas retas da face do dodecágono, então
+ * quem manda no esquadro é a face. O $DOG ARENA nunca sofreu disso porque o eixo
+ * do bloco dele cai em 105,000°, que É o meio de uma face: um endereço em cada
+ * doze cai assim, e o campus calhou de ser um deles.
+ *
+ * ⚠️ E AS BORDAS RADIAIS CONTINUAM DIVERGINDO 8,363°, o que é irremediável: são
+ * raios que abrem em leque, e nenhum retângulo fica paralelo aos dois lados de
+ * um leque. O campus vive com 14,896° nas dele. O que se pode fazer é ficar na
+ * bissetriz, e é o que o centro do bloco já dá.
+ */
+export const AQUATICS_RUMO = rumoDaFace(P.giro * -1) * 180 / Math.PI
 /** o giro da peça na convenção do Three */
-export const GIRO_AQUATICS = P.giro
+export const GIRO_AQUATICS = -THREE.MathUtils.degToRad(AQUATICS_RUMO)
 
 /** o polígono da parcela, que vira máscara de via e de plantio */
 export function aquaticsParcela(): { poly: [number, number][] } { return P.parcela() }
@@ -121,9 +139,56 @@ export function aquaticsCull(tier: 'mobile' | 'desktop'): number {
   return tier === 'mobile' ? alcancePraca : Math.max(7000, alcancePraca)
 }
 
-/** o sítio da peça: o centro do bloco, como toda peça desta cidade */
+/** as quatro quinas do envelope, dado um centro e um rumo quaisquer */
+function envelopeEm(cx: number, cz: number, rumoDeg: number): [number, number][] {
+  const giro = -THREE.MathUtils.degToRad(rumoDeg)
+  const c = Math.cos(giro), sn = Math.sin(giro)
+  const out: [number, number][] = []
+  for (const [dx, dz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]] as const) {
+    const ex = (dx * AQUATICS_PECA_X) / 2, ez = (dz * AQUATICS_PECA_Z) / 2
+    out.push([cx + c * ex + sn * ez, cz - sn * ex + c * ez])
+  }
+  return out
+}
+
+/**
+ * O SÍTIO DA PEÇA, e ele não é mais o ponto polar do módulo.
+ *
+ * ⚠️ REGRA DO FUNDADOR, 09/09/2026: "ele tem que estar na mesma distância das
+ * ruas paralelas". No ponto polar ele não estava: medido contra as duas ruas de
+ * anel, **165,7 m de um lado e 170,3 m do outro, 4,6 m fora do centro**. A causa
+ * é que o raio do módulo é a média de duas APÓTEMAS, e as bordas desenhadas são
+ * cordas do dodecágono, cujo raio naquele rumo é outro.
+ *
+ * ⚠️ O DESLOCAMENTO É CALCULADO, NUNCA ESCRITO À MÃO: `centrarEntreParalelas`
+ * devolve metade da diferença de folga na normal da aresta, então se a teia, a
+ * franja ou o tamanho da peça mudarem, o centro acompanha sozinho. Um "empurra
+ * 2,3 m para dentro" constante viraria mentira silenciosa no dia seguinte.
+ *
+ * ⚠️ E ELE MEDE CONTRA A PARCELA, NÃO CONTRA A LAJE, porque a regra fala das
+ * RUAS. Dá no mesmo enquanto a franja for um recuo uniforme (a laje é a parcela
+ * deslocada 34 m em todas as arestas), e deixa de dar se um dia a franja variar
+ * por lado; medir contra as ruas é o que continua certo nos dois casos.
+ */
+const _sitio = (() => {
+  const base = P.centro
+  const { dx, dz } = centrarEntreParalelas(envelopeEm(base.x, base.z, AQUATICS_RUMO), P.parcela().poly as Pt[])
+  return { x: base.x + dx, z: base.z + dz, desloc: Math.hypot(dx, dz) }
+})()
+
+/** quanto a peça se deslocou do ponto polar do módulo para ficar centrada */
+export const AQUATICS_DESLOC = _sitio.desloc
+
+/** o sítio da peça: o centro do bloco, corrigido para equidistância das ruas */
 export function aquaticsSitio(): { x: number; z: number; rumoDeg: number } {
-  return { x: P.centro.x, z: P.centro.z, rumoDeg: P.rumo }
+  return { x: _sitio.x, z: _sitio.z, rumoDeg: AQUATICS_RUMO }
+}
+
+/** as folgas da peça a cada rua da parcela, e os pares opostos */
+export function aquaticsFolgas() {
+  const poly = P.parcela().poly as Pt[]
+  const env = envelopeAquatics()
+  return { arestas: folgasDaPeca(env, poly), pares: paresDeRuas(env, poly) }
 }
 
 /**
@@ -136,15 +201,7 @@ export function aquaticsSitio(): { x: number; z: number; rumoDeg: number } {
  * talude ao lado.
  */
 export function envelopeAquatics(): [number, number][] {
-  const s = aquaticsSitio()
-  const giro = -THREE.MathUtils.degToRad(s.rumoDeg)
-  const c = Math.cos(giro), sn = Math.sin(giro)
-  const out: [number, number][] = []
-  for (const [dx, dz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]] as const) {
-    const ex = (dx * AQUATICS_PECA_X) / 2, ez = (dz * AQUATICS_PECA_Z) / 2
-    out.push([s.x + c * ex + sn * ez, s.z - sn * ex + c * ez])
-  }
-  return out
+  return envelopeEm(_sitio.x, _sitio.z, AQUATICS_RUMO)
 }
 
 /** a peça está inteira dentro da laje? (o verificador usa, e a cena não precisa) */

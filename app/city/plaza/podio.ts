@@ -132,6 +132,140 @@ function paredeDoMuro(pos: number[], nor: number[], cor: number[], poly: Pt[], y
 
 const suave = (k: number) => k * k * (3 - 2 * k)
 
+// ═══════════════════════════════════════════════════════════════════════════
+// A VALIDAÇÃO DE POSICIONAMENTO
+//
+// ⚠️ REGRA DO FUNDADOR, 09/09/2026: "ele tem que estar na mesma distância das
+// ruas paralelas". Ela nasceu de olhar a peça aquática na chapa e ver que ela
+// não estava centrada no bloco, e a medição deu razão: 165,7 m para a rua de
+// dentro contra 170,3 m para a de fora, **4,6 m fora do centro**.
+//
+// ⚠️ E "PARALELAS" É LITERAL, porque numa cidade radial metade das ruas NÃO é.
+// Medido na mesma parcela: o par de anel está a 0,000° de paralelo (são cordas
+// da mesma face do dodecágono) e o par radial diverge **8,363°**, porque são
+// raios que abrem em leque. Para o par paralelo, centrar é uma conta exata e
+// obrigatória. Para o par divergente, centrar é ficar na bissetriz do ângulo,
+// que é o que o eixo do bloco já faz, e exigir folga igual em metros ali seria
+// exigir o impossível.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** menor distância de um ponto a um segmento */
+function distanciaPontoAresta(p: Pt, a: Pt, b: Pt): number {
+  const ux = b[0] - a[0], uz = b[1] - a[1]
+  const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * ux + (p[1] - a[1]) * uz) / (ux * ux + uz * uz || 1)))
+  return Math.hypot(p[0] - a[0] - t * ux, p[1] - a[1] - t * uz)
+}
+
+export interface FolgaDeAresta {
+  /** índice da aresta no polígono */
+  aresta: number
+  /** comprimento dela, em metros */
+  comprimento: number
+  /** direção dela, em graus de bússola da cidade */
+  direcao: number
+  /** a menor folga entre a aresta e o envelope da peça */
+  folga: number
+}
+
+/** a folga da peça a cada aresta do polígono que a contém */
+export function folgasDaPeca(envelope: Pt[], poly: Pt[]): FolgaDeAresta[] {
+  return poly.map((p, i) => {
+    const q = poly[(i + 1) % poly.length]
+    return {
+      aresta: i,
+      comprimento: Math.hypot(q[0] - p[0], q[1] - p[1]),
+      direcao: (Math.atan2(q[0] - p[0], -(q[1] - p[1])) * 180 / Math.PI + 360) % 360,
+      folga: Math.min(...envelope.map((e) => distanciaPontoAresta(e, p, q))),
+    }
+  })
+}
+
+export interface ParDeRuas {
+  a: number
+  b: number
+  /** quanto as duas estão fora de paralelo, em graus */
+  foraDeParalelo: number
+  folgaA: number
+  folgaB: number
+  /** o que a regra do fundador mede: zero é centrado */
+  diferenca: number
+  /** só um par PARALELO pode ser cobrado de folga igual */
+  paralelas: boolean
+}
+
+/**
+ * Os pares de arestas opostas de um polígono de lados pares, com o quanto a peça
+ * está descentrada entre cada um deles.
+ */
+export function paresDeRuas(envelope: Pt[], poly: Pt[], toleranciaGraus = 1.0): ParDeRuas[] {
+  const f = folgasDaPeca(envelope, poly)
+  const n = poly.length
+  const out: ParDeRuas[] = []
+  for (let i = 0; i < n / 2; i++) {
+    const j = i + n / 2
+    let d = Math.abs(f[i].direcao - f[j].direcao) % 360
+    if (d > 180) d = 360 - d
+    const fora = Math.abs(180 - d)
+    out.push({ a: i, b: j, foraDeParalelo: fora, folgaA: f[i].folga, folgaB: f[j].folga,
+      diferenca: Math.abs(f[i].folga - f[j].folga), paralelas: fora <= toleranciaGraus })
+  }
+  return out
+}
+
+/**
+ * O deslocamento que centra a peça entre TODOS os pares de ruas opostas.
+ *
+ * ⚠️ ELE É CALCULADO, NUNCA ESCRITO À MÃO. Um "empurra 2,3 m para dentro"
+ * constante no arquivo vira mentira no dia em que a teia, a franja ou o tamanho
+ * da peça mudarem, e ninguém vai lembrar de recalcular.
+ *
+ * ⚠️ E OS DOIS TIPOS DE PAR SE CENTRAM DE JEITOS DIFERENTES. No par PARALELO a
+ * conta fecha de primeira: metade da diferença de folga na normal da aresta. No
+ * par DIVERGENTE (os raios que abrem em leque) não existe deslocamento que
+ * iguale folga sem mexer no resto, porque a folga de um lado muda quando a peça
+ * anda no outro: ali a solução sai por iteração, andando na bissetriz das duas
+ * normais até as folgas empatarem. Doze passadas bastam e o resto é ruído.
+ *
+ * ⚠️ IGUALAR O PAR DIVERGENTE EM METROS É UMA ESCOLHA, NÃO UMA CONSEQUÊNCIA.
+ * A peça sai da bissetriz ANGULAR do bloco para ficar na bissetriz em METROS.
+ * Quem olha a chapa vê metros, então é isso que se iguala; quem lê a planta
+ * polar vê ângulo, e vai achar a peça alguns metros fora do meio do setor. Os
+ * dois não podem ser satisfeitos ao mesmo tempo, e a escolha é do olho.
+ */
+export function centrarNaParcela(envelope: Pt[], poly: Pt[], toleranciaGraus = 1.0, passadas = 12): { dx: number; dz: number } {
+  const centro = poly.reduce((s, r) => [s[0] + r[0] / poly.length, s[1] + r[1] / poly.length] as [number, number], [0, 0] as [number, number])
+  const normalDe = (i: number): Pt => {
+    const p = poly[i], q = poly[(i + 1) % poly.length]
+    const ux = q[0] - p[0], uz = q[1] - p[1]
+    const L = Math.hypot(ux, uz) || 1
+    let nx = uz / L, nz = -ux / L
+    if ((centro[0] - p[0]) * nx + (centro[1] - p[1]) * nz < 0) { nx = -nx; nz = -nz }
+    return [nx, nz]
+  }
+  let dx = 0, dz = 0
+  for (let k = 0; k < passadas; k++) {
+    const env = envelope.map((e) => [e[0] + dx, e[1] + dz] as Pt)
+    let mudou = 0
+    for (const par of paresDeRuas(env, poly, toleranciaGraus)) {
+      const na = normalDe(par.a), nb = normalDe(par.b)
+      // a direção que afasta de `a` e aproxima de `b`: a bissetriz das duas
+      // normais opostas. Num par paralelo ela é a própria normal de `a`.
+      let bx = na[0] - nb[0], bz = na[1] - nb[1]
+      const L = Math.hypot(bx, bz) || 1
+      bx /= L; bz /= L
+      const passo = (par.folgaB - par.folgaA) / 2
+      dx += bx * passo
+      dz += bz * passo
+      mudou = Math.max(mudou, Math.abs(passo))
+    }
+    if (mudou < 0.001) break
+  }
+  return { dx, dz }
+}
+
+/** compatibilidade: o nome antigo, quando só o par paralelo era tratado */
+export const centrarEntreParalelas = centrarNaParcela
+
 export interface Podio {
   mod: Modulo
   /** cota do chão terraplanado */
