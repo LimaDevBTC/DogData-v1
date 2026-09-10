@@ -74,7 +74,16 @@ import type { Contexto, EspecieId, ClasseBulevar } from './especies'
 export interface Cova { x: number; z: number; r: number }
 
 export interface ArborizacaoOpts {
+  /** ⚠️ A SUPERFÍCIE REAL, não a desenhada. Só para o declive local (ver
+   *  `declive`, mais abaixo): barata e contínua, é o que o cálculo de
+   *  encosta sempre esperou. Ver a doutrina em terrain.ts. */
   heightAt: (x: number, z: number) => number
+  /** ⚠️ A SUPERFÍCIE QUE A CÂMERA VÊ, a mesma que a rua e a praça desenham. O
+   *  PÉ da árvore (tronco e sombra) tem de pousar aqui, não em `heightAt`:
+   *  antes desta rodada as duas plantações usavam o único campo disponível, e
+   *  a raiz e a sombra podiam divergir do chão desenhado ao redor por até
+   *  dezenas de centímetros. */
+  superficieAt: (x: number, z: number) => number
   /** covas que as praças e as peças pediram, em coordenadas de mundo */
   covas?: Cova[]
   /** ⚠️ ESTÁ MOLHADO? Sem isto a plantação atravessa a baía.
@@ -877,8 +886,11 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
   const eul = new THREE.Euler()
   const esc = new THREE.Vector3()
   const eixoY = new THREE.Vector3(0, 1, 0)
-  const y0 = mudas.map((m) => o.heightAt(m.x, m.z))
-  const yArb = arbustos.map((a) => o.heightAt(a.x, a.z))
+  // ⚠️ `superficieAt`, NÃO `heightAt`: o pé da árvore (e a sombra que ele
+  // projeta) tem de pousar na MESMA superfície que o chão ao redor desenha.
+  // Doutrina de terrain.ts, DOG GAME MODE FASE 1.
+  const y0 = mudas.map((m) => o.superficieAt(m.x, m.z))
+  const yArb = arbustos.map((a) => o.superficieAt(a.x, a.z))
 
   // ── a cor por instância entra UMA VEZ, no balde de longe e nos de perto ────
   // ⚠️ instanceColor MULTIPLICA a cor por vértice, não a substitui: o tronco

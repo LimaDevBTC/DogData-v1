@@ -2907,7 +2907,13 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             // 52 m da água (muro 26 + passeio 14 + talude 12).
             if (!lagos) console.warn('[arborização] os lagos ainda não subiram: plantando sem máscara de água')
             daArborizacao.push(buildArborizacao({
-              heightAt: terrain.superficieAt,
+              // ⚠️ AS DUAS FUNÇÕES, SEPARADAS (FASE 1 do DOG GAME MODE, 09/09):
+              // `heightAt` real e barata pro declive, `superficieAt` pro pé da
+              // árvore, que tem de pousar no mesmo chão que a rua e a praça
+              // desenham. Antes só existia este campo e `terrain.superficieAt`
+              // ocupava sozinho, sem sobrar `heightAt` real pro declive.
+              heightAt: terrain.heightAt,
+              superficieAt: terrain.superficieAt,
               covas: todas,
               molhado: lagos ? (x, z) => lagos!.naAgua(x, z, 10) : undefined,
               // ⚠️ A MÁSCARA DA RUA, A MESMA QUE A RUA USA PARA SE DESENHAR.
@@ -3185,7 +3191,15 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               console.log(`[autopistas] ${a.portais} portais + ${a.trevos} trevos, ${(a.metrosDeTunel / 1000).toFixed(1)} km em túnel, ${(a.metrosDeTrincheira / 1000).toFixed(1)} km de trincheira, ${(a.metrosDeViaduto).toFixed(0)} m de viaduto, ${a.triangulos.toLocaleString('pt-BR')} triângulos em ${a.chamadas} chamadas`)
             }).catch((err) => console.error('[autopistas] não subiu', err)))
 
-            daCidade.push(buildVias({ heightAt: terrain.superficieAt,
+            daCidade.push(buildVias({
+              // ⚠️ AS DUAS FUNÇÕES, SEPARADAS (FASE 1 do DOG GAME MODE, 09/09).
+              // Antes só existia este campo e ele recebia `terrain.superficieAt`
+              // (um contorno): a via desenhava certo, mas o pilar da ponte e o
+              // teste de água funda (`sobreAgua`) ficavam sem acesso à
+              // superfície REAL, porque o único campo disponível já tinha sido
+              // tomado pela desenhada.
+              heightAt: terrain.heightAt,
+              superficieAt: terrain.superficieAt,
               cotaAgua: _malhaCava?.lagos?.cota ?? -40,
               // ⚠️ A RUA PARA NA ORLA DA BAÍA. `lagos` sobe antes de `vias` (linha
               // 1464 contra 1702), então a máscara está pronta aqui. Se essa ordem

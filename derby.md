@@ -508,6 +508,40 @@ principal e faziam a peça ler como o DOG Athletics, que é justamente de quem e
 precisa se distinguir. Removidas. O que marca a pista de galgo é a linha de
 chegada, uma só, e ela agora nasce com o pórtico.
 
+### A luz, que era o defeito de fundo
+
+⚠️ **A peça era uma arena noturna com os holofotes apagados.** O cabeçalho de
+`floodlights` já dizia a verdade sem tirar a conclusão: "sob a abóbada não há dia
+e noite, a luz é sempre artificial". As quatro torres de 36 m tinham cabeça em
+material fosco, o $DOG ARENA tem `AR_LUZ`, a GEODE acende a bacia inteira, e o
+Derby não emitia um fóton.
+
+Agora existe uma **escada de emissão em três forças**, e ela é o projeto de luz:
+
+| elemento | material | força | por quê |
+|---|---|---:|---|
+| o nome | `LETRA` | **9,0** | é o mais forte e tem de continuar sendo |
+| marca, traçado, interior | `AMBER` | **1,6** | era 0,5, ou seja apagado |
+| refletores | `LUZ` | **7,0** | fonte, não marca |
+
+⚠️ **O traçado aceso NÃO pode ter a força do nome.** Uma fita de 8 cm no topo da
+cerca externa desenha os 1.008,32 m da volta com uma linha só, e de longe a peça
+vira um anel de luz que nenhuma outra tem. Mas ela circunda a peça, e o cabeçalho
+do ARENA já registrou o que acontece nesse caso: "na força do letreiro vira faixa
+de néon e o nome, que é o que precisa ser lido, some no meio das listras". Por
+isso 1,6 e não 9,0.
+
+### A identidade material, e a trava que tinha caído sem ninguém notar
+
+O código dizia que a família de material era a do DOG Athletics **porque as duas
+peças dividiam o campus esportivo**. O Derby mudou para `DERBY_MOD` em 09/09, para
+sair de cima da rua, e essa razão morreu junto sem que a linha fosse revista.
+
+Toda clara, a peça era o que o fundador descreveu: um galpão bege ao lado de uma
+obsidiana facetada e de um cristal. **A massa passou a escura e as bordas ficaram
+claras.** A marquise flutua sobre a sombra, o nome salta, e a pista de areia vira
+o elemento mais claro da composição, que é o certo: a pista é a peça.
+
 ### O que isso custou, e por que continua dentro do padrão
 
 | | antes | **depois** |
@@ -524,9 +558,37 @@ total: o Derby continua mais leve que ele. Os tetos do portão de navegador
 subiram junto, com a razão escrita ao lado deles, porque teto que não acompanha
 o modelo medido deixa de acusar regressão.
 
-**O que entrou na base e por quê**: as duas cercas, as costelas, a lebre e o
-pórtico. Todos são o que explica a peça, e o celular precisa deles. **O que ficou
-no detalhe**: os prumos das cercas, os 608 assentos, os mullions e as juntas.
+**O que entrou na base e por quê**: as duas cercas, as costelas, a lebre, o
+pórtico e a luz. Todos são o que explica a peça, e o celular precisa deles. **O
+que ficou no detalhe**: os prumos das cercas, os 608 assentos, os mullions e as
+juntas.
+
+### A conta que faltava: memória residente
+
+⚠️ **BYTE TRANSFERIDO NÃO É O QUE DERRUBA TELEFONE.** Draco comprime a
+transferência e some no destino: o que fica na RAM é o atributo cru, e nesta peça
+ele é **6,5x maior que o .glb** (425 KB de atributo para 65 KB de arquivo). Medir
+só o arquivo é medir a metade barata, e essa era a única conta que o verificador
+fazia. Agora `read_glb` soma os accessors e o gerador reprova se o teto estourar.
+
+| | Derby | DOG Athletics |
+|---|---:|---:|
+| atributo na base | 425.280 B | 515.388 B |
+| índices na base | 53.676 B | |
+| **residente no celular** (JS + GPU) | **0,91 MiB** | 0,98 MiB |
+| **residente no desktop** (as duas fases) | **2,18 MiB** | 2,27 MiB |
+
+A referência é o DOG Athletics de propósito: ele está em produção e foi aprovado
+pelo fundador no telefone. O Derby **cabe abaixo dele nas duas contas**, e não
+poderia ser diferente, porque ele não é a peça mais importante da cidade e não
+pode custar mais que ela. Os tetos ficaram em 560 KB residentes na base e 1,3 MB
+no total.
+
+⚠️ **E o risco que matou o celular antes não existe aqui**: o que estourava a
+memória de textura do telefone era imagem 512x512 embutida em GLB
+([[project_dogcity_memoria_celular]]). O Derby tem **zero imagens e zero
+texturas**, só cor de material, então o espelho KTX2 de `scripts/city/ktx2.mjs`
+não se aplica a ele.
 
 ## Um defeito de fundo que a chapa revelou e que NÃO é desta peça
 
