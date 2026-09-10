@@ -23,7 +23,8 @@ import * as THREE from 'three'
 import { COR_AGUA, aguaDeVerdade } from './lago'
 import { look2 } from './look'
 import { superficie, quebrarRepeticao } from './materiais'
-import { ANEIS, N_RAD, anguloDe, naAlcaDeTerra, nasceEm, passoNoRaio } from './teia'
+import { ALCA_TERRA, ANEIS, N_RAD, anguloDe, naAlcaDeTerra, nasceEm, noArcoDoAnel, passoNoRaio } from './teia'
+import { ALCA_PRAIA_LARGURA, ALCA_R_BAIA, ALCA_R_MAR } from './alca'
 
 const COR_AREIA = '#8E856F'    // a faixa de praia, no mesmo tom do cais dos canais
 const COR_FUNDO = '#243B47'    // o raso junto à margem, para a água não virar chapa
@@ -315,6 +316,28 @@ const PRAIA_CORRENTE = 90      // metros mínimos para uma corrente virar praia
 const AREIA_MOLHADA = '#463F33' // a franja que a água lambe: escura e sem brilho
 const AREIA_SECA    = '#847A66' // o corpo da praia, um passo acima do regolito
 
+// ⚠️ CONSERTO 3 (10/09/2026): OS CÍRCULOS EXATOS DA ALÇA, NÃO A GRADE DE 30 M.
+// `alca.ts` impõe a linha d'água em ALCA_R_BAIA (6.580) e ALCA_R_MAR (7.316);
+// a grade de 30 m deste módulo (`corpoNo`, dentro de `buildLagos`) erra até
+// ~21 m (meia diagonal da célula) perto da quina, e o vazamento é SISTEMÁTICO
+// exatamente em r 6.580, onde a avenida radial emenda na alça: sobrava
+// pavimento pousado sobre água aberta. Função de módulo (não fechamento de
+// `buildLagos`) porque duas máscaras diferentes precisam da mesma resposta:
+// `bloqueiaMalha` (a máscara de bloqueio de via que `vias.ts` consulta) e
+// `naAgua` (mobiliário e vegetação). Perto dos dois círculos a pergunta não
+// passa pela grade: 50 m de folga (mais que a meia diagonal da célula) de
+// cada lado de cada círculo, dentro do arco de 346° a 116,5° (`ALCA_TERRA`),
+// do lado de fora dele, é água por definição de `alca.ts`, sem depender de
+// amostragem nenhuma.
+const ALCA_MASCARA_FOLGA = 50
+function pertoDosCirculosDaAlca(x: number, z: number): boolean {
+  const r = Math.hypot(x, z)
+  const pertoBaia = r <= ALCA_R_BAIA && r >= ALCA_R_BAIA - ALCA_MASCARA_FOLGA
+  const pertoMar = r >= ALCA_R_MAR && r <= ALCA_R_MAR + ALCA_MASCARA_FOLGA
+  if (!pertoBaia && !pertoMar) return false
+  return noArcoDoAnel({ arco: ALCA_TERRA }, Math.atan2(x, -z))
+}
+
 export function buildLagos(o: LagosOpts): Lagos {
   const group = new THREE.Group()
   group.name = 'lagos'
@@ -469,7 +492,13 @@ export function buildLagos(o: LagosOpts): Lagos {
 
   const bloqueiaMalha = (x: number, z: number): boolean => {
     const c = corpoNo(x, z)
-    return c >= 0 && empurra[c] === 1
+    if (c >= 0 && empurra[c] === 1) return true
+    // ⚠️ CONSERTO 3: A BAÍA EMPURRA SEMPRE (`empurra[baia]=1`, acima), e a alça
+    // é baía dos dois lados. Se a grade de 30 m errar bem em cima do círculo
+    // exato e devolver `corpoNo` seco, esta é a máscara de BLOQUEIO DE VIA de
+    // verdade (`vias.ts` corta o pavimento por aqui, não por `naAgua`): sem
+    // esta linha o vazamento vira pista pousada sobre água aberta.
+    return pertoDosCirculosDaAlca(x, z)
   }
 
   const posA: number[] = [], idxA: number[] = []      // a lâmina
@@ -609,6 +638,14 @@ export function buildLagos(o: LagosOpts): Lagos {
             idxP.push(bp, bp + 1, bp + 2, bp, bp + 2, bp + 3)
             continue
           }
+          // ⚠️ CONSERTO 2 (10/09/2026): DENTRO DA ALÇA NÃO NASCE CAIS. A alça
+          // inteira é `eBaia` (é a mesma baía), mas o fundador virou a exceção
+          // dela: as duas margens da faixa de mansões recebem PRAIA, nunca
+          // passeio de cais. A areia de verdade nasce mais abaixo (perto de
+          // `correntesPraia`), pelos círculos EXATOS que `alca.ts` exporta, não
+          // por esta varredura de 30 m; aqui só falta NÃO desenhar cais em cima
+          // dela, senão as duas peças ficariam sobrepostas.
+          if (naAlcaDeTerra((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)) continue
           // ⚠️ A ORLA NÃO SE EMITE AQUI, SÓ SE COLETA. Emitir por aresta foi a
           // primeira versão e o defeito apareceu na chapa de perto: cada aresta
           // calculava a própria normal e nas curvas elas DIVERGEM, então os
@@ -852,6 +889,13 @@ export function buildLagos(o: LagosOpts): Lagos {
   // as correntes de praia: as da margem natural mais, em look2, as da baía que o
   // corte de 300 m recusou (ver o comentário do descarte, adiante)
   const correntesPraia: number[][] = []
+  // ⚠️ MARCA QUAIS CORRENTES SÃO A ALÇA (CONSERTO 2, 10/09/2026). É um `Set`
+  // de referência, não um campo no array: `correntesPraia` continua
+  // `number[][]` puro, sem mudar a interface que os outros dois produtores
+  // (`encadear`) já usam. A pergunta relevante mais adiante não é "onde" e sim
+  // "a largura desta corrente vem do declive medido ou do número fixo que
+  // `alca.ts` exporta", e isso só a alça responde diferente.
+  const correntesAlca = new Set<number[]>()
 
   {
     const w1 = ORLA_PASSEIO
@@ -934,6 +978,14 @@ export function buildLagos(o: LagosOpts): Lagos {
         // rasgo de 14 m entre o passeio e o talude, com o miolo da laje à mostra
         // virado para quem anda na orla. Trocar o destino mantém a seção inteira
         // e o cais continua sendo cais; o que muda é o piso.
+        // ⚠️ 10/09/2026, CONSERTO 2: ESTE RAMO VIROU MORTO POR CONSTRUÇÃO. O
+        // laço que enche `segs` (lá em cima, perto de `naAlcaDeTerra(...) &&
+        // continue`) agora pula TODA aresta dentro do arco da alça antes de
+        // chegar em `encadear(segs)`, porque a alça virou praia, não cais.
+        // Nenhuma corrente que chega até aqui tem ponto dentro do arco, então
+        // `_naAlca` nunca mais dá `true`. Mantido em vez de apagado: o custo é
+        // uma comparação por vértice, e reescrever a seção da via aqui por
+        // causa de um `if` morto trocaria um risco pequeno por um maior.
         const _mx = px(k, (w1 + w2) / 2), _mz = pz(k, (w1 + w2) / 2)
         const _naAlca = naAlcaDeTerra(_mx, _mz)
         faixa(0, yD, w1, yD, posC, idxC)                  // o passeio
@@ -964,6 +1016,58 @@ export function buildLagos(o: LagosOpts): Lagos {
   // era um contorno de polígono com cantos retos, que foi exatamente o que o
   // fundador apontou. Alfa não chuta nada: a areia se desfaz sobre o chão QUE
   // ESTIVER LÁ. Por isso a cor por vértice aqui tem QUATRO componentes.
+  // ═══════════════════════════════════════════════════════════════════════
+  // CONSERTO 2 (10/09/2026): A PRAIA DA ALÇA NASCE DOS CÍRCULOS EXATOS, NÃO
+  // DA VARREDURA DE 30 M.
+  //
+  // A alça inteira é rotulada `baia` (ver `eBaia`, no laço de marching
+  // squares lá em cima), e por isso nunca caía no `if (!eBaia)` que decide
+  // quem ganha praia: ela sempre ganhava cais. A areia que aparecia em
+  // trechos, antes deste conserto, era erro de RÓTULO da grade de 30 m, não
+  // desenho. Agora o laço de cima PULA (`continue`) toda aresta de `eBaia`
+  // dentro do arco da alça, e as duas margens (baía e mar) nascem AQUI, direto
+  // dos círculos que `alca.ts` já exporta (`ALCA_R_BAIA` 6.580, `ALCA_R_MAR`
+  // 7.316), sem depender de o marching squares redescobrir essa linha numa
+  // grade grossa.
+  //
+  // ⚠️ O SENTIDO DE CADA CONTORNO NÃO É ARBITRÁRIO. `normais()`, adiante, tira
+  // a normal de cada vértice da direção do segmento entre ele e o próximo
+  // (rotação de −90°). Andando com o ângulo CRESCENTE num círculo centrado na
+  // origem essa normal sai radial PARA FORA: certo para a margem da baía, cuja
+  // terra (o platô da alça) fica em r > `ALCA_R_BAIA`. Do lado do mar a terra
+  // fica em r < `ALCA_R_MAR`, o sentido oposto; em vez de duplicar a conta, o
+  // mesmo contorno nasce com ângulo crescente e o ARRAY inteiro se inverte
+  // (`reverso`), o que inverte a direção de cada segmento e vira a normal para
+  // dentro.
+  if (look2) {
+    const _span = ((ALCA_TERRA[1] - ALCA_TERRA[0]) + 360) % 360
+    const _g0 = ALCA_TERRA[0]
+    const _g1 = _g0 + _span
+    const reverso = (pts: number[]): number[] => {
+      const r: number[] = []
+      for (let i = pts.length - 2; i >= 0; i -= 2) r.push(pts[i], pts[i + 1])
+      return r
+    }
+    // ⚠️ PASSO DE ~30 M, A MESMA ESCALA DA GRADE DE `passo` USADA NO RESTO
+    // DESTE MÓDULO. Mais fino não muda a curva (é um círculo sem quina
+    // nenhuma), só engorda a malha à toa.
+    const arcoAlca = (r: number): number[] => {
+      const comprimento = r * (_span * Math.PI) / 180
+      const passos = Math.max(2, Math.round(comprimento / passo))
+      const pts: number[] = []
+      for (let i = 0; i <= passos; i++) {
+        const g = _g0 + (_span * i) / passos
+        const a = (g * Math.PI) / 180
+        pts.push(Math.sin(a) * r, -Math.cos(a) * r)
+      }
+      return pts
+    }
+    const _baia = arcoAlca(ALCA_R_BAIA)
+    const _mar = reverso(arcoAlca(ALCA_R_MAR))
+    correntesPraia.push(_baia); correntesAlca.add(_baia)
+    correntesPraia.push(_mar); correntesAlca.add(_mar)
+  }
+
   if (look2 && (segsP.length || correntesPraia.length)) {
     for (const c of encadear(segsP)) correntesPraia.push(c.pts)
     const cMol = new THREE.Color(AREIA_MOLHADA)
@@ -999,6 +1103,9 @@ export function buildLagos(o: LagosOpts): Lagos {
         _comp += Math.hypot(cru[q + 2] - cru[q], cru[q + 3] - cru[q + 1])
       }
       if (_comp < PRAIA_CORRENTE) continue
+      // ⚠️ CONSERTO 2: A ALÇA TEM LARGURA FIXA, NÃO MEDIDA. `_ehAlca` sinaliza
+      // as duas correntes de `correntesAlca`, criadas por `arcoAlca` acima.
+      const _ehAlca = correntesAlca.has(cru)
       // ⚠️ ESQUADRIA MAIS CURTA QUE A DO CAIS (1,6 contra 2,5). O cais é opaco e
       // uma esquadria longa nele só produz canto cheio; na areia transparente a
       // mesma esquadria produz sobreposição visível. Alisar já tirou a quina;
@@ -1009,6 +1116,14 @@ export function buildLagos(o: LagosOpts): Lagos {
       // largura crua, por vértice, a partir da inclinação medida
       const W = new Float64Array(m)
       for (let k = 0; k < m; k++) {
+        // ⚠️ NA ALÇA A LARGURA NÃO SE MEDE, SE IMPÕE. `ALCA_PRAIA_LARGURA` é
+        // 80 m; a fórmula do declive medido (linhas abaixo) devolveria
+        // PRAIA_SUBIDA/decl = 1,5/0,125 = 12 m para o mesmo talude 1:8, porque
+        // ela foi calibrada para a subida CURTA de uma cratera, não para os
+        // 80 m de rampa que `alca.ts` desenha de propósito. Usar o número
+        // medido deixaria 68 m de talude sem areia nenhuma, com regolito à
+        // mostra no meio da praia.
+        if (_ehAlca) { W[k] = ALCA_PRAIA_LARGURA; continue }
         const x = pts[2 * k], z = pts[2 * k + 1]
         const h1 = o.superficieAt(x + NX[k] * PRAIA_SONDA, z + NZ[k] * PRAIA_SONDA)
         const h2 = o.superficieAt(x + NX[k] * PRAIA_SONDA2, z + NZ[k] * PRAIA_SONDA2)
@@ -1080,8 +1195,14 @@ export function buildLagos(o: LagosOpts): Lagos {
           // a crista: posição e altura em ondas próprias, e pousada no chão
           const cx = pts[2 * k0], cz = pts[2 * k0 + 1]
           const wb = w * (PRAIA_BERMA_F0 + PRAIA_BERMA_F1 * onda(cx, cz, 135))
+          // ⚠️ CONSERTO 2: A RAZÃO SE GRAMPEIA EM 1. Nas praias de cratera
+          // `w` nunca passa de `PRAIA_MAX` (18 m), então o grampo não muda
+          // nada ali. Na alça `w` é fixo em 80 m (`ALCA_PRAIA_LARGURA`), mais
+          // de quatro vezes `PRAIA_MAX`; sem o grampo a crista chegaria a
+          // quase 4 m de altura, uma duna em cima do platô raso que o
+          // fundador pediu "retinho, lindo, perfeito".
           const cris = PRAIA_BERMA_H0
-            + PRAIA_BERMA_H * (w / PRAIA_MAX) * (0.6 + 0.8 * onda(cx + 311, cz - 177, 190))
+            + PRAIA_BERMA_H * Math.min(1, w / PRAIA_MAX) * (0.6 + 0.8 * onda(cx + 311, cz - 177, 190))
           const yb = Math.max(L + 0.10, o.superficieAt(px(k0, wb), pz(k0, wb)) + 0.06) + cris
           return { wm, w, wb, wf, ys, yb, yf, a: alfa(w) }
         }
@@ -1199,6 +1320,7 @@ export function buildLagos(o: LagosOpts): Lagos {
   const molhadoNoPonto = (x: number, z: number): boolean => corpoNo(x, z) >= 0
   const naAgua = (x: number, z: number, folga = 0): boolean => {
     if (molhadoNoPonto(x, z)) return true
+    if (pertoDosCirculosDaAlca(x, z)) return true
     if (folga <= 0) return false
     for (let k = 0; k < 4; k++) {
       const a = (k / 4) * Math.PI * 2

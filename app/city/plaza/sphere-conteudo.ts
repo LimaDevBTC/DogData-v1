@@ -598,13 +598,28 @@ function pintarCorpoKray(g: CanvasRenderingContext2D, w: number, h: number) {
   // de dado. Agora vai de 0,84 a 0,04: **160 m de altura**, o dobro, e o friso do
   // nome ocupa a faixa logo abaixo dela, em vez de disputar o meio da esfera.
   //
-  // ⚠️ TRÊS CÓPIAS E NÃO SEIS, E É A LARGURA QUE MANDA. Com a marca quadrada
-  // (aspecto 1) uma cópia de 160 m pede 48° de longitude no equador e 82° na
-  // latitude mais alta dela; seis somariam 492° dos 360 e se comeriam. Três somam
-  // 246° e ficam igualmente espaçadas, com uma cópia inteira sempre à vista.
+  // ⚠️ DUAS CÓPIAS, E O NÚMERO NÃO É DE COBERTURA, É DE ALINHAMENTO.
+  //
+  // Fundador, 10/09: *"a logo que está acima não tá centralizada sobre o 'Kray
+  // Space', ela parece estar acima do 'K'"*. A causa é aritmética: a logo tinha
+  // **3** cópias na volta e o nome `KRAY SPACE` cabe em **2** (10 caracteres em
+  // 32 casas dão `floor(32/12)` = 2). Dois e três só coincidem em UM ponto da
+  // volta; nos outros a marca passeia sobre o nome, e no pior deles ela cai
+  // sobre a primeira letra.
+  //
+  // Com 2 as fases batem sozinhas, e a conta é a mesma que `repetirNaVolta` já
+  // usa para casar rótulo com valor: o friso leva o meio da primeira cópia para
+  // 0,75 da volta (`frac = 0,75 − 1/(2·rep)`), ou seja os nomes centram em 0,75 e
+  // 0,25; `peleMarca` põe a cópia `i` em `(i + 0,5)/n`, que com n = 2 dá
+  // exatamente 0,25 e 0,75. Zero de deriva, sem constante nova.
+  //
+  // ⚠️ E O PREÇO É COBERTURA, declarado: uma cópia de 160 m pede 48° de longitude
+  // no equador, então duas somam 96° dos 360 em vez dos 246 de antes. Vai haver
+  // azimute sem a marca à vista, o que não acontecia. É a troca que o pedido
+  // pede: o parceiro prefere a marca em cima do nome dele a marca em todo lugar.
   const im = arte('/city/kray-marca.png')
   peleMarca(g, w, h, {
-    fundo: '#07080A', tinta: COR_ANUNCIO, n: 3, s0: 0.84, s1: 0.04,
+    fundo: '#07080A', tinta: COR_ANUNCIO, n: 2, s0: 0.84, s1: 0.04,
     aspecto: 1,
     desenhar: (og, larg, alt) => desenharArte(og, im, larg, alt),
   })
@@ -785,7 +800,18 @@ function pintarCorpoBitcoin(g: CanvasRenderingContext2D, w: number, h: number) {
   // de um azimute satura em 116°, então há sempre uma marca inteira à vista.
   const im = arte('/city/btc-marca.png')
   peleMarca(g, w, h, {
-    fundo: COR_BITCOIN, tinta: '#FFFFFF', n: N_MARCAS, s0: 0.74, s1: -0.36,
+    // ⚠️ ENCOLHEU 15% EM 10/09, A PEDIDO DO FUNDADOR, E O CENTRO NÃO SE MEXEU.
+    // Era de seno 0,74 a −0,36: amplitude 1,10, centro em 0,19. A redução é da
+    // AMPLITUDE (1,10 × 0,85 = 0,935) em torno do mesmo centro, senão a marca
+    // encolhe e sobe ao mesmo tempo, e o que ele pediu foi só o tamanho.
+    // A largura acompanha sozinha, porque ela sai da altura pelo `aspecto`:
+    // altura aparente de 192,5 m para **163,6 m** (48% para 40,8% do diâmetro
+    // visível) e largura de 145,1 para 123,3 m.
+    // ⚠️ O PREÇO ESTÁ MEDIDO: a longitude por cópia cai de 41,5° para 35,3°, e as
+    // quatro cópias somam 141° dos 360 em vez de 166. A leitura de um azimute
+    // satura em 116°, então continua havendo marca inteira à vista, com menos
+    // folga do que antes. Encolher muito mais que isto quebra essa garantia.
+    fundo: COR_BITCOIN, tinta: '#FFFFFF', n: N_MARCAS, s0: 0.6575, s1: -0.2775,
     aspecto: 474 / 629,                       // a caixa medida do glifo oficial
     desenhar: (og, larg, alt, cor) => desenharArte(og, im, larg, alt, cor),
   })

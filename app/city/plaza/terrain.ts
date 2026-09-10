@@ -31,7 +31,8 @@ import { microRelevoAt, TERRENO_FINO_ATIVO } from './terreno-fino'
 import { alturaInvernoAt, zonaEsquiavelAt, fatorRochaAt } from './inverno'
 import { campusAlturaAt } from './campus'
 import { aquaticsAlturaAt } from './aquatics'
-import { alcaAlturaAt } from './alca'
+import { alcaAlturaAt, ALCA_R_BAIA, ALCA_R_MAR, ALCA_PRAIA_LARGURA } from './alca'
+import { ALCA_TERRA, noArcoDoAnel } from './teia'
 
 export interface TerrainMeta {
   cols: number
@@ -841,15 +842,41 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
   // era antes de 05/09 e ninguém reclamou. As duas faixas da água ficam
   // intactas em `sub` 16, então a linha d'água e a praia medidas são as MESMAS
   // do desktop, bit a bit.
-  const FAIXA: [number, number][] = [
-    [R_PRACA_BORDA - 50, LAGO_R0 + 50],      // praça / praia / mergulho interno
-    [LAGO_R1 - 50, R_AGUA_OUT + 50],         // mergulho externo / fundo da bacia
+  // ⚠️ CADA FAIXA PODE TRAZER UM ARCO. As duas primeiras (lago/praça) são
+  // aneis fechados, iguais nos 360°, e por isso não têm `arco` (undefined =
+  // vale em qualquer rumo). As quatro da alça, adicionadas no CONSERTO 1
+  // abaixo, são anel SÓ NO ARCO da alça (346° a 116,5°, `ALCA_TERRA`): sem essa
+  // trava, `naFaixa` refinaria o anel INTEIRO de 360° nesses quatro raios, e a
+  // alça só existe em 130,5° dele. MEDIDO: sem o arco, 4.668.432 triângulos no
+  // terreno (3,3x); com o arco, o custo cai para perto do que as duas faixas
+  // de lago já custavam, porque só a fatia que tem alça de verdade é refinada.
+  const FAIXA: { r0: number; r1: number; arco?: [number, number] }[] = [
+    { r0: R_PRACA_BORDA - 50, r1: LAGO_R0 + 50 },      // praça / praia / mergulho interno
+    { r0: LAGO_R1 - 50, r1: R_AGUA_OUT + 50 },         // mergulho externo / fundo da bacia
+    // ⚠️ CONSERTO 1 (10/09/2026): AS QUATRO QUINAS DA ALÇA. `alca.ts` desenha o
+    // platô, a praia e o talude 1:8 com quinas exatas em ALCA_R_BAIA (6.580),
+    // ALCA_R_BAIA+ALCA_PRAIA_LARGURA (6.660), ALCA_R_MAR-ALCA_PRAIA_LARGURA
+    // (7.236) e ALCA_R_MAR (7.316). A avenida da alça (`AVENIDA_ALCA.r` em
+    // teia.ts) fica em r 6.700, a só 40 m da quina de 6.660, menos que uma
+    // célula da malha grossa (59,2 m): a célula fica a cavalo entre o platô
+    // plano e a rampa da praia, e `superficieAt` interpolava um valor
+    // intermediário que não existe no desenho analítico de `alcaAlturaAt`.
+    // MEDIDO antes deste conserto, ao longo do eixo da avenida: p90 de 28,2 cm
+    // e máximo de 100,1 cm de diferença contra `heightAt`, num terreno que é
+    // plano de verdade. Quatro faixas, mesma folga de ±50 m que as duas acima,
+    // e todas presas ao arco: fora dele `alcaAlturaAt` devolve o natural sem
+    // quina nenhuma (ver a guarda `noArcoDoAnel` logo no início da função), e
+    // refinar ali seria pagar malha por uma quina que não existe.
+    { r0: ALCA_R_BAIA - 50, r1: ALCA_R_BAIA + 50, arco: ALCA_TERRA },
+    { r0: ALCA_R_BAIA + ALCA_PRAIA_LARGURA - 50, r1: ALCA_R_BAIA + ALCA_PRAIA_LARGURA + 50, arco: ALCA_TERRA },
+    { r0: ALCA_R_MAR - ALCA_PRAIA_LARGURA - 50, r1: ALCA_R_MAR - ALCA_PRAIA_LARGURA + 50, arco: ALCA_TERRA },
+    { r0: ALCA_R_MAR - 50, r1: ALCA_R_MAR + 50, arco: ALCA_TERRA },
   ]
   if (refino?.faixaSeca !== false) {
-    FAIXA.push([R_CIDADE_SECA - 50, R_CIDADE_SECA + 50]) // onde a subida da cidade termina
+    FAIXA.push({ r0: R_CIDADE_SECA - 50, r1: R_CIDADE_SECA + 50 }) // onde a subida da cidade termina
   }
-  const FAIXA_MIN = Math.min(...FAIXA.map(([a]) => a))
-  const FAIXA_MAX = Math.max(...FAIXA.map(([, b]) => b))
+  const FAIXA_MIN = Math.min(...FAIXA.map((f) => f.r0))
+  const FAIXA_MAX = Math.max(...FAIXA.map((f) => f.r1))
   const naFaixa = (i: number, j: number): boolean => {
     // ⚠️ PORTA RÁPIDA, e ela não é otimização prematura: `superficieAt` chama
     // isto, e `superficieAt` é o trava-chão da câmera (todo quadro) e o pouso de
@@ -858,8 +885,17 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
     if (rc < FAIXA_MIN - cell || rc > FAIXA_MAX + cell) return false
     for (let dj = 0; dj <= 1; dj++) {
       for (let di = 0; di <= 1; di++) {
-        const r = Math.hypot((i + di - half) * cell, (j + dj - half) * cell)
-        for (const [ra, rb] of FAIXA) if (r > ra && r < rb) return true
+        const x = (i + di - half) * cell, z = (j + dj - half) * cell
+        const r = Math.hypot(x, z)
+        for (const f of FAIXA) {
+          if (r <= f.r0 || r >= f.r1) continue
+          // ⚠️ O ÂNGULO SÓ SE CALCULA SE PRECISAR: `atan2` é bem mais caro que
+          // o `hypot` da porta rápida, e a maioria das células nem chega aqui
+          // (já saiu no `continue` do raio). Mesma convenção de `alca.ts` e
+          // `teia.ts`: x = leste, z = sul, `atan2(x, -z)`.
+          if (f.arco && !noArcoDoAnel({ arco: f.arco }, Math.atan2(x, -z))) continue
+          return true
+        }
       }
     }
     return false
