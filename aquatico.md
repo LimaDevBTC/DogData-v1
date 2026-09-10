@@ -309,6 +309,67 @@ branca, não tem nada em cima". Estava certo, e era o que faltava fechar:
 O que ainda NÃO existe: cais e casa de barcos para THE REACH, a reserva publicada
 no gerador, e a peça não foi vista em telefone físico.
 
+
+## A rodada do parque, 09/09/2026 à noite
+
+⚠️ **O DIAGNÓSTICO VEIO DO FUNDADOR E ERA DE ARQUITETURA, NÃO DE PROGRAMA:** *"tudo
+foi melhorado no mapa, menos o parque aquático, ele está 2 níveis abaixo das outras
+estruturas da cidade"*. Ele estava certo, e a competição não tinha nada a ver com
+isso: o tanque estava na norma, a torre lunar verificada, o poço de apneia medido e
+a galeria submersa desenhada. O que faltava era **o edifício público em volta da
+competição**. Medido antes da rodada:
+
+| | esta peça | DOG Athletics |
+|---|---:|---:|
+| triângulos | 16.850 | 25.706 |
+| transferência | 74.372 B | 129.172 B |
+| árvores | **0** | plantio no anel |
+| madeira, areia ou relva na peça | **0 m²** | pista e relva |
+
+Uma peça de 324 × 180 m inteira em concreto, bege e vidro, com as bacias cravadas
+no piso sem borda, sem orla e sem nada em volta. De cima ela lia como
+estacionamento com retângulos azuis.
+
+### O que entrou, e o porquê de cada um
+
+| item | o defeito que ele corrige |
+|---|---|
+| **piscina de ondas** | o programa a previa desde o início (tabela "fora da norma") e ninguém a construiu. O lido NORTE virou a bacia: casa de máquinas numa ponta, praia de areia de 12 m na outra, seis cristas. Nenhuma medida de competição se moveu e o sítio não cresceu |
+| **átrio de entrada** | a nave não tinha porta. Havia uma marquise de 44 m sobre três pilares em cada lado longo, sem hall, sem degrau e sem nome. Agora: vidro de 18 m, marquise de laje, cinco degraus na largura toda e `DOG AQUATICS` na empena, na matriz 5x7 da casa |
+| **lanternim** | a clarabóia da crista era só material de vidro em dois gomos, e de fora lia como listra azul pintada no telhado. Virou caixa elevada 3,2 m com vidro VERTICAL dos dois lados |
+| **nervuras de 1,15 m** | eram 0,55 m sobre um vão de 140 m, ou seja sombra nenhuma: a casca saía lisa e a nave lia como galpão |
+| **orla de madeira e coping** | as bacias eram recortes crus no concreto, sem borda e sem onde andar descalço |
+| **deck e guincho do poço de apneia** | o equipamento mais raro da peça (1 atm no fundo) aparecia como mancha escura no chão. Ganhou anel de madeira, quatro passarelas radiais e a plataforma de partida com guincho |
+| **seis faixas de canteiro** | da fachada leste até a orla do poço eram 45 m de concreto liso, e das bancadas de saltos à divisa outros 40. Faixa paralela também resolve caminho: entre dois canteiros sobra passeio |
+| **elevador de vidro e treliça na torre** | ela lia como bloco de escritório listrado. A caixa de vidro correndo a altura inteira diz que aquilo se sobe |
+| **42 peças de mobiliário e 36 árvores** | zero vegetação numa cidade que planta em toda calçada. Instanciadas e fundidas por `D.instance` + `merge_object`, nunca reconstruídas por posição |
+
+### O custo, medido
+
+| | antes | depois | teto do build |
+|---|---:|---:|---:|
+| triângulos, base | 3.602 | 6.216 | 18.000 |
+| triângulos, total | 16.850 | **24.556** | 70.000 |
+| transferência | 74.372 B | **139.596 B** | 500.000 B |
+| texturas | 0 | 0 | 0 |
+
+A peça passou a pesar como o DOG Athletics (139.596 contra 129.172 bytes), que é
+onde ela deveria estar desde o começo: mesma família, mesmo porte de sítio.
+
+⚠️ **O QUE O `assert` DO ENVELOPE PEGOU, e vale registrar porque é a armadilha
+desta peça:** a primeira versão do átrio avançava 9 m de vidro, 14 de marquise e
+mais 5 de escadaria, e o build falhou com a peça **5,29 m fora do lote**. O sítio
+acaba em y = −90 e o pavimento em −78. Hoje o vidro para em −76, a marquise em −80
+e o último degrau em −84,4. O verificador de envelope é o que impede uma peça de
+invadir a rua, e ele fez o trabalho dele.
+
+⚠️ **AINDA NÃO FOI VISTA NA CENA.** Os GLB estão publicados e o gerador passa em
+todos os verificadores, mas a chapa da `/city` não saiu: a live estava no ar e as
+duas cidades não cabem na mesma GTX 1650 (medido: 74% de GPU e 2.364 de 4.096 MiB
+com a aba da transmissão aberta, três corridas do portão estouradas em 480 s). As
+evidências desta rodada são os renders do próprio gerador, em Cycles CPU.
+
+
 ## A parcela do Sítio A, fechada em 09/09/2026
 
 `AQUATICS_MOD = { i: 11, nr: 3, j: 34, ns: 2 }`, em `app/city/plaza/aquatics.ts`.
