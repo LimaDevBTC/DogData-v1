@@ -588,11 +588,48 @@ corpo += `<path d="${mestras}" fill="none" stroke="${CURVA_MESTRA}" stroke-width
 // aguentar. Depois: componente conexo (só a maior rede fica) e poda de grau 1
 // repetida até parar, que é o que elimina cauda pendurada. É a diferença entre
 // "recortei cada linha" e "isto é uma rede".
+// ⚠️ O RAIO DA AN7 POR RUMO É FONTE ÚNICA. Três consumidores precisam dele: o
+// traçado da própria avenida, o ponto exato onde cada radial deve parar, e as
+// curvas de acesso. Calculado em três lugares, os três divergiriam no primeiro
+// ajuste — e "a radial para exatamente nela" deixaria de ser verdade em silêncio.
+// ⚠️ A AN7 É UM CÍRCULO EXATO DE r 6.950, E ISSO É DECISÃO, NÃO PREGUIÇA.
+// Ela procurava o raio viável rumo a rumo, varrendo ±2.800 m em torno de 6.950.
+// Na carta isso virou serrilha: a oeste, onde o maciço encosta na avenida, a
+// linha ficava pulando de 50 em 50 m e lia como risco tremido, não como pista.
+// O fundador cortou o assunto em 11/09/2026: "a única via circular REDONDA será
+// essa perimetral da orla nobre". Uma pista de corrida não zigue-zague.
+//
+// E a medição diz que a busca nunca fez falta. MEDIDO nos 720 rumos de meio
+// grau, em r 6.950 exato:
+//     ÁGUA           0 rumos          <- ela nunca precisou desviar de lago
+//     declive > 12°  32 rumos (4,4%)  <- só terraplanagem, e pontual
+//     pior desvio que a busca pedia: 200 m, no rumo 254°
+// 200 m é 2,9% do raio e é MENOS que a largura do próprio platô do pódio (a
+// faixa de 6.950 a 7.150 já está nivelada em 0,00° nos 360 rumos). Desviar a
+// avenida inteira para caber num terreno que a obra nivela de qualquer jeito era
+// trocar a geometria da cidade por ruído de amostragem.
+//
+// ⚠️ ELA CONTINUA SENDO FONTE ÚNICA. Três consumidores precisam deste raio: o
+// traçado da avenida, o ponto em que cada radial para, e as curvas de acesso.
+// Calculado em três lugares, os três divergiriam no primeiro ajuste.
+const AN7_R_BASE = 6950
+let an7TemTunel = false   // a legenda só ganha o verbete se a obra existir
+function raioAN7() { return AN7_R_BASE }
+
 const VIAS = arg('vias', '0') !== '0'
 if (VIAS) {
   const LIMD = +arg('decliveVia', 12)
   const LIMIAR_PONTE = +arg('ponte', 150)
   const LIMIAR_CANAL = +arg('ponteCanal', 200)   // 140 m de vão mais folga de talude
+  // ⚠️ A RAMPA DE ACESSO À AN7 NÃO ABRE EXCEÇÃO PARA ÁGUA, e isso foi VERIFICADO,
+  // não suposto. O limiar dela é o mesmo da ponte estrutural, e subi-lo para
+  // 360 m (o estreito da raiz leste da alça mede 335 m) não mudou uma linha do
+  // mapa: os oito rumos de terra já chegam por terra firme, e os quatro que
+  // faltam estão atrás de 1,4 a 2,7 km de baía aberta, longe de qualquer limiar.
+  // A exceção da rampa é de DECLIVE, não de água — "sem estradas sobre as águas"
+  // continua valendo inteiro. O parâmetro fica exposto só para a medição poder
+  // ser refeita sem editar código.
+  const LIMIAR_ACESSO = +arg('ponteAcesso', LIMIAR_PONTE)
   const R0 = +arg('rMalha0', 1420), R1 = +arg('rMalha1', 6900)
   const N_BASE = 12                     // os bulevares, e o dodecágono dos anéis
   const SUB = [8, 16]                   // subdivisões: 96 e 192 radiais
@@ -659,27 +696,38 @@ if (VIAS) {
   }
   // ── transitável? amostra o trecho e decide, com direito a ponte curta ──────
   const PASSO = 25
-  const trecho = (p0, p1, limiar) => {
+  // ⚠️ `obra` É O MODO OBRA DE ARTE, e ele só vale para a rampa de acesso à AN7.
+  // Nele o DECLIVE NATURAL NÃO VETA — o lance é corte, aterro e viaduto, igual
+  // ao que a AN7 já faz na alça por decreto. A ÁGUA continua vetando em qualquer
+  // modo: "sem estradas sobre as águas" é ordem do fundador, e o limiar de ponte
+  // segue sendo o mesmo. O pior declive volta no retorno para virar número no
+  // relatório, porque terraplanagem que ninguém mediu é terraplanagem escondida.
+  const trecho = (p0, p1, limiar, obra = false) => {
     const comp = Math.hypot(p1[0] - p0[0], p1[1] - p0[1])
     const n = Math.max(2, Math.ceil(comp / PASSO))
-    let molhadoSeguido = 0, pior = 0, temPonte = false
+    let molhadoSeguido = 0, pior = 0, temPonte = false, molhado = 0
+    let hMin = Infinity, hMax = -Infinity
     for (let t = 0; t <= n; t++) {
       const x = p0[0] + ((p1[0] - p0[0]) * t) / n, z = p0[1] + ((p1[1] - p0[1]) * t) / n
       const r = Math.hypot(x, z), g = ((Math.atan2(x, -z) * 180) / Math.PI + 360) % 360
-      if (naAlca(r, g)) return null
-      if (alturaEm(x, z) <= COTA_AGUA) {
+      if (naAlca(r, g) && !obra) return null
+      const h = alturaEm(x, z)
+      if (h <= COTA_AGUA) {
         // canal atravessa-se sempre; o resto obedece ao limiar da classe
         const lim = sobreCanal(x, z) ? Math.max(limiar, LIMIAR_CANAL) : limiar
         molhadoSeguido += comp / n
+        molhado += comp / n
         if (molhadoSeguido > lim) return null
         temPonte = true
       } else {
         molhadoSeguido = 0
-        if (declEm(x, z) > LIMD) return null
+        const d = declEm(x, z)
+        pior = Math.max(pior, d)
+        if (!obra && d > LIMD) return null
+        hMin = Math.min(hMin, h); hMax = Math.max(hMax, h)
       }
-      pior = Math.max(pior, 0)
     }
-    return { ponte: temPonte }
+    return { ponte: temPonte, pior, hMin, hMax, molhado, molhadoFim: molhadoSeguido }
   }
   // ── nós e arestas ─────────────────────────────────────────────────────────
   const chave = (ia, ir) => ia * NR + ir
@@ -689,9 +737,9 @@ if (VIAS) {
   })
   const arestas = []
   const adj = new Map()
-  const liga = (a, b, cls, ponte) => {
+  const liga = (a, b, cls, ponte, acesso = false) => {
     const k = arestas.length
-    arestas.push({ a, b, cls, ponte, viva: true })
+    arestas.push({ a, b, cls, ponte, viva: true, acesso })
     if (!adj.has(a)) adj.set(a, []); adj.get(a).push(k)
     if (!adj.has(b)) adj.set(b, []); adj.get(b).push(k)
   }
@@ -723,28 +771,14 @@ if (VIAS) {
   // que recolher: ela corre na borda, a teia para em R_FORA, e as duas nunca se
   // encontram. Prolongar só os bulevares (não a teia local) é o que uma cidade
   // faz — a via estrutural sai, a rua de bairro não.
-  const IA_FIM = ANEIS.length - 1
-  const PROLONGA = +arg('prolonga', 2200)
-  for (let ir = 0; ir < NR; ir += NR / N_BASE) {
-    const g = rumoDe(ir)
-    let ant = chave(IA_FIM, ir)
-    if (!no.has(ant)) continue
-    for (let d = 120; d <= PROLONGA; d += 120) {
-      const rr = raioNaFace(ANEIS[IA_FIM], g) + d
-      if (rr > 9050) break
-      const q = PXY(rr, g)
-      const res = trecho(no.get(ant), q, LIMIAR_PONTE)
-      if (!res) break
-      // ⚠️ AQUI NÃO SE TOCA EM `pai`: o union-find ainda não existe neste ponto do
-      // arquivo, e ele inicializa a partir de `no` logo abaixo. Registrar o nó
-      // basta; tentar semeá-lo no `pai` quebra com "cannot access before
-      // initialization", que é o erro que esta linha já causou uma vez.
-      const k = 3e6 + ir * 100 + d
-      no.set(k, q)
-      liga(ant, k, 'bulevar', !!res.ponte)
-      ant = k
-    }
-  }
+  // ⚠️ A RADIAL PARA EXATAMENTE NA AN7: nem antes, nem depois. Antes, ela deixa
+  // um vão que não é esquina nem chegada; depois, ela fura a avenida e sobra do
+  // outro lado. O raio vem da mesma função que desenha a avenida, então os dois
+  // não podem divergir.
+  // ⚠️ A RAMPA DE ACESSO À AN7 NÃO MORA MAIS AQUI. Ela precisa saber qual é a
+  // REDE PRINCIPAL para não nascer emendada num nó que o componente conexo vai
+  // descartar meia dúzia de linhas depois, e o componente só existe lá embaixo.
+  // Procure por "A RAMPA DE ACESSO À AN7".
   const pai = new Map()
   const acha = (a) => { while (pai.get(a) !== a) { pai.set(a, pai.get(pai.get(a))); a = pai.get(a) } return a }
   for (const k of no.keys()) pai.set(k, k)
@@ -847,63 +881,23 @@ if (VIAS) {
       if (emendas) console.log(`  orla: ${emendas} emendas dentro da propria linha de costa`)
     }
 
-    // ── A PERIMETRAL É A PRÓPRIA PISTA DA ORLA NOBRE ──────────────────────
-    // ⚠️ EXISTE UMA VIA DE CONTORNO, NÃO DUAS. Decisão do fundador, e ela custou
-    // três tentativas minhas para entrar: primeiro tracei uma perimetral na base
-    // da abóbada, depois um segundo anel dentro da cidade, e nenhum dos dois era
-    // o que ele pediu. O certo é o mais simples: a pista que corre a 140 m da
-    // água na baía CONTINUA, dá a volta na cidade e volta nela mesma.
+    // ── LÁPIDE: A PERIMETRAL INTERNA FOI REMOVIDA ────────────────────────
+    // ⚠️ NÃO REFAÇA ESTE TRECHO. Aqui existia um arco que continuava a pista da
+    // baía de 99,5° a 358,5° para "fechar a volta" dentro da cidade. O fundador
+    // matou em 11/09/2026 com a regra que fecha o assunto:
     //
-    // ⚠️ E ELA SAI NO RAIO EM QUE A ORLA MORRE, chegando no raio da outra ponta.
-    // A margem varia de r 3.500 a 6.500, então nem a mediana nem um raio fixo
-    // descrevem as extremidades: traçada assim, a continuação não lia como
-    // continuação de nada. Interpolando ponta a ponta, ela sai na direção em que
-    // a pista vinha e chega na direção em que a pista recomeça.
-    {
-      const G0B = 358.5, G1B = 99.5
-      const noArcoBaia = (g) => g >= G0B || g <= G1B
-      const daBaia = []
-      for (const k of nosDaOrla) {
-        const q = no.get(k)
-        const g = ((Math.atan2(q[0], -q[1]) * 180) / Math.PI + 360) % 360
-        const r = Math.hypot(q[0], q[1])
-        if (noArcoBaia(g) && r > 3000 && r < 6800) daBaia.push({ k, g, r })
-      }
-      if (daBaia.length > 20) {
-        const ordB = [...daBaia].sort((a, b) => a.g - b.g)
-        const pontaFim = ordB.filter((o) => o.g <= G1B).pop() ?? ordB[0]
-        const pontaIni = ordB.filter((o) => o.g >= G0B)[0] ?? ordB[ordB.length - 1]
-        const rFim = pontaFim.r, rIni = pontaIni.r
-        const totalG = ((G0B - G1B) + 360) % 360
-        const passoG = 0.6
-        let ant = pontaFim.k, criados = 0, ultimo = null
-        for (let g = G1B + passoG; g <= G1B + totalG - 1e-9; g += passoG) {
-          const gg = g % 360
-          const f = (g - G1B) / totalG
-          // curva suave entre os dois raios, com folga no meio para a via não
-          // encostar na Praça nem sair da terra plana
-          const suave = f * f * (3 - 2 * f)
-          const rr = rFim + (rIni - rFim) * suave
-          const q = PXY(rr, gg)
-          const seco = alturaEm(q[0], q[1]) > COTA_AGUA && declEm(q[0], q[1]) <= LIMD
-          if (!seco || naAlca(rr, gg)) { ant = null; continue }
-          const k = base++
-          no.set(k, q); pai.set(k, k); nosOrla++; criados++
-          if (ant !== null) {
-            const res = trecho(no.get(ant), q, LIMIAR_PONTE)
-            if (res) liga(ant, k, 'orla', !!res.ponte)
-          }
-          ant = k; ultimo = k
-        }
-        // fecha no outro extremo da pista da baía
-        if (ultimo !== null) {
-          const res = trecho(no.get(ultimo), no.get(pontaIni.k), LIMIAR_PONTE)
-          if (res) liga(ultimo, pontaIni.k, 'orla', !!res.ponte)
-        }
-        console.log(`  perimetral (a propria pista da orla): sai de r ${rFim.toFixed(0)} no rumo ${pontaFim.g.toFixed(1)}, `
-          + `chega em r ${rIni.toFixed(0)} no rumo ${pontaIni.g.toFixed(1)}, ${criados} nos`)
-      }
-    }
+    //     "essa perimetral interna deve sair, ela está em cima da malha de
+    //      dodecaedros. A única via circular REDONDA será a perimetral da orla
+    //      nobre."
+    //
+    // O defeito era de linguagem, não de traçado: um círculo desenhado por cima
+    // do tecido cruza as faces do dodecágono em ângulo qualquer, picota quarteirão
+    // e some como via — na chapa ele lia como risco, não como avenida. A cidade
+    // tem UMA via redonda, a AN7, e ela corre na orla nobre. Tudo que é anel
+    // dentro da cidade é dodecágono, com face reta e vértice.
+    //
+    // A pista da baía CONTINUA existindo: ela é a isolinha a 140 m da água, segue
+    // a costa e não é círculo nenhum. O que saiu foi só a emenda circular.
 
     // ── OS RAMAIS: A ORLA TEM DE ENTRAR NA CIDADE ─────────────────────────
     // ⚠️ VIA PARALELA À COSTA SEM TRANSVERSAL É MURO, NÃO AVENIDA. A versão
@@ -1011,6 +1005,95 @@ if (VIAS) {
   }
   for (const [r, lista] of nosPorComp) if (acha(lista[0]) !== acha(raiz)) orfaosPerdidos++
   for (const e of arestas) if (acha(e.a) !== acha(raiz)) e.viva = false
+
+  // ── A RAMPA DE ACESSO À AN7 ───────────────────────────────────────────────
+  // ⚠️ "LEVE AS RADIAIS ATÉ EXATAMENTE ELA. NEM MENOS, NEM ALÉM." Ordem do
+  // fundador em 11/09/2026, e ela esbarrava em duas coisas medidas no mesmo dia:
+  //
+  //  1. O TERRENO. Entre a crista do platô urbano (r 6.100 a 6.325, cota 135 a
+  //     293 m) e a plataforma da AN7 (r 6.950, cota 13 a 123 m) corre o talude do
+  //     pódio, de 13° a 22°. Nenhuma via de 12° desce ali, e era por isso que os
+  //     bulevares do quadrante sudoeste paravam 250 a 850 m antes da avenida.
+  //     A regra aqui é a mesma que a AN7 já usa na alça: o último lance é OBRA DE
+  //     ARTE — corte, aterro e viaduto — e o declive natural não o veta. O pior
+  //     declive vencido vai para o relatório, porque terraplanagem que ninguém
+  //     mediu é terraplanagem escondida.
+  //
+  //  2. A ÁGUA, que continua vetando e não ganhou exceção nenhuma. MEDIDO de 5
+  //     em 5 m em cada rumo, o que separa a malha da avenida nos quatro rumos
+  //     que não chegam é 1.743 m no rumo 0, 2.699 m no 30, 2.699 m no 60 e
+  //     1.445 m no 90: é a BAÍA, e do outro lado dela a avenida corre sobre a
+  //     alça. Não é teto de rampa nem limiar de ponte que os barra, é um
+  //     quilômetro e meio a dois e sete de lâmina d'água. A alça não fica sem
+  //     acesso por isso — a AN7 é um circuito e entra nela por terra pelas duas
+  //     pontas, em 120° e em 330°.
+  //
+  // ⚠️ E A RAMPA SAI DA REDE PRINCIPAL, não do último anel que existe no papel.
+  // A primeira versão partia de ANEIS[último] sem perguntar: no rumo 120 isso a
+  // fazia nascer a r 3.174 e refazer 2,9 km de radial em modo obra de arte,
+  // passando por cima de encosta que a malha honesta já tinha recusado.
+  // ⚠️ 1.800 m, E O NÚMERO SAIU DE MEDIÇÃO. Com 1.200 o rumo 270 ficava de fora
+  // por 245 m: ali o maciço oeste sobe a 293 m e a malha honesta morre em
+  // r 5.505, a 1.445 m da avenida. Encurtar o teto não corrige terreno, só
+  // esconde a radial que falta. Com 1.800 os OITO rumos de terra chegam; os
+  // quatro que sobram (0°, 30°, 60°, 90°) não param por teto nenhum, param
+  // porque entre eles e a avenida há de 1,4 a 2,7 km de baía aberta.
+  const RAMPA_MAX = +arg('rampaAcesso', 1800)
+  const terminaNaAN7 = new Set()   // ponta que morre NA avenida: chegada, não beco
+  const chegouAN7 = new Set()      // rumos em que a radial de fato encostou
+  const relAcesso = []
+  {
+    const vivoEm = new Set()
+    for (const e of arestas) if (e.viva) { vivoEm.add(e.a); vivoEm.add(e.b) }
+    for (let ir = 0; ir < NR; ir += NR / N_BASE) {
+      const g = rumoDe(ir)
+      const rAlvo = raioAN7(g, alturaEm, declEm, LIMD)
+      if (rAlvo === null) continue
+      let iaUlt = -1
+      for (let ia = ANEIS.length - 1; ia >= 0; ia--) {
+        const k = chave(ia, ir)
+        if (no.has(k) && vivoEm.has(k) && acha(k) === acha(raiz)) { iaUlt = ia; break }
+      }
+      if (iaUlt < 0) { relAcesso.push({ g, rAlvo, rFeito: 0, ok: false, piorDecl: 0, agua: 0 }); continue }
+      const rIni = raioNaFace(ANEIS[iaUlt], g)
+      const PROLONGA = rAlvo - rIni
+      if (PROLONGA <= 0) { relAcesso.push({ g, rAlvo, rFeito: rIni, ok: true, piorDecl: 0, agua: 0 }); continue }
+      // ⚠️ TETO DE COMPRIMENTO. A rampa é a aproximação final, não uma segunda
+      // chance de refazer a radial: se a rede principal morre a mais de
+      // RAMPA_MAX da avenida, quem falta é cidade, e cidade não se inventa em
+      // modo obra de arte.
+      if (PROLONGA > RAMPA_MAX) { relAcesso.push({ g, rAlvo, rFeito: rIni, ok: false, piorDecl: 0, agua: 0 }); continue }
+      // ⚠️ O ÚLTIMO PASSO CAI EXATAMENTE EM rAlvo. Com `d += 120` até PROLONGA a
+      // rampa parava no múltiplo de 120 anterior — 13 m de sobra, que na carta é
+      // exatamente o vão entre a radial e a avenida que o fundador não quer.
+      const nPassos = Math.max(1, Math.round(PROLONGA / 120))
+      let ant = chave(iaUlt, ir), rFeito = rIni, piorDecl = 0, ok = true
+      let molhadoRampa = 0, aguaTotal = 0
+      const criados = []
+      for (let st = 1; st <= nPassos; st++) {
+        const rr = rIni + (PROLONGA * st) / nPassos
+        const q = PXY(rr, g)
+        const res = trecho(no.get(ant), q, LIMIAR_ACESSO, true)
+        if (!res) { ok = false; break }
+        // ⚠️ A ÁGUA SE SOMA AO LONGO DA RAMPA INTEIRA, e não lance a lance.
+        // Medindo por lance, cada passo de 120 m cabia sozinho no limiar e a
+        // rampa atravessava 2 km de baía em quinze pontinhas seguidas — a mesma
+        // "escada sobre a água" que este arquivo já documenta no anel local.
+        molhadoRampa = res.molhado > 0 ? molhadoRampa + res.molhado : 0
+        if (molhadoRampa > LIMIAR_ACESSO) { ok = false; break }
+        aguaTotal += res.molhado
+        piorDecl = Math.max(piorDecl, res.pior)
+        const k = 3e6 + ir * 100 + st
+        no.set(k, q); pai.set(k, k); criados.push(k)
+        liga(ant, k, 'bulevar', !!res.ponte, true)
+        const r1 = acha(k), r2 = acha(ant); if (r1 !== r2) pai.set(r1, r2)
+        ant = k; rFeito = rr
+      }
+      if (!ok) for (const k of criados) { for (const j of adj.get(k) ?? []) arestas[j].viva = false }
+      else { terminaNaAN7.add(ant); chegouAN7.add(Math.round(g)) }
+      relAcesso.push({ g, rAlvo, rFeito: ok ? rFeito : rIni, ok, piorDecl, agua: aguaTotal })
+    }
+  }
   // ── PODA DE VIA SOBRE ÁGUA ────────────────────────────────────────────────
   // ⚠️ ELA VEM ANTES DA PODA DE GRAU 1 E DO FECHO DE PONTAS, e a ordem é o que
   // fecha o ciclo: cortar um viaduto indevido cria um beco no lugar dele, e
@@ -1026,6 +1109,11 @@ if (VIAS) {
     let cortadas = 0, molhTotal = 0
     for (const e of arestas) {
       if (!e.viva) continue
+      // ⚠️ A RAMPA DE ACESSO JÁ FOI MEDIDA COM LIMIAR PRÓPRIO, e o dela é maior
+      // de propósito (o estreito da alça tem 335 m). Passar de novo por aqui,
+      // com o teto de 200 m por aresta, derrubaria a ponte que a rampa acabou de
+      // aprovar — e o corte deixaria a radial parada no meio da água.
+      if (e.acesso) continue
       const p0 = no.get(e.a), p1 = no.get(e.b)
       const comp = Math.hypot(p1[0] - p0[0], p1[1] - p0[1])
       const n = Math.max(2, Math.ceil(comp / 25))
@@ -1061,6 +1149,11 @@ if (VIAS) {
       for (const ponta of [e.a, e.b]) {
         if (grau.get(ponta) !== 1) continue
         const p = no.get(ponta)
+        // ⚠️ QUEM MORRE NA AN7 NÃO É GRAU 1 DE VERDADE. A avenida é desenhada
+        // fora do grafo, então a ponta da rampa parece solta para a poda e ela
+        // comia a aproximação inteira — depois o trevo ficava boiando no papel,
+        // ligado a nada. A chegada é destino, e destino não se poda.
+        if (terminaNaAN7.has(ponta)) continue
         if (e.cls === 'bulevar' && Math.hypot(p[0], p[1]) >= R_BORDA) continue
         // ⚠️ O BOULEVARD DA ORLA NÃO SE PODA. Ele é a via que dá acesso à faixa
         // nobre inteira; podado por grau 1 ele encurta trecho a trecho e deixa
@@ -1091,7 +1184,7 @@ if (VIAS) {
     const pontas = []
     for (const e of arestas) {
       if (!e.viva || (e.cls !== 'orla' && e.cls !== 'ramal' && e.cls !== 'bulevar')) continue
-      for (const k of [e.a, e.b]) if (grau.get(k) === 1) pontas.push(k)
+      for (const k of [e.a, e.b]) if (grau.get(k) === 1 && !terminaNaAN7.has(k)) pontas.push(k)
     }
     const FECHA_MAX = +arg('fechaPonta', 900)
     // (duas passadas: fechar uma ponta pode revelar outra)
@@ -1144,7 +1237,7 @@ if (VIAS) {
     for (const e of arestas) {
       if (!e.viva) continue
       for (const k of [e.a, e.b]) {
-        if (grau.get(k) !== 1) continue
+        if (grau.get(k) !== 1 || terminaNaAN7.has(k)) continue
         const p = no.get(k)
         const viz = new Set()
         for (const e2 of arestas) if (e2.viva && (e2.a === k || e2.b === k)) viz.add(e2.a === k ? e2.b : e2.a)
@@ -1234,11 +1327,206 @@ if (VIAS) {
     + `<path d="${dAnelOrla}" fill="none" stroke="${VIA_COR}" stroke-width="${lg(60).toFixed(2)}" opacity="0.96" stroke-linecap="round"/>`
     + (dPonte ? `<path d="${dPonte}" fill="none" stroke="${VIA_COR}" stroke-width="${lg(24).toFixed(2)}" opacity="0.95" stroke-dasharray="${7 * F} ${5 * F}"/>` : '')
     + `</g>\n`
-  // a AN7: a via da alça, exceção por decreto (a alça é terraplanagem)
-  const an7 = []
-  for (let g = 330; g <= 330 + ((120 - 330 + 360) % 360); g += 0.5) an7.push(PX(PXY(6950, g % 360)))
-  corpo += `<path d="M${an7.join('L')}" fill="none" stroke="#14100A" stroke-width="${lg(72).toFixed(2)}" opacity="0.5" stroke-linecap="round"/>`
-    + `<path d="M${an7.join('L')}" fill="none" stroke="#FFF2DC" stroke-width="${lg(44).toFixed(2)}" opacity="0.95" stroke-linecap="round"/>\n`
+  // ── A AN7 DÁ A VOLTA COMPLETA: ELA É A PERIMETRAL ─────────────────────────
+  // ⚠️ A ORLA NOBRE É A ALÇA, e a pista dela é a AN7 — não a margem da baía.
+  // Passei quatro rodadas desenhando vias na beira da baía achando que era isso,
+  // até o fundador dizer a frase que resolvia: "meu problema é a pista da orla
+  // nobre ser uma meia lua, ela tem que dar a volta completa na cidade". A AN7
+  // nasceu como arco de 150° porque a alça só existe de 330° a 120°; o pedido é
+  // que a AVENIDA continue, não que a alça cresça.
+  //
+  // ⚠️ ELA É UM CÍRCULO FECHADO, e o traçado não tem mais emenda nem interrupção:
+  // 720 pontos em r 6.950 e um `Z`. A versão anterior recortava a linha rumo a
+  // rumo conforme o terreno e saía serrilhada a oeste — ver a nota longa em
+  // `raioAN7`. O que o terreno pede continua sendo MEDIDO e relatado, só não
+  // manda mais no desenho.
+  {
+    const NE = 720                            // estacas de meio grau
+    const PT = [], hAN7 = []
+    for (let k = 0; k < NE; k++) {
+      const q = PXY(AN7_R_BASE, k * 0.5)
+      PT.push(q); hAN7.push(alturaEm(q[0], q[1]))
+    }
+    let d0 = ''
+    for (let k = 0; k < NE; k++) d0 += (k === 0 ? 'M' : 'L') + PX(PT[k])
+    d0 += 'Z'
+    // ── O GREIDE, E A ESTRUTURA QUE ELE EXIGE ───────────────────────────────
+    // ⚠️ O CÍRCULO PERFEITO EM PLANTA COBRA UM PREÇO EM PERFIL, e o fundador
+    // nomeou esse preço antes de eu medir: "a parte das montanhas deve ser um
+    // viaduto gigante, todo esse pedaço que ficou igual eletrocardiograma deve
+    // virar um mega elevado, estilo Alpes europeus — isso vai fazer com que ela
+    // fique perfeitamente circular". É exatamente isso: o desvio em planta virou
+    // estrutura em corte.
+    //
+    // MEDIDO em 11/09/2026, o chão sob a AN7 nos 720 rumos vai de −30 m (a alça)
+    // a +169 m (o maciço oeste, entre os rumos 235° e 300°).
+    //
+    // ⚠️ O GREIDE É ENVELOPE SUPERIOR, NÃO MÉDIA, e a diferença é o pedido do
+    // fundador. Com a média o greide passava no meio do maciço: dava viaduto nos
+    // vales e TÚNEL nas cristas, quatro tramos escavados alternando com quatro
+    // elevados, e a carta virava tracejado picotado. Ele pediu o contrário —
+    // "um mega elevado, estilo Alpes europeus" —, então o greide passa POR CIMA
+    // de tudo: máximo móvel de ±10° (que levanta a linha acima de cada crista)
+    // e duas médias de ±20° (que devolvem a suavidade). O resultado é uma obra
+    // contínua, com rampa máxima de 2,7% — greide de autopista de verdade.
+    const DS = (2 * Math.PI * AN7_R_BASE) / NE
+    const suaviza = (v, W) => v.map((_, k) => {
+      let s2 = 0
+      for (let d = -W; d <= W; d++) s2 += v[(k + d + NE) % NE]
+      return s2 / (2 * W + 1)
+    })
+    const envelope = (v, W) => v.map((_, k) => {
+      let m2 = -Infinity
+      for (let d = -W; d <= W; d++) m2 = Math.max(m2, v[(k + d + NE) % NE])
+      return m2
+    })
+    const JAN = Math.max(1, Math.round(+arg('greideJanela', 20) * 2))
+    const JAN_TOPO = Math.max(1, Math.round(+arg('greideEnvelope', 10) * 2))
+    const greide = suaviza(suaviza(envelope(hAN7, JAN_TOPO), JAN), JAN)
+    const VIADUTO_MIN = +arg('viadutoMin', 8)     // m de tabuleiro para virar obra
+    const TUNEL_MIN = +arg('tunelMin', 25)        // m de cobertura para virar túnel
+    const CORTE_MIN = +arg('corteMin', 8)          // m de escavação para virar corte
+    const tipo = hAN7.map((h, k) => (greide[k] - h > VIADUTO_MIN ? 'viaduto'
+      : h - greide[k] > TUNEL_MIN ? 'tunel'
+      : h - greide[k] > CORTE_MIN ? 'corte' : 'terra'))
+    // ⚠️ CORRIDA CURTA NÃO VIRA OBRA. Sem isto o maciço produzia dezenas de
+    // trechinhos de 60 m alternando viaduto e terra, que na carta lê como
+    // tracejado sujo e não como estrutura. Toda corrida com menos de 5 estacas
+    // (300 m) volta a ser terreno.
+    for (let k = 0; k < NE; k++) {
+      if (tipo[k] === 'terra') continue
+      let n2 = 1
+      while (n2 < NE && tipo[(k + n2) % NE] === tipo[k]) n2++
+      if (n2 < 5) for (let d = 0; d < n2; d++) tipo[(k + d) % NE] = 'terra'
+      k += n2 - 1
+    }
+    // ⚠️ VÃO CURTO NÃO INTERROMPE A OBRA. No maciço o terreno encosta no greide
+    // por 200 ou 300 m entre um vale e outro, e classificar isso como chão
+    // partia o elevado em oito tramos: na carta voltava a ler picotado, que é
+    // exatamente o "eletrocardiograma" que o fundador mandou acabar. Todo
+    // intervalo de menos de 6° (730 m) entre dois trechos de viaduto vira
+    // viaduto — uma obra de 700 m não se interrompe para reapoiar no chão.
+    const VAO_FECHA = Math.max(1, Math.round(+arg('viadutoVao', 6) * 2))
+    for (let k = 0; k < NE; k++) {
+      if (tipo[k] === 'viaduto') continue
+      let n2 = 0
+      while (n2 < NE && tipo[(k + n2) % NE] !== 'viaduto') n2++
+      if (n2 > 0 && n2 <= VAO_FECHA && tipo[(k - 1 + NE) % NE] === 'viaduto') {
+        for (let d = 0; d < n2; d++) tipo[(k + d) % NE] = 'viaduto'
+      }
+      k += Math.max(0, n2 - 1)
+    }
+    const corrida = (qual) => {
+      const saida = []
+      let atual = null
+      for (let k = 0; k <= NE; k++) {
+        const t = tipo[k % NE]
+        if (t === qual && k < NE) { if (!atual) atual = []; atual.push(PT[k]) }
+        else if (atual) { saida.push(atual); atual = null }
+      }
+      if (atual) saida.push(atual)
+      return saida
+    }
+    const runsVia = corrida('viaduto'), runsTun = corrida('tunel'), runsCor = corrida('corte')
+    const linhaDe = (runs) => runs.map((r) => r.map((q, i) => (i ? 'L' : 'M') + PX(q)).join('')).join('')
+    const dViad = linhaDe(runsVia), dTunel = linhaDe(runsTun)
+    // ⚠️ OS PILARES SÃO O QUE FAZ LER COMO ELEVADO. Uma linha grossa sobre o
+    // vale é só uma linha grossa; o traço perpendicular a cada 360 m é o símbolo
+    // cartográfico de tabuleiro sobre apoio, e é ele que conta a história dos
+    // Alpes sem precisar de rótulo.
+    let dPilar = ''
+    for (const r of runsVia) {
+      for (let i = 2; i < r.length; i += 5) {
+        const q = r[i], L = Math.hypot(q[0], q[1])
+        const ux = q[0] / L, uz = q[1] / L, meia = 95
+        dPilar += `M${PX([q[0] - ux * meia, q[1] - uz * meia])}L${PX([q[0] + ux * meia, q[1] + uz * meia])}`
+      }
+    }
+    let rampaMax = 0
+    for (let k = 0; k < NE; k++) rampaMax = Math.max(rampaMax, Math.abs(greide[(k + 1) % NE] - greide[k]) / DS)
+    const kmDe = (runs) => (runs.reduce((a, r) => a + r.length, 0) * DS) / 1000
+    const deckMax = Math.max(...hAN7.map((h, k) => greide[k] - h))
+    const coberturaMax = Math.max(...hAN7.map((h, k) => h - greide[k]))
+    // ── OS TREVOS: A RADIAL ENTRA POR CURVA, NÃO POR ESQUINA ────────────────
+    // ⚠️ ESQUINA EM VIA DE ALTA VELOCIDADE É PARADA OBRIGATÓRIA, e o fundador foi
+    // explícito: "ninguém quer uma esquina ali, isso será pista de corrida". Um
+    // cruzamento em T obriga a frear; um acesso curvo deixa entrar e sair sem
+    // perder a linha, que é como autopista encontra anel no mundo real.
+    //
+    // Cada radial ganha DOIS ramos, um para cada sentido do anel. O ramo sai do
+    // eixo da radial a `RECUO` metros da avenida, ainda apontando para fora, e
+    // chega TANGENTE à AN7 a `ABERTURA` graus de distância. A curva é uma Bézier
+    // cúbica cujos pontos de controle ficam sobre as duas tangentes: por
+    // construção ela sai reta no sentido da radial e entra deitada no sentido do
+    // anel, sem quina em nenhuma das duas pontas.
+    const RECUO_TREVO = +arg('trevoRecuo', 620)
+    const ABERTURA = +arg('trevoAbertura', 7)
+    let trevos = ''
+    for (let k = 0; k < 12; k++) {
+      const g = k * 30
+      // ⚠️ TREVO SÓ ONDE A RADIAL CHEGOU. Desenhado para os doze rumos sem
+      // perguntar, ele aparecia solto nos quatro rumos da baía — um Y de asfalto
+      // no meio do nada, sem tronco nenhum encostando nele.
+      if (!chegouAN7.has(g)) continue
+      const rA = raioAN7(g, alturaEm, declEm, LIMD)
+      if (rA === null) continue
+      const dirRad = [Math.sin((g * Math.PI) / 180), -Math.cos((g * Math.PI) / 180)]
+      const P0 = PXY(rA - RECUO_TREVO, g)
+      for (const lado of [-1, 1]) {
+        const gFim = g + lado * ABERTURA
+        const rFim = raioAN7(gFim, alturaEm, declEm, LIMD)
+        if (rFim === null) continue
+        const P3 = PXY(rFim, gFim)
+        // tangente ao anel no ponto de chegada: perpendicular ao raio
+        const aF = (gFim * Math.PI) / 180
+        const tang = [lado * Math.cos(aF), lado * Math.sin(aF)]
+        const L1 = RECUO_TREVO * 0.85
+        const L2 = (Math.abs(ABERTURA) * Math.PI / 180) * rFim * 0.72
+        const P1 = [P0[0] + dirRad[0] * L1, P0[1] + dirRad[1] * L1]
+        const P2 = [P3[0] - tang[0] * L2, P3[1] - tang[1] * L2]
+        trevos += `M${PX(P0)}C${PX(P1)} ${PX(P2)} ${PX(P3)}`
+      }
+    }
+    const perimetro = (2 * Math.PI * AN7_R_BASE) / 1000
+    corpo += `<path d="${d0}" fill="none" stroke="#14100A" stroke-width="${lg(92).toFixed(2)}" opacity="0.55" stroke-linecap="round"/>`
+      + `<path d="${trevos}" fill="none" stroke="#14100A" stroke-width="${lg(76).toFixed(2)}" opacity="0.5" stroke-linecap="round"/>`
+      // o tabuleiro: sombra larga sob a pista, e os apoios atravessando
+      + `<path d="${dPilar}" fill="none" stroke="#14100A" stroke-width="${lg(16).toFixed(2)}" opacity="0.6" stroke-linecap="butt"/>`
+      + `<path d="${d0}" fill="none" stroke="#FFF2DC" stroke-width="${lg(62).toFixed(2)}" opacity="0.97" stroke-linecap="round"/>`
+      + `<path d="${dPilar}" fill="none" stroke="#FFF2DC" stroke-width="${lg(9).toFixed(2)}" opacity="0.9" stroke-linecap="butt"/>`
+      // ⚠️ O TÚNEL SE APAGA, NÃO SE INTERROMPE. Cortar a linha quebraria o
+      // círculo que o fundador acabou de mandar fechar; o tracejado escuro por
+      // cima da pista é o símbolo de trecho coberto e mantém a volta inteira.
+      + `<path d="${dTunel}" fill="none" stroke="#3B3327" stroke-width="${lg(62).toFixed(2)}" opacity="0.85" stroke-dasharray="${11 * F} ${9 * F}"/>`
+      + `<path d="${trevos}" fill="none" stroke="#FFF2DC" stroke-width="${lg(44).toFixed(2)}" opacity="0.95" stroke-linecap="round"/>\n`
+    console.log(`  AN7 como perimetral: circulo fechado de r ${AN7_R_BASE} m, ${perimetro.toFixed(1)} km`)
+    console.log(`    greide: rampa maxima ${(rampaMax * 100).toFixed(1)}%, cota de ${Math.min(...greide).toFixed(0)} a ${Math.max(...greide).toFixed(0)} m`)
+    console.log(`    VIADUTO ${kmDe(runsVia).toFixed(1)} km em ${runsVia.length} tramos, tabuleiro ate ${deckMax.toFixed(0)} m acima do chao`)
+    console.log(`    TUNEL   ${kmDe(runsTun).toFixed(1)} km em ${runsTun.length} tramos, cobertura ate ${coberturaMax.toFixed(0)} m`)
+    console.log(`    CORTE   ${kmDe(runsCor).toFixed(1)} km em ${runsCor.length} tramos`)
+    an7TemTunel = runsTun.length > 0
+    const rumoDoPonto = (q) => ((Math.atan2(q[0], -q[1]) * 180) / Math.PI + 360) % 360
+    const faixas = (runs) => runs.map((r) => `${rumoDoPonto(r[0]).toFixed(0)}-${rumoDoPonto(r[r.length-1]).toFixed(0)}°`).join(' ')
+    console.log(`      viaduto em: ${faixas(runsVia)}`)
+    if (runsTun.length) console.log(`      tunel em:   ${faixas(runsTun)}`)
+    if (runsCor.length) console.log(`      corte em:   ${faixas(runsCor)}`)
+    // ⚠️ O QUE NÃO CHEGA TEM DE APARECER EM METRO, e não sumir do relatório. Os
+    // rumos da baía não alcançam a avenida porque entre a última quadra e a alça
+    // há mais de 1 km de água aberta, e a ponte máxima é de 150 m. A alça não
+    // fica sem acesso por isso: a AN7 é um circuito e entra nela pelas DUAS
+    // pontas, por terra.
+    {
+      const chegam = relAcesso.filter((a) => a.ok)
+      const pior = chegam.reduce((m, a) => Math.max(m, a.piorDecl), 0)
+      console.log(`  radiais ate a AN7: ${chegam.length} de ${relAcesso.length}; rampa mais ingreme ${pior.toFixed(0)}° (obra de arte)`)
+      const comPonte = chegam.filter((a) => a.agua > 1)
+      for (const a of comPonte) console.log(`    rumo ${a.g.toFixed(0).padStart(3)}: ponte de ${a.agua.toFixed(0)} m na aproximacao`)
+      for (const a of relAcesso.filter((x) => !x.ok)) {
+        console.log(`    rumo ${a.g.toFixed(0).padStart(3)}: para em r ${a.rFeito.toFixed(0)}, ${(a.rAlvo - a.rFeito).toFixed(0)} m ate a avenida (baia)`)
+      }
+    }
+    console.log(`  trevos de acesso: ${chegouAN7.size} radiais x 2 ramos, recuo ${RECUO_TREVO} m, abertura ${ABERTURA}°`)
+  }
   // autopistas: correm SOB a cidade, não se recortam
   let au = ''
   for (const a of (malha.autopistas ?? [])) {
@@ -1386,8 +1674,12 @@ const nx = LADO - m - 60 * F, ny = m + 92 * F
 mob += `<path d="M${nx} ${ny - 42 * F}L${nx + 13 * F} ${ny + 12 * F}L${nx} ${ny}L${nx - 13 * F} ${ny + 12 * F}Z" fill="#E4D2B9" opacity="0.9"/>`
   + T(nx, ny + 34 * F, 'N', { tam: 20, anc: 'middle', op: 0.9 })
 // a legenda
-const lx = LADO - m - 260 * F, ly = LADO - m - 470 * F
-mob += veu(lx - 22 * F, ly - 34 * F, 282 * F, 470 * F)
+// ⚠️ A CAIXA CRESCE COM O NÚMERO DE VERBETES, e ela já estourou uma vez: ao
+// entrar o viaduto, a linha de RELIEF saiu por baixo do véu.
+const N_VERBETES = 16 + (an7TemTunel ? 1 : 0)
+const ALT_LEG = (N_VERBETES * 26 + 80) * F
+const lx = LADO - m - 260 * F, ly = LADO - m - ALT_LEG
+mob += veu(lx - 22 * F, ly - 34 * F, 282 * F, ALT_LEG)
 // ⚠️ A LEGENDA CRESCEU COM A PEÇA. Enquanto a carta era só relevo, três linhas
 // bastavam. Com bairro e via na folha, cor sem verbete é decoração: quem abre o
 // mapa tem de saber que laranja é a alça e que a hachura é terra do projeto.
@@ -1405,10 +1697,17 @@ mob += verbete('INNER FABRIC', chip('#AA967A', 0.65))
 mob += verbete('OUTER FABRIC', chip('#706C62', 0.7))
 mob += verbete('OUTSKIRTS', chip('#494640', 0.8))
 mob += verbete('PROJECT LAND', chip('url(#hach)', 0.9))
-mob += verbete('SHORE ROAD', tracinho('#F0E2C8', 6))
+mob += verbete('AN7 · PERIMETER', tracinho('#FFF2DC', 6))
+mob += verbete('SHORE ROAD', tracinho('#F0E2C8', 4))
 mob += verbete('BOULEVARDS', tracinho('#F0E2C8', 3.6))
 mob += verbete('STREETS', tracinho('#F0E2C8', 1.6))
 mob += verbete('BRIDGE', tracinho('#F0E2C8', 2.5, `${7 * F} ${5 * F}`))
+mob += verbete('AN7 · VIADUCT', (y) => `<line x1="${lx + 196 * F}" y1="${y - 5 * F}" x2="${lx + 230 * F}" y2="${y - 5 * F}" stroke="#FFF2DC" stroke-width="${6 * F}"/>`
+  + [0, 1, 2].map((i) => `<line x1="${lx + (203 + i * 10) * F}" y1="${y - 10 * F}" x2="${lx + (203 + i * 10) * F}" y2="${y}" stroke="#FFF2DC" stroke-width="${1.4 * F}"/>`).join(''))
+// ⚠️ VERBETE DE OBRA QUE NÃO EXISTE É RUÍDO. Com o greide em envelope superior a
+// AN7 zerou o túnel; a linha só volta se uma geração futura voltar a escavar.
+if (an7TemTunel) mob += verbete('AN7 · TUNNEL', (y) => `<line x1="${lx + 196 * F}" y1="${y - 5 * F}" x2="${lx + 230 * F}" y2="${y - 5 * F}" stroke="#FFF2DC" stroke-width="${6 * F}"/>`
+  + `<line x1="${lx + 196 * F}" y1="${y - 5 * F}" x2="${lx + 230 * F}" y2="${y - 5 * F}" stroke="#3B3327" stroke-width="${6 * F}" stroke-dasharray="${4 * F} ${3.5 * F}"/>`)
 mob += verbete('EXPRESSWAY', tracinho('#7FB9D4', 2.5, `${10 * F} ${7 * F}`))
 mob += verbete('DOME', tracinho('#F7931A', 2.5, `${10 * F} ${7 * F}`))
 mob += T(lx, yy + 6 * F, `RELIEF ${meta.min.toFixed(0)} TO ${meta.max.toFixed(0)} M`, { tam: 12, esp: 2, op: 0.55 })
