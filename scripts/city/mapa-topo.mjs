@@ -92,6 +92,187 @@ const declEm = (x, z) => {
   return (Math.atan(Math.hypot(hx, hz)) * 180) / Math.PI
 }
 
+// ── O ESPELHO D'ÁGUA: CADA LAGO NO NÍVEL DELE ──────────────────────────────
+// ⚠️ UMA COTA SÓ PARA TODO O MAPA DEIXAVA TODO LAGO NO FUNDO DE UM BARRANCO, e
+// foi o fundador quem viu: "eles parecem secos, todos estão com a água no fundo,
+// porque o que enche a água de todo mapa é -40 para todos; podemos encher todos
+// os lagos até a borda, aí sim teremos orla em torno deles".
+//
+// Ele está certo e a medição mostra o tamanho do problema. A cratera do rumo
+// 282° tem fundo em -83 m e parede subindo a +150: com a lâmina em -40 sobra um
+// espelho de 0,17 km² no fundo de um poço de 140 m. Isso não é lago, é poça.
+//
+// A correção é hidrologia de verdade, não um número novo: PRIORITY-FLOOD. Cada
+// bacia fechada enche até a SOLEIRA dela — o ponto mais baixo da borda, por onde
+// transbordaria. O algoritmo parte dos corpos que mandam no nível e sobe,
+// atribuindo a cada célula o menor "teto" que a alcança.
+//
+// ⚠️ TRÊS REGRAS, E CADA UMA SAIU DE UM ERRO MEDIDO NESTA MESMA SESSÃO:
+//
+// (a) SEMEAR SÓ OS MARES. Semeando a borda do domínio e mais nada, o sítio
+//     inteiro é uma cratera e encheu até a soleira dela: +36,0 km² de água nova
+//     e a cidade afogada. Semeando TODA água em -40, cada lago ficava preso no
+//     nível global e o enchimento não fazia nada. O certo é semear os CORPOS
+//     GRANDES: medido, há 35 corpos em -40, dois deles com 98,5 e 24,5 km² e o
+//     terceiro com 0,555. O degrau é claro, e 2 km² separa mar de lago.
+//
+// (b) LAGO SECO CONTINUA SECO. Toda depressão fechada aceita ser enchida, e sem
+//     filtro apareceram 1.037 bacias somando 17 km² de água que não existe —
+//     mil poças de montanha, que na carta lêem como sarampo. Só enche quem já
+//     tem lâmina: pelo menos 2 ha de água hoje. Sobram NOVE lagos.
+//
+// (c) SÓ SOB A ABÓBADA. Fora dela é regolito seco, como a própria pintura da
+//     água já assume.
+const COTA_AGUA_SEMENTE = COTA_AGUA
+const AREA_MAR = +arg('areaMar', 2)        // km², o que separa mar de lago
+const AREA_LAGO = +arg('areaLago', 0.02)   // km², lâmina mínima para encher
+const SECO = (() => {
+  const T = N * N
+  const areaCel = (celM * celM) / 1e6
+  const viz = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+  // 1. os corpos d'água de hoje, para separar mar de lago
+  const corpo4 = new Int32Array(T).fill(-1)
+  const mares = new Set()
+  const areaCorpo = []
+  {
+    const pilha = []
+    let id = 0
+    for (let k0 = 0; k0 < T; k0++) {
+      if (corpo4[k0] >= 0 || H[k0] > COTA_AGUA_SEMENTE) continue
+      let cel = 0
+      pilha.push(k0); corpo4[k0] = id
+      while (pilha.length) {
+        const k = pilha.pop(); cel++
+        const i = k % N, j = (k / N) | 0
+        for (const [di, dj] of viz) {
+          const i2 = i + di, j2 = j + dj
+          if (i2 < 0 || j2 < 0 || i2 >= N || j2 >= N) continue
+          const k2 = j2 * N + i2
+          if (corpo4[k2] >= 0 || H[k2] > COTA_AGUA_SEMENTE) continue
+          corpo4[k2] = id; pilha.push(k2)
+        }
+      }
+      areaCorpo.push(cel * areaCel)
+      if (cel * areaCel >= AREA_MAR) mares.add(id)
+      id++
+    }
+  }
+  // 2. priority-flood a partir da borda e dos mares
+  const SUP = new Float32Array(T).fill(Infinity)
+  const feito = new Uint8Array(T)
+  const hv = new Float64Array(T), hk = new Int32Array(T)
+  let tam = 0
+  const empurra = (v, k) => {
+    let i = tam++; hv[i] = v; hk[i] = k
+    while (i > 0) {
+      const p = (i - 1) >> 1
+      if (hv[p] <= hv[i]) break
+      const a = hv[p]; hv[p] = hv[i]; hv[i] = a
+      const b = hk[p]; hk[p] = hk[i]; hk[i] = b
+      i = p
+    }
+  }
+  const tira = () => {
+    const v0 = hv[0], k0 = hk[0]
+    tam--; hv[0] = hv[tam]; hk[0] = hk[tam]
+    let i = 0
+    for (;;) {
+      const a = 2 * i + 1, b = a + 1
+      let m = i
+      if (a < tam && hv[a] < hv[m]) m = a
+      if (b < tam && hv[b] < hv[m]) m = b
+      if (m === i) break
+      const t1 = hv[m]; hv[m] = hv[i]; hv[i] = t1
+      const t2 = hk[m]; hk[m] = hk[i]; hk[i] = t2
+      i = m
+    }
+    return [v0, k0]
+  }
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const k = j * N + i
+    const borda = i === 0 || j === 0 || i === N - 1 || j === N - 1
+    if (!borda && !mares.has(corpo4[k])) continue
+    SUP[k] = Math.max(H[k], COTA_AGUA_SEMENTE); feito[k] = 1; empurra(SUP[k], k)
+  }
+  while (tam) {
+    const [v, k] = tira()
+    const i = k % N, j = (k / N) | 0
+    for (const [di, dj] of viz) {
+      const i2 = i + di, j2 = j + dj
+      if (i2 < 0 || j2 < 0 || i2 >= N || j2 >= N) continue
+      const k2 = j2 * N + i2
+      if (feito[k2]) continue
+      SUP[k2] = Math.max(H[k2], v); feito[k2] = 1; empurra(SUP[k2], k2)
+    }
+  }
+  // 3. quem NÃO é lago de verdade volta ao nível global
+  const bacia = new Int32Array(T).fill(-1)
+  const relatorio = []
+  {
+    const pilha = []
+    let id = 0
+    for (let k0 = 0; k0 < T; k0++) {
+      if (bacia[k0] >= 0 || SUP[k0] <= H[k0] + 0.5) continue
+      const celulas = []
+      let jaAgua = 0, nivel = SUP[k0], fundo = Infinity, sx = 0, sz = 0
+      pilha.push(k0); bacia[k0] = id
+      while (pilha.length) {
+        const k = pilha.pop(); celulas.push(k)
+        const i = k % N, j = (k / N) | 0
+        sx += i; sz += j
+        nivel = Math.max(nivel, SUP[k]); fundo = Math.min(fundo, H[k])
+        if (H[k] <= COTA_AGUA_SEMENTE) jaAgua++
+        for (const [di, dj] of viz) {
+          const i2 = i + di, j2 = j + dj
+          if (i2 < 0 || j2 < 0 || i2 >= N || j2 >= N) continue
+          const k2 = j2 * N + i2
+          if (bacia[k2] >= 0 || SUP[k2] <= H[k2] + 0.5) continue
+          bacia[k2] = id; pilha.push(k2)
+        }
+      }
+      id++
+      const cx4 = (sx / celulas.length / (N - 1)) * 2 * RAIO - RAIO
+      const cz4 = (sz / celulas.length / (N - 1)) * 2 * RAIO - RAIO
+      const r4 = Math.hypot(cx4, cz4)
+      const vale = jaAgua * areaCel >= AREA_LAGO && r4 <= 9050
+      if (!vale) { for (const k of celulas) SUP[k] = Math.max(H[k], COTA_AGUA_SEMENTE); continue }
+      if (nivel > COTA_AGUA_SEMENTE + 0.5) {
+        relatorio.push({ r: r4, g: ((Math.atan2(cx4, -cz4) * 180) / Math.PI + 360) % 360,
+          antes: jaAgua * areaCel, depois: celulas.length * areaCel, nivel, fundo })
+      }
+    }
+  }
+  relatorio.sort((a, b) => b.depois - a.depois)
+  if (relatorio.length) {
+    console.log(`  LAGOS CHEIOS ATE A SOLEIRA: ${relatorio.length}, de `
+      + `${relatorio.reduce((a, b) => a + b.antes, 0).toFixed(2)} para `
+      + `${relatorio.reduce((a, b) => a + b.depois, 0).toFixed(2)} km2`)
+    for (const l of relatorio.slice(0, 8)) {
+      console.log(`    r ${l.r.toFixed(0).padStart(5)} rumo ${l.g.toFixed(0).padStart(3)}: `
+        + `${l.antes.toFixed(2)} -> ${l.depois.toFixed(2)} km2, espelho ${l.nivel.toFixed(0)} m, `
+        + `${(l.nivel - l.fundo).toFixed(0)} m de profundidade`)
+    }
+  }
+  const out = new Float32Array(T)
+  for (let k = 0; k < T; k++) out[k] = H[k] - SUP[k]     // < 0 = debaixo d'agua
+  return out
+})()
+// a mesma grade responde desenho e decisao: nao ha como as duas divergirem
+const secoEm = (x, z) => {
+  const fi = ((x + RAIO) / (2 * RAIO)) * (N - 1), fj = ((z + RAIO) / (2 * RAIO)) * (N - 1)
+  const i = Math.max(0, Math.min(N - 2, Math.floor(fi))), j = Math.max(0, Math.min(N - 2, Math.floor(fj)))
+  const u = fi - i, v = fj - j
+  return SECO[j * N + i] * (1 - u) * (1 - v) + SECO[j * N + i + 1] * u * (1 - v)
+       + SECO[(j + 1) * N + i] * (1 - u) * v + SECO[(j + 1) * N + i + 1] * u * v
+}
+// ⚠️ O MESMO LIMIAR DO DESENHO, E A DIFERENÇA CUSTOU UM MAPA COM SARAMPO. O
+// contorno da terra usa -0,5 m; esta função usava 0, e aí toda célula de uma
+// depressão de um centímetro — há mais de mil delas no maciço — respondia "isto
+// é água". O resultado foi uma praia e uma viela circular em volta de cada poça,
+// espalhadas pelo tecido inteiro como hexágonos.
+const PROF_MINIMA = 0.5
+const naAgua = (x, z) => secoEm(x, z) < -PROF_MINIMA
+
 // ── marching squares: o contorno da região {altura >= nivel} ────────────────
 // ⚠️ INTERPOLA DENTRO DA CÉLULA. Sem interpolar, a curva sai em degrau de grade e
 // o mapa inteiro vira serrilha, que é exatamente o defeito que a ilha teve.
@@ -133,6 +314,15 @@ function contornoEm(nivel, hFn, MM, pxFn) {
   return encadeia(segs)
 }
 const contorno = (nivel) => contornoEm(nivel, h, M, px)
+// ⚠️ A TERRA NÃO É MAIS {altura >= -40}, É {SECO >= 0}. Com lago em cota própria
+// não existe UMA cota que separe terra de água no mapa inteiro: o mesmo -40 que
+// é margem na baía já é fundo de poço na cratera do rumo 282. A grade de
+// profundidade responde as duas perguntas de uma vez, e desenho e decisão saem
+// dela, então não há como divergirem. O nível -0,5 em vez de 0 é para não pedir
+// contorno de um platô exatamente zero, que é degenerado no marching squares.
+const hSeco = (i, j) => (i === 0 || j === 0 || i === M - 1 || j === M - 1)
+  ? -1e6 : SECO[(j - 1) * N + (i - 1)]
+const contornoTerra = (abaixo = 0.5) => contornoEm(-abaixo, hSeco, M, px)
 
 // ⚠️ ENCADEAR É O QUE FAZ VIRAR CURVA E NÃO CONFETE. Sem isto o SVG teria um
 // `path` de duas pontas por célula, dezenas de milhares deles, e nem o traço
@@ -225,10 +415,10 @@ const disco = `M${cx - rDomePx} ${cy}a${rDomePx} ${rDomePx} 0 1 0 ${2 * rDomePx}
 // cúpula pintado de azul.
 corpo += `<clipPath id="casca"><circle cx="${cx}" cy="${cy}" r="${rDomePx.toFixed(1)}"/></clipPath>\n`
 corpo += '<g clip-path="url(#casca)">\n'
-for (const [nivel, cor, op] of [[COTA_AGUA, AGUA_RASO, 1], [COTA_AGUA - 30, AGUA_FUNDO, 0.92]]) {
-  corpo += `<path d="${disco}${d(contorno(nivel), true)}" fill="${cor}" fill-rule="evenodd" opacity="${op}"/>\n`
+for (const [fundo, cor, op] of [[0.5, AGUA_RASO, 1], [30, AGUA_FUNDO, 0.92]]) {
+  corpo += `<path d="${disco}${d(contornoTerra(fundo), true)}" fill="${cor}" fill-rule="evenodd" opacity="${op}"/>\n`
 }
-corpo += `<path d="${d(contorno(COTA_AGUA), false)}" fill="none" stroke="#7FB9D4" stroke-width="1.6" opacity="0.75"/>\n`
+corpo += `<path d="${d(contornoTerra(), false)}" fill="none" stroke="#7FB9D4" stroke-width="1.6" opacity="0.75"/>\n`
 corpo += '</g>\n'
 
 // ⚠️ OS TRÊS CANAIS RADIAIS SÃO VETOR, NÃO AMOSTRA, e a razão é de resolução.
@@ -299,7 +489,7 @@ if (ORLA || arg('vias', '0') !== '0') {
   for (let j = 0; j < orlaNG; j++) {
     for (let i = 0; i < orlaNG; i++) {
       const x = -RAIO + (i + 0.5) * orlaCEL, z = -RAIO + (j + 0.5) * orlaCEL
-      if (Math.hypot(x, z) <= 9050 && alturaEm(x, z) <= COTA_AGUA) agua[j * orlaNG + i] = 1
+      if (Math.hypot(x, z) <= 9050 && naAgua(x, z)) agua[j * orlaNG + i] = 1
     }
   }
   // ⚠️ O FLOOD FILL NÃO PASSA PELOS CANAIS, e sem isso ele engole a cidade. Os
@@ -435,7 +625,7 @@ if (BAIRROS) {
   corpo += `<pattern id="hach" width="${14 * F}" height="${14 * F}" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">`
     + `<line x1="0" y1="0" x2="0" y2="${14 * F}" stroke="#6E9AB4" stroke-width="${2.2 * F}" opacity="0.55"/></pattern>\n`
   corpo += `<clipPath id="terra" clipPathUnits="userSpaceOnUse">`
-    + `<path d="${d(contorno(COTA_AGUA), true)}" clip-rule="evenodd"/></clipPath>\n`
+    + `<path d="${d(contornoTerra(), true)}" clip-rule="evenodd"/></clipPath>\n`
   const zona = (dd, cor, op) => `<path d="${dd}" fill="${cor}" fill-rule="evenodd" opacity="${op}"/>`
   let manchas = ''
   manchas += zona(coroa(R_PRACA, R_T6), '#AA967A', 0.40)   // tier 6, Diamond Paws
@@ -630,6 +820,8 @@ if (VIAS) {
   // continua valendo inteiro. O parâmetro fica exposto só para a medição poder
   // ser refeita sem editar código.
   const LIMIAR_ACESSO = +arg('ponteAcesso', LIMIAR_PONTE)
+  const LIMIAR_CORTE = +arg('corte', 60)   // m de encosta acima do limite que uma rua vence
+  const LIMD_ORLA = +arg('decliveOrla', 18)  // corniche de borda de lago
   const R0 = +arg('rMalha0', 1420), R1 = +arg('rMalha1', 6900)
   const N_BASE = 12                     // os bulevares, e o dodecágono dos anéis
   const SUB = [8, 16]                   // subdivisões: 96 e 192 radiais
@@ -702,17 +894,26 @@ if (VIAS) {
   // modo: "sem estradas sobre as águas" é ordem do fundador, e o limiar de ponte
   // segue sendo o mesmo. O pior declive volta no retorno para virar número no
   // relatório, porque terraplanagem que ninguém mediu é terraplanagem escondida.
-  const trecho = (p0, p1, limiar, obra = false) => {
+  // ⚠️ `limD` É POR CHAMADA porque a cidade não tem um limite só. Rua de
+  // quarteirão para em 12°; a corniche da orla de lago vence 18°, e é a mesma
+  // via que dá acesso à faixa nobre. O nó da orla já testava 18° e a ARESTA
+  // continuava em 12°: o resultado era isolinha aceita e trecho recusado, ou
+  // seja, nó sem via — que na carta é o toco de 200 m que o fundador viu.
+  const trecho = (p0, p1, limiar, obra = false, limD = LIMD) => {
     const comp = Math.hypot(p1[0] - p0[0], p1[1] - p0[1])
     const n = Math.max(2, Math.ceil(comp / PASSO))
-    let molhadoSeguido = 0, pior = 0, temPonte = false, molhado = 0
+    let molhadoSeguido = 0, pior = 0, temPonte = false, molhado = 0, ingremeSeguido = 0
     let hMin = Infinity, hMax = -Infinity
     for (let t = 0; t <= n; t++) {
       const x = p0[0] + ((p1[0] - p0[0]) * t) / n, z = p0[1] + ((p1[1] - p0[1]) * t) / n
       const r = Math.hypot(x, z), g = ((Math.atan2(x, -z) * 180) / Math.PI + 360) % 360
-      if (naAlca(r, g) && !obra) return null
+      // ⚠️ A ALÇA VETA EM QUALQUER MODO. Obra de arte é licença de DECLIVE, não
+      // passe livre: a alça é a orla nobre e lá a AN7 é o próprio endereço das
+      // mansões, não tem marginal nem rua atrás. MEDIDO: nenhuma das 8 rampas
+      // que chegam à avenida passa pelo arco da alça, então isto não custa nada.
+      if (naAlca(r, g)) return null
       const h = alturaEm(x, z)
-      if (h <= COTA_AGUA) {
+      if (naAgua(x, z)) {
         // canal atravessa-se sempre; o resto obedece ao limiar da classe
         const lim = sobreCanal(x, z) ? Math.max(limiar, LIMIAR_CANAL) : limiar
         molhadoSeguido += comp / n
@@ -723,7 +924,18 @@ if (VIAS) {
         molhadoSeguido = 0
         const d = declEm(x, z)
         pior = Math.max(pior, d)
-        if (!obra && d > LIMD) return null
+        // ⚠️ UM PONTO ÍNGREME NÃO MATA UM QUARTEIRÃO INTEIRO. O teste era tudo ou
+        // nada: qualquer amostra acima do limite derrubava a aresta de 300 m
+        // inteira. MEDIDO no bolsão em volta da cratera (rumos 255° a 310°,
+        // r 5.500 a 6.700): 17% do chão aceita lote, 39% aceita rua e só 32%
+        // passa de 12° — e mesmo assim quase não havia rua ali, porque os 32%
+        // vêm em manchas que cortam toda aresta que as atravessa. A água já era
+        // tratada assim (trecho curto molhado é ponte); encosta curta é CORTE, e
+        // corte de 60 m é obra de rua comum. Acima disso a rua não passa.
+        if (d > limD) {
+          ingremeSeguido += comp / n
+          if (!obra && ingremeSeguido > LIMIAR_CORTE) return null
+        } else ingremeSeguido = 0
         hMin = Math.min(hMin, h); hMax = Math.max(hMax, h)
       }
     }
@@ -744,7 +956,25 @@ if (VIAS) {
     if (!adj.has(b)) adj.set(b, []); adj.get(b).push(k)
   }
   // arestas de anel: entre rumos vizinhos QUE EXISTEM naquele anel
+  // ⚠️ O ANEL MAIS EXTERNO É A MARGINAL, E ELA EXISTE POR REGRA DE PROJETO.
+  // Ordem do fundador em 11/09/2026: "não seria o ideal ligarmos rua comum a
+  // autopista perimetral; a última rua fica a um quarteirão da autopista". Sem
+  // uma via marginal, ou a rua desemboca na AN7 (e a autopista vira avenida de
+  // bairro, com cruzamento a cada 300 m), ou a última fileira de lotes fica sem
+  // chegada. A marginal resolve os dois: ela recolhe o tecido inteiro e entrega
+  // o tráfego aos bulevares, que são os únicos que entram na avenida, e entram
+  // por trevo.
+  //
+  // ⚠️ ELA É OBRA DE ARTE, como as rampas. MEDIDO em 11/09/2026 nos 360 rumos do
+  // dodecágono de vértice 6.697: 167 rumos abaixo de 12°, 82 entre 12° e 20°,
+  // 18 acima de 20° — o trecho difícil é o talude do pódio, de 179° a 300°.
+  // Com o limite comum de 12° a marginal só existia em 68 dos 192 rumos e o
+  // tecido morria a 769 m da avenida (mediana), deixando a faixa de frente sem
+  // rua. Corte e aterro em 300 m de talude é obra ordinária; a ÁGUA continua
+  // vetando, e a alça também.
+  const IA_MARGINAL = ANEIS.length - 1
   ANEIS.forEach((r, ia) => {
+    const marginal = ia === IA_MARGINAL
     const vivos = []
     for (let ir = 0; ir < NR; ir++) if (no.has(chave(ia, ir))) vivos.push(ir)
     for (let t = 0; t < vivos.length; t++) {
@@ -754,8 +984,8 @@ if (VIAS) {
       // paralelas sobre a água, que na carta lê como escada e não como cidade.
       // Ponte é obra de arte, e obra de arte é de via estrutural. Rua de bairro
       // encontra a lâmina e acaba ali, que é o que ela faz no 3D.
-      const res = trecho(no.get(a), no.get(b), 0)
-      if (res) liga(a, b, 'anel', res.ponte)
+      const res = trecho(no.get(a), no.get(b), 0, marginal)
+      if (res) liga(a, b, marginal ? 'marginal' : 'anel', res.ponte)
     }
   })
   // arestas radiais: entre anéis vizinhos
@@ -763,8 +993,25 @@ if (VIAS) {
     for (let ia = 0; ia + 1 < ANEIS.length; ia++) {
       const a = chave(ia, ir), b = chave(ia + 1, ir)
       if (!no.has(a) || !no.has(b)) continue
-      const res = trecho(no.get(a), no.get(b), classeDe(ir) === 'bulevar' ? LIMIAR_PONTE : 0)
-      if (res) liga(a, b, classeDe(ir), res.ponte)
+      // ⚠️ A PERNA QUE SOBE ATÉ A MARGINAL SOBE JUNTO COM ELA. Sem isto a
+      // marginal nascia inteira e órfã: o componente conexo a descartava em
+      // bloco, e o mapa saía igual ao de antes.
+      const ultima = ia + 1 === IA_MARGINAL
+      // ⚠️ BULEVAR NÃO SE INTERROMPE NA MONTANHA: ELE PASSA POR CIMA. O fundador
+      // apontou duas radiais soltas no rumo do maciço — "ou corrija o terreno e
+      // complete, ou coloque um elevado para interligar". MEDIDO no rumo 270: o
+      // maciço sobe de 199 m em r 5.800 a 293 m em r 6.250, com declives de 9° a
+      // 17°, e o limite de 12° partia a radial em dois pedaços entre r 5.505 e
+      // 6.101. Os doze bulevares são via estrutural, e via estrutural vence o
+      // relevo com obra de arte — o mesmo critério que a AN7 e a marginal já
+      // usam. Rua LOCAL continua obedecendo aos 12°: ela serve quarteirão, e
+      // quarteirão não se constrói em talude de 17°.
+      const ehBulevar = classeDe(ir) === 'bulevar'
+      const res = trecho(no.get(a), no.get(b), ehBulevar ? LIMIAR_PONTE : 0, ultima || ehBulevar)
+      if (res) {
+        liga(a, b, classeDe(ir), res.ponte)
+        if (ehBulevar && res.pior > LIMD) arestas[arestas.length - 1].elevado = res.pior
+      }
     }
   }
   // ⚠️ OS 12 BULEVARES SEGUEM ALÉM DO ÚLTIMO ANEL, senão a perimetral não tem o
@@ -808,6 +1055,19 @@ if (VIAS) {
       return orlaDist[(j - 1) * orlaNG + (i - 1)]
     }
     const mundoDist = (i) => -RAIO + (i - 1 + 0.5) * orlaCEL
+    const ORLA_SUBIDA = +arg('orlaSubida', 400)   // m que a via sobe para achar chão
+    const distEm = (x, z) => {
+      const fi = (x + RAIO) / orlaCEL - 0.5, fj = (z + RAIO) / orlaCEL - 0.5
+      const i = Math.max(0, Math.min(orlaNG - 1, Math.round(fi))), j = Math.max(0, Math.min(orlaNG - 1, Math.round(fj)))
+      return orlaDist[j * orlaNG + i]
+    }
+    const gradDist = (x, z) => {
+      const e = orlaCEL
+      const gx = (distEm(x + e, z) - distEm(x - e, z)) / (2 * e)
+      const gz = (distEm(x, z + e) - distEm(x, z - e)) / (2 * e)
+      const m = Math.hypot(gx, gz)
+      return m > 1e-6 ? [gx / m, gz / m] : null
+    }
     const linhas = contornoEm(ORLA_VIA_R, hDist, orlaNG + 2, mundoDist)
     const PASSO_ORLA = 120
     let base = 1e6                       // chaves da orla fora do espaço da teia
@@ -838,12 +1098,40 @@ if (VIAS) {
         // construir.
         const rq = Math.hypot(q[0], q[1])
         const gq = ((Math.atan2(q[0], -q[1]) * 180) / Math.PI + 360) % 360
-        const seco = alturaEm(q[0], q[1]) > COTA_AGUA && declEm(q[0], q[1]) <= LIMD
-        if (rq > 9050 || naAlca(rq, gq) || !seco) { anterior = null; continue }
+        // ⚠️ 140 m DA ÁGUA É REGRA DE BAÍA, E NUMA CRATERA ISSO CAI NA PAREDE.
+        // O fundador apontou: "esse lago em particular ainda não está integrado
+        // aos bairros de fato". MEDIDO na faixa de orla da cratera do rumo 282,
+        // 265 m terra adentro em 72 rumos: 7% aceita lote, 27% aceita rua e 66%
+        // passa de 12°. A isolinha fixa nascia dentro desses 66% e dois terços
+        // dos nós eram recusados; sobrava um toco de 200 m.
+        //
+        // A correção não é afrouxar o limite, é a via SUBIR. Onde o chão da
+        // isolinha não serve, o nó caminha para longe da água — subindo o talude
+        // pelo gradiente do campo de distância — até achar a primeira cota
+        // construível, em até 400 m. Na baía, onde o chão já serve, nada muda e
+        // a via continua a 140 m da lâmina. Na cratera ela sai da parede e vai
+        // para a CRISTA, que é onde uma cidade de lago se instala de verdade.
+        // O limite de 18° continua valendo como último recurso: corniche corta
+        // talude, mas não anda em parede.
+        let qq = q
+        if (!naAgua(qq[0], qq[1]) && declEm(qq[0], qq[1]) > LIMD) {
+          const g0 = gradDist(qq[0], qq[1])
+          if (g0) {
+            for (let passo = 20; passo <= ORLA_SUBIDA; passo += 20) {
+              const alvo = [q[0] + g0[0] * passo, q[1] + g0[1] * passo]
+              if (naAgua(alvo[0], alvo[1])) break
+              if (declEm(alvo[0], alvo[1]) <= LIMD) { qq = alvo; break }
+            }
+          }
+        }
+        const rqq = Math.hypot(qq[0], qq[1])
+        const gqq = ((Math.atan2(qq[0], -qq[1]) * 180) / Math.PI + 360) % 360
+        const seco = !naAgua(qq[0], qq[1]) && declEm(qq[0], qq[1]) <= LIMD_ORLA
+        if (rqq > 9050 || naAlca(rqq, gqq) || !seco) { anterior = null; continue }
         const k = base++
-        no.set(k, q); pai.set(k, k); nosDaOrla.push(k); desteGrupo.push(k); nosOrla++
+        no.set(k, qq); pai.set(k, k); nosDaOrla.push(k); desteGrupo.push(k); nosOrla++
         if (anterior !== null) {
-          const res = trecho(no.get(anterior), q, 0)
+          const res = trecho(no.get(anterior), qq, 0, false, LIMD_ORLA)
           if (res) liga(anterior, k, 'orla', !!res.ponte)
         }
         anterior = k
@@ -874,7 +1162,7 @@ if (VIAS) {
           const jaLigado = arestas.some((e) => e.viva
             && ((e.a === A && e.b === B) || (e.a === B && e.b === A)))
           if (jaLigado) continue
-          const res = trecho(pa, pb, 0)
+          const res = trecho(pa, pb, 0, false, LIMD_ORLA)
           if (res) { liga(A, B, 'orla', !!res.ponte); emendas++ }
         }
       }
@@ -1038,6 +1326,28 @@ if (VIAS) {
   // esconde a radial que falta. Com 1.800 os OITO rumos de terra chegam; os
   // quatro que sobram (0°, 30°, 60°, 90°) não param por teto nenhum, param
   // porque entre eles e a avenida há de 1,4 a 2,7 km de baía aberta.
+  // ── ONDE A BORDA DO TECIDO ESTÁ, POR RUMO ─────────────────────────────────
+  // diagnóstico: quanto falta da última rua até a autopista, rumo a rumo
+  {
+    const vivoEm2 = new Set()
+    for (const e of arestas) if (e.viva) { vivoEm2.add(e.a); vivoEm2.add(e.b) }
+    const faltas = []
+    for (let ir = 0; ir < NR; ir += 4) {
+      let melhor = 0
+      for (let ia = ANEIS.length - 1; ia >= 0; ia--) {
+        const k = chave(ia, ir)
+        if (no.has(k) && vivoEm2.has(k) && acha(k) === acha(raiz)) { melhor = raioNaFace(ANEIS[ia], rumoDe(ir)); break }
+      }
+      faltas.push({ g: rumoDe(ir), r: melhor, falta: AN7_R_BASE - melhor })
+    }
+    const comTecido = faltas.filter((f) => f.r > 0)
+    const ord = [...comTecido].sort((a, b) => a.falta - b.falta)
+    const med = ord[Math.floor(ord.length / 2)].falta
+    console.log(`    BORDA DO TECIDO: ${comTecido.length} de ${faltas.length} rumos com malha; falta ate a AN7 mediana ${med.toFixed(0)} m, min ${ord[0].falta.toFixed(0)}, max ${ord[ord.length-1].falta.toFixed(0)}`)
+    const longe = ord.filter((f) => f.falta > 700)
+    if (longe.length) console.log(`      ${longe.length} rumos a mais de 700 m (baia): ${longe.slice(-6).map((f) => `${f.g.toFixed(0)}°/${f.falta.toFixed(0)}m`).join(' ')}`)
+  }
+
   const RAMPA_MAX = +arg('rampaAcesso', 1800)
   const terminaNaAN7 = new Set()   // ponta que morre NA avenida: chegada, não beco
   const chegouAN7 = new Set()      // rumos em que a radial de fato encostou
@@ -1120,13 +1430,42 @@ if (VIAS) {
       let seguido = 0, pior = 0
       for (let t = 0; t <= n; t++) {
         const x = p0[0] + ((p1[0] - p0[0]) * t) / n, z = p0[1] + ((p1[1] - p0[1]) * t) / n
-        if (alturaEm(x, z) <= COTA_AGUA) { seguido += comp / n; pior = Math.max(pior, seguido) }
+        if (naAgua(x, z)) { seguido += comp / n; pior = Math.max(pior, seguido) }
         else seguido = 0
       }
       if (pior > 0) molhTotal++
       if (pior > VAO_MAX) { e.viva = false; cortadas++ }
     }
     console.log(`    via sobre agua: ${molhTotal} arestas molhadas, ${cortadas} cortadas por vao > ${VAO_MAX} m`)
+  }
+
+  // ── A FAIXA LIVRE DA AUTOPISTA ────────────────────────────────────────────
+  // ⚠️ ENCHER OS LAGOS PÔS A ORLA EM CIMA DA AN7. A cratera do rumo 282 subiu de
+  // 0,17 para 1,02 km² e a margem nova encostou na avenida: a via de orla, cinco
+  // ramais e uma costura entraram na faixa da autopista, uma delas a 2 m do eixo.
+  // Nenhuma dessas rotinas sabe o que é autopista — a orla segue a água, a
+  // costura procura o nó mais próximo — então a regra tem de ser aplicada aqui,
+  // uma vez, sobre o que já existe. Só BULEVAR (que entra por trevo) e a
+  // MARGINAL (que corre a um quarteirão) atravessam a faixa.
+  const FAIXA_AN7 = +arg('faixaAN7', 150)
+  const invadeAN7 = (p0, p1) => {
+    const comp = Math.hypot(p1[0] - p0[0], p1[1] - p0[1])
+    const n2 = Math.max(2, Math.ceil(comp / 25))
+    for (let t = 0; t <= n2; t++) {
+      const x = p0[0] + ((p1[0] - p0[0]) * t) / n2, z = p0[1] + ((p1[1] - p0[1]) * t) / n2
+      const g = ((Math.atan2(x, -z) * 180) / Math.PI + 360) % 360
+      if (g >= 340 || g <= 122) continue          // na alça a avenida é o endereço
+      if (Math.abs(Math.hypot(x, z) - AN7_R_BASE) < FAIXA_AN7) return true
+    }
+    return false
+  }
+  {
+    let cortadas = 0
+    for (const e of arestas) {
+      if (!e.viva || e.cls === 'bulevar' || e.cls === 'marginal') continue
+      if (invadeAN7(no.get(e.a), no.get(e.b))) { e.viva = false; cortadas++ }
+    }
+    console.log(`    faixa livre da AN7: ${cortadas} arestas cortadas (${FAIXA_AN7} m de cada lado)`)
   }
 
   // ── poda de grau 1, repetida até estabilizar ──────────────────────────────
@@ -1211,7 +1550,10 @@ if (VIAS) {
       // ponta que morre à beira d'água ou no pé de uma encosta é rejeitada pelo
       // mesmo terreno que a deixou encalhada ali. Se a distância é de esquina, a
       // cidade constrói a esquina: ponte curta ou corte, é obra de rotina.
-      if (melhor !== null && dist <= FECHA_MAX) {
+      // ⚠️ PERMISSIVO NÃO É CEGO: a faixa livre da autopista continua valendo.
+      // O fecho roda DEPOIS do corte da faixa, e sem esta linha ele reabre na
+      // mão o que o corte acabou de tirar.
+      if (melhor !== null && dist <= FECHA_MAX && !invadeAN7(p, no.get(melhor))) {
         const res = trecho(p, no.get(melhor), Math.max(LIMIAR_PONTE, dist))
         liga(k, melhor, 'ramal', !!(res && res.ponte))
         arestas[arestas.length - 1].viva = true
@@ -1256,6 +1598,34 @@ if (VIAS) {
       const r = Math.hypot(b.x, b.z), g = ((Math.atan2(b.x, -b.z) * 180) / Math.PI + 360) % 360
       console.log(`      ${b.cls.padEnd(8)} r ${r.toFixed(0).padStart(5)} rumo ${g.toFixed(1).padStart(5)}  a ${b.dist.toFixed(0)} m do no mais proximo`)
     }
+  }
+
+  // ── A REGRA DA AUTOPISTA: RUA COMUM NÃO ENCOSTA NA AN7 ────────────────────
+  // ⚠️ ISTO É AUDITORIA, NÃO ENFEITE. "Não seria o ideal ligarmos rua comum a
+  // autopista perimetral" só é verdade se alguém medir: basta uma costura, um
+  // fecho de ponta ou um ramal de orla chegar perto para a avenida virar via de
+  // bairro sem ninguém perceber. Só o BULEVAR pode tocar a AN7, e mesmo ele só
+  // pelo trevo. Na alça a regra não vale: lá a avenida é o endereço das mansões.
+  {
+    let pior = Infinity, quem = null, encostam = 0
+    for (const e of arestas) {
+      if (!e.viva || e.cls === 'bulevar') continue
+      const p0 = no.get(e.a), p1 = no.get(e.b)
+      const n2 = Math.max(2, Math.ceil(Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) / 25))
+      // ⚠️ O MÍNIMO É POR ARESTA. Acumulando num `pior` global, a primeira aresta
+      // que chegasse perto contaminava todas as seguintes e o relatório acusou
+      // 1.339 infrações onde havia um punhado.
+      let dEsta = Infinity
+      for (let t = 0; t <= n2; t++) {
+        const x = p0[0] + ((p1[0] - p0[0]) * t) / n2, z = p0[1] + ((p1[1] - p0[1]) * t) / n2
+        const g = ((Math.atan2(x, -z) * 180) / Math.PI + 360) % 360
+        if (g >= 340 || g <= 122) continue             // arco da alça: a AN7 é o endereço
+        dEsta = Math.min(dEsta, Math.abs(Math.hypot(x, z) - AN7_R_BASE))
+      }
+      if (dEsta < pior) { pior = dEsta; quem = e.cls }
+      if (dEsta < 120) encostam++
+    }
+    console.log(`    REGRA DA AUTOPISTA: rua comum mais proxima da AN7 a ${pior.toFixed(0)} m (classe ${quem}); ${encostam} arestas a menos de 120 m`)
   }
 
   // ⚠️ AUDITORIA DE COMPRIMENTO. Toda rotina que "liga" aqui tem um alcance
@@ -1316,6 +1686,37 @@ if (VIAS) {
   // como é numa cidade de verdade.
   const dBul = dDe(vivas.filter((e) => e.cls === 'bulevar'))
   const dAnelOrla = dDe(vivas.filter((e) => e.cls === 'orla'))
+  // ⚠️ A MARGINAL TEM CALIBRE PRÓPRIO, entre a rua local e o bulevar. Ela não é
+  // rua de quarteirão (recolhe o tecido inteiro no encontro com a autopista) nem
+  // é bulevar (não vai a lugar nenhum, corre em paralelo à AN7). Desenhada como
+  // local, o leitor não vê que existe uma via ali e volta a achar que a rua
+  // desemboca na avenida.
+  const dMarginal = dDe(vivas.filter((e) => e.cls === 'marginal'))
+  // ⚠️ O ELEVADO DE BULEVAR GANHA O MESMO SÍMBOLO DA AN7: traço perpendicular de
+  // apoio. Sem ele o leitor vê uma avenida atravessando uma encosta de 17° como
+  // se fosse chão plano, que é mentira de carta.
+  const elevados = vivas.filter((e) => e.elevado)
+  {
+    const km = elevados.reduce((a, e) => {
+      const p0 = no.get(e.a), p1 = no.get(e.b)
+      return a + Math.hypot(p1[0] - p0[0], p1[1] - p0[1])
+    }, 0) / 1000
+    const pior = elevados.reduce((m, e) => Math.max(m, e.elevado ?? 0), 0)
+    console.log(`    ELEVADO DE BULEVAR: ${elevados.length} tramos, ${km.toFixed(1)} km, encosta mais ingreme ${pior.toFixed(0)}°`)
+  }
+  let dApoio = ''
+  for (const e of elevados) {
+    const p0 = no.get(e.a), p1 = no.get(e.b)
+    const comp = Math.hypot(p1[0] - p0[0], p1[1] - p0[1])
+    const ux = (p1[0] - p0[0]) / comp, uz = (p1[1] - p0[1]) / comp
+    const n2 = Math.max(1, Math.round(comp / 150))
+    for (let t = 0; t < n2; t++) {
+      const f = (t + 0.5) / n2
+      const q = [p0[0] + (p1[0] - p0[0]) * f, p0[1] + (p1[1] - p0[1]) * f]
+      const meia = 62
+      dApoio += `M${PX([q[0] + uz * meia, q[1] - ux * meia])}L${PX([q[0] - uz * meia, q[1] + ux * meia])}`
+    }
+  }
   const dPonte = dDe(vivas.filter((e) => e.ponte))
   corpo += `<g clip-path="url(#casca)">`
     // casing só nas largas: em rua de 1,7 px o contorno come a própria via
@@ -1323,7 +1724,10 @@ if (VIAS) {
     + `<path d="${dBul}" fill="none" stroke="#14100A" stroke-width="${lg(66).toFixed(2)}" opacity="0.5" stroke-linecap="round"/>`
     + `<path d="${dLocal}" fill="none" stroke="${VIA_COR}" stroke-width="${lg(15).toFixed(2)}" opacity="0.82" stroke-linecap="round"/>`
     + `<path d="${dRamal}" fill="none" stroke="${VIA_COR}" stroke-width="${lg(26).toFixed(2)}" opacity="0.9" stroke-linecap="round"/>`
+    + `<path d="${dMarginal}" fill="none" stroke="${VIA_COR}" stroke-width="${lg(30).toFixed(2)}" opacity="0.92" stroke-linecap="round"/>`
+    + `<path d="${dApoio}" fill="none" stroke="#14100A" stroke-width="${lg(13).toFixed(2)}" opacity="0.6" stroke-linecap="butt"/>`
     + `<path d="${dBul}" fill="none" stroke="${VIA_COR}" stroke-width="${lg(42).toFixed(2)}" opacity="0.92" stroke-linecap="round"/>`
+    + `<path d="${dApoio}" fill="none" stroke="${VIA_COR}" stroke-width="${lg(7).toFixed(2)}" opacity="0.9" stroke-linecap="butt"/>`
     + `<path d="${dAnelOrla}" fill="none" stroke="${VIA_COR}" stroke-width="${lg(60).toFixed(2)}" opacity="0.96" stroke-linecap="round"/>`
     + (dPonte ? `<path d="${dPonte}" fill="none" stroke="${VIA_COR}" stroke-width="${lg(24).toFixed(2)}" opacity="0.95" stroke-dasharray="${7 * F} ${5 * F}"/>` : '')
     + `</g>\n`
@@ -1676,7 +2080,7 @@ mob += `<path d="M${nx} ${ny - 42 * F}L${nx + 13 * F} ${ny + 12 * F}L${nx} ${ny}
 // a legenda
 // ⚠️ A CAIXA CRESCE COM O NÚMERO DE VERBETES, e ela já estourou uma vez: ao
 // entrar o viaduto, a linha de RELIEF saiu por baixo do véu.
-const N_VERBETES = 16 + (an7TemTunel ? 1 : 0)
+const N_VERBETES = 17 + (an7TemTunel ? 1 : 0)
 const ALT_LEG = (N_VERBETES * 26 + 80) * F
 const lx = LADO - m - 260 * F, ly = LADO - m - ALT_LEG
 mob += veu(lx - 22 * F, ly - 34 * F, 282 * F, ALT_LEG)
@@ -1700,9 +2104,10 @@ mob += verbete('PROJECT LAND', chip('url(#hach)', 0.9))
 mob += verbete('AN7 · PERIMETER', tracinho('#FFF2DC', 6))
 mob += verbete('SHORE ROAD', tracinho('#F0E2C8', 4))
 mob += verbete('BOULEVARDS', tracinho('#F0E2C8', 3.6))
+mob += verbete('FRONTAGE ROAD', tracinho('#F0E2C8', 2.6))
 mob += verbete('STREETS', tracinho('#F0E2C8', 1.6))
 mob += verbete('BRIDGE', tracinho('#F0E2C8', 2.5, `${7 * F} ${5 * F}`))
-mob += verbete('AN7 · VIADUCT', (y) => `<line x1="${lx + 196 * F}" y1="${y - 5 * F}" x2="${lx + 230 * F}" y2="${y - 5 * F}" stroke="#FFF2DC" stroke-width="${6 * F}"/>`
+mob += verbete('VIADUCT', (y) => `<line x1="${lx + 196 * F}" y1="${y - 5 * F}" x2="${lx + 230 * F}" y2="${y - 5 * F}" stroke="#FFF2DC" stroke-width="${6 * F}"/>`
   + [0, 1, 2].map((i) => `<line x1="${lx + (203 + i * 10) * F}" y1="${y - 10 * F}" x2="${lx + (203 + i * 10) * F}" y2="${y}" stroke="#FFF2DC" stroke-width="${1.4 * F}"/>`).join(''))
 // ⚠️ VERBETE DE OBRA QUE NÃO EXISTE É RUÍDO. Com o greide em envelope superior a
 // AN7 zerou o túnel; a linha só volta se uma geração futura voltar a escavar.
