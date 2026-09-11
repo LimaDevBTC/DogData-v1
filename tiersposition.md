@@ -306,6 +306,41 @@ o masterplan §2; o dono confirmou a regra em vez de criar outra.
 Ou seja **44% do Grupo já tinha destino escrito** antes desta rodada. A ordenação só importa
 para as 31.092 acima de 20k, que é onde estão 53,26B e as 631 carteiras com 10M+.
 
+### 3.6 — A regra de precedência: o tier decide o anel (🔒 2026-09-10)
+
+**DECIDIDO. O TIER DECIDE O ANEL; O CRITÉRIO PRÓPRIO DO TIER ORDENA DENTRO DO ANEL.**
+
+Fecha a única lacuna que sobrava: o tier 6 e o Grupo acima de 20k ocupam o mesmo tecido e
+os dois ordenam "do centro para fora", mas por campos diferentes (intensidade de uso contra
+`position_score`). Sem esta regra, não havia resposta para quem fica mais perto entre um
+Diamond Paws de 1 transação e uma carteira do Grupo cujo UTXO de 20k é do dia do airdrop.
+
+⚠️ **E ISSO RESOLVE UMA CONTRADIÇÃO COM O MASTERPLAN.** O §9 de lá travou em 2026-07-10
+"**20k como metro único de posição**", e a regra de intensidade do tier 6 (§3.4) é um
+segundo metro. Com a precedência acima os dois convivem sem se anular: o `position_score`
+continua sendo o metro único **ENTRE** carteiras comparáveis, e a intensidade só desempata
+**DENTRO** do tier 6. É o mesmo princípio que a alça já usava desde o §3.2: o tier diz o
+bairro, um campo do próprio tier diz o endereço.
+
+**O mapa que sai disso**, com a cidade inteira colocada:
+
+| grupo | carteiras | onde |
+|---|---|---|
+| tiers 1 a 3 | 445 | alça, r 6.950, fora do tecido |
+| tiers 4 e 5 | 2.062 | orla interna da baía, r ~5.500, fora do tecido |
+| tier 6 Diamond Paws | 19.289 | tecido, do centro para fora |
+| Grupo ≥ 20k | 31.092 | tecido, depois do tier 6 |
+| Grupo < 20k | 32.893 | periferia, sem ordem |
+| infraestrutura | 15 | lote como qualquer carteira |
+| **total** | **85.796** | (a cidade tem 85.795; 1 endereço rotulado também tem tier) |
+
+⚠️ **OS RAIOS SÃO CONSEQUÊNCIA, NÃO DECISÃO.** Projetando a densidade de hoje (351 m² por
+lote, 52% da área bruta virando lote) sobre a terra livre medida, a sequência cai em r 1.000
+a 2.569 (tier 6), 2.569 a 4.251 (Grupo ≥ 20k) e 4.251 a 5.448 (periferia), ou seja **a
+cidade inteira cabe dentro de r 5.448 com a abóbada em 9.050**. Esses números servem para
+provar que cabe e para dimensionar; eles mudam junto com a densidade e **não são lote
+demarcado** (ver o aviso do topo deste arquivo). O que está decidido é a ORDEM.
+
 ---
 
 ## 4. Pendências abertas
@@ -418,3 +453,7 @@ Quando for reconstruir, o gerador precisa:
 - **2026-09-10** — fechado P8: `assignDistrict` marcada como legado (sem mudar
   comportamento), `getTierLabel` deduplicado em `lib/dog/size-tiers.ts` e as descrições de
   rank trocadas por faixa de DOG. `tsc --noEmit` limpo.
+- **2026-09-10** — §3.6: o tier decide o anel e o critério próprio ordena dentro dele,
+  fechando a colisão entre o tier 6 e o Grupo no tecido e conciliando a intensidade com o
+  "20k como metro único de posição" do masterplan. Com isso **toda carteira da cidade tem
+  lugar**.

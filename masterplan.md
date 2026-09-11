@@ -555,3 +555,21 @@ PLANOS**. O `gerar_bairros.py` para em `R_SITIO = 3.500` e usa 18,59 km². A ter
 comporta 365 mil lotes contra 85.795 carteiras. **O limite nunca foi falta de terra, é o
 raio do gerador**, e isso revoga a nota anterior que tratava o tecido como bloqueio para
 Diamond Paws.
+
+🔒 **2026-09-10, dono: o tier decide o anel, o critério do tier ordena dentro.** Regra de
+precedência que fecha a atribuição da cidade inteira. Ela era necessária porque o tier 6
+(§3.4 de `tiersposition.md`, ordenado por intensidade de uso) e o Grupo acima de 20k
+(ordenado por `position_score`) ocupam o MESMO tecido e ambos crescem do centro para fora.
+
+⚠️ **E ELA CONCILIA UM CONFLITO COM ESTE PRÓPRIO §9.** A rodada de 2026-07-10 travou "20k
+como metro único de posição"; a intensidade do tier 6 é um segundo metro. Com a precedência,
+o `position_score` segue sendo o metro único **ENTRE** carteiras comparáveis e a intensidade
+só desempata **DENTRO** do tier 6, então nenhuma das duas decisões cai.
+
+**A cidade fica assim, e toda carteira tem lugar:** tiers 1 a 3 na alça (445), tiers 4 e 5
+na orla interna da baía (2.062), tier 6 no tecido do centro para fora (19.289), Grupo acima
+de 20k no tecido em seguida (31.092), Grupo abaixo de 20k na periferia sem ordem (32.893) e
+a infraestrutura com lote como qualquer carteira (15). **MEDIDO:** projetando a densidade de
+hoje sobre a terra livre, a cidade inteira cabe dentro de **r 5.448**, com a abóbada em
+9.050. ⚠️ Os raios são consequência da densidade e servem para dimensionar; não são lote
+demarcado.
