@@ -58,6 +58,37 @@ const H = new Float32Array(N * N)
 for (let i = 0; i < N * N; i++) H[i] = buf.readFloatLE(i * 4)
 
 const COTA_AGUA = +arg('agua', -40)
+// ═══════════════════════════════════════════════════════════════════════════
+// O MINIMAPA (--minimapa=1): A MESMA CIDADE, SEM O RELEVO E SEM A LEITURA.
+//
+// Ele existe para duas coisas ao mesmo tempo, e as duas pedem o mesmo desenho:
+// o minimapa do jogo, que abre num canto da tela com 250 px, e a INSCRIÇÃO PAI
+// de todas as escrituras de lote.
+//
+// ⚠️ E O QUE MANDA AQUI É UM TETO DURO, NÃO O GOSTO. Transação padrão tem 400.000
+// weight units e byte de witness vale 1 WU, então o payload de uma inscrição para
+// em torno de 390 KB. MEDIDO no `mapa-topo.svg` de 4.429 KB:
+//
+//     relevo: bandas hipsometricas   1.758 KB   39,7%
+//     relevo: curvas de nivel        1.754 KB   39,6%
+//     vias                             225 KB    5,1%
+//     agua                             167 KB    3,8%
+//     manchas de tier                  168 KB    3,8%
+//     texto + fonte embutida            44 KB    1,0%
+//
+// Tirar texto e cor de tier, que foi o pedido, economiza 212 KB de 4.429. O peso
+// é o RELEVO, 79,3%, e é ele que sai. A carta inteira não cabe numa inscrição de
+// jeito nenhum; esta versão cabe com folga.
+//
+// ⚠️ SEM COR DE TIER ELE DEIXA DE SER O PLANO DOS BAIRROS E VIRA A PLANTA DO
+// SÍTIO, e essa é a razão forte para ele ser o pai. Bairro muda, coorte muda, o
+// lote nasce no snapshot. Chão, água, abóbada e rede viária não mudam. Um pai
+// que envelhece não tem conserto: ele é o pai para sempre.
+//
+// ⚠️ ELE NÃO É UM ARQUIVO SEPARADO, É UMA BANDEIRA DESTE GERADOR. Desenhado por
+// um script próprio, ele divergiria do mapa grande no primeiro ajuste de via, e
+// aí a cadeia e o jogo mostrariam cidades diferentes.
+const MINI = arg('minimapa', '0') !== '0'
 const F = LADO / 2400   // fator, para o desenho escalar junto
 // ⚠️ A GRADE É EMOLDURADA POR UMA BORDA BAIXA, E SEM ISSO O MAPA SAI RASGADO.
 // Marching squares só devolve laço FECHADO quando a região não toca a borda do
@@ -366,8 +397,13 @@ function encadeia(segs) {
   return linhas
 }
 
+// ⚠️ CASA DECIMAL É BYTE, E NA INSCRIÇÃO BYTE É DINHEIRO. Na carta impressa a
+// décima de pixel importa; no minimapa, a 16,7 m por pixel, ela descreve 1,67 m
+// de lua e ninguém vê. Coordenada inteira corta cerca de um quinto do arquivo
+// sem mudar um traço visível.
+const CASAS = MINI ? 0 : 1
 const d = (linhas, fechar) => linhas.map((l) =>
-  'M' + l.map((p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join('L') + (fechar ? 'Z' : '')).join('')
+  'M' + l.map((p) => `${p[0].toFixed(CASAS)} ${p[1].toFixed(CASAS)}`).join('L') + (fechar ? 'Z' : '')).join('')
 
 // ── a paleta: linguagem escura de mapa de lote, a do resto do produto ───────
 // Terra do fundo do vale ao cume, escura para clara. Sem verde (reservado a
@@ -388,7 +424,7 @@ let corpo = ''
 // 1. bandas de terra, empilhadas de baixo para cima. TODAS as cotas, inclusive as
 //    abaixo da lâmina: fora da cúpula não existe água, existe regolito seco, e a
 //    primeira geração pintou o mapa inteiro de azul por ter esquecido disso.
-const bandas = niveis
+const bandas = MINI ? [] : niveis
 bandas.forEach((v, k) => {
   const cor = TERRA[Math.min(TERRA.length - 1, Math.floor((k / bandas.length) * TERRA.length))]
   const ls = contorno(v)
@@ -415,10 +451,21 @@ const disco = `M${cx - rDomePx} ${cy}a${rDomePx} ${rDomePx} 0 1 0 ${2 * rDomePx}
 // cúpula pintado de azul.
 corpo += `<clipPath id="casca"><circle cx="${cx}" cy="${cy}" r="${rDomePx.toFixed(1)}"/></clipPath>\n`
 corpo += '<g clip-path="url(#casca)">\n'
-for (const [fundo, cor, op] of [[0.5, AGUA_RASO, 1], [30, AGUA_FUNDO, 0.92]]) {
+// ⚠️ NO MINIMAPA A ÁGUA É PINTADA UMA VEZ SÓ. MEDIDO na primeira geração: a
+// lâmina rasa, a banda funda e o traço de costa somavam 256 KB de 460, mais da
+// metade do arquivo, para desenhar o mesmo corpo d'água três vezes. Num quadrado
+// de 250 px a profundidade não se lê e o contorno de 1,6 px encosta no próprio
+// preenchimento. Uma lâmina chapada dá a silhueta, que é o que um minimapa é.
+// ⚠️ NO MINIMAPA A TERRA PRECISA DE TOM PRÓPRIO. Sem ele o chão da cidade e o
+// vazio de fora da abóbada ficam os dois pretos, e o sítio some: sobra a água
+// azul flutuando num nada, sem contorno de onde a cidade acaba. Um degrau
+// mínimo acima do fundo já resolve, e é um path só (o disco da casca).
+if (MINI) corpo += `<path d="${disco}" fill="#14120E"/>\n`
+const CAMADAS_AGUA = MINI ? [[0.5, AGUA_RASO, 1]] : [[0.5, AGUA_RASO, 1], [30, AGUA_FUNDO, 0.92]]
+for (const [fundo, cor, op] of CAMADAS_AGUA) {
   corpo += `<path d="${disco}${d(contornoTerra(fundo), true)}" fill="${cor}" fill-rule="evenodd" opacity="${op}"/>\n`
 }
-corpo += `<path d="${d(contornoTerra(), false)}" fill="none" stroke="#7FB9D4" stroke-width="1.6" opacity="0.75"/>\n`
+if (!MINI) corpo += `<path d="${d(contornoTerra(), false)}" fill="none" stroke="#7FB9D4" stroke-width="1.6" opacity="0.75"/>\n`
 corpo += '</g>\n'
 
 // ⚠️ OS TRÊS CANAIS RADIAIS SÃO VETOR, NÃO AMOSTRA, e a razão é de resolução.
@@ -855,25 +902,33 @@ if (BAIRROS) {
     // guardado para pintar DEPOIS das manchas: ver a nota logo abaixo
     var orlaPronta = orla
   }
-  corpo += `<g clip-path="url(#terra)">${manchas}</g>\n`
+  // ⚠️ O MINIMAPA RODA COM AS MESMAS BANDEIRAS DO MAPA GRANDE E SUPRIME AQUI, e
+  // não rodando com `--bairros=0`. A primeira geração fez o contrário e a REDE
+  // saiu diferente: 6 radiais chegando à AN7 em vez de 8, porque desligar os
+  // bairros muda o que o grafo enxerga. Minimapa que mostra outra cidade é pior
+  // que minimapa nenhum, então ele desenha a MESMA cidade e só deixa de PINTAR
+  // a leitura por cima dela.
+  if (!MINI) corpo += `<g clip-path="url(#terra)">${manchas}</g>\n`
   // ⚠️ A ORLA VAI POR CIMA DOS ANÉIS DE BAIRRO, e a ordem invertida foi o motivo
   // de ela quase não aparecer na carta: pintada antes, os anéis do tecido, do
   // Grupo e da periferia passavam por cima e só sobrava o naco que calhava de
   // cair fora deles. A faixa junto à água tem precedência sobre o anel que a
   // atravessa, porque é ela que define o endereço ali.
-  if (typeof orlaPronta === 'string') corpo += `<g clip-path="url(#terra)">${orlaPronta}</g>\n`
+  if (!MINI && typeof orlaPronta === 'string') corpo += `<g clip-path="url(#terra)">${orlaPronta}</g>\n`
 }
 
 // 3. as curvas finas, e depois as mestras por cima
 let finas = '', mestras = ''
-for (const v of niveis) {
+for (const v of (MINI ? [] : niveis)) {
   const ls = contorno(v)
   if (!ls.length) continue
   if (v % MESTRA === 0) mestras += d(ls, false)
   else finas += d(ls, false)
 }
-corpo += `<path d="${finas}" fill="none" stroke="${CURVA}" stroke-width="1" opacity="0.30"/>\n`
-corpo += `<path d="${mestras}" fill="none" stroke="${CURVA_MESTRA}" stroke-width="2" opacity="0.60"/>\n`
+if (!MINI) {
+  corpo += `<path d="${finas}" fill="none" stroke="${CURVA}" stroke-width="1" opacity="0.30"/>\n`
+  corpo += `<path d="${mestras}" fill="none" stroke="${CURVA_MESTRA}" stroke-width="2" opacity="0.60"/>\n`
+}
 
 // ── A MALHA VIÁRIA (--vias=1) ───────────────────────────────────────────────
 // ⚠️ ELA É GERADA AQUI, NÃO LIDA DE `cidade-malha.json`. Três rodadas tentaram
@@ -1943,15 +1998,27 @@ if (VIAS) {
   // ── desenho ───────────────────────────────────────────────────────────────
   const PX = (q) => `${mundoPx(q[0]).toFixed(1)} ${mundoPx(q[1]).toFixed(1)}`
   const dDe = (lista) => lista.map((e) => `M${PX(no.get(e.a))}L${PX(no.get(e.b))}`).join('')
-  const lg = (m) => Math.max(0.6 * F, (m / (2 * RAIO)) * LADO)
+  // ⚠️ NO MINIMAPA A LARGURA TEM PISO MAIOR, e a razão é que ele é visto
+  // pequeno. A largura sai de METROS DE VIA, que é o certo para uma carta: a AN7
+  // tem 44 m e num quadrado de 250 px isso dá meio pixel. A hierarquia por
+  // espessura continua valendo (a autopista é a mais grossa, o bulevar vem
+  // depois), mas o piso sobe para o traço não sumir na tela do jogo.
+  const PISO_MINI = +arg('minimapaTraco', 2.6)
+  const lg = (m) => Math.max(MINI ? PISO_MINI * F : 0.6 * F, (m / (2 * RAIO)) * LADO * (MINI ? 2.2 : 1))
   // ⚠️ UMA COR SÓ PARA TODA A REDE, e a hierarquia sai da LARGURA. Foi pedido do
   // fundador e é o que carta de estrada faz: a via importante não é de outra cor,
   // é mais grossa. Pintando rua local de escuro e bulevar de claro, a peça
   // passava a ler como duas redes diferentes sobrepostas, que é justamente o que
   // ela não é — a local nasce do bulevar por subdivisão e desemboca nele.
   const VIA_COR = '#F0E2C8'
-  const dLocal = dDe(vivas.filter((e) => e.cls === 'local' || e.cls === 'anel' || e.cls === 'costura'))
-  const dRamal = dDe(vivas.filter((e) => e.cls === 'ramal'))
+  // ⚠️ NO MINIMAPA A RUA DE QUARTEIRÃO NÃO ENTRA, e o motivo é de leitura antes de
+  // ser de tamanho. A 16,7 m por pixel um quarteirão de 200 m tem 12 px: a malha
+  // local vira uma trama cinza uniforme que apaga justamente o que um minimapa
+  // serve para achar, que é a estrutura (a autopista, os doze bulevares, a orla,
+  // o anel da praça). MEDIDO: ela sozinha custava 163 KB de 460, e sem ela a
+  // silhueta da cidade fica MAIS legível, não menos.
+  const dLocal = MINI ? '' : dDe(vivas.filter((e) => e.cls === 'local' || e.cls === 'anel' || e.cls === 'costura'))
+  const dRamal = MINI ? '' : dDe(vivas.filter((e) => e.cls === 'ramal'))
   // ⚠️ A ORLA E A PERIMETRAL GANHAM CALIBRE PRÓPRIO. Desenhadas com a mesma
   // largura dos bulevares, elas somem no meio deles: o fundador procurou o anel
   // da orla nobre na chapa e não achou, mesmo com ele traçado e ligado. A regra
@@ -1991,7 +2058,7 @@ if (VIAS) {
       dApoio += `M${PX([q[0] + uz * meia, q[1] - ux * meia])}L${PX([q[0] - uz * meia, q[1] + ux * meia])}`
     }
   }
-  const dPonte = dDe(vivas.filter((e) => e.ponte))
+  const dPonte = MINI ? '' : dDe(vivas.filter((e) => e.ponte))
   corpo += `<g clip-path="url(#casca)">`
     // casing só nas largas: em rua de 1,7 px o contorno come a própria via
     + `<path d="${dAnelOrla}" fill="none" stroke="#14100A" stroke-width="${lg(92).toFixed(2)}" opacity="0.55" stroke-linecap="round"/>`
@@ -2476,11 +2543,21 @@ mob += verbete('DOME', tracinho('#F7931A', 2.5, `${10 * F} ${7 * F}`))
 mob += T(lx, yy + 6 * F, `RELIEF ${meta.min.toFixed(0)} TO ${meta.max.toFixed(0)} M`, { tam: 12, esp: 2, op: 0.55 })
 mob += T(LADO - m - 26 * F, LADO - m - 26 * F, 'DOG DATA', { tam: 15, esp: 5, op: 0.5, anc: 'end' })
 
-const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${LADO}" height="${LADO}" viewBox="0 0 ${LADO} ${LADO}">
+// ⚠️ NO MINIMAPA A MOLDURA INTEIRA SAI, e a fonte embutida vai junto. Cartucho,
+// legenda, escala, rosa dos ventos e topônimo são leitura de carta impressa; num
+// quadrado de 250 px eles viram sujeira, e numa inscrição são 44 KB de bytes que
+// ninguém lê. O jogo desenha por cima o que for de estado (posição do jogador,
+// névoa, pino), e a inscrição fica sendo só o território.
+const ehMini = MINI
+const svg = ehMini
+  ? `<svg xmlns="http://www.w3.org/2000/svg" width="${LADO}" height="${LADO}" viewBox="0 0 ${LADO} ${LADO}">`
+    + `<rect width="${LADO}" height="${LADO}" fill="${FUNDO}"/>${corpo}</svg>`
+  : `<svg xmlns="http://www.w3.org/2000/svg" width="${LADO}" height="${LADO}" viewBox="0 0 ${LADO} ${LADO}">
 ${ESTILO}
 <rect width="${LADO}" height="${LADO}" fill="${FUNDO}"/>
 ${corpo}${mob}</svg>`
-writeFileSync(`${SAI}/mapa-topo.svg`, svg)
-console.log(`mapa-topo.svg: ${(svg.length / 1e6).toFixed(2)} MB`)
+const NOME = ehMini ? 'minimapa-dogcity.svg' : 'mapa-topo.svg'
+writeFileSync(`${SAI}/${NOME}`, svg)
+console.log(`${NOME}: ${(svg.length / 1e6).toFixed(2)} MB`)
 console.log(`  ${niveis.length} niveis de ${min} a ${max} m, passo ${PASSO}, mestra ${MESTRA}`)
 console.log(`  celula ${meta.celulaM.toFixed(1)} m, lado ${LADO} px para ${2 * RAIO} m = ${(2 * RAIO / LADO).toFixed(1)} m/px`)

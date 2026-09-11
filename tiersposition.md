@@ -482,6 +482,38 @@ costa, e não num trecho contínuo. Dono, 2026-09-11. Parcela de projeto concent
 pedaço só monopolizaria um setor da orla; espalhada, ela costura a frente de água inteira e
 nenhum trecho fica sem um equipamento por perto.
 
+**DIREÇÃO DO DONO, 2026-09-11, no fecho da rodada:** o cruzamento a fazer no snapshot é
+*airdrop intacto mais pedra hoje*, e quem estiver nos dois ganha, **"nem que seja uma
+runestone no quintal"**. O holder não faz nada: é cruzamento de dados, não resgate, na mesma
+doutrina do "no claim, no signature, nothing to register".
+
+**MEDIDO em 11/09, e o grupo é nítido.** 889.806 DOG é o airdrop padrão por pedra e é de
+longe o saldo exato mais repetido da cidade:
+
+```
+carteiras com EXATAMENTE 889.806 DOG    20.289   (o 2o mais repetido tem 3.272)
+  ainda com Runestone hoje              18.288   (90,1%)
+  soltaram a pedra, ficaram com o DOG    2.001   ( 9,9%)
+```
+
+⚠️ **18.288 não é o mesmo número do B (18.642) e os dois estão certos.** O B é "retenção
+exatamente 100%", que para quem recebeu por 2+ pedras é um MÚLTIPLO de 889.806; este recorte
+é só quem recebeu por uma pedra e está com o valor cravado. Não somar um com o outro.
+
+**DECIDIDO, 2026-09-11: eles ganham uma RUNESTONE NO QUINTAL.** Um monumento no próprio
+lote, e nada mais muda. Dono, no fecho da rodada: *"a gente vai dar uma pedra no quintal pra
+esses caras, não precisa reposicionar nada, não precisa nada"*.
+
+⚠️ **É PRÊMIO QUE NÃO CUSTA TERRA, e é por isso que ele fecha o assunto.** Toda saída que eu
+vinha testando mexia em posição ou em área, e posição e área são o único recurso escasso da
+cidade: qualquer uma delas obrigava a tirar de alguém. A pedra é um objeto sobre o lote que a
+carteira já tem. Não reposiciona ninguém, não consome orçamento de faixa, não abre superfície
+para dividir carteira (a posse do ordinal é verificável na mesma altura) e não pede ação
+nenhuma do holder, igual ao resto do snapshot.
+
+⚠️ O RECORTE É "AIRDROP INTACTO + PEDRA HOJE", e não as classes A/B/C. As letras eram só
+rótulo meu para as três combinações de pedra e DOG; este prêmio não usa elas.
+
 **B fica onde já estava, o tecido central**, e ganha uma leitura em vez de um prêmio: com
 96,7% dos Diamond Paws segurando pedra, "pedra mais airdrop intacto" praticamente DEFINE o
 miolo da cidade. Isso é identidade de bairro, não distinção de minoria. ⚠️ PENDENTE o que
@@ -728,3 +760,16 @@ Quando for reconstruir, o gerador precisa:
   casca tem **34,17 km² de chão de lote**, 25,39 deles entre 135° e 330°, contados nos
   128,20 km² do §3.7 e nunca alcançados pelo gerador. Ficam abertas a altura da segunda
   leitura e a escolha entre coroa e reserva do projeto.
+- **2026-09-11** — no fecho da rodada o dono fixou a DIREÇÃO do cruzamento da pedra: airdrop
+  intacto mais Runestone hoje, sem ação do holder. MEDIDO: 889.806 DOG é o airdrop padrão
+  por pedra e o saldo exato mais repetido da cidade (20.289 carteiras), e 18.288 delas
+  (90,1%) ainda seguram a pedra. Medido também, e NÃO é pendência: a faixa nobre do §3.9
+  continua de pé (22,47 km² de chão de lote na profundidade em que ela foi dimensionada,
+  contra ~20,2 km² alocados). O que difere é só o `ORLA_FUNDO` do gerador do MAPA, que
+  desenha 265 m; é parâmetro de desenho, não falta de terra. E medido: 33.644 endereços têm pedra
+  e nenhum $DOG, com 55,8% de todas as pedras em carteiras sem a moeda.
+- **2026-09-11** — FECHADO o prêmio da pedra: quem tem o airdrop intacto e a Runestone hoje
+  ganha **uma Runestone no quintal**, um monumento no próprio lote. Nada de reposicionar,
+  nada de área, nada a fazer pelo holder. É a única forma de prêmio testada nesta rodada que
+  não disputa o recurso escasso da cidade.
+
