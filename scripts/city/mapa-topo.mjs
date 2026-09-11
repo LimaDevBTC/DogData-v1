@@ -778,6 +778,7 @@ if (VIAS) {
     const PASSO_ORLA = 120
     let base = 1e6                       // chaves da orla fora do espaço da teia
     const nosDaOrla = []
+    const gruposOrla = []   // um por linha de contorno, para a emenda não pular de corpo
     for (const linha of linhas) {
       if (linha.length < 4) continue
       // reamostra a curva em passos regulares para o traço não ficar denso demais
@@ -789,6 +790,8 @@ if (VIAS) {
         if (acum >= PASSO_ORLA) { pontos.push(linha[t]); acum = 0 }
       }
       if (pontos.length < 2) continue
+      const desteGrupo = []
+      gruposOrla.push(desteGrupo)
       let anterior = null
       for (const q of pontos) {
         // ⚠️ A ISOLINHA CORRE PELA FRONTEIRA QUE EU MESMO CRIEI. Ao marcar as
@@ -804,7 +807,7 @@ if (VIAS) {
         const seco = alturaEm(q[0], q[1]) > COTA_AGUA && declEm(q[0], q[1]) <= LIMD
         if (rq > 9050 || naAlca(rq, gq) || !seco) { anterior = null; continue }
         const k = base++
-        no.set(k, q); pai.set(k, k); nosDaOrla.push(k); nosOrla++
+        no.set(k, q); pai.set(k, k); nosDaOrla.push(k); desteGrupo.push(k); nosOrla++
         if (anterior !== null) {
           const res = trecho(no.get(anterior), q, 0)
           if (res) liga(anterior, k, 'orla', !!res.ponte)
@@ -813,50 +816,93 @@ if (VIAS) {
       }
     }
     // ── A CONTINUAÇÃO: A PISTA DA ORLA FECHA A VOLTA ──────────────────────
-    // ⚠️ ONDE A ÁGUA ACABA, A PISTA NÃO PODE ACABAR JUNTO. A via da orla nasce
-    // como isolinha de distância, então ela só existe onde há água a 140 m: nos
-    // trechos secos ela simplesmente some, e o que era para ser um anel vira
-    // uma coleção de arcos soltos. O fundador pediu a continuação EXATA dela, e
-    // não outra via na base da abóbada (essa é a perimetral, que é outra peça).
+    // ⚠️ A EMENDA É DENTRO DA MESMA LINHA DE COSTA, NUNCA ENTRE CORPOS D'ÁGUA
+    // DIFERENTES. A primeira versão ordenava TODOS os nós de orla por ângulo em
+    // torno do centro do mapa e emendava vizinho com vizinho nessa lista. Só que
+    // a cidade não tem uma orla: tem a baía, dezessete lagos e os canais, cada um
+    // com a sua. Ordenados por ângulo, a orla de um lago virava "vizinha" da orla
+    // de outro do lado oposto, e a emenda saía atravessando a cidade inteira.
+    // MEDIDO: arestas de até 1.948 m, ligando r 1.523 a r 8.491 — as "pistas
+    // radiais enormes" que apareceram na chapa.
     //
-    // A emenda interpola o RAIO entre as duas pontas do vão e caminha em ângulo,
-    // então a pista sai do último ponto de orla e chega no próximo seguindo a
-    // curva que ela já vinha fazendo. Onde o vão é curto isso é imperceptível;
-    // onde é longo, ela atravessa o seco em arco suave, como via de contorno faz.
+    // Aqui a emenda só liga pontas da MESMA linha de contorno, e só se elas
+    // estiverem perto. Vão curto e seco fecha; o resto fica aberto, que é a
+    // resposta honesta para uma margem interrompida por encosta ou por água.
     {
-      const ordenados = nosDaOrla
-        .map((k) => ({ k, p: no.get(k) }))
-        .map((o) => ({ ...o, g: ((Math.atan2(o.p[0], -o.p[1]) * 180) / Math.PI + 360) % 360,
-                       r: Math.hypot(o.p[0], o.p[1]) }))
-        .sort((a, b) => a.g - b.g)
+      const EMENDA_MAX = +arg('emendaOrla', 380)
       let emendas = 0
-      for (let t = 0; t < ordenados.length; t++) {
-        const A = ordenados[t], B = ordenados[(t + 1) % ordenados.length]
-        let dg = B.g - A.g; if (dg < 0) dg += 360
-        if (dg < 0.6 || dg > 120) continue        // já ligado, ou vão grande demais
-        const passos = Math.max(2, Math.ceil(dg / 0.6))
-        let ant = A.k, ok = true
-        const novos = []
-        for (let q = 1; q <= passos; q++) {
-          const f = q / passos
-          const g = (A.g + dg * f) % 360
-          const r = A.r + (B.r - A.r) * f
-          const pt = PXY(r, g)
-          if (alturaEm(pt[0], pt[1]) <= COTA_AGUA || declEm(pt[0], pt[1]) > LIMD) { ok = false; break }
-          novos.push(pt)
+      for (const grupo of gruposOrla) {
+        for (let t = 0; t + 1 < grupo.length; t++) {
+          const A = grupo[t], B = grupo[t + 1]
+          const pa = no.get(A), pb = no.get(B)
+          const L = Math.hypot(pb[0] - pa[0], pb[1] - pa[1])
+          if (L < 1 || L > EMENDA_MAX) continue
+          const jaLigado = arestas.some((e) => e.viva
+            && ((e.a === A && e.b === B) || (e.a === B && e.b === A)))
+          if (jaLigado) continue
+          const res = trecho(pa, pb, 0)
+          if (res) { liga(A, B, 'orla', !!res.ponte); emendas++ }
         }
-        if (!ok) continue
-        for (let q = 0; q < novos.length; q++) {
-          const alvo = q === novos.length - 1 ? B.k : base++
-          if (alvo !== B.k) { no.set(alvo, novos[q]); pai.set(alvo, alvo); nosOrla++ }
-          const res = trecho(no.get(ant), no.get(alvo), 0)
-          if (!res) break
-          liga(ant, alvo, 'orla', !!res.ponte)
-          ant = alvo
-        }
-        emendas++
       }
-      if (emendas) console.log(`  orla: ${emendas} emendas fechando a volta`)
+      if (emendas) console.log(`  orla: ${emendas} emendas dentro da propria linha de costa`)
+    }
+
+    // ── A PERIMETRAL É A PRÓPRIA PISTA DA ORLA NOBRE ──────────────────────
+    // ⚠️ EXISTE UMA VIA DE CONTORNO, NÃO DUAS. Decisão do fundador, e ela custou
+    // três tentativas minhas para entrar: primeiro tracei uma perimetral na base
+    // da abóbada, depois um segundo anel dentro da cidade, e nenhum dos dois era
+    // o que ele pediu. O certo é o mais simples: a pista que corre a 140 m da
+    // água na baía CONTINUA, dá a volta na cidade e volta nela mesma.
+    //
+    // ⚠️ E ELA SAI NO RAIO EM QUE A ORLA MORRE, chegando no raio da outra ponta.
+    // A margem varia de r 3.500 a 6.500, então nem a mediana nem um raio fixo
+    // descrevem as extremidades: traçada assim, a continuação não lia como
+    // continuação de nada. Interpolando ponta a ponta, ela sai na direção em que
+    // a pista vinha e chega na direção em que a pista recomeça.
+    {
+      const G0B = 358.5, G1B = 99.5
+      const noArcoBaia = (g) => g >= G0B || g <= G1B
+      const daBaia = []
+      for (const k of nosDaOrla) {
+        const q = no.get(k)
+        const g = ((Math.atan2(q[0], -q[1]) * 180) / Math.PI + 360) % 360
+        const r = Math.hypot(q[0], q[1])
+        if (noArcoBaia(g) && r > 3000 && r < 6800) daBaia.push({ k, g, r })
+      }
+      if (daBaia.length > 20) {
+        const ordB = [...daBaia].sort((a, b) => a.g - b.g)
+        const pontaFim = ordB.filter((o) => o.g <= G1B).pop() ?? ordB[0]
+        const pontaIni = ordB.filter((o) => o.g >= G0B)[0] ?? ordB[ordB.length - 1]
+        const rFim = pontaFim.r, rIni = pontaIni.r
+        const totalG = ((G0B - G1B) + 360) % 360
+        const passoG = 0.6
+        let ant = pontaFim.k, criados = 0, ultimo = null
+        for (let g = G1B + passoG; g <= G1B + totalG - 1e-9; g += passoG) {
+          const gg = g % 360
+          const f = (g - G1B) / totalG
+          // curva suave entre os dois raios, com folga no meio para a via não
+          // encostar na Praça nem sair da terra plana
+          const suave = f * f * (3 - 2 * f)
+          const rr = rFim + (rIni - rFim) * suave
+          const q = PXY(rr, gg)
+          const seco = alturaEm(q[0], q[1]) > COTA_AGUA && declEm(q[0], q[1]) <= LIMD
+          if (!seco || naAlca(rr, gg)) { ant = null; continue }
+          const k = base++
+          no.set(k, q); pai.set(k, k); nosOrla++; criados++
+          if (ant !== null) {
+            const res = trecho(no.get(ant), q, LIMIAR_PONTE)
+            if (res) liga(ant, k, 'orla', !!res.ponte)
+          }
+          ant = k; ultimo = k
+        }
+        // fecha no outro extremo da pista da baía
+        if (ultimo !== null) {
+          const res = trecho(no.get(ultimo), no.get(pontaIni.k), LIMIAR_PONTE)
+          if (res) liga(ultimo, pontaIni.k, 'orla', !!res.ponte)
+        }
+        console.log(`  perimetral (a propria pista da orla): sai de r ${rFim.toFixed(0)} no rumo ${pontaFim.g.toFixed(1)}, `
+          + `chega em r ${rIni.toFixed(0)} no rumo ${pontaIni.g.toFixed(1)}, ${criados} nos`)
+      }
     }
 
     // ── OS RAMAIS: A ORLA TEM DE ENTRAR NA CIDADE ─────────────────────────
@@ -893,77 +939,6 @@ if (VIAS) {
     console.log(`  orla da baia: ${nosOrla} nos de boulevard, ${ligacoesOrla} ligacoes com a malha`)
   }
 
-  // ── A PERIMETRAL: O ANEL QUE FECHA A CIDADE ───────────────────────────────
-  // ⚠️ RADIAL QUE ACABA SOZINHA É DOZE BECOS, e era o que a malha tinha: os
-  // bulevares morriam cada um no seu rumo, sem nada costurando as pontas. A
-  // perimetral é a via que uma cidade põe na borda justamente para isso — ela
-  // fecha o circuito, recolhe todas as radiais numa volta só e serve de acesso
-  // ao que estiver no anel externo.
-  //
-  // ⚠️ E ELA SEGUE O TERRENO, NÃO UM RAIO. Traçada como círculo fixo, ela subiria
-  // a encosta num rumo e ficaria a quilômetros da borda em outro. Aqui cada rumo
-  // procura o último raio em que ainda dá para passar via, e é isso que faz ela
-  // "contemplar a base das montanhas": onde o maciço avança, ela recua junto.
-  let nosPerim = 0, ligPerim = 0
-  {
-    const PASSO_G = 1.0
-    const RECUO = +arg('perimRecuo', 120)    // a via fica antes da borda, não em cima
-    const R_MIN = 4200, R_MAX = 9000
-    const anterioresP = []
-    for (let g = 0; g < 360; g += PASSO_G) {
-      const a0 = (g * Math.PI) / 180
-      let melhor = null
-      for (let r = R_MAX; r >= R_MIN; r -= 25) {
-        const x = Math.sin(a0) * r, z = -Math.cos(a0) * r
-        if (naAlca(r, g)) continue
-        if (alturaEm(x, z) <= COTA_AGUA) continue
-        if (declEm(x, z) > LIMD) continue
-        melhor = r - RECUO
-        break
-      }
-      anterioresP.push(melhor === null ? null : [Math.sin(a0) * melhor, -Math.cos(a0) * melhor])
-    }
-    let base = 2e6, anterior = null, primeiro = null
-    for (let t = 0; t < anterioresP.length; t++) {
-      const q = anterioresP[t]
-      if (!q) { anterior = null; continue }
-      const k = base++
-      no.set(k, q); pai.set(k, k); nosPerim++
-      if (primeiro === null) primeiro = k
-      if (anterior !== null) {
-        const res = trecho(no.get(anterior), q, LIMIAR_PONTE)
-        if (res) liga(anterior, k, 'perimetral', !!res.ponte)
-      }
-      anterior = k
-    }
-    // fecha a volta
-    if (primeiro !== null && anterior !== null && anterior !== primeiro) {
-      const res = trecho(no.get(anterior), no.get(primeiro), LIMIAR_PONTE)
-      if (res) liga(anterior, primeiro, 'perimetral', !!res.ponte)
-    }
-    // recolhe as radiais: cada nó da perimetral busca a malha
-    const LIG = +arg('perimLig', 900)
-    let andado = 0, ult = null
-    for (let k = 2e6; k < 2e6 + nosPerim; k++) {
-      const p = no.get(k); if (!p) continue
-      if (ult) andado += Math.hypot(p[0] - ult[0], p[1] - ult[1])
-      ult = p
-      if (andado < 260) continue
-      andado = 0
-      let alvo = null, dist = Infinity
-      for (const [k2, q] of no) {
-        if (k2 >= 1e6) continue
-        const d0 = Math.hypot(p[0] - q[0], p[1] - q[1])
-        if (d0 < dist) { dist = d0; alvo = k2 }
-      }
-      if (alvo !== null && dist <= LIG) {
-        const res = trecho(p, no.get(alvo), LIMIAR_PONTE)
-        if (res) { liga(k, alvo, 'ramal', !!res.ponte); ligPerim++ }
-      }
-    }
-    console.log(`  perimetral: ${nosPerim} nos, ${ligPerim} ligacoes com a malha`)
-  }
-
   // ── componente conexo: só a maior rede fica ───────────────────────────────
   for (const e of arestas) { const ra = acha(e.a), rb = acha(e.b); if (ra !== rb) pai.set(ra, rb) }
   const peso = new Map()
@@ -987,7 +962,11 @@ if (VIAS) {
   // r 6.900 e a água vai além), e ali o boulevard ficava órfão: o fundador viu
   // lote de orla "em local sem estrada, depois da entrada da alça". Orla sem via
   // não é lote, é paisagem. 1.400 m é o alcance de um ramal de acesso de verdade.
-  const COSTURA_MAX = +arg('costura', 1400)
+  // ⚠️ 700 m, NÃO 1.400. O alcance maior foi posto para a costura chegar à orla,
+  // mas depois que o boulevard virou estrutural e ganhou ramais próprios ela não
+  // precisa mais disso — e com 1.400 ela emitia traço de mais de um quilômetro
+  // cruzando a borda. Medido: 1.084 m numa costura entre dois pontos em r 8.880.
+  const COSTURA_MAX = +arg('costura', 700)
   // ⚠️ SÓ COMPONENTE COM RUA ENTRA NA COSTURA. A primeira versão varria TODOS os
   // nós, e nó sem nenhuma aresta viva é o seu próprio componente: a rotina saiu
   // costurando 659 pontos soltos que não têm rua nenhuma, inventando ligação
@@ -1087,7 +1066,7 @@ if (VIAS) {
         // nobre inteira; podado por grau 1 ele encurta trecho a trecho e deixa
         // lote de frente para a água sem chegada, que é o defeito que o fundador
         // apontou. Ele entra na rede por costura, não por poda.
-        if (e.cls === 'orla' || e.cls === 'ramal' || e.cls === 'perimetral') continue
+        if (e.cls === 'orla' || e.cls === 'ramal') continue
         e.viva = false; podadas++; mexeu = true; break
       }
     }
@@ -1111,7 +1090,7 @@ if (VIAS) {
     // nó — inclusive um a 63 m, que é distância de esquina.
     const pontas = []
     for (const e of arestas) {
-      if (!e.viva || (e.cls !== 'orla' && e.cls !== 'ramal' && e.cls !== 'bulevar' && e.cls !== 'perimetral')) continue
+      if (!e.viva || (e.cls !== 'orla' && e.cls !== 'ramal' && e.cls !== 'bulevar')) continue
       for (const k of [e.a, e.b]) if (grau.get(k) === 1) pontas.push(k)
     }
     const FECHA_MAX = +arg('fechaPonta', 900)
@@ -1186,6 +1165,35 @@ if (VIAS) {
     }
   }
 
+  // ⚠️ AUDITORIA DE COMPRIMENTO. Toda rotina que "liga" aqui tem um alcance
+  // próprio (costura 1.400 m, fecho 900, ramal 700, prolongamento 2.200), e cada
+  // uma parece razoável sozinha. Somadas elas produzem traço atravessando a
+  // cidade, que é a "zona" que aparece na chapa. Este relatório mostra o que
+  // cada alcance está de fato emitindo, em vez de confiar no número escolhido.
+  {
+    const porCls = new Map()
+    const longas = []
+    for (const e of arestas) {
+      if (!e.viva) continue
+      const p0 = no.get(e.a), p1 = no.get(e.b)
+      const L = Math.hypot(p1[0] - p0[0], p1[1] - p0[1])
+      const st = porCls.get(e.cls) ?? { n: 0, soma: 0, max: 0 }
+      st.n++; st.soma += L; st.max = Math.max(st.max, L)
+      porCls.set(e.cls, st)
+      longas.push({ cls: e.cls, L, p0, p1 })
+    }
+    console.log('    comprimento por classe:')
+    for (const [cls, st] of [...porCls].sort((a, b) => b[1].max - a[1].max)) {
+      console.log(`      ${cls.padEnd(12)} ${String(st.n).padStart(5)} arestas  media ${(st.soma / st.n).toFixed(0).padStart(5)} m  MAX ${st.max.toFixed(0).padStart(6)} m`)
+    }
+    longas.sort((a, b) => b.L - a.L)
+    console.log('    as 8 mais longas:')
+    for (const l of longas.slice(0, 8)) {
+      const r0 = Math.hypot(l.p0[0], l.p0[1]), r1 = Math.hypot(l.p1[0], l.p1[1])
+      console.log(`      ${l.cls.padEnd(12)} ${l.L.toFixed(0).padStart(5)} m   de r ${r0.toFixed(0)} a r ${r1.toFixed(0)}`)
+    }
+  }
+
   const vivas = arestas.filter((e) => e.viva)
   const kmVivo = vivas.reduce((acc, e) => {
     const p0 = no.get(e.a), p1 = no.get(e.b)
@@ -1207,14 +1215,23 @@ if (VIAS) {
   const VIA_COR = '#F0E2C8'
   const dLocal = dDe(vivas.filter((e) => e.cls === 'local' || e.cls === 'anel' || e.cls === 'costura'))
   const dRamal = dDe(vivas.filter((e) => e.cls === 'ramal'))
-  const dBul = dDe(vivas.filter((e) => e.cls === 'bulevar' || e.cls === 'orla' || e.cls === 'perimetral'))
+  // ⚠️ A ORLA E A PERIMETRAL GANHAM CALIBRE PRÓPRIO. Desenhadas com a mesma
+  // largura dos bulevares, elas somem no meio deles: o fundador procurou o anel
+  // da orla nobre na chapa e não achou, mesmo com ele traçado e ligado. A regra
+  // da casa é "uma cor só, o destaque vem do tamanho", então a distinção é
+  // largura e não cor — via de contorno é mais larga que radial de distrito,
+  // como é numa cidade de verdade.
+  const dBul = dDe(vivas.filter((e) => e.cls === 'bulevar'))
+  const dAnelOrla = dDe(vivas.filter((e) => e.cls === 'orla'))
   const dPonte = dDe(vivas.filter((e) => e.ponte))
   corpo += `<g clip-path="url(#casca)">`
     // casing só nas largas: em rua de 1,7 px o contorno come a própria via
+    + `<path d="${dAnelOrla}" fill="none" stroke="#14100A" stroke-width="${lg(92).toFixed(2)}" opacity="0.55" stroke-linecap="round"/>`
     + `<path d="${dBul}" fill="none" stroke="#14100A" stroke-width="${lg(66).toFixed(2)}" opacity="0.5" stroke-linecap="round"/>`
     + `<path d="${dLocal}" fill="none" stroke="${VIA_COR}" stroke-width="${lg(15).toFixed(2)}" opacity="0.82" stroke-linecap="round"/>`
     + `<path d="${dRamal}" fill="none" stroke="${VIA_COR}" stroke-width="${lg(26).toFixed(2)}" opacity="0.9" stroke-linecap="round"/>`
     + `<path d="${dBul}" fill="none" stroke="${VIA_COR}" stroke-width="${lg(42).toFixed(2)}" opacity="0.92" stroke-linecap="round"/>`
+    + `<path d="${dAnelOrla}" fill="none" stroke="${VIA_COR}" stroke-width="${lg(60).toFixed(2)}" opacity="0.96" stroke-linecap="round"/>`
     + (dPonte ? `<path d="${dPonte}" fill="none" stroke="${VIA_COR}" stroke-width="${lg(24).toFixed(2)}" opacity="0.95" stroke-dasharray="${7 * F} ${5 * F}"/>` : '')
     + `</g>\n`
   // a AN7: a via da alça, exceção por decreto (a alça é terraplanagem)
@@ -1334,7 +1351,7 @@ mob += T(m + 26 * F, m + 116 * F, (BAIRROS || VIAS ? `CITY PLAN · ${PASSO} M CO
 // auditável; o número de lotes de cada bairro não é, e não entra aqui.
 const px2 = m + 26 * F
 let py2 = m + 178 * F
-mob += veu(m, py2 - 30 * F, 470 * F, 232 * F)
+mob += veu(m, py2 - 30 * F, 560 * F, 236 * F)
 mob += T(px2, py2, 'WHO LIVES WHERE', { tam: 14, esp: 4, cor: '#F7931A', op: 0.95 })
 py2 += 30 * F
 const TIERS_LEG = [
@@ -1348,7 +1365,7 @@ const TIERS_LEG = [
 for (const [cor, bairro, quem] of TIERS_LEG) {
   mob += `<rect x="${px2}" y="${py2 - 10 * F}" width="${13 * F}" height="${13 * F}" fill="${cor}" opacity="0.9"/>`
   mob += T(px2 + 22 * F, py2, bairro, { tam: 13, esp: 2.6, cor: '#F0E4D0', op: 0.95 })
-  mob += T(px2 + 190 * F, py2, quem, { tam: 12, esp: 1.6, cor: '#C9B99E', op: 0.85 })
+  mob += T(px2 + 246 * F, py2, quem, { tam: 12, esp: 1.6, cor: '#C9B99E', op: 0.85 })
   py2 += 25 * F
 }
 mob += T(px2, py2 + 6 * F, 'AIRDROP BEHAVIOUR DECIDES THE DISTRICT · WALLET AGE DECIDES THE STREET',
@@ -1369,8 +1386,8 @@ const nx = LADO - m - 60 * F, ny = m + 92 * F
 mob += `<path d="M${nx} ${ny - 42 * F}L${nx + 13 * F} ${ny + 12 * F}L${nx} ${ny}L${nx - 13 * F} ${ny + 12 * F}Z" fill="#E4D2B9" opacity="0.9"/>`
   + T(nx, ny + 34 * F, 'N', { tam: 20, anc: 'middle', op: 0.9 })
 // a legenda
-const lx = LADO - m - 260 * F, ly = LADO - m - 392 * F
-mob += veu(lx - 22 * F, ly - 34 * F, 282 * F, 392 * F)
+const lx = LADO - m - 260 * F, ly = LADO - m - 470 * F
+mob += veu(lx - 22 * F, ly - 34 * F, 282 * F, 470 * F)
 // ⚠️ A LEGENDA CRESCEU COM A PEÇA. Enquanto a carta era só relevo, três linhas
 // bastavam. Com bairro e via na folha, cor sem verbete é decoração: quem abre o
 // mapa tem de saber que laranja é a alça e que a hachura é terra do projeto.
@@ -1388,7 +1405,9 @@ mob += verbete('INNER FABRIC', chip('#AA967A', 0.65))
 mob += verbete('OUTER FABRIC', chip('#706C62', 0.7))
 mob += verbete('OUTSKIRTS', chip('#494640', 0.8))
 mob += verbete('PROJECT LAND', chip('url(#hach)', 0.9))
-mob += verbete('STREETS', tracinho('#F0E2C8', 3))
+mob += verbete('SHORE ROAD', tracinho('#F0E2C8', 6))
+mob += verbete('BOULEVARDS', tracinho('#F0E2C8', 3.6))
+mob += verbete('STREETS', tracinho('#F0E2C8', 1.6))
 mob += verbete('BRIDGE', tracinho('#F0E2C8', 2.5, `${7 * F} ${5 * F}`))
 mob += verbete('EXPRESSWAY', tracinho('#7FB9D4', 2.5, `${10 * F} ${7 * F}`))
 mob += verbete('DOME', tracinho('#F7931A', 2.5, `${10 * F} ${7 * F}`))
