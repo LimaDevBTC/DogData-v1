@@ -526,8 +526,21 @@ if (ORLA || arg('vias', '0') !== '0') {
   // Com isso os 2.062 dos tiers 4 e 5 ficam com 24,3 m de testada cada, que é
   // lote urbano de frente para a água. A conclusão anterior estava errada porque
   // a pergunta estava: "cabe na baía" não é "cabe na cidade".
+  // ⚠️ CANAL TEM MARGEM, NÃO TEM ORLA NOBRE — e o `bloqueio` acima foi calculado
+  // para isto e nunca era usado. O efeito: cada um dos três canais radiais
+  // ganhava 265 m de faixa de tier 4 e 5 de CADA lado, ou seja, 530 m de bairro
+  // de frente d'água atravessando o tecido inteiro na diagonal. O fundador viu
+  // na chapa: "num ponto específico temos uma faixa laranja cruzando o mapa, não
+  // é orla, então aquilo ali é algum erro". Era.
+  //
+  // ⚠️ E ISSO CORRIGE O CADERNO, NÃO SÓ O DESENHO. `tiersposition` §3.3 põe os
+  // tiers 4 e 5 na ORLA INTERNA DA BAÍA, "de frente para as mansões". Canal nunca
+  // esteve nessa decisão; ele entrou por uma conta de frente d'água que somou
+  // 13,47 km de canal aos 36,69 km de baía e lago. Sem os canais sobram 36,69 km
+  // para 2.062 carteiras, 17,8 m de testada cada — lote urbano de frente para a
+  // água, que era o ponto.
   const baia = new Uint8Array(orlaNG * orlaNG)
-  for (let c = 0; c < agua.length; c++) if (agua[c]) baia[c] = 1
+  for (let c = 0; c < agua.length; c++) if (agua[c] && !bloqueio[c]) baia[c] = 1
   // 2. distância até a baía, chamfer em duas passadas
   const INF = 1e9
   orlaDist = new Float64Array(orlaNG * orlaNG).fill(INF)
@@ -585,6 +598,11 @@ const ORLA_VIA_W = +arg('orlaViaLarg', 40)
 // km de margem aproveitável, os 2.062 dos tiers 4 e 5 cabem numa fileira só de
 // 100 m de fundo — que é exatamente o que uma quadra tem.
 const ORLA_FUNDO = +arg('orlaFundo', 265)
+
+// ⚠️ OS CABOS SÃO FONTE ÚNICA TAMBÉM. O arco deles decide onde há rua (bloco das
+// vias) e onde há bairro (bloco dos bairros); escrito duas vezes, a mancha e a
+// malha discordariam no primeiro ajuste.
+const CABOS_MANCHA = [[115, 134], [330, 348]]
 
 // ── A PALETA DOS TIERS, FONTE ÚNICA ────────────────────────────────────────
 // ⚠️ COR DE TIER MORA AQUI E EM MAIS LUGAR NENHUM. Ela aparece em três sítios —
@@ -696,6 +714,15 @@ if (BAIRROS) {
   // era lida como água: numa carta, área azul contínua é lâmina, e o olho não
   // negocia isso. Hachura diagonal é a convenção de "reservado" desde sempre.
   manchas += zona(coroa(R_PER, 9050), 'url(#hach)', 0.9)
+  // ⚠️ OS DOIS CABOS SAEM DA HACHURA. Enquanto não tinham rua, eles eram terra do
+  // projeto como todo o resto além de r 6.900. Agora têm malha e orla, e terreno
+  // com rua é bairro. Ficam na faixa de "todo o resto" — periferia sem ordenação,
+  // que é o que §3.5 manda para quem está fora dos seis primeiros tiers; a frente
+  // d'água deles continua sendo pintada pela faixa de orla, por cima disto.
+  // ⚠️ ISTO É DECISÃO NOVA e ainda não está no `tiersposition.md`: os cabos não
+  // aparecem em nenhuma seção de lá. Entra como o default conservador, não como
+  // escolha fechada.
+  for (const [ga, gb] of CABOS_MANCHA) manchas += zona(setor(R_PER, 9050, ga, gb), TIER_COR.g00, TIER_OP.g00)
   // a alça: praia, mansões de frente, via, mansões de trás, praia
   manchas += zona(setor(A_BAIA, A_BAIA + PRAIA_W, 346, 116.5), '#A69B80', 0.62)
   // ⚠️ A FILEIRA DA FRENTE TEM DOIS DONOS, E ELES NÃO SE MISTURAM. `tiersposition`
@@ -735,11 +762,27 @@ if (BAIRROS) {
     const pxDist = (i) => ((i - 1) / (orlaNG - 1)) * LADO
     // contornoEm devolve {dist >= nivel}; a faixa é o complemento, então as
     // bandas vêm de fora para dentro e a última a pintar é a praia
+    // ⚠️ A FAIXA SE PINTA DIRETO, E NÃO COMO "TELA INTEIRA MENOS O CONTORNO". A
+    // versão anterior desenhava o retângulo do canvas seguido dos laços de
+    // {distância >= ate} e deixava o `evenodd` subtrair um do outro. Funciona
+    // enquanto os laços são simples; onde a topologia fica complicada — e ela
+    // ficou, com a alça e a Praça marcadas como infinitamente distantes, mais
+    // dezessete lagos — a paridade vira e sobra uma cunha pintada atravessando o
+    // tecido. Foi o que o fundador viu: "num ponto específico temos uma faixa
+    // laranja cruzando o mapa, não é orla, então aquilo ali é algum erro".
+    // MEDIDO no SVG: o `d` da faixa do tier 4 começava em `M0 0H2400V2400H0Z`
+    // seguido de um laço que corria pela BORDA do domínio.
+    //
+    // Invertendo o campo, a região que interessa passa a ser {−distância >= −ate},
+    // ou seja, ela mesma, e o contorno dela é pintado sem truque. A moldura vai
+    // em −1e12 para que a região nunca toque a borda e todo laço feche sozinho,
+    // que é a mesma regra de `FUNDO_MOLDURA` no topo deste arquivo.
+    const hNeg = (i, j) => (i <= 0 || j <= 0 || i >= orlaNG + 1 || j >= orlaNG + 1)
+      ? -1e12 : -orlaDist[(j - 1) * orlaNG + (i - 1)]
     const faixa = (ate, cor, op) => {
-      const ls = contornoEm(ate, hDist, orlaNG + 2, pxDist)
+      const ls = contornoEm(-ate, hNeg, orlaNG + 2, pxDist)
       if (!ls.length) return ''
-      const disco = `M0 0H${LADO}V${LADO}H0Z`
-      return `<path d="${disco}${d(ls, true)}" fill="${cor}" fill-rule="evenodd" opacity="${op}"/>`
+      return `<path d="${d(ls, true)}" fill="${cor}" fill-rule="evenodd" opacity="${op}"/>`
     }
     // ⚠️ TODO MUNDO DE FRENTE PARA A ÁGUA, e não um tier atrás do outro. A versão
     // anterior empilhava as classes por PROFUNDIDADE: a primeira fileira tinha a
@@ -920,7 +963,11 @@ if (VIAS) {
   // "o círculo de vias em torno do canal circular central não está fechado".
   // Com vértice em 1.640 a face fica em 1.585, 175 m de terra firme além da
   // margem, e sobra exatamente um quarteirão entre o anel da praça e ela.
-  const R0 = +arg('rMalha0', 1640), R1 = +arg('rMalha1', 6900)
+  // ⚠️ R1 PASSA DA AN7 POR CAUSA DOS CABOS. A escada só ia a 6.900 porque a cidade
+  // acabava na avenida; com os dois cabos ela precisa chegar à costa deles, em
+  // r 8.590 no pior rumo. Fora dos cabos `foraProibido` derruba tudo, então o
+  // alcance maior não põe uma rua sequer onde não deve.
+  const R0 = +arg('rMalha0', 1640), R1 = +arg('rMalha1', 8100)
   // o anel da praça: via circular colada no canal, 50 m além da margem
   const R_ANEL_PRACA = +arg('rAnelPraca', 1460)
   const N_BASE = 12                     // os bulevares, e o dodecágono dos anéis
@@ -928,6 +975,23 @@ if (VIAS) {
   const R_SUB2 = +arg('rSub2', 3400)    // onde a segunda subdivisão nasce
   const ALCA_R_DENTRO = 6400
   const naAlca = (r, g) => r >= ALCA_R_DENTRO && (g >= 346 || g <= 116.5)
+  // ⚠️ OS DOIS CABOS: A CIDADE CONTINUA DEPOIS DA AN7 EM DOIS TRECHOS, E SÓ NELES.
+  // O fundador apontou: "as duas orlas que temos após a orla nobre saem dela e
+  // vão em direção à borda da abóbada; em ambos os lados já temos distribuição de
+  // tiers, mas não temos malha viária naquela região, que de fato é de frente pro
+  // mar". MEDIDO entre a AN7 (6.950) e a abóbada (9.050), varrendo os 360 rumos:
+  //
+  //     rumo 115 a 134   costa de r 7.570 a 7.930, declive 4° a 10°   CABO SUL
+  //     rumo 333 a 348   costa de r 7.550 a 8.590, declive 3° a 6°    CABO NORTE
+  //     rumo 350 a 110   só 17% de terra: é a praia externa da alça, já desenhada
+  //     rumo 135 a 330   100% de terra e nenhuma costa: maciço e planície, que
+  //                      são terra do projeto e não frente de mar
+  //
+  // Fora dos dois cabos, nada de rua além da avenida: o resto é terra do projeto
+  // em hachura, e foi assim que ficou decidido.
+  const CABOS = CABOS_MANCHA
+  const noCabo = (g) => CABOS.some(([a, b]) => g >= a && g <= b)
+  const foraProibido = (r, g) => r > AN7_R_BASE + 60 && !noCabo(g)
   const vao = (r) => (r < 2200 ? 122 : r < 3400 ? 180 : r < 5000 ? 239 : 298)
   const ANEIS = []
   for (let r = R0; r <= R1; r += vao(r)) ANEIS.push(r)
@@ -1012,6 +1076,7 @@ if (VIAS) {
       // mansões, não tem marginal nem rua atrás. MEDIDO: nenhuma das 8 rampas
       // que chegam à avenida passa pelo arco da alça, então isto não custa nada.
       if (naAlca(r, g)) return null
+      if (foraProibido(r, g)) return null
       const h = alturaEm(x, z)
       if (naAgua(x, z)) {
         // canal atravessa-se sempre; o resto obedece ao limiar da classe
@@ -1044,8 +1109,20 @@ if (VIAS) {
   // ── nós e arestas ─────────────────────────────────────────────────────────
   const chave = (ia, ir) => ia * NR + ir
   const no = new Map()
+  // ⚠️ NENHUM NÓ DENTRO DA FAIXA DA AUTOPISTA, salvo no eixo do bulevar, que é o
+  // único que a atravessa — e atravessa por trevo. Sem isto o anel de r 6.995,
+  // a 45 m do eixo da AN7, nasceria dentro da avenida nos dois cabos.
+  const naFaixaAN7 = (r) => r > AN7_R_BASE - 120 && r < AN7_R_BASE + 250
   ANEIS.forEach((r, ia) => {
-    for (let ir = 0; ir < NR; ir++) if (r >= nasceEm(ir) - 1e-6) no.set(chave(ia, ir), PNO(r, rumoDe(ir)))
+    for (let ir = 0; ir < NR; ir++) {
+      if (r < nasceEm(ir) - 1e-6) continue
+      const g = rumoDe(ir)
+      // ⚠️ A ISENÇÃO DO BULEVAR VALE SÓ NOS CABOS. Isenta em todo rumo, ela criava
+      // um nó de bulevar a r 6.995 em rumos onde nada existe além da avenida:
+      // três becos pendurados dentro da faixa da autopista, em 150°, 180° e 270°.
+      if (naFaixaAN7(raioNaFace(r, g)) && !(classeDe(ir) === 'bulevar' && noCabo(g))) continue
+      no.set(chave(ia, ir), PNO(r, g))
+    }
   })
   const arestas = []
   const adj = new Map()
@@ -1074,6 +1151,12 @@ if (VIAS) {
   // vetando, e a alça também.
   const IA_MARGINAL = ANEIS.length - 1
   ANEIS.forEach((r, ia) => {
+    // ⚠️ ANEL DENTRO DA FAIXA DA AUTOPISTA NÃO EXISTE COMO ANEL. Nos dois cabos o
+    // anel de r 6.995 só tem nó no eixo dos bulevares (os outros foram vetados
+    // pela faixa), e ligar nó vivo com nó vivo ali desenhava uma corda de 3,6 km
+    // correndo colada na AN7, de bulevar a bulevar. Ali o anel é só passagem: o
+    // radial atravessa, o anel não.
+    if (naFaixaAN7(r)) return
     const marginal = ia === IA_MARGINAL
     const vivos = []
     for (let ir = 0; ir < NR; ir++) if (no.has(chave(ia, ir))) vivos.push(ir)
@@ -1313,7 +1396,7 @@ if (VIAS) {
         // que sobra além da avenida é terra do projeto até a abóbada, em
         // hachura. Dois nós de orla tinham escapado para r 7.004 e r 7.049 no
         // rumo 283 e viravam beco na margem errada da autopista.
-        const foraDaAN7 = !(gqq >= 340 || gqq <= 122) && rqq > AN7_R_BASE
+        const foraDaAN7 = !(gqq >= 340 || gqq <= 122) && rqq > AN7_R_BASE && !noCabo(gqq)
         const seco = !naAgua(qq[0], qq[1]) && declEm(qq[0], qq[1]) <= LIMD_ORLA && !foraDaAN7
         if (rqq > 9050 || naAlca(rqq, gqq) || !seco) { anterior = null; continue }
         const k = base++
@@ -2197,6 +2280,22 @@ const ANCORAS = [
   [482, 1923, 'DOG DATA HQ'],
   [-776, 1641, 'RUNE MUSEUM'],
 ]
+// ── AS ESTRUTURAS QUE JÁ EXISTEM ──────────────────────────────────────────
+// ⚠️ ELAS VÊM DA CENA, NÃO DE COORDENADA ESCRITA AQUI. `scripts/city/estruturas.ts`
+// importa as MESMAS funções que assentam a peça no 3D (`derbySitio`,
+// `estadioSitio`, `campusParcela`…) e publica o JSON; o mapa só lê. Foi assim que
+// este arquivo já errou 75 m uma vez, replicando fora da cena um número que a
+// cena calcula.
+//
+// ⚠️ E É "CONSTRUÍDO", NÃO "PROGRAMADO". O `programa` de `cidade.json` tem 71
+// peças e a maioria é reserva de terra; as âncoras abaixo (ANCORAS) continuam
+// sendo isso, marca pequena e rótulo discreto. O que entra aqui é obra que
+// existe no jogo, e por isso ganha símbolo próprio e peso maior.
+const ESTRUTURAS = (() => {
+  const caminho = arg('estruturas', '/home/bitmax/Projects/bitcoin-fullstack/DogData-v1/public/city/estruturas.json')
+  try { return JSON.parse(readFileSync(caminho, 'utf8')) } catch { return { estruturas: [], recintos: [] } }
+})()
+
 let mob = ''
 for (const [x, z, nome, anc] of LUGARES) {
   const px0 = mundoPx(x), py0 = mundoPx(z)
@@ -2215,9 +2314,41 @@ for (const [x, z, nome, anc] of LUGARES) {
     + `font-family="'JetBrains Mono', ui-monospace, monospace" font-size="${19 * F}" `
     + `letter-spacing="${4 * F}" text-anchor="${anc}">${esc(nome)}</text>`
 }
-// as âncoras do programa: marca pequena e rótulo discreto, para não competir
-// com os topônimos de bairro
-for (const [x, z, nome] of ANCORAS) {
+// o recinto construído: limite fino e o nome no limite, porque ele é uma parcela
+// e não um ponto
+for (const rec of (ESTRUTURAS.recintos ?? [])) {
+  const d2 = rec.poly.map(([x, z], i) => `${i ? 'L' : 'M'}${mundoPx(x).toFixed(1)} ${mundoPx(z).toFixed(1)}`).join('') + 'Z'
+  mob += `<path d="${d2}" fill="#F7931A" fill-opacity="0.1" stroke="#F7931A" stroke-width="${2.2 * F}" opacity="0.85"/>`
+  const mx = rec.poly.reduce((a, p) => a + p[0], 0) / rec.poly.length
+  const mz = Math.min(...rec.poly.map((p) => p[1]))
+  mob += `<text x="${mundoPx(mx)}" y="${mundoPx(mz) - 12 * F}" fill="#FFD08A" stroke="#14100A" stroke-width="${3.4 * F}" `
+    + `paint-order="stroke" stroke-linejoin="round" opacity="0.95" `
+    + `font-family="'JetBrains Mono', ui-monospace, monospace" font-size="${14 * F}" `
+    + `letter-spacing="${2.8 * F}" text-anchor="middle">${esc(rec.nome)}</text>`
+}
+// ⚠️ A OBRA CONSTRUÍDA É QUADRADO CHEIO, A ÂNCORA DE PROGRAMA É CÍRCULO VAZADO.
+// A distinção é o conteúdo da carta: uma existe para visitar hoje, a outra é
+// terra reservada. Mesma cor de marca, formas diferentes, e a legenda diz qual
+// é qual.
+for (const e of (ESTRUTURAS.estruturas ?? [])) {
+  const px0 = mundoPx(e.x), py0 = mundoPx(e.z)
+  const lado = 7 * F
+  mob += `<rect x="${(px0 - lado / 2).toFixed(1)}" y="${(py0 - lado / 2).toFixed(1)}" width="${lado}" height="${lado}" `
+    + `fill="#F7931A" stroke="#14100A" stroke-width="${1.4 * F}"/>`
+  mob += `<text x="${px0 + 12 * F}" y="${py0 + 5 * F}" fill="#FFD08A" stroke="#14100A" stroke-width="${3.4 * F}" `
+    + `paint-order="stroke" stroke-linejoin="round" opacity="0.95" `
+    + `font-family="'JetBrains Mono', ui-monospace, monospace" font-size="${14 * F}" `
+    + `letter-spacing="${2.8 * F}">${esc(e.nome)}</text>`
+}
+// ⚠️ ÂNCORA QUE JÁ VIROU OBRA SAI DA LISTA DE PROGRAMA. As posições de `ANCORAS`
+// vêm de uma grade ANTERIOR, que não seguia o dodecágono até o fim; enquanto a
+// peça era só reserva isso era aceitável, mas com a obra construída no mapa o
+// mesmo nome aparecia DUAS VEZES em lugares diferentes — "DOG DERBY" planejado a
+// 1,5 km do DOG Derby que existe. Nome repetido em carta é erro, não redundância.
+const _construidas = new Set((ESTRUTURAS.estruturas ?? []).map((e) => e.nome)
+  .concat((ESTRUTURAS.recintos ?? []).map((r) => r.nome))
+  .concat(['OLYMPIC PARK']))   // o parque olímpico já está construído como Athletics e Aquatics
+for (const [x, z, nome] of ANCORAS.filter((a) => !_construidas.has(a[2]))) {
   const px0 = mundoPx(x), py0 = mundoPx(z)
   mob += `<circle cx="${px0.toFixed(0)}" cy="${py0.toFixed(0)}" r="${2.6 * F}" fill="none" `
     + `stroke="#F5E9D6" stroke-width="${1.4 * F}" opacity="0.85"/>`
@@ -2307,7 +2438,7 @@ mob += `<path d="M${nx} ${ny - 42 * F}L${nx + 13 * F} ${ny + 12 * F}L${nx} ${ny}
 // a legenda
 // ⚠️ A CAIXA CRESCE COM O NÚMERO DE VERBETES, e ela já estourou uma vez: ao
 // entrar o viaduto, a linha de RELIEF saiu por baixo do véu.
-const N_VERBETES = 12 + (an7TemTunel ? 1 : 0)
+const N_VERBETES = 14 + (an7TemTunel ? 1 : 0)
 const ALT_LEG = (N_VERBETES * 26 + 80) * F
 const lx = LADO - m - 260 * F, ly = LADO - m - ALT_LEG
 mob += veu(lx - 22 * F, ly - 34 * F, 282 * F, ALT_LEG)
@@ -2325,6 +2456,8 @@ const tracinho = (cor, w, dash) => (y) => `<line x1="${lx + 196 * F}" y1="${y - 
 mob += verbete('WATER', chip(AGUA_RASO))
 mob += verbete('BEACH', chip('#A69B80', 0.75))
 mob += verbete('CIVIC CORE', chip('#A79C89', 0.8))
+mob += verbete('BUILT · VISIT NOW', (y) => `<rect x="${lx + 208 * F}" y="${y - 11 * F}" width="${11 * F}" height="${11 * F}" fill="#F7931A"/>`)
+mob += verbete('PLANNED', (y) => `<circle cx="${lx + 213.5 * F}" cy="${y - 5.5 * F}" r="${4.6 * F}" fill="none" stroke="#F5E9D6" stroke-width="${1.6 * F}"/>`)
 mob += verbete('PROJECT LAND', chip('url(#hach)', 0.9))
 mob += verbete('AN7 · PERIMETER', tracinho('#FFF2DC', 6))
 mob += verbete('SHORE ROAD', tracinho('#F0E2C8', 4))

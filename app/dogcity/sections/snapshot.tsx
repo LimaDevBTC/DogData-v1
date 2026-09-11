@@ -71,6 +71,7 @@ import { motion, useReducedMotion } from "framer-motion"
 import { EASE_CSS, HAIR, HAIR_SOFT } from "../motion"
 import { useMempoolFeed } from "../use-mempool"
 import { SNAPSHOT } from "../dogcity-data"
+import { CityMap, ChaveTiers } from "./city-map"
 import { track } from "@/lib/analytics/client"
 
 const en = (n: number) => n.toLocaleString("en-US")
@@ -236,12 +237,19 @@ export default function Snapshot() {
           No claim, no signature, nothing to register.
         </p>
 
-        {/* ═══ O INSTRUMENTO ═══════════════════════════════════════════════
-            Cinco níveis de peso óptico, do compromisso ao palpite. A ordem é
-            deliberada e não deve ser embaralhada: quem bate o olho por meio
-            segundo tem que sair com o número de BLOCOS na cabeça, não com uma
-            data. */}
-        <div className={`mt-5 md:mt-10 border ${HAIR} bg-white/[0.02]`}>
+        {/* ⚠️ DUAS COLUNAS NO DESKTOP, UMA NO TELEFONE, E A ORDEM NÃO É
+            ESTÉTICA. O mapa entrou na hero por decisão do fundador em 11/09
+            ("quero essa imagem na hero section, ela está diretamente ligada com
+            o snapshot de amanhã") e ele é a resposta visual à pergunta que o
+            countdown levanta. Mas a regra dura 2 desta seção continua valendo:
+            quem bate o olho por meio segundo tem de sair com o número de BLOCOS
+            na cabeça. Numa coluna só — que é o telefone — o instrumento vem
+            PRIMEIRO e o mapa logo abaixo; pôr a carta antes empurraria o número
+            para fora da primeira dobra justamente no aparelho em que a dobra é
+            menor. No desktop os dois cabem lado a lado e a hierarquia se
+            resolve pelo peso óptico, não pela ordem. */}
+        <div className="mt-5 md:mt-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)] lg:gap-10 lg:items-start">
+        <div className={`border ${HAIR} bg-white/[0.02]`}>
           {/* o trilho da janela inteira, colado na borda de cima do quadro.
               Não tem rótulo próprio de propósito: ele é a moldura do
               instrumento, não mais um número para ler. */}
@@ -394,6 +402,24 @@ export default function Snapshot() {
               The time is a guess and it moves. The block is the commitment and it does not.
             </p>
           </div>
+        </div>
+
+        {/* a coluna do mapa. No telefone ela é a segunda peça da hero, logo
+            depois do número; no desktop ela divide a primeira dobra com ele. */}
+        <div>
+          <CityMap />
+          <div className={`mt-5 border-t ${HAIR_SOFT} pt-4`}>
+            <div className="font-mono text-[9px] md:text-[10px] tracking-[0.25em] text-mist">
+              WHO LIVES WHERE
+            </div>
+            <ChaveTiers className="mt-3" />
+            <p className="mt-4 text-[11px] md:text-xs text-dusty leading-relaxed">
+              Airdrop behaviour decides the district. Wallet age decides the street.
+              The map is the plan; the register is computed from the chain at block{" "}
+              {en(SNAPSHOT.block)}.
+            </p>
+          </div>
+        </div>
         </div>
 
         {/* ═══ O SELETOR DE CUSTÓDIA ═══════════════════════════════════════ */}
