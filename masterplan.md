@@ -278,9 +278,17 @@ de renda** (parcerias, naming rights, features futuras).
 - **Anti-buraco:** cada parcela nasce como **pocket park / praça ajardinada** — completa
   hoje, construível amanhã. Ideia aprovada → parque vira canteiro (animação existente) →
   prédio do parceiro. Precedente: BitFlow Tower.
-- **Dotação (~25 parcelas, <1% da área):** 1 premium colada ao anel da Satoshi Plaza; 2
-  por distrito nos anéis 0–3 (8 nobres); 4 na orla/waterfront; 1 em cada eixo de chegada
-  (avenidas do aeroporto, porto e estádio); 2 grandes na zona de expansão do porto.
+- **Dotação ORIGINAL, revogada em 2026-09-10 (~25 parcelas, <1% da área):** 1 premium
+  colada ao anel da Satoshi Plaza; 2 por distrito nos anéis 0–3 (8 nobres); 4 na
+  orla/waterfront; 1 em cada eixo de chegada; 2 grandes na zona de expansão do porto. Fica
+  registrada porque descreve BEM as posições que o projeto quer; o que morreu foi o teto de
+  ~25 parcelas e de <1% da área, escritos quando o sítio tinha raio 4.500.
+- **Dotação VIGENTE (2026-09-10): o RESÍDUO.** A terra livre construtível que sobra depois de
+  todas as carteiras receberem lote é do projeto. Split travado em **70% holders / 30%
+  projeto** sobre os 128,20 km² livres, ou seja **38,46 km²**, com o programa definido por
+  FUNÇÃO (marina, clube, hotel, sede, e o que a cidade precisar) e não por número de parcelas.
+  A curva de área que produz esse resíduo está em `tiersposition.md` §3.7. ⚠️ A ordem importa:
+  a curva é travada ANTES, senão o resíduo desejado passaria a definir o lote do holder.
 - **Transparência:** entram no registry como `owner: DOGDATA_RESERVE` e **vão declaradas
   no merkle root do Charter** — o que é do projeto está escrito na fundação, auditável
   desde o dia 1 (protege o princípio "placement can't be bought").
@@ -573,3 +581,33 @@ a infraestrutura com lote como qualquer carteira (15). **MEDIDO:** projetando a 
 hoje sobre a terra livre, a cidade inteira cabe dentro de **r 5.448**, com a abóbada em
 9.050. ⚠️ Os raios são consequência da densidade e servem para dimensionar; não são lote
 demarcado.
+
+🔒 **2026-09-10, dono: o split da terra, e a curva de área recalibrada.** *"Vamos dividir os
+terrenos da galera e o que sobrar é nosso"*, com o programa do projeto definido por FUNÇÃO.
+Split travado: **70% da terra livre para os holders, 30% para o projeto**.
+
+```
+terra livre e plana      128,20 km²
+  holders, 70%            89,74 km²  urbano (lote 46,66 + rua e verde)
+  PROJETO, 30%            38,46 km²  ← o resíduo, §6
+```
+
+**A curva, DERIVADA do split:** `area = clamp(0,975228 × √DOG, 40 m², 40.000 m²)`. Mediana
+**311 m²**, portão de 20k com 138 m², airdrop típico com 920 m², p99 com 3.077 m², e as 6
+maiores no teto de 4,0 ha. 22.020 carteiras ficam no piso de 40 m².
+
+⚠️ **A ORDEM DAS DUAS DECISÕES É O QUE TORNA A REGRA HONESTA.** "O que sobrar é nosso" só
+funciona com a área por carteira travada ANTES: se a curva viesse depois, seria o resíduo
+desejado a definir o lote do holder, e o projeto teria interesse em apertá-lo. Isso
+contradiria o §0.1. O split é a linha pública; a curva é consequência dele.
+
+⚠️ **ISTO REVOGA A CALIBRAÇÃO DA DECISÃO 1 DE 2026-08-28, NÃO A FORMA DELA.** Aquela rodada
+prometeu mediana 333 m², p99 1.333 e maior 4,0 ha sobre **52.993 carteiras e 16,33 km²**. Com
+85.795 carteiras e 128,20 km² livres, nenhuma curva única de raiz dá os três números juntos.
+A forma (raiz, com piso e teto) fica; os números foram recalibrados, e a mediana de 311 m²
+está a 7% dos 333 prometidos.
+
+⚠️ **E O `foundation_generator` USA A CURVA ERRADA HOJE.** Ele importa `footprintWidth` de
+`lib/city/zones.ts`, que é a curva VISUAL da cidade v3: mediana de **48 m²**, teto de 0,29 ha.
+Com ela o resíduo do projeto seria 119,31 km², ou **93,1% da terra livre**. Trocar por §3.7 é
+item obrigatório da reconstrução.

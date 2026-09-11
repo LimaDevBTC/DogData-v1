@@ -86,6 +86,17 @@ export function heightTier(dog: number): number {
   return Math.max(0, Math.min(9, Math.floor(Math.log10(dog))))
 }
 
+// ⚠️ ESTA NÃO É A CURVA DE ÁREA DA FUNDAÇÃO. É a curva VISUAL da cidade v3, e o
+// cabeçalho do `foundation_generator` ainda diz que a reusa "verbatim ... already
+// validated visually in the live 3D city". Validada para OLHAR, não para repartir
+// terra: medida em 10/09/2026 contra as 85.795 carteiras reais, ela dá mediana de
+// 48 m² (menor que uma vaga de garagem dupla) e teto de 0,29 ha para a maior
+// carteira da cidade. O total de lote sai em 4,63 km², o que sobre os 128,20 km²
+// livres deixaria 93,1% da terra para o projeto.
+//
+// A curva da fundação está em `tiersposition.md` §3.7, derivada do split de terra
+// travado em 70/30:  area = clamp(0,975228 × √DOG, 40 m², 40.000 m²).
+// Trocar o uso no `foundation_generator` é item obrigatório da reconstrução.
 const A_MIN = 40      // minimum lot area → smallest wallet still visible
 const A_MAX = 8000    // whale-campus cap
 export function footprintWidth(dog: number, supply: number): number {

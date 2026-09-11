@@ -341,6 +341,64 @@ cidade inteira cabe dentro de r 5.448 com a abóbada em 9.050**. Esses números 
 provar que cabe e para dimensionar; eles mudam junto com a densidade e **não são lote
 demarcado** (ver o aviso do topo deste arquivo). O que está decidido é a ORDEM.
 
+### 3.7 — O split da terra e a curva de área (🔒 2026-09-10)
+
+**DECIDIDO. 70% da terra livre para os holders, 30% para o projeto.** Dono, 2026-09-10:
+*"vamos dividir os terrenos da galera e o que sobrar é nosso"*, com o programa do projeto
+definido **por função** (marina, clube, hotel, sede e o que a cidade precisar), não por
+número de parcelas escolhido a dedo.
+
+```
+terra livre e plana sob a abóbada   128,20 km²
+  holders, 70%                       89,74 km²  urbano (lote + rua + verde)
+    do qual lote                      46,66 km²  (aproveitamento de 52%)
+  PROJETO, 30%                       38,46 km²  ← o resíduo
+```
+
+⚠️ **A ORDEM DAS DUAS DECISÕES É O QUE FAZ A REGRA SER HONESTA.** "O que sobrar é nosso" só
+funciona com a área por carteira travada ANTES. Se a curva vier depois, não é ela que define
+o resíduo: é o resíduo desejado que define a curva, e o projeto passa a ter interesse em
+apertar o lote do holder. Isso contradiria o §0.1 do masterplan ("a localização não se
+compra"). Por isso o split é a linha pública e a curva é **derivada** dele.
+
+**DECIDIDO. A curva, derivada do split:**
+
+```
+area = clamp(0,975228 × √DOG,  40 m²,  40.000 m²)
+```
+
+| | DOG | área | lado |
+|---|---|---|---|
+| 1 DOG (`DUST_MAX`) | 1 | 40 m² | 6,3 m |
+| limite do piso | 1.682 | 40 m² | 6,3 m |
+| 10k | 10.000 | 98 m² | 9,9 m |
+| portão de 20k | 20.000 | 138 m² | 11,7 m |
+| mediana | 101.806 | **311 m²** | 17,6 m |
+| airdrop típico | 889.806 | 920 m² | 30,3 m |
+| p99 | 9.956.682 | 3.077 m² | 55,5 m |
+| 100M | 100.000.000 | 9.752 m² | 98,8 m |
+| Kraken (maior) | 13,01B | **40.000 m² (teto)** | 200,0 m |
+
+Soma conferida: 46,66 km², exatamente o alvo. **22.020 carteiras ficam no piso** (abaixo de
+1.682 DOG) e **6 no teto** de 4,0 ha. Piso de 40 m² é o `A_MIN` que o código já usava, com
+justificativa registrada ("smallest wallet still visible"); teto de 4,0 ha é o que a decisão
+de 2026-08-28 já queria, para a cidade não virar cem latifundiários.
+
+⚠️ **ISTO REVOGA A CALIBRAÇÃO (NÃO A FORMA) DA DECISÃO DE 2026-08-28.** Aquela rodada
+prometeu mediana de 333 m², p99 de 1.333 e maior de 4,0 ha, calibrados sobre **52.993
+carteiras e 16,33 km²**. Hoje são 85.795 carteiras e 128,20 km² livres, e **nenhuma curva
+única de raiz reproduz os três números ao mesmo tempo**. A FORMA (proporcional à raiz, com
+piso e teto) sobrevive inteira; os números foram recalibrados sobre o dado de hoje, e a
+mediana de 311 m² fica a 7% dos 333 prometidos.
+
+⚠️ **E A CURVA DO CÓDIGO NÃO É ESTA, NEM NUNCA FOI A DA FUNDAÇÃO.** `footprintWidth` em
+`lib/city/zones.ts` devolve mediana de **48 m²** e teto de 0,29 ha: ela é a curva VISUAL da
+cidade v3 ("already validated visually in the live 3D city"). Com ela o resíduo do projeto
+seria **119,31 km², ou 93,1% da terra livre**, o que mostra o tamanho do estrago de deixar a
+curva errada no lugar. ⚠️ **O `foundation_generator` importa `footprintWidth` hoje** (o
+cabeçalho dele diz "reused verbatim ... not reinvented"): trocar isso é item obrigatório da
+reconstrução, ver §5.
+
 ---
 
 ## 4. Pendências abertas
@@ -413,6 +471,10 @@ terra já registrado.
 contemplando tudo que está abaixo da abóbada. Somente o que já reservamos, água e montanha
 não serão usados, o resto tem bastante coisa livre"*. Confirmado pela medição acima.
 
+⚠️ **E A CURVA DE ÁREA DELE ESTÁ ERRADA HOJE.** `foundation_generator.ts` importa
+`footprintWidth` de `lib/city/zones.ts`, que é a curva visual da v3 (mediana 48 m²). A curva
+da fundação está no §3.7 e é outra: `clamp(0,975228 × √DOG, 40 m², 40.000 m²)`.
+
 Quando for reconstruir, o gerador precisa:
 
 1. **Ler o tier de verdade**, fazendo join com `data/forensic_behavioral_analysis.json`.
@@ -457,3 +519,7 @@ Quando for reconstruir, o gerador precisa:
   fechando a colisão entre o tier 6 e o Grupo no tecido e conciliando a intensidade com o
   "20k como metro único de posição" do masterplan. Com isso **toda carteira da cidade tem
   lugar**.
+- **2026-09-10** — §3.7: split de 70/30 da terra livre (holders 89,74 km², projeto 38,46
+  km²) e a curva de área derivada dele, `clamp(0,975228 × √DOG, 40 m², 40.000 m²)`. Revoga a
+  calibração de 28/08 mantendo a forma, e registra que `footprintWidth` (a curva do código,
+  mediana 48 m²) nunca foi a da fundação.
