@@ -444,20 +444,19 @@ for (const r of (malha.canais?.radiais ?? [])) {
 }
 corpo += `<g clip-path="url(#casca)">${hidro}</g>\n`
 
-// ⚠️ A CIDADE TEM DUAS LÂMINAS, NÃO UMA, e a primeira carta esqueceu a segunda.
-// A baía e os três canais radiais estão na cota -40. O Lago da Praça, o anel de
-// água em volta do centro, foi SUBIDO para -6,5 em 02/09 (quando o barranco de
-// 44 graus virou praia), e o leito dele fica em -14. Desenhando só -40, o mapa
-// pintava o lago central como TERRA e as oito ilhas dele sumiam junto. Foi o
-// fundador quem viu, olhando a carta.
-const LAGO_LAMINA = +arg('lagoLamina', -6.5)
-const rLagoPx = mundoPx(1480) - mundoPx(0)
-const discoLago = `M${cx - rLagoPx} ${cy}a${rLagoPx} ${rLagoPx} 0 1 0 ${2 * rLagoPx} 0a${rLagoPx} ${rLagoPx} 0 1 0 ${-2 * rLagoPx} 0Z`
-corpo += `<clipPath id="lago"><circle cx="${cx}" cy="${cy}" r="${rLagoPx.toFixed(1)}"/></clipPath>\n`
-corpo += '<g clip-path="url(#lago)">\n'
-corpo += `<path d="${discoLago}${d(contorno(LAGO_LAMINA), true)}" fill="${AGUA_RASO}" fill-rule="evenodd"/>\n`
-corpo += `<path d="${d(contorno(LAGO_LAMINA), false)}" fill="none" stroke="#7FB9D4" stroke-width="1.6" opacity="0.75"/>\n`
-corpo += '</g>\n'
+// ⚠️ LÁPIDE: O LAGO DA PRAÇA NÃO TEM MAIS LÂMINA PRÓPRIA. Havia aqui um caso
+// especial que desenhava tudo abaixo de −6,5 m dentro de r 1.480 como água,
+// escrito em 02/09 quando o lago central tinha sido subido para essa cota.
+//
+// A CENA MUDOU E O CASO ESPECIAL FICOU. Medido no perfil de hoje, em 11/09: a
+// praça é um disco SECO em cota −35 até r ≈ 1.100, o canal anelar vai de 1.100 a
+// 1.410 com fundo em −48, e `terrain.ts` diz literalmente `LAGO_AGUA_Y = -40`,
+// "a cota de toda a água da cidade". Com o corte em −6,5 o mapa pintava a praça
+// inteira de azul e o canal sumia dentro do disco: era por isso que o círculo de
+// vias do centro parecia solto, boiando na água.
+//
+// Com a lâmina única, o campo de profundidade deste arquivo já resolve: água é
+// onde a bacia está abaixo de −40, e ali isso é exatamente o anel do canal.
 
 // ── A ORLA DA BAÍA, COMO OBRA ──────────────────────────────────────────────
 // ⚠️ A BAÍA TINHA MARGEM, NÃO TINHA ORLA. Litoral sem praia contínua, sem via de
@@ -489,7 +488,14 @@ if (ORLA || arg('vias', '0') !== '0') {
   for (let j = 0; j < orlaNG; j++) {
     for (let i = 0; i < orlaNG; i++) {
       const x = -RAIO + (i + 0.5) * orlaCEL, z = -RAIO + (j + 0.5) * orlaCEL
-      if (Math.hypot(x, z) <= 9050 && naAgua(x, z)) agua[j * orlaNG + i] = 1
+      // ⚠️ O CANAL DA PRAÇA NÃO ENTRA NA CONTA DA ORLA. Tirar só o MIOLO (pondo
+      // distância infinita dentro de r 1.480 depois do chamfer) não bastava: as
+      // células logo FORA do disco continuavam medindo 90 m até a lâmina do
+      // canal, caíam na faixa nobre e a carta pintava tier 4 e 5 em volta do
+      // Satoshi Plaza — que é núcleo cívico, e cuja frente d'água está decidida
+      // na baía (§3.3). A água do centro sai do grid ANTES do chamfer.
+      const rc = Math.hypot(x, z)
+      if (rc <= 9050 && rc > 1480 && naAgua(x, z)) agua[j * orlaNG + i] = 1
     }
   }
   // ⚠️ O FLOOD FILL NÃO PASSA PELOS CANAIS, e sem isso ele engole a cidade. Os
@@ -580,6 +586,51 @@ const ORLA_VIA_W = +arg('orlaViaLarg', 40)
 // 100 m de fundo — que é exatamente o que uma quadra tem.
 const ORLA_FUNDO = +arg('orlaFundo', 265)
 
+// ── A PALETA DOS TIERS, FONTE ÚNICA ────────────────────────────────────────
+// ⚠️ COR DE TIER MORA AQUI E EM MAIS LUGAR NENHUM. Ela aparece em três sítios —
+// a mancha no terreno, o painel "WHO LIVES WHERE" e a legenda de símbolos — e
+// escrita três vezes divergiria no primeiro ajuste, com o painel dizendo uma cor
+// e o mapa pintando outra.
+//
+// ⚠️ TRÊS FAMÍLIAS, UMA POR TIPO DE LUGAR, e não oito cores soltas. A alça é
+// laranja, a frente d'água é bronze, o tecido é neutro. Assim o leitor lê a
+// hierarquia antes de ler o nome: a cor diz QUE TIPO de endereço é, a posição na
+// família diz qual degrau. Oito matizes sem parentesco viram mapa político.
+//
+// A posição de cada um está fechada em `tiersposition.md` §2 e §3.1 a §3.5.
+// ⚠️ ESTA PALETA É PARA SER LIDA POR UM HOLDER, NÃO POR UM URBANISTA. Decisão do
+// fundador, 11/09: "esse é o mapa que vamos postar hoje, pré snapshot; os
+// holders têm que olhar e entender". Legibilidade virou requisito, e isso mudou
+// dois critérios:
+//
+// (a) UMA ESCADA SÓ, do privilégio ao comum, em vez de três famílias paralelas.
+//     As famílias diziam QUE TIPO de endereço era, o que é correto de projeto e
+//     inútil para quem procura o próprio nome: dois laranjas vizinhos obrigavam
+//     a conferir o painel. Agora os oito degraus mudam de MATIZ e de VALOR ao
+//     mesmo tempo — ouro, âmbar, laranja, queimado, tijolo, pedra, cinza, ardósia
+//     —, e a quebra entre o 5 e o 6 (quente para neutro) é a quebra real da
+//     cidade: acaba a frente d'água, começa o tecido.
+//
+// (b) OPACIDADE ALTA, que só é possível porque as CURVAS DE NÍVEL SÃO DESENHADAS
+//     POR CIMA (ver a nota "uso do solo vem por baixo das curvas"). O relevo não
+//     se perde: ele volta pela linha, não pela tinta. Com 0,40 a mancha sumia
+//     dentro da banda hipsométrica e o mapa de tier virava mapa de relevo.
+//
+// Nada de verde nem de roxo: verde é reservado a status no produto e roxo está
+// banido da casa.
+const TIER_COR = {
+  t1: '#FFCE7A',   // Satoshi Visionary  — ouro claro
+  t2: '#F79B34',   // BTC Maximalist     — âmbar
+  t3: '#DE6A18',   // Rune Master        — laranja
+  t4: '#B4501C',   // Ordinal Believer   — queimado
+  t5: '#87452A',   // DOG Supporter      — tijolo
+  t6: '#9C8F79',   // Diamond Paws       — pedra
+  g20: '#6A6E72',  // o Grupo, >= 20k DOG — cinza frio
+  g00: '#414750',  // todo o resto        — ardósia
+}
+// a opacidade com que cada mancha vai ao terreno; o painel usa as mesmas
+const TIER_OP = { t1: 0.86, t2: 0.86, t3: 0.86, t4: 0.8, t5: 0.78, t6: 0.66, g20: 0.68, g00: 0.7 }
+
 // ── OS BAIRROS (--bairros=1) ────────────────────────────────────────────────
 // ⚠️ USO DO SOLO VEM POR BAIXO DAS CURVAS, nunca por cima: numa carta a
 // altimetria é o esqueleto e a mancha urbana é a pele. Invertendo, as curvas
@@ -597,7 +648,11 @@ const ORLA_FUNDO = +arg('orlaFundo', 265)
 const BAIRROS = arg('bairros', '0') !== '0'
 if (BAIRROS) {
   const R_T6 = +arg('rT6', 3300), R_G20 = +arg('rG20', 5300), R_PER = +arg('rPer', 6900)
-  const R_PRACA = +arg('rPraca', 960)
+  // ⚠️ O TECIDO COMEÇA NO ANEL DA PRAÇA, NÃO EM 960. Com 960 a mancha do tier 6
+  // era pintada POR CIMA do canal anelar (que vai de r 1.100 a 1.410) e do disco
+  // da praça: um anel de água inteiro pintado como bairro de holder, que é o
+  // mesmo erro do setor de coroa da orla que já morreu neste arquivo.
+  const R_PRACA = +arg('rPraca', 1460)
   const A_BAIA = 6580, A_MAR = 7316, PRAIA_W = 80, VIA_R = 6950, VIA_W = 44
   const rp = (m) => mundoPx(m) - mundoPx(0)
   const cxx = LADO / 2, cyy = LADO / 2
@@ -628,17 +683,31 @@ if (BAIRROS) {
     + `<path d="${d(contornoTerra(), true)}" clip-rule="evenodd"/></clipPath>\n`
   const zona = (dd, cor, op) => `<path d="${dd}" fill="${cor}" fill-rule="evenodd" opacity="${op}"/>`
   let manchas = ''
-  manchas += zona(coroa(R_PRACA, R_T6), '#AA967A', 0.40)   // tier 6, Diamond Paws
-  manchas += zona(coroa(R_T6, R_G20), '#706C62', 0.40)     // Grupo >= 20k
-  manchas += zona(coroa(R_G20, R_PER), '#494640', 0.42)    // periferia < 20k
+  // ⚠️ O NÚCLEO CÍVICO É LUGAR, NÃO VAZIO. A praça é chão construído em cota −35,
+  // e a banda hipsométrica mais baixa a pintava quase preta: no meio da carta
+  // ficava um buraco, que é a última leitura que se quer no centro da cidade.
+  // Ela não ganha cor de tier porque não tem lote nenhum — é núcleo cívico.
+  const R_PRACA_CHAO = +arg('rPracaChao', 1024)
+  manchas += zona(coroa(60, R_PRACA_CHAO), '#A79C89', 0.55)         // a praça, chão cívico
+  manchas += zona(coroa(R_PRACA, R_T6), TIER_COR.t6, TIER_OP.t6)    // tier 6, Diamond Paws
+  manchas += zona(coroa(R_T6, R_G20), TIER_COR.g20, TIER_OP.g20)    // Grupo >= 20k
+  manchas += zona(coroa(R_G20, R_PER), TIER_COR.g00, TIER_OP.g00)   // periferia < 20k
   // ⚠️ A TERRA DO PROJETO VAI EM HACHURA, NÃO EM CHAPADO. Pintada de azul ela
   // era lida como água: numa carta, área azul contínua é lâmina, e o olho não
   // negocia isso. Hachura diagonal é a convenção de "reservado" desde sempre.
   manchas += zona(coroa(R_PER, 9050), 'url(#hach)', 0.9)
   // a alça: praia, mansões de frente, via, mansões de trás, praia
   manchas += zona(setor(A_BAIA, A_BAIA + PRAIA_W, 346, 116.5), '#A69B80', 0.62)
-  manchas += zona(setor(A_BAIA + PRAIA_W, VIA_R - VIA_W / 2, 346, 116.5), '#F2842E', 0.62)
-  manchas += zona(setor(VIA_R + VIA_W / 2, A_MAR - PRAIA_W, 346, 116.5), '#C6641C', 0.62)
+  // ⚠️ A FILEIRA DA FRENTE TEM DOIS DONOS, E ELES NÃO SE MISTURAM. `tiersposition`
+  // §3.1 e §3.2 fecharam: Satoshi Visionary ocupa o CENTRO do arco, de 23,2° a
+  // 77,7°, que é o trecho de frente para a cidade; BTC Maximalist fica nos dois
+  // flancos. Pintar a fileira inteira de uma cor só apagava a única decisão de
+  // posição que já está travada com data.
+  const G_T1_A = 23.2, G_T1_B = 77.7
+  manchas += zona(setor(A_BAIA + PRAIA_W, VIA_R - VIA_W / 2, 346, G_T1_A), TIER_COR.t2, TIER_OP.t2)
+  manchas += zona(setor(A_BAIA + PRAIA_W, VIA_R - VIA_W / 2, G_T1_B, 116.5), TIER_COR.t2, TIER_OP.t2)
+  manchas += zona(setor(A_BAIA + PRAIA_W, VIA_R - VIA_W / 2, G_T1_A, G_T1_B), TIER_COR.t1, TIER_OP.t1)
+  manchas += zona(setor(VIA_R + VIA_W / 2, A_MAR - PRAIA_W, 346, 116.5), TIER_COR.t3, TIER_OP.t3)
   manchas += zona(setor(A_MAR - PRAIA_W, A_MAR, 346, 116.5), '#A69B80', 0.62)
   // ⚠️ O SETOR DE COROA DA ORLA MORREU AQUI. Ele pintava os tiers 4 e 5 entre
   // r 4.800 e 5.700 no arco 358,5°-99,5°, o que ficava por cima da água num
@@ -683,8 +752,14 @@ if (BAIRROS) {
     // arco só concentraria tudo num setor, que é o defeito que o fundador viu
     // ("é visível que elas foram concentradas numa área pequena da orla").
     let orla = ''
-    orla += faixa(ORLA_FUNDO, '#B4763A', 0.44)                    // a faixa nobre inteira
-    orla += faixa(ORLA_VIA_R + ORLA_VIA_W / 2, '#8C8578', 0.5)    // calçada e recuo
+    // ⚠️ A FRENTE D'ÁGUA TAMBÉM TEM DOIS DONOS. `tiersposition` §3.3: Ordinal
+    // Believer fica DE FRENTE para a água e DOG Supporter na segunda faixa,
+    // atrás dele. A via de orla é a divisa natural entre os dois — quem está
+    // entre a via e a lâmina tem frente d'água, quem está atrás tem vista. Uma
+    // faixa só, de uma cor só, não dizia qual dos dois tiers estava onde.
+    orla += faixa(ORLA_FUNDO, TIER_COR.t5, TIER_OP.t5)                    // tier 5, atrás da via
+    orla += faixa(ORLA_VIA_R + ORLA_VIA_W / 2, '#8C8578', 0.55)           // calçada e recuo
+    orla += faixa(ORLA_VIA_R - ORLA_VIA_W / 2, TIER_COR.t4, TIER_OP.t4)   // tier 4, na lâmina
     orla += faixa(ORLA_PRAIA, '#A69B80', 0.72)                    // praia contínua
     // os trechos claros: alternados ao longo da costa, sobre a mesma faixa
     {
@@ -822,7 +897,32 @@ if (VIAS) {
   const LIMIAR_ACESSO = +arg('ponteAcesso', LIMIAR_PONTE)
   const LIMIAR_CORTE = +arg('corte', 60)   // m de encosta acima do limite que uma rua vence
   const LIMD_ORLA = +arg('decliveOrla', 18)  // corniche de borda de lago
-  const R0 = +arg('rMalha0', 1420), R1 = +arg('rMalha1', 6900)
+  // ⚠️ 55 m, NÃO 150. A faixa livre da AN7 existe para impedir que rua comum
+  // DESEMBOQUE na autopista, não para proibir via paralela: marginal ao lado de
+  // autopista é o arranjo normal, e é o que a própria marginal da cidade faz.
+  // Com 150 m a regra passava a proibir coisa legítima — MEDIDO no lago do rumo
+  // 282, a lâmina chega a 105 m do eixo da AN7 em três rumos e a 121 a 190 m em
+  // outros seis, de modo que NENHUMA via cabia na margem oeste e um terço do
+  // lago ficava sem orla. A avenida tem 44 m; 55 m do eixo deixa 33 m entre o
+  // meio-fio dela e a via de serviço, que é defensa e acostamento.
+  const FAIXA_AN7 = +arg('faixaAN7', 50)
+  // ⚠️ O CORTE É MAIS FOLGADO QUE A COLOCAÇÃO, E TEM DE SER. O nó é posto a 55 m
+  // do eixo; o trecho entre dois nós oscila e encosta nos 55. Testando corte e
+  // colocação com o mesmo número, a via paralela nascia e morria na mesma
+  // geração. 40 m é o limite do que é inaceitável: a avenida tem 22 m de
+  // meia-largura, então 40 deixa 18 m livres do meio-fio dela.
+  const FAIXA_AN7_CORTE = +arg('faixaAN7Corte', 40)
+  // ⚠️ A MALHA NÃO PODE NASCER DENTRO DO CANAL, e nascia. MEDIDO no perfil do
+  // centro: a praça é um disco seco em cota −35 até r ≈ 1.100, o CANAL ANELAR vai
+  // de 1.100 a 1.410 (fundo em −48), e a cidade sobe a partir dali. Com R0 em
+  // 1.420 a face do dodecágono caía em 0,966 × 1.420 = 1.372, ou seja, DENTRO da
+  // água: o primeiro anel saía picotado e a junção com o centro nunca fechava —
+  // "o círculo de vias em torno do canal circular central não está fechado".
+  // Com vértice em 1.640 a face fica em 1.585, 175 m de terra firme além da
+  // margem, e sobra exatamente um quarteirão entre o anel da praça e ela.
+  const R0 = +arg('rMalha0', 1640), R1 = +arg('rMalha1', 6900)
+  // o anel da praça: via circular colada no canal, 50 m além da margem
+  const R_ANEL_PRACA = +arg('rAnelPraca', 1460)
   const N_BASE = 12                     // os bulevares, e o dodecágono dos anéis
   const SUB = [8, 16]                   // subdivisões: 96 e 192 radiais
   const R_SUB2 = +arg('rSub2', 3400)    // onde a segunda subdivisão nasce
@@ -1022,6 +1122,49 @@ if (VIAS) {
   // um vão que não é esquina nem chegada; depois, ela fura a avenida e sobra do
   // outro lado. O raio vem da mesma função que desenha a avenida, então os dois
   // não podem divergir.
+  // ── O ANEL DA PRAÇA: A VIA QUE FECHA O CENTRO ─────────────────────────────
+  // ⚠️ ELE É CIRCULAR, E ISSO NÃO CONTRADIZ A REGRA DA CIDADE. A regra do
+  // fundador é que a única via redonda de ESCALA URBANA é a AN7; aqui o que a
+  // via acompanha é um canal circular, e foi ele quem descreveu assim: "vamos
+  // ter um círculo em torno do canal e, logo depois, o primeiro dodecaedro".
+  // Dodecágono colado num anel de água deixaria doze cunhas d'água nas faces e
+  // doze pontas de terra nos vértices.
+  //
+  // ⚠️ E ELE ENTRA NO GRAFO LIGADO AO PRIMEIRO DODECÁGONO, rumo a rumo. Sem a
+  // perna radial ele seria um anel bonito e órfão, e o componente conexo o
+  // comeria inteiro — que é o que a carta mostrava.
+  {
+    // ⚠️ 96 NÓS, que é a contagem de radiais do primeiro anel, e não 24. Com 24 a
+    // corda do anel dava 381 m: no papel um polígono de 24 lados ainda lê como
+    // círculo, mas cada trecho virava uma reta de 381 m ligando duas esquinas
+    // que não existem, e as pernas radiais saíam de quatro em quatro.
+    const N_PRACA = N_BASE * SUB[0]         // os mesmos 96 rumos do primeiro anel
+    let anterior = null, primeiro = null, arestasPraca = 0, radiaisPraca = 0
+    const chaveP = (t) => 5e6 + t
+    for (let t = 0; t <= N_PRACA; t++) {
+      const ir = (t % N_PRACA) * (NR / N_PRACA)
+      const g = rumoDe(ir)
+      const q = PXY(R_ANEL_PRACA, g)
+      const k = chaveP(t % N_PRACA)
+      if (t < N_PRACA) no.set(k, q)
+      if (anterior !== null) {
+        const res = trecho(no.get(anterior), no.get(k), LIMIAR_CANAL)
+        if (res) { liga(anterior, k, 'praca', !!res.ponte); arestasPraca++ }
+      }
+      if (t === 0) primeiro = k
+      anterior = k
+      // a perna que sobe para o primeiro dodecágono, no mesmo rumo
+      if (t < N_PRACA) {
+        const alvo = chave(0, ir)
+        if (no.has(alvo)) {
+          const res = trecho(q, no.get(alvo), LIMIAR_CANAL)
+          if (res) { liga(k, alvo, 'local', !!res.ponte); radiaisPraca++ }
+        }
+      }
+    }
+    console.log(`  anel da praca: r ${R_ANEL_PRACA} m, ${arestasPraca} de ${N_PRACA} trechos, ${radiaisPraca} pernas ate o primeiro dodecagono`)
+  }
+
   // ⚠️ A RAMPA DE ACESSO À AN7 NÃO MORA MAIS AQUI. Ela precisa saber qual é a
   // REDE PRINCIPAL para não nascer emendada num nó que o componente conexo vai
   // descartar meia dúzia de linhas depois, e o componente só existe lá embaixo.
@@ -1056,6 +1199,8 @@ if (VIAS) {
     }
     const mundoDist = (i) => -RAIO + (i - 1 + 0.5) * orlaCEL
     const ORLA_SUBIDA = +arg('orlaSubida', 400)   // m que a via sobe para achar chão
+    const ORLA_RECUO_MIN = +arg('orlaRecuoMin', 35)  // m mínimos entre a via e a lâmina
+    const ORLA_VAO = +arg('orlaVao', 60)             // m de enseada que a via atravessa
     const distEm = (x, z) => {
       const fi = (x + RAIO) / orlaCEL - 0.5, fj = (z + RAIO) / orlaCEL - 0.5
       const i = Math.max(0, Math.min(orlaNG - 1, Math.round(fi))), j = Math.max(0, Math.min(orlaNG - 1, Math.round(fj)))
@@ -1117,21 +1262,68 @@ if (VIAS) {
         if (!naAgua(qq[0], qq[1]) && declEm(qq[0], qq[1]) > LIMD) {
           const g0 = gradDist(qq[0], qq[1])
           if (g0) {
+            // ⚠️ SE NÃO ACHAR CHÃO DE RUA, FICA COM O MENOS PIOR. A primeira
+            // versão só aceitava ≤12° e desistia: na margem norte do lago do
+            // rumo 282 o talude fica em 13° mesmo a 250 m da água, e três nós
+            // seguidos eram recusados — 420 m de orla sem via, bem no trecho que
+            // o fundador apontou. Guardando o ponto mais brando do caminho, a
+            // corniche passa onde passa, dentro do limite dela.
+            let melhor = null, brando = declEm(qq[0], qq[1])
             for (let passo = 20; passo <= ORLA_SUBIDA; passo += 20) {
               const alvo = [q[0] + g0[0] * passo, q[1] + g0[1] * passo]
               if (naAgua(alvo[0], alvo[1])) break
-              if (declEm(alvo[0], alvo[1]) <= LIMD) { qq = alvo; break }
+              const dd = declEm(alvo[0], alvo[1])
+              if (dd <= LIMD) { qq = alvo; melhor = null; break }
+              if (dd < brando) { brando = dd; melhor = alvo }
             }
+            if (melhor && brando <= LIMD_ORLA) qq = melhor
+          }
+        }
+        // ⚠️ E ONDE A AUTOPISTA APERTA, A VIA RECUA PARA A ÁGUA. No lago do rumo
+        // 282 a AN7 passa raspando a margem oeste: 105 m do eixo à lâmina no
+        // ponto mais estreito. A isolinha de 140 m caía em cima da avenida, o
+        // corte da faixa livre a derrubava, e um terço do lago ficava sem orla —
+        // "o lago não tem orla completa", como o fundador disse. O nó volta pelo
+        // gradiente da distância até sair da faixa, respeitando um recuo mínimo
+        // da lâmina. Com isso a via da margem oeste vira a marginal da AN7 ali,
+        // que é exatamente o que ela tem de ser.
+        {
+          const gA = ((Math.atan2(qq[0], -qq[1]) * 180) / Math.PI + 360) % 360
+          const naAlcaArco = gA >= 340 || gA <= 122
+          if (!naAlcaArco && Math.abs(Math.hypot(qq[0], qq[1]) - AN7_R_BASE) < FAIXA_AN7) {
+            const g1 = gradDist(qq[0], qq[1])
+            let achou = false
+            if (g1) {
+              for (let rec = 10; rec <= 260; rec += 10) {
+                const alvo = [qq[0] - g1[0] * rec, qq[1] - g1[1] * rec]
+                if (distEm(alvo[0], alvo[1]) < ORLA_RECUO_MIN) break
+                if (Math.abs(Math.hypot(alvo[0], alvo[1]) - AN7_R_BASE) >= FAIXA_AN7) { qq = alvo; achou = true; break }
+              }
+            }
+            // ⚠️ SE NÃO COUBE, O NÓ NÃO NASCE. Mantendo o nó onde ele estava, a
+            // orla continuava do lado de FORA da autopista: dois becos em
+            // r 7.004 e r 7.049, no rumo 283, pendurados na margem errada de uma
+            // avenida que ninguém atravessa a pé.
+            if (!achou) { anterior = null; continue }
           }
         }
         const rqq = Math.hypot(qq[0], qq[1])
         const gqq = ((Math.atan2(qq[0], -qq[1]) * 180) / Math.PI + 360) % 360
-        const seco = !naAgua(qq[0], qq[1]) && declEm(qq[0], qq[1]) <= LIMD_ORLA
+        // ⚠️ FORA DA AN7 NÃO HÁ RUA, e fora da alça isso é regra de projeto: o
+        // que sobra além da avenida é terra do projeto até a abóbada, em
+        // hachura. Dois nós de orla tinham escapado para r 7.004 e r 7.049 no
+        // rumo 283 e viravam beco na margem errada da autopista.
+        const foraDaAN7 = !(gqq >= 340 || gqq <= 122) && rqq > AN7_R_BASE
+        const seco = !naAgua(qq[0], qq[1]) && declEm(qq[0], qq[1]) <= LIMD_ORLA && !foraDaAN7
         if (rqq > 9050 || naAlca(rqq, gqq) || !seco) { anterior = null; continue }
         const k = base++
         no.set(k, qq); pai.set(k, k); nosDaOrla.push(k); desteGrupo.push(k); nosOrla++
         if (anterior !== null) {
-          const res = trecho(no.get(anterior), qq, 0, false, LIMD_ORLA)
+          // ⚠️ ENSEADA CURTA NÃO PARTE A ORLA. Com tolerância zero de água, um
+          // único ponto molhado no meio de um passo de 120 m derrubava o trecho
+          // e o anel do lago saía picotado. Via de orla margeia a água: 60 m de
+          // travessia é passarela, não ponte.
+          const res = trecho(no.get(anterior), qq, ORLA_VAO, false, LIMD_ORLA)
           if (res) liga(anterior, k, 'orla', !!res.ponte)
         }
         anterior = k
@@ -1447,7 +1639,6 @@ if (VIAS) {
   // costura procura o nó mais próximo — então a regra tem de ser aplicada aqui,
   // uma vez, sobre o que já existe. Só BULEVAR (que entra por trevo) e a
   // MARGINAL (que corre a um quarteirão) atravessam a faixa.
-  const FAIXA_AN7 = +arg('faixaAN7', 150)
   const invadeAN7 = (p0, p1) => {
     const comp = Math.hypot(p1[0] - p0[0], p1[1] - p0[1])
     const n2 = Math.max(2, Math.ceil(comp / 25))
@@ -1455,7 +1646,7 @@ if (VIAS) {
       const x = p0[0] + ((p1[0] - p0[0]) * t) / n2, z = p0[1] + ((p1[1] - p0[1]) * t) / n2
       const g = ((Math.atan2(x, -z) * 180) / Math.PI + 360) % 360
       if (g >= 340 || g <= 122) continue          // na alça a avenida é o endereço
-      if (Math.abs(Math.hypot(x, z) - AN7_R_BASE) < FAIXA_AN7) return true
+      if (Math.abs(Math.hypot(x, z) - AN7_R_BASE) < FAIXA_AN7_CORTE) return true
     }
     return false
   }
@@ -1465,7 +1656,7 @@ if (VIAS) {
       if (!e.viva || e.cls === 'bulevar' || e.cls === 'marginal') continue
       if (invadeAN7(no.get(e.a), no.get(e.b))) { e.viva = false; cortadas++ }
     }
-    console.log(`    faixa livre da AN7: ${cortadas} arestas cortadas (${FAIXA_AN7} m de cada lado)`)
+    console.log(`    faixa livre da AN7: ${cortadas} arestas cortadas (${FAIXA_AN7_CORTE} m de cada lado)`)
   }
 
   // ── poda de grau 1, repetida até estabilizar ──────────────────────────────
@@ -1691,7 +1882,7 @@ if (VIAS) {
   // é bulevar (não vai a lugar nenhum, corre em paralelo à AN7). Desenhada como
   // local, o leitor não vê que existe uma via ali e volta a achar que a rua
   // desemboca na avenida.
-  const dMarginal = dDe(vivas.filter((e) => e.cls === 'marginal'))
+  const dMarginal = dDe(vivas.filter((e) => e.cls === 'marginal' || e.cls === 'praca'))
   // ⚠️ O ELEVADO DE BULEVAR GANHA O MESMO SÍMBOLO DA AN7: traço perpendicular de
   // apoio. Sem ele o leitor vê uma avenida atravessando uma encosta de 17° como
   // se fosse chão plano, que é mentira de carta.
@@ -1975,8 +2166,13 @@ const LUGARES = [
   [-508, 11188, 'SPACEPORT', 'middle'],
   [5420, -4360, 'THE SPIT', 'middle'],
   [3180, -2480, 'BAY SHORE', 'middle'],
-  [-2450, 1180, 'INNER FABRIC', 'middle'],
-  [-4180, 2900, 'OUTER FABRIC', 'middle'],
+  // ⚠️ O TOPÔNIMO PASSOU A DIZER O TIER, e não o apelido do anel. Com o painel
+  // "WHO LIVES WHERE" nomeando os oito, o rótulo no terreno que dizia "INNER
+  // FABRIC" obrigava o leitor a voltar ao painel para descobrir de quem era
+  // aquele cinza. Quem abre a carta pergunta onde ELE mora; o nome responde.
+  [-2450, 1180, 'DIAMOND PAWS', 'middle'],
+  [-4180, 2900, 'THE GROUP', 'middle'],
+  [-3100, 5980, 'EVERY OTHER HOLDER', 'middle'],
 ]
 
 // ⚠️ AS ÂNCORAS ENTRAM COMO PONTO NOMEADO, NUNCA COMO POLÍGONO DE LOTE, e a
@@ -2009,7 +2205,15 @@ for (const [x, z, nome, anc] of LUGARES) {
   // 11.188 m ao sul, quase na borda do recorte de 12.000, e o nome dele saía
   // cortado pela moldura na primeira geração.
   const perto = py0 > LADO - 140 * F
-  mob += T(px0, perto ? py0 - 30 * F : py0 - 16 * F, nome, { tam: 19, anc, cor: '#F5E9D6', esp: 4 })
+  // ⚠️ TOPÔNIMO DE BAIRRO PRECISA DE HALO. Ele cai ora sobre pedra clara, ora
+  // sobre ardósia, e em monoespaçada fina o mesmo creme some numa e grita na
+  // outra. O contorno escuro por baixo é o que faz o nome ler igual em qualquer
+  // mancha, e é o que carta impressa faz desde sempre.
+  const yTxt = perto ? py0 - 30 * F : py0 - 16 * F
+  mob += `<text x="${px0}" y="${yTxt}" fill="#F5E9D6" stroke="#14100A" stroke-width="${4 * F}" `
+    + `paint-order="stroke" stroke-linejoin="round" opacity="0.9" `
+    + `font-family="'JetBrains Mono', ui-monospace, monospace" font-size="${19 * F}" `
+    + `letter-spacing="${4 * F}" text-anchor="${anc}">${esc(nome)}</text>`
 }
 // as âncoras do programa: marca pequena e rótulo discreto, para não competir
 // com os topônimos de bairro
@@ -2043,25 +2247,48 @@ mob += T(m + 26 * F, m + 116 * F, (BAIRROS || VIAS ? `CITY PLAN · ${PASSO} M CO
 // auditável; o número de lotes de cada bairro não é, e não entra aqui.
 const px2 = m + 26 * F
 let py2 = m + 178 * F
-mob += veu(m, py2 - 30 * F, 560 * F, 236 * F)
+// ⚠️ O VÉU TEM DE CABER A LINHA MAIS LONGA, e não a média. "from 20k DOG ·
+// oldest UTXO sits closer in" são 40 caracteres em monoespaçada com espacejamento:
+// com 620 de largura a frase saía por fora do painel e terminava em cima do
+// terreno, ilegível justamente na linha que explica a regra de posição.
+mob += veu(m, py2 - 30 * F, 700 * F, 300 * F)
 mob += T(px2, py2, 'WHO LIVES WHERE', { tam: 14, esp: 4, cor: '#F7931A', op: 0.95 })
 py2 += 30 * F
+// ⚠️ UMA LINHA POR TIER, e não uma por bairro. O painel dizia "THE SPIT · FRONT
+// — Satoshi Visionary · BTC Maximalist": dois tiers numa cor só, quando a
+// posição deles dentro da alça está fechada e é DIFERENTE (§3.2: Visionary no
+// centro do arco, Maximalist nos flancos). O mesmo valia para a frente d'água.
+// A carta agora pinta os oito, e o painel é a chave deles.
 const TIERS_LEG = [
-  ['#F2842E', 'THE SPIT · FRONT', 'Satoshi Visionary · BTC Maximalist'],
-  ['#C6641C', 'THE SPIT · BACK', 'Rune Master'],
-  ['#B4763A', 'WATERFRONT', 'Ordinal Believer · DOG Supporter'],
-  ['#AA967A', 'INNER FABRIC', 'Diamond Paws'],
-  ['#706C62', 'OUTER FABRIC', 'holders from 20k DOG'],
-  ['#494640', 'OUTSKIRTS', 'holders under 20k DOG'],
+  [TIER_COR.t1, TIER_OP.t1, '1 · SATOSHI VISIONARY', 'the spit · front row, centre of the arc'],
+  [TIER_COR.t2, TIER_OP.t2, '2 · BTC MAXIMALIST', 'the spit · front row, both flanks'],
+  [TIER_COR.t3, TIER_OP.t3, '3 · RUNE MASTER', 'the spit · back row'],
+  [TIER_COR.t4, TIER_OP.t4, '4 · ORDINAL BELIEVER', 'waterfront · facing the water'],
+  [TIER_COR.t5, TIER_OP.t5, '5 · DOG SUPPORTER', 'waterfront · behind the shore road'],
+  [TIER_COR.t6, TIER_OP.t6, '6 · DIAMOND PAWS', 'inner fabric · by how the wallet is used'],
+  [TIER_COR.g20, TIER_OP.g20, '7 TO 12 · THE GROUP', 'from 20k DOG · oldest UTXO sits closer in'],
+  [TIER_COR.g00, TIER_OP.g00, 'EVERY OTHER HOLDER', 'under 20k DOG · outskirts, no ranking'],
 ]
-for (const [cor, bairro, quem] of TIERS_LEG) {
-  mob += `<rect x="${px2}" y="${py2 - 10 * F}" width="${13 * F}" height="${13 * F}" fill="${cor}" opacity="0.9"/>`
+// ⚠️ O QUADRADINHO É PINTADO COMO A MANCHA, sobre um fundo de terreno e com a
+// mesma opacidade. A versão anterior mostrava a cor PURA: no painel o tier 6 era
+// pedra clara, no mapa saía compondo com a banda hipsométrica e virava outro
+// tom. Chave que não bate com o mapa é pior que chave nenhuma, porque o leitor
+// procura a cor errada.
+for (const [cor, op, bairro, quem] of TIERS_LEG) {
+  mob += `<rect x="${px2}" y="${py2 - 10 * F}" width="${13 * F}" height="${13 * F}" fill="#6F5C45"/>`
+  mob += `<rect x="${px2}" y="${py2 - 10 * F}" width="${13 * F}" height="${13 * F}" fill="${cor}" opacity="${op}"/>`
   mob += T(px2 + 22 * F, py2, bairro, { tam: 13, esp: 2.6, cor: '#F0E4D0', op: 0.95 })
-  mob += T(px2 + 246 * F, py2, quem, { tam: 12, esp: 1.6, cor: '#C9B99E', op: 0.85 })
+  mob += T(px2 + 268 * F, py2, quem, { tam: 12, esp: 1.6, cor: '#C9B99E', op: 0.85 })
   py2 += 25 * F
 }
 mob += T(px2, py2 + 6 * F, 'AIRDROP BEHAVIOUR DECIDES THE DISTRICT · WALLET AGE DECIDES THE STREET',
   { tam: 11, esp: 1.8, op: 0.5 })
+// ⚠️ A CARTA É PRÉ-SNAPSHOT E TEM DE DIZER ISSO. Ela mostra ONDE cada tier mora,
+// que é regra fechada; não mostra lote de ninguém, porque lote é saída do bloco
+// 966.670. Publicada sem esta linha, um holder lê a mancha do tier dele como
+// endereço prometido. O número já é público (o countdown da landing usa ele).
+mob += T(px2, py2 + 26 * F, 'PLAN BEFORE THE SNAPSHOT · EVERY WALLET IS PLACED AT BLOCK 966,670',
+  { tam: 11, esp: 1.8, cor: '#F7931A', op: 0.72 })
 
 // a escala
 const kmPx = mundoPx(1000) - mundoPx(0)
@@ -2080,7 +2307,7 @@ mob += `<path d="M${nx} ${ny - 42 * F}L${nx + 13 * F} ${ny + 12 * F}L${nx} ${ny}
 // a legenda
 // ⚠️ A CAIXA CRESCE COM O NÚMERO DE VERBETES, e ela já estourou uma vez: ao
 // entrar o viaduto, a linha de RELIEF saiu por baixo do véu.
-const N_VERBETES = 17 + (an7TemTunel ? 1 : 0)
+const N_VERBETES = 12 + (an7TemTunel ? 1 : 0)
 const ALT_LEG = (N_VERBETES * 26 + 80) * F
 const lx = LADO - m - 260 * F, ly = LADO - m - ALT_LEG
 mob += veu(lx - 22 * F, ly - 34 * F, 282 * F, ALT_LEG)
@@ -2092,14 +2319,12 @@ let yy = ly
 const verbete = (rot, pinta) => { const t = T(lx, yy, rot, { tam: 13, esp: 3, op: 0.78 }) + pinta(yy); yy += LIN; return t }
 const chip = (cor, op = 1) => (y) => `<rect x="${lx + 196 * F}" y="${y - 11 * F}" width="${34 * F}" height="${12 * F}" fill="${cor}" opacity="${op}"/>`
 const tracinho = (cor, w, dash) => (y) => `<line x1="${lx + 196 * F}" y1="${y - 5 * F}" x2="${lx + 230 * F}" y2="${y - 5 * F}" stroke="${cor}" stroke-width="${w * F}"${dash ? ` stroke-dasharray="${dash}"` : ''}/>`
+// ⚠️ A COR DE TIER SAIU DAQUI. Ela estava nos dois painéis, e dois painéis com a
+// mesma informação obrigam o leitor a conferir se dizem a mesma coisa. O painel
+// "WHO LIVES WHERE" é a chave das cores; esta legenda é a chave dos SÍMBOLOS.
 mob += verbete('WATER', chip(AGUA_RASO))
 mob += verbete('BEACH', chip('#A69B80', 0.75))
-mob += verbete('SPIT · FRONT', chip('#F2842E', 0.85))
-mob += verbete('SPIT · BACK', chip('#C6641C', 0.85))
-mob += verbete('WATERFRONT', chip('#B4763A', 0.8))
-mob += verbete('INNER FABRIC', chip('#AA967A', 0.65))
-mob += verbete('OUTER FABRIC', chip('#706C62', 0.7))
-mob += verbete('OUTSKIRTS', chip('#494640', 0.8))
+mob += verbete('CIVIC CORE', chip('#A79C89', 0.8))
 mob += verbete('PROJECT LAND', chip('url(#hach)', 0.9))
 mob += verbete('AN7 · PERIMETER', tracinho('#FFF2DC', 6))
 mob += verbete('SHORE ROAD', tracinho('#F0E2C8', 4))
