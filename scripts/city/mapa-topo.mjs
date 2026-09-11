@@ -365,6 +365,12 @@ if (orlaDist) {
   for (let j = 0; j < orlaNG; j++) for (let i = 0; i < orlaNG; i++) {
     const x = -RAIO + (i + 0.5) * orlaCEL, z = -RAIO + (j + 0.5) * orlaCEL
     const r = Math.hypot(x, z), g = ((Math.atan2(x, -z) * 180) / Math.PI + 360) % 360
+    // ⚠️ E A PRAÇA CENTRAL TAMBÉM SAI. O Lago da Praça é água da cidade, então
+    // entrou na conta de "toda a água" e a faixa de orla nobre foi desenhada em
+    // volta dele: tier de holder pintado DENTRO do Satoshi Plaza, que é núcleo
+    // cívico e não tem lote nenhum. O lago é paisagem do centro, não frente de
+    // lote. O raio vem do próprio `discoLago` usado na hidrografia.
+    if (r <= 1480) orlaDist[j * orlaNG + i] = 1e9
     if (r >= 6400 && (g >= 346 || g <= 116.5)) orlaDist[j * orlaNG + i] = 1e9
   }
 }
@@ -605,7 +611,29 @@ if (VIAS) {
     return R_SUB2                                            // 192 radiais
   }
   const classeDe = (ir) => (ir % (NR / N_BASE) === 0 ? 'bulevar' : 'local')
+  // ⚠️ O ANEL É DODECÁGONO, NÃO CÍRCULO, e a malha gerada tinha perdido isso. Ao
+  // trocar a teia publicada por uma gerada, os anéis viraram polígonos de 96 e
+  // 192 lados: na escala da carta, círculo puro. O dodecágono é a assinatura da
+  // cidade e tem consequência de projeto, não só de desenho — é ele que dá
+  // esquina em cunha, que faz a face ser reta e que põe os doze bulevares nos
+  // VÉRTICES em vez de num ponto qualquer da curva.
+  //
+  // A regra é a mesma que `vias-varredura.mjs` usa para auditar: o raio
+  // publicado é o do VÉRTICE, e o meio da face fica em cos(15°) = 96,6% dele.
+  // Um radial a `rel` graus do meio da face encontra essa face em
+  //     r = R · cos(15°) / cos(rel)
+  // Com `rel` indo de −15° a +15° dentro de cada setor de 30°, a interseção
+  // percorre a reta inteira: no meio do setor cai em 0,966R, no vértice em R.
+  const PASSO_DODEC = Math.PI / 6
+  const COS15 = Math.cos(PASSO_DODEC / 2)
+  const raioNaFace = (R, gDeg) => {
+    const ang = (gDeg * Math.PI) / 180
+    const rel = ((ang % PASSO_DODEC) + PASSO_DODEC) % PASSO_DODEC - PASSO_DODEC / 2
+    return (R * COS15) / Math.cos(rel)
+  }
   const PXY = (r, g) => { const a = (g * Math.PI) / 180; return [Math.sin(a) * r, -Math.cos(a) * r] }
+  // o nó do anel `R` no rumo `g`: sobre a FACE do dodecágono, não sobre o círculo
+  const PNO = (R, g) => PXY(raioNaFace(R, g), g)
   // ── CANAL NÃO É BAÍA, e tratar os dois como "água" esvaziou o setor inteiro
   // dos canais na rodada anterior. Os três canais radiais têm 60 m de lâmina e
   // 40 m de talude por lado: 140 m de vão, que qualquer rua cruza com uma ponte
@@ -657,7 +685,7 @@ if (VIAS) {
   const chave = (ia, ir) => ia * NR + ir
   const no = new Map()
   ANEIS.forEach((r, ia) => {
-    for (let ir = 0; ir < NR; ir++) if (r >= nasceEm(ir) - 1e-6) no.set(chave(ia, ir), PXY(r, rumoDe(ir)))
+    for (let ir = 0; ir < NR; ir++) if (r >= nasceEm(ir) - 1e-6) no.set(chave(ia, ir), PNO(r, rumoDe(ir)))
   })
   const arestas = []
   const adj = new Map()
@@ -689,6 +717,32 @@ if (VIAS) {
       if (!no.has(a) || !no.has(b)) continue
       const res = trecho(no.get(a), no.get(b), classeDe(ir) === 'bulevar' ? LIMIAR_PONTE : 0)
       if (res) liga(a, b, classeDe(ir), res.ponte)
+    }
+  }
+  // ⚠️ OS 12 BULEVARES SEGUEM ALÉM DO ÚLTIMO ANEL, senão a perimetral não tem o
+  // que recolher: ela corre na borda, a teia para em R_FORA, e as duas nunca se
+  // encontram. Prolongar só os bulevares (não a teia local) é o que uma cidade
+  // faz — a via estrutural sai, a rua de bairro não.
+  const IA_FIM = ANEIS.length - 1
+  const PROLONGA = +arg('prolonga', 2200)
+  for (let ir = 0; ir < NR; ir += NR / N_BASE) {
+    const g = rumoDe(ir)
+    let ant = chave(IA_FIM, ir)
+    if (!no.has(ant)) continue
+    for (let d = 120; d <= PROLONGA; d += 120) {
+      const rr = raioNaFace(ANEIS[IA_FIM], g) + d
+      if (rr > 9050) break
+      const q = PXY(rr, g)
+      const res = trecho(no.get(ant), q, LIMIAR_PONTE)
+      if (!res) break
+      // ⚠️ AQUI NÃO SE TOCA EM `pai`: o union-find ainda não existe neste ponto do
+      // arquivo, e ele inicializa a partir de `no` logo abaixo. Registrar o nó
+      // basta; tentar semeá-lo no `pai` quebra com "cannot access before
+      // initialization", que é o erro que esta linha já causou uma vez.
+      const k = 3e6 + ir * 100 + d
+      no.set(k, q)
+      liga(ant, k, 'bulevar', !!res.ponte)
+      ant = k
     }
   }
   const pai = new Map()
@@ -758,6 +812,53 @@ if (VIAS) {
         anterior = k
       }
     }
+    // ── A CONTINUAÇÃO: A PISTA DA ORLA FECHA A VOLTA ──────────────────────
+    // ⚠️ ONDE A ÁGUA ACABA, A PISTA NÃO PODE ACABAR JUNTO. A via da orla nasce
+    // como isolinha de distância, então ela só existe onde há água a 140 m: nos
+    // trechos secos ela simplesmente some, e o que era para ser um anel vira
+    // uma coleção de arcos soltos. O fundador pediu a continuação EXATA dela, e
+    // não outra via na base da abóbada (essa é a perimetral, que é outra peça).
+    //
+    // A emenda interpola o RAIO entre as duas pontas do vão e caminha em ângulo,
+    // então a pista sai do último ponto de orla e chega no próximo seguindo a
+    // curva que ela já vinha fazendo. Onde o vão é curto isso é imperceptível;
+    // onde é longo, ela atravessa o seco em arco suave, como via de contorno faz.
+    {
+      const ordenados = nosDaOrla
+        .map((k) => ({ k, p: no.get(k) }))
+        .map((o) => ({ ...o, g: ((Math.atan2(o.p[0], -o.p[1]) * 180) / Math.PI + 360) % 360,
+                       r: Math.hypot(o.p[0], o.p[1]) }))
+        .sort((a, b) => a.g - b.g)
+      let emendas = 0
+      for (let t = 0; t < ordenados.length; t++) {
+        const A = ordenados[t], B = ordenados[(t + 1) % ordenados.length]
+        let dg = B.g - A.g; if (dg < 0) dg += 360
+        if (dg < 0.6 || dg > 120) continue        // já ligado, ou vão grande demais
+        const passos = Math.max(2, Math.ceil(dg / 0.6))
+        let ant = A.k, ok = true
+        const novos = []
+        for (let q = 1; q <= passos; q++) {
+          const f = q / passos
+          const g = (A.g + dg * f) % 360
+          const r = A.r + (B.r - A.r) * f
+          const pt = PXY(r, g)
+          if (alturaEm(pt[0], pt[1]) <= COTA_AGUA || declEm(pt[0], pt[1]) > LIMD) { ok = false; break }
+          novos.push(pt)
+        }
+        if (!ok) continue
+        for (let q = 0; q < novos.length; q++) {
+          const alvo = q === novos.length - 1 ? B.k : base++
+          if (alvo !== B.k) { no.set(alvo, novos[q]); pai.set(alvo, alvo); nosOrla++ }
+          const res = trecho(no.get(ant), no.get(alvo), 0)
+          if (!res) break
+          liga(ant, alvo, 'orla', !!res.ponte)
+          ant = alvo
+        }
+        emendas++
+      }
+      if (emendas) console.log(`  orla: ${emendas} emendas fechando a volta`)
+    }
+
     // ── OS RAMAIS: A ORLA TEM DE ENTRAR NA CIDADE ─────────────────────────
     // ⚠️ VIA PARALELA À COSTA SEM TRANSVERSAL É MURO, NÃO AVENIDA. A versão
     // anterior ligava cada nó da orla ao vizinho mais próximo e desenhava isso
@@ -790,6 +891,77 @@ if (VIAS) {
       }
     }
     console.log(`  orla da baia: ${nosOrla} nos de boulevard, ${ligacoesOrla} ligacoes com a malha`)
+  }
+
+  // ── A PERIMETRAL: O ANEL QUE FECHA A CIDADE ───────────────────────────────
+  // ⚠️ RADIAL QUE ACABA SOZINHA É DOZE BECOS, e era o que a malha tinha: os
+  // bulevares morriam cada um no seu rumo, sem nada costurando as pontas. A
+  // perimetral é a via que uma cidade põe na borda justamente para isso — ela
+  // fecha o circuito, recolhe todas as radiais numa volta só e serve de acesso
+  // ao que estiver no anel externo.
+  //
+  // ⚠️ E ELA SEGUE O TERRENO, NÃO UM RAIO. Traçada como círculo fixo, ela subiria
+  // a encosta num rumo e ficaria a quilômetros da borda em outro. Aqui cada rumo
+  // procura o último raio em que ainda dá para passar via, e é isso que faz ela
+  // "contemplar a base das montanhas": onde o maciço avança, ela recua junto.
+  let nosPerim = 0, ligPerim = 0
+  {
+    const PASSO_G = 1.0
+    const RECUO = +arg('perimRecuo', 120)    // a via fica antes da borda, não em cima
+    const R_MIN = 4200, R_MAX = 9000
+    const anterioresP = []
+    for (let g = 0; g < 360; g += PASSO_G) {
+      const a0 = (g * Math.PI) / 180
+      let melhor = null
+      for (let r = R_MAX; r >= R_MIN; r -= 25) {
+        const x = Math.sin(a0) * r, z = -Math.cos(a0) * r
+        if (naAlca(r, g)) continue
+        if (alturaEm(x, z) <= COTA_AGUA) continue
+        if (declEm(x, z) > LIMD) continue
+        melhor = r - RECUO
+        break
+      }
+      anterioresP.push(melhor === null ? null : [Math.sin(a0) * melhor, -Math.cos(a0) * melhor])
+    }
+    let base = 2e6, anterior = null, primeiro = null
+    for (let t = 0; t < anterioresP.length; t++) {
+      const q = anterioresP[t]
+      if (!q) { anterior = null; continue }
+      const k = base++
+      no.set(k, q); pai.set(k, k); nosPerim++
+      if (primeiro === null) primeiro = k
+      if (anterior !== null) {
+        const res = trecho(no.get(anterior), q, LIMIAR_PONTE)
+        if (res) liga(anterior, k, 'perimetral', !!res.ponte)
+      }
+      anterior = k
+    }
+    // fecha a volta
+    if (primeiro !== null && anterior !== null && anterior !== primeiro) {
+      const res = trecho(no.get(anterior), no.get(primeiro), LIMIAR_PONTE)
+      if (res) liga(anterior, primeiro, 'perimetral', !!res.ponte)
+    }
+    // recolhe as radiais: cada nó da perimetral busca a malha
+    const LIG = +arg('perimLig', 900)
+    let andado = 0, ult = null
+    for (let k = 2e6; k < 2e6 + nosPerim; k++) {
+      const p = no.get(k); if (!p) continue
+      if (ult) andado += Math.hypot(p[0] - ult[0], p[1] - ult[1])
+      ult = p
+      if (andado < 260) continue
+      andado = 0
+      let alvo = null, dist = Infinity
+      for (const [k2, q] of no) {
+        if (k2 >= 1e6) continue
+        const d0 = Math.hypot(p[0] - q[0], p[1] - q[1])
+        if (d0 < dist) { dist = d0; alvo = k2 }
+      }
+      if (alvo !== null && dist <= LIG) {
+        const res = trecho(p, no.get(alvo), LIMIAR_PONTE)
+        if (res) { liga(k, alvo, 'ramal', !!res.ponte); ligPerim++ }
+      }
+    }
+    console.log(`  perimetral: ${nosPerim} nos, ${ligPerim} ligacoes com a malha`)
   }
 
   // ── componente conexo: só a maior rede fica ───────────────────────────────
@@ -860,6 +1032,36 @@ if (VIAS) {
   }
   for (const [r, lista] of nosPorComp) if (acha(lista[0]) !== acha(raiz)) orfaosPerdidos++
   for (const e of arestas) if (acha(e.a) !== acha(raiz)) e.viva = false
+  // ── PODA DE VIA SOBRE ÁGUA ────────────────────────────────────────────────
+  // ⚠️ ELA VEM ANTES DA PODA DE GRAU 1 E DO FECHO DE PONTAS, e a ordem é o que
+  // fecha o ciclo: cortar um viaduto indevido cria um beco no lugar dele, e
+  // rodando depois do fecho esse beco fica órfão até a próxima geração. Medido
+  // quando a ordem estava trocada: 3 cortes, 3 becos novos.
+  // ⚠️ PONTE É TRAVESSIA CURTA, NÃO VIADUTO SOBRE A BAÍA. Várias rotinas daqui
+  // podem emitir aresta molhada: o fecho de pontas (que é permissivo de
+  // propósito), a costura e os ramais. Cada uma isolada é razoável, e somadas
+  // deixam traço correndo sobre a lâmina. Esta passada mede o trecho molhado de
+  // CADA aresta viva e derruba a que passa do limiar, sem exceção de classe.
+  {
+    const VAO_MAX = +arg('vaoMax', 200)
+    let cortadas = 0, molhTotal = 0
+    for (const e of arestas) {
+      if (!e.viva) continue
+      const p0 = no.get(e.a), p1 = no.get(e.b)
+      const comp = Math.hypot(p1[0] - p0[0], p1[1] - p0[1])
+      const n = Math.max(2, Math.ceil(comp / 25))
+      let seguido = 0, pior = 0
+      for (let t = 0; t <= n; t++) {
+        const x = p0[0] + ((p1[0] - p0[0]) * t) / n, z = p0[1] + ((p1[1] - p0[1]) * t) / n
+        if (alturaEm(x, z) <= COTA_AGUA) { seguido += comp / n; pior = Math.max(pior, seguido) }
+        else seguido = 0
+      }
+      if (pior > 0) molhTotal++
+      if (pior > VAO_MAX) { e.viva = false; cortadas++ }
+    }
+    console.log(`    via sobre agua: ${molhTotal} arestas molhadas, ${cortadas} cortadas por vao > ${VAO_MAX} m`)
+  }
+
   // ── poda de grau 1, repetida até estabilizar ──────────────────────────────
   // ⚠️ ISTO É O ACABAMENTO. Conectividade sozinha deixa a cauda pendurada: um
   // radial que encosta na rede numa ponta e morre na outra passa no teste e
@@ -885,7 +1087,7 @@ if (VIAS) {
         // nobre inteira; podado por grau 1 ele encurta trecho a trecho e deixa
         // lote de frente para a água sem chegada, que é o defeito que o fundador
         // apontou. Ele entra na rede por costura, não por poda.
-        if (e.cls === 'orla' || e.cls === 'ramal') continue
+        if (e.cls === 'orla' || e.cls === 'ramal' || e.cls === 'perimetral') continue
         e.viva = false; podadas++; mexeu = true; break
       }
     }
@@ -909,7 +1111,7 @@ if (VIAS) {
     // nó — inclusive um a 63 m, que é distância de esquina.
     const pontas = []
     for (const e of arestas) {
-      if (!e.viva || (e.cls !== 'orla' && e.cls !== 'ramal' && e.cls !== 'bulevar')) continue
+      if (!e.viva || (e.cls !== 'orla' && e.cls !== 'ramal' && e.cls !== 'bulevar' && e.cls !== 'perimetral')) continue
       for (const k of [e.a, e.b]) if (grau.get(k) === 1) pontas.push(k)
     }
     const FECHA_MAX = +arg('fechaPonta', 900)
@@ -1005,7 +1207,7 @@ if (VIAS) {
   const VIA_COR = '#F0E2C8'
   const dLocal = dDe(vivas.filter((e) => e.cls === 'local' || e.cls === 'anel' || e.cls === 'costura'))
   const dRamal = dDe(vivas.filter((e) => e.cls === 'ramal'))
-  const dBul = dDe(vivas.filter((e) => e.cls === 'bulevar' || e.cls === 'orla'))
+  const dBul = dDe(vivas.filter((e) => e.cls === 'bulevar' || e.cls === 'orla' || e.cls === 'perimetral'))
   const dPonte = dDe(vivas.filter((e) => e.ponte))
   corpo += `<g clip-path="url(#casca)">`
     // casing só nas largas: em rua de 1,7 px o contorno come a própria via
@@ -1040,10 +1242,17 @@ corpo += `<circle cx="${LADO / 2}" cy="${LADO / 2}" r="${rDomePx.toFixed(1)}" fi
 // não dá para se orientar, sem legenda a cor não quer dizer nada, e sem lugar
 // nomeado ninguém reconhece a própria cidade. Nesta casa a régua é "escritório
 // top para um sheik", não "chapa de diagnóstico".
+// ⚠️ TODO TEXTO PASSA POR ESCAPE, e a falta disso derrubou a carta inteira uma
+// vez: bastou um "&" cru no subtítulo do cartucho para o parser XML abortar em
+// `xmlParseEntityRef: no name` e engolir TUDO que vinha depois — as duas
+// legendas, a escala, o norte e a rosa. O SVG não avisa: ele renderiza até o
+// erro e o resto some em silêncio, o que faz parecer que a legenda "não foi
+// gerada". Escapar na função que desenha texto fecha a porta para sempre.
+const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 const T = (x, y, txt, o = {}) => `<text x="${x}" y="${y}" fill="${o.cor || '#E4D2B9'}" `
   + `font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace" font-size="${(o.tam || 22) * F}" `
   + `letter-spacing="${(o.esp ?? 3) * F}" opacity="${o.op ?? 1}" `
-  + `text-anchor="${o.anc || 'start'}">${txt}</text>`
+  + `text-anchor="${o.anc || 'start'}">${esc(txt)}</text>`
 
 // os lugares, em coordenada de mundo
 // ⚠️ NOME É O QUE FAZ ALGUÉM RECONHECER A PRÓPRIA CIDADE. Quatro topônimos
@@ -1114,6 +1323,37 @@ mob += `<rect x="${m}" y="${m}" width="${LADO - 2 * m}" height="${LADO - 2 * m}"
 mob += T(m + 26 * F, m + 52 * F, 'DOGCITY', { tam: 44, esp: 10, cor: '#F5E9D6' })
 mob += T(m + 26 * F, m + 88 * F, 'MARE TRANQUILLITATIS · THE MOON', { tam: 18, esp: 5, op: 0.72 })
 mob += T(m + 26 * F, m + 116 * F, (BAIRROS || VIAS ? `CITY PLAN · ${PASSO} M CONTOUR · NEIGHBOURHOODS & NETWORK` : `HYPSOMETRIC CHART · ${PASSO} M CONTOUR · ${MESTRA} M INDEX`), { tam: 15, esp: 4, op: 0.5 })
+// ── QUEM MORA ONDE: a legenda de tier ──────────────────────────────────────
+// ⚠️ A LEGENDA DE COR DIZIA O NOME DO BAIRRO, NÃO QUEM VIVE NELE. Para uma carta
+// de trabalho isso basta; para material de divulgação não, porque a pergunta que
+// o leitor traz é uma só: "onde EU vou morar". Este painel responde ligando cada
+// mancha ao tier que a ocupa.
+//
+// ⚠️ E ELE DIZ QUEM, NUNCA QUANTOS. Contagem de carteira e posição são saídas do
+// snapshot, e material publicado vira promessa. O tier é um critério já público e
+// auditável; o número de lotes de cada bairro não é, e não entra aqui.
+const px2 = m + 26 * F
+let py2 = m + 178 * F
+mob += veu(m, py2 - 30 * F, 470 * F, 232 * F)
+mob += T(px2, py2, 'WHO LIVES WHERE', { tam: 14, esp: 4, cor: '#F7931A', op: 0.95 })
+py2 += 30 * F
+const TIERS_LEG = [
+  ['#F2842E', 'THE SPIT · FRONT', 'Satoshi Visionary · BTC Maximalist'],
+  ['#C6641C', 'THE SPIT · BACK', 'Rune Master'],
+  ['#B4763A', 'WATERFRONT', 'Ordinal Believer · DOG Supporter'],
+  ['#AA967A', 'INNER FABRIC', 'Diamond Paws'],
+  ['#706C62', 'OUTER FABRIC', 'holders from 20k DOG'],
+  ['#494640', 'OUTSKIRTS', 'holders under 20k DOG'],
+]
+for (const [cor, bairro, quem] of TIERS_LEG) {
+  mob += `<rect x="${px2}" y="${py2 - 10 * F}" width="${13 * F}" height="${13 * F}" fill="${cor}" opacity="0.9"/>`
+  mob += T(px2 + 22 * F, py2, bairro, { tam: 13, esp: 2.6, cor: '#F0E4D0', op: 0.95 })
+  mob += T(px2 + 190 * F, py2, quem, { tam: 12, esp: 1.6, cor: '#C9B99E', op: 0.85 })
+  py2 += 25 * F
+}
+mob += T(px2, py2 + 6 * F, 'AIRDROP BEHAVIOUR DECIDES THE DISTRICT · WALLET AGE DECIDES THE STREET',
+  { tam: 11, esp: 1.8, op: 0.5 })
+
 // a escala
 const kmPx = mundoPx(1000) - mundoPx(0)
 const bx = m + 26 * F, by = LADO - m - 44 * F
