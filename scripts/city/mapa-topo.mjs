@@ -58,6 +58,7 @@ const H = new Float32Array(N * N)
 for (let i = 0; i < N * N; i++) H[i] = buf.readFloatLE(i * 4)
 
 const COTA_AGUA = +arg('agua', -40)
+const F = LADO / 2400   // fator, para o desenho escalar junto
 // ⚠️ A GRADE É EMOLDURADA POR UMA BORDA BAIXA, E SEM ISSO O MAPA SAI RASGADO.
 // Marching squares só devolve laço FECHADO quando a região não toca a borda do
 // domínio. Onde {altura >= cota} é cortada pela borda, a curva sai ABERTA, e
@@ -73,6 +74,23 @@ const h = (i, j) => (i === 0 || j === 0 || i === M - 1 || j === M - 1)
 // para o sul, e no SVG o y cresce para baixo, então os dois concordam sem giro.
 const px = (i) => ((i - 1) / (N - 1)) * LADO
 const mundoPx = (m) => ((m + RAIO) / (2 * RAIO)) * LADO
+
+// ── o terreno, consultado ponto a ponto ─────────────────────────────────────
+// A mesma grade que desenha as curvas responde "dá para construir aqui?". É ela
+// que impede a malha de sair jogada por cima da baía.
+const celM = (2 * RAIO) / (N - 1)
+const alturaEm = (x, z) => {
+  const fi = ((x + RAIO) / (2 * RAIO)) * (N - 1), fj = ((z + RAIO) / (2 * RAIO)) * (N - 1)
+  const i = Math.max(0, Math.min(N - 2, Math.floor(fi))), j = Math.max(0, Math.min(N - 2, Math.floor(fj)))
+  const u = fi - i, v = fj - j
+  return H[j * N + i] * (1 - u) * (1 - v) + H[j * N + i + 1] * u * (1 - v)
+       + H[(j + 1) * N + i] * (1 - u) * v + H[(j + 1) * N + i + 1] * u * v
+}
+const declEm = (x, z) => {
+  const hx = (alturaEm(x + celM, z) - alturaEm(x - celM, z)) / (2 * celM)
+  const hz = (alturaEm(x, z + celM) - alturaEm(x, z - celM)) / (2 * celM)
+  return (Math.atan(Math.hypot(hx, hz)) * 180) / Math.PI
+}
 
 // ── marching squares: o contorno da região {altura >= nivel} ────────────────
 // ⚠️ INTERPOLA DENTRO DA CÉLULA. Sem interpolar, a curva sai em degrau de grade e
@@ -244,6 +262,71 @@ corpo += `<path d="${discoLago}${d(contorno(LAGO_LAMINA), true)}" fill="${AGUA_R
 corpo += `<path d="${d(contorno(LAGO_LAMINA), false)}" fill="none" stroke="#7FB9D4" stroke-width="1.6" opacity="0.75"/>\n`
 corpo += '</g>\n'
 
+// ── OS BAIRROS (--bairros=1) ────────────────────────────────────────────────
+// ⚠️ USO DO SOLO VEM POR BAIXO DAS CURVAS, nunca por cima: numa carta a
+// altimetria é o esqueleto e a mancha urbana é a pele. Invertendo, as curvas
+// somem e a peça vira infográfico.
+//
+// ⚠️ E A MANCHA É VETOR, NÃO PIXEL. A primeira versão varria a tela amostrando
+// ponto a ponto e emitia um quadradinho por amostra: saiu serrilhada e o SVG
+// passou de 7 MB. O certo é o que carta faz há um século: a zona é uma COROA
+// CIRCULAR, e o recorte contra a costa sai de um `clipPath` com o contorno da
+// lâmina, que já está calculado aqui para desenhar a água. Uma fonte, dois usos.
+//
+// ⚠️ E O CLIP DE TERRA JÁ INCLUI A ALÇA, porque a grade vem da CENA e não do
+// relevo natural: lá a alça é plataforma em −30, acima da lâmina de −40. No
+// heightmap cru ela é água, e foi assim que ela sumiu do primeiro mapa.
+const BAIRROS = arg('bairros', '0') !== '0'
+if (BAIRROS) {
+  const R_T6 = +arg('rT6', 3300), R_G20 = +arg('rG20', 5300), R_PER = +arg('rPer', 6900)
+  const R_PRACA = +arg('rPraca', 960)
+  const A_BAIA = 6580, A_MAR = 7316, PRAIA_W = 80, VIA_R = 6950, VIA_W = 44
+  const rp = (m) => mundoPx(m) - mundoPx(0)
+  const cxx = LADO / 2, cyy = LADO / 2
+  // coroa circular completa, como path com dois arcos
+  const coroa = (r0, r1) => {
+    const a = rp(r1), b = rp(r0)
+    return `M${cxx - a} ${cyy}a${a} ${a} 0 1 0 ${2 * a} 0a${a} ${a} 0 1 0 ${-2 * a} 0Z`
+         + `M${cxx - b} ${cyy}a${b} ${b} 0 1 1 ${2 * b} 0a${b} ${b} 0 1 1 ${-2 * b} 0Z`
+  }
+  // setor de coroa, para a alça (arco 346° a 116,5°)
+  const setor = (r0, r1, g0, g1) => {
+    const pt = (r, g) => {
+      const a = (g * Math.PI) / 180
+      return `${mundoPx(Math.sin(a) * r).toFixed(1)} ${mundoPx(-Math.cos(a) * r).toFixed(1)}`
+    }
+    const arco = (r, ga, gb, passo) => {
+      let out = ''
+      const n = Math.ceil(Math.abs(gb - ga) / passo)
+      for (let k = 0; k <= n; k++) out += (k ? 'L' : '') + pt(r, ga + ((gb - ga) * k) / n)
+      return out
+    }
+    const g1x = g1 < g0 ? g1 + 360 : g1
+    return `M${arco(r0, g0, g1x, 0.5)}L${arco(r1, g1x, g0, 0.5)}Z`
+  }
+  corpo += `<pattern id="hach" width="${14 * F}" height="${14 * F}" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">`
+    + `<line x1="0" y1="0" x2="0" y2="${14 * F}" stroke="#6E9AB4" stroke-width="${2.2 * F}" opacity="0.55"/></pattern>\n`
+  corpo += `<clipPath id="terra" clipPathUnits="userSpaceOnUse">`
+    + `<path d="${d(contorno(COTA_AGUA), true)}" clip-rule="evenodd"/></clipPath>\n`
+  const zona = (dd, cor, op) => `<path d="${dd}" fill="${cor}" fill-rule="evenodd" opacity="${op}"/>`
+  let manchas = ''
+  manchas += zona(coroa(R_PRACA, R_T6), '#AA967A', 0.40)   // tier 6, Diamond Paws
+  manchas += zona(coroa(R_T6, R_G20), '#706C62', 0.40)     // Grupo >= 20k
+  manchas += zona(coroa(R_G20, R_PER), '#494640', 0.42)    // periferia < 20k
+  // ⚠️ A TERRA DO PROJETO VAI EM HACHURA, NÃO EM CHAPADO. Pintada de azul ela
+  // era lida como água: numa carta, área azul contínua é lâmina, e o olho não
+  // negocia isso. Hachura diagonal é a convenção de "reservado" desde sempre.
+  manchas += zona(coroa(R_PER, 9050), 'url(#hach)', 0.9)
+  // a alça: praia, mansões de frente, via, mansões de trás, praia
+  manchas += zona(setor(A_BAIA, A_BAIA + PRAIA_W, 346, 116.5), '#A69B80', 0.62)
+  manchas += zona(setor(A_BAIA + PRAIA_W, VIA_R - VIA_W / 2, 346, 116.5), '#F2842E', 0.62)
+  manchas += zona(setor(VIA_R + VIA_W / 2, A_MAR - PRAIA_W, 346, 116.5), '#C6641C', 0.62)
+  manchas += zona(setor(A_MAR - PRAIA_W, A_MAR, 346, 116.5), '#A69B80', 0.62)
+  // a orla da baía: os tiers 4 e 5, faixa junto à margem no arco da baía
+  manchas += zona(setor(+arg('orlaR0', 4800), +arg('orlaR1', 5700), 358.5, 99.5), '#CB8A3C', 0.42)
+  corpo += `<g clip-path="url(#terra)">${manchas}</g>\n`
+}
+
 // 3. as curvas finas, e depois as mestras por cima
 let finas = '', mestras = ''
 for (const v of niveis) {
@@ -255,6 +338,214 @@ for (const v of niveis) {
 corpo += `<path d="${finas}" fill="none" stroke="${CURVA}" stroke-width="1" opacity="0.30"/>\n`
 corpo += `<path d="${mestras}" fill="none" stroke="${CURVA_MESTRA}" stroke-width="2" opacity="0.60"/>\n`
 
+// ── A MALHA VIÁRIA (--vias=1) ───────────────────────────────────────────────
+// ⚠️ ELA É GERADA AQUI, NÃO LIDA DE `cidade-malha.json`. Três rodadas tentaram
+// desenhar a malha publicada e as três produziram a mesma carta confusa, porque
+// o defeito não era o traço, era o dado. Medido nos 9 bulevares do JSON: o
+// espaçamento entre rumos vizinhos vai de 5,625° a 73,125°, e BUL05 (180°) corre
+// a 5,6° de BUL06 (185,625°) por sete quilômetros e meio — as "duas vias uma do
+// lado da outra" que o fundador viu. Pior: os anéis viários são DODECÁGONOS com
+// vértice em múltiplo de 30°, e cinco dos nove bulevares cruzam esses anéis no
+// MEIO DA FACE, com desvio de até 13,125° do vértice. Não existe esquina ali.
+//
+// A malha daqui nasce de uma regra só, e a simetria sai por construção:
+//   · 12 bulevares a cada 30°, EM CIMA dos vértices do dodecágono;
+//   · radiais locais por subdivisão binária desses 30°, então todo radial cai
+//     num rumo múltiplo de 1,875° e todo cruzamento é uma esquina de verdade;
+//   · anéis com vão por classe, os mesmos 122/180/239/298 do quarteirão.
+//
+// ⚠️ E ELA É UM GRAFO, NÃO UM AMONTOADO DE TRAÇOS. Nó é cruzamento, aresta é o
+// trecho entre dois cruzamentos vizinhos. Uma aresta só existe se o chão dela
+// aguentar. Depois: componente conexo (só a maior rede fica) e poda de grau 1
+// repetida até parar, que é o que elimina cauda pendurada. É a diferença entre
+// "recortei cada linha" e "isto é uma rede".
+const VIAS = arg('vias', '0') !== '0'
+if (VIAS) {
+  const LIMD = +arg('decliveVia', 12)
+  const LIMIAR_PONTE = +arg('ponte', 150)
+  const LIMIAR_CANAL = +arg('ponteCanal', 200)   // 140 m de vão mais folga de talude
+  const R0 = +arg('rMalha0', 1420), R1 = +arg('rMalha1', 6900)
+  const N_BASE = 12                     // os bulevares, e o dodecágono dos anéis
+  const SUB = [8, 16]                   // subdivisões: 96 e 192 radiais
+  const R_SUB2 = +arg('rSub2', 3400)    // onde a segunda subdivisão nasce
+  const ALCA_R_DENTRO = 6400
+  const naAlca = (r, g) => r >= ALCA_R_DENTRO && (g >= 346 || g <= 116.5)
+  const vao = (r) => (r < 2200 ? 122 : r < 3400 ? 180 : r < 5000 ? 239 : 298)
+  const ANEIS = []
+  for (let r = R0; r <= R1; r += vao(r)) ANEIS.push(r)
+  const NR = N_BASE * SUB[1]            // 192 rumos possíveis, todos alinhados
+  const rumoDe = (ir) => (ir / NR) * 360
+  // em que anel cada rumo nasce: bulevar no primeiro, depois as duas subdivisões
+  const nasceEm = (ir) => {
+    if (ir % (NR / N_BASE) === 0) return R0                 // bulevar
+    if (ir % (NR / (N_BASE * SUB[0])) === 0) return ANEIS[0] // 96 radiais
+    return R_SUB2                                            // 192 radiais
+  }
+  const classeDe = (ir) => (ir % (NR / N_BASE) === 0 ? 'bulevar' : 'local')
+  const PXY = (r, g) => { const a = (g * Math.PI) / 180; return [Math.sin(a) * r, -Math.cos(a) * r] }
+  // ── CANAL NÃO É BAÍA, e tratar os dois como "água" esvaziou o setor inteiro
+  // dos canais na rodada anterior. Os três canais radiais têm 60 m de lâmina e
+  // 40 m de talude por lado: 140 m de vão, que qualquer rua cruza com uma ponte
+  // curta. A baía tem quilômetros e não se cruza. Zerando a ponte para via local
+  // eu matei as duas de uma vez, e o quarteirão entre canais ficou sem acesso —
+  // depois o componente conexo o descartou por inteiro, que é o vazio que
+  // apareceu na carta.
+  //
+  // A distinção sai da GEOMETRIA PUBLICADA, não de adivinhar largura: o ponto
+  // está sobre um canal de `malha.canais.radiais` ou não está.
+  const CANAIS = (malha.canais?.radiais ?? []).map((c) => {
+    const a = (c.rumo * Math.PI) / 180
+    return { ux: Math.sin(a), uz: -Math.cos(a), meia: (c.lamina ?? 60) / 2 + (malha.canais?.talude ?? 40),
+             r0: c.rInicio ?? 0, r1: c.rFim ?? 9050 }
+  })
+  const sobreCanal = (x, z) => {
+    for (const c of CANAIS) {
+      const t = x * c.ux + z * c.uz                 // projeção no eixo do canal
+      if (t < c.r0 - c.meia || t > c.r1 + c.meia) continue
+      if (Math.abs(x * c.uz - z * c.ux) <= c.meia) return true   // distância perpendicular
+    }
+    return false
+  }
+  // ── transitável? amostra o trecho e decide, com direito a ponte curta ──────
+  const PASSO = 25
+  const trecho = (p0, p1, limiar) => {
+    const comp = Math.hypot(p1[0] - p0[0], p1[1] - p0[1])
+    const n = Math.max(2, Math.ceil(comp / PASSO))
+    let molhadoSeguido = 0, pior = 0, temPonte = false
+    for (let t = 0; t <= n; t++) {
+      const x = p0[0] + ((p1[0] - p0[0]) * t) / n, z = p0[1] + ((p1[1] - p0[1]) * t) / n
+      const r = Math.hypot(x, z), g = ((Math.atan2(x, -z) * 180) / Math.PI + 360) % 360
+      if (naAlca(r, g)) return null
+      if (alturaEm(x, z) <= COTA_AGUA) {
+        // canal atravessa-se sempre; o resto obedece ao limiar da classe
+        const lim = sobreCanal(x, z) ? Math.max(limiar, LIMIAR_CANAL) : limiar
+        molhadoSeguido += comp / n
+        if (molhadoSeguido > lim) return null
+        temPonte = true
+      } else {
+        molhadoSeguido = 0
+        if (declEm(x, z) > LIMD) return null
+      }
+      pior = Math.max(pior, 0)
+    }
+    return { ponte: temPonte }
+  }
+  // ── nós e arestas ─────────────────────────────────────────────────────────
+  const chave = (ia, ir) => ia * NR + ir
+  const no = new Map()
+  ANEIS.forEach((r, ia) => {
+    for (let ir = 0; ir < NR; ir++) if (r >= nasceEm(ir) - 1e-6) no.set(chave(ia, ir), PXY(r, rumoDe(ir)))
+  })
+  const arestas = []
+  const adj = new Map()
+  const liga = (a, b, cls, ponte) => {
+    const k = arestas.length
+    arestas.push({ a, b, cls, ponte, viva: true })
+    if (!adj.has(a)) adj.set(a, []); adj.get(a).push(k)
+    if (!adj.has(b)) adj.set(b, []); adj.get(b).push(k)
+  }
+  // arestas de anel: entre rumos vizinhos QUE EXISTEM naquele anel
+  ANEIS.forEach((r, ia) => {
+    const vivos = []
+    for (let ir = 0; ir < NR; ir++) if (no.has(chave(ia, ir))) vivos.push(ir)
+    for (let t = 0; t < vivos.length; t++) {
+      const a = chave(ia, vivos[t]), b = chave(ia, vivos[(t + 1) % vivos.length])
+      // ⚠️ ANEL LOCAL NÃO GANHA PONTE. Com limiar de 150 m em toda aresta de
+      // anel, a teia atravessava a baía em degraus: dezenas de pontinhas
+      // paralelas sobre a água, que na carta lê como escada e não como cidade.
+      // Ponte é obra de arte, e obra de arte é de via estrutural. Rua de bairro
+      // encontra a lâmina e acaba ali, que é o que ela faz no 3D.
+      const res = trecho(no.get(a), no.get(b), 0)
+      if (res) liga(a, b, 'anel', res.ponte)
+    }
+  })
+  // arestas radiais: entre anéis vizinhos
+  for (let ir = 0; ir < NR; ir++) {
+    for (let ia = 0; ia + 1 < ANEIS.length; ia++) {
+      const a = chave(ia, ir), b = chave(ia + 1, ir)
+      if (!no.has(a) || !no.has(b)) continue
+      const res = trecho(no.get(a), no.get(b), classeDe(ir) === 'bulevar' ? LIMIAR_PONTE : 0)
+      if (res) liga(a, b, classeDe(ir), res.ponte)
+    }
+  }
+  // ── componente conexo: só a maior rede fica ───────────────────────────────
+  const pai = new Map()
+  const acha = (a) => { while (pai.get(a) !== a) { pai.set(a, pai.get(pai.get(a))); a = pai.get(a) } return a }
+  for (const k of no.keys()) pai.set(k, k)
+  for (const e of arestas) { const ra = acha(e.a), rb = acha(e.b); if (ra !== rb) pai.set(ra, rb) }
+  const peso = new Map()
+  for (const e of arestas) {
+    const r = acha(e.a), p0 = no.get(e.a), p1 = no.get(e.b)
+    peso.set(r, (peso.get(r) ?? 0) + Math.hypot(p1[0] - p0[0], p1[1] - p0[1]))
+  }
+  let raiz = null, maior = -1
+  for (const [r, v] of peso) if (v > maior) { maior = v; raiz = r }
+  const total = [...peso.values()].reduce((a, b) => a + b, 0)
+  for (const e of arestas) if (acha(e.a) !== raiz) e.viva = false
+  // ── poda de grau 1, repetida até estabilizar ──────────────────────────────
+  // ⚠️ ISTO É O ACABAMENTO. Conectividade sozinha deixa a cauda pendurada: um
+  // radial que encosta na rede numa ponta e morre na outra passa no teste e
+  // continua sendo um fio solto no papel. Cortando todo nó de grau 1 e repetindo,
+  // a rede converge para o que de fato liga dois lugares.
+  // ⚠️ EXCEÇÃO: bulevar que morre na BORDA fica. Ele termina em destino (o
+  // spaceport, os campos de extração), não em vazio.
+  const R_BORDA = +arg('rBorda', 6600)
+  let podadas = 0
+  for (let volta = 0; volta < 40; volta++) {
+    const grau = new Map()
+    for (const e of arestas) if (e.viva) {
+      grau.set(e.a, (grau.get(e.a) ?? 0) + 1); grau.set(e.b, (grau.get(e.b) ?? 0) + 1)
+    }
+    let mexeu = false
+    for (const e of arestas) {
+      if (!e.viva) continue
+      for (const ponta of [e.a, e.b]) {
+        if (grau.get(ponta) !== 1) continue
+        const p = no.get(ponta)
+        if (e.cls === 'bulevar' && Math.hypot(p[0], p[1]) >= R_BORDA) continue
+        e.viva = false; podadas++; mexeu = true; break
+      }
+    }
+    if (!mexeu) break
+  }
+  const vivas = arestas.filter((e) => e.viva)
+  const kmVivo = vivas.reduce((acc, e) => {
+    const p0 = no.get(e.a), p1 = no.get(e.b)
+    return acc + Math.hypot(p1[0] - p0[0], p1[1] - p0[1])
+  }, 0)
+  console.log(`  malha gerada: ${no.size} nos, ${arestas.length} arestas candidatas`)
+  console.log(`    conexo: ${(maior / 1000).toFixed(1)} km de ${(total / 1000).toFixed(1)} (${((100 * maior) / total).toFixed(1)}%)`)
+  console.log(`    poda de grau 1: ${podadas} arestas; rede final ${(kmVivo / 1000).toFixed(1)} km em ${vivas.length} arestas`)
+  // ── desenho ───────────────────────────────────────────────────────────────
+  const PX = (q) => `${mundoPx(q[0]).toFixed(1)} ${mundoPx(q[1]).toFixed(1)}`
+  const dDe = (lista) => lista.map((e) => `M${PX(no.get(e.a))}L${PX(no.get(e.b))}`).join('')
+  const lg = (m) => Math.max(0.6 * F, (m / (2 * RAIO)) * LADO)
+  const dLocal = dDe(vivas.filter((e) => e.cls === 'local' || e.cls === 'anel'))
+  const dBul = dDe(vivas.filter((e) => e.cls === 'bulevar'))
+  const dPonte = dDe(vivas.filter((e) => e.ponte))
+  corpo += `<g clip-path="url(#casca)">`
+    + `<path d="${dLocal}" fill="none" stroke="#20190F" stroke-width="${lg(14).toFixed(2)}" opacity="0.38" stroke-linecap="round"/>`
+    + `<path d="${dBul}" fill="none" stroke="#14100A" stroke-width="${lg(66).toFixed(2)}" opacity="0.55" stroke-linecap="round"/>`
+    + `<path d="${dBul}" fill="none" stroke="#F0E2C8" stroke-width="${lg(40).toFixed(2)}" opacity="0.92" stroke-linecap="round"/>`
+    + (dPonte ? `<path d="${dPonte}" fill="none" stroke="#F5E9D6" stroke-width="${lg(26).toFixed(2)}" opacity="0.95" stroke-dasharray="${7 * F} ${5 * F}"/>` : '')
+    + `</g>\n`
+  // a AN7: a via da alça, exceção por decreto (a alça é terraplanagem)
+  const an7 = []
+  for (let g = 330; g <= 330 + ((120 - 330 + 360) % 360); g += 0.5) an7.push(PX(PXY(6950, g % 360)))
+  corpo += `<path d="M${an7.join('L')}" fill="none" stroke="#14100A" stroke-width="${lg(72).toFixed(2)}" opacity="0.5" stroke-linecap="round"/>`
+    + `<path d="M${an7.join('L')}" fill="none" stroke="#FFF2DC" stroke-width="${lg(44).toFixed(2)}" opacity="0.95" stroke-linecap="round"/>\n`
+  // autopistas: correm SOB a cidade, não se recortam
+  let au = ''
+  for (const a of (malha.autopistas ?? [])) {
+    const ru = (a.rumo * Math.PI) / 180, off = a.afastamento, L = 9050
+    const dx = Math.sin(ru), dz = -Math.cos(ru), nx = Math.cos(ru), nz = Math.sin(ru)
+    au += `M${mundoPx(nx * off - dx * L).toFixed(1)} ${mundoPx(nz * off - dz * L).toFixed(1)}`
+        + `L${mundoPx(nx * off + dx * L).toFixed(1)} ${mundoPx(nz * off + dz * L).toFixed(1)}`
+  }
+  corpo += `<g clip-path="url(#casca)"><path d="${au}" fill="none" stroke="#7FB9D4" `
+    + `stroke-width="${lg(30).toFixed(2)}" opacity="0.45" stroke-dasharray="${14 * F} ${10 * F}"/></g>\n`
+}
+
 // 4. a casca da abóbada
 corpo += `<circle cx="${LADO / 2}" cy="${LADO / 2}" r="${rDomePx.toFixed(1)}" fill="none" stroke="#F7931A" stroke-width="2.5" opacity="0.55" stroke-dasharray="14 10"/>\n`
 
@@ -263,7 +554,6 @@ corpo += `<circle cx="${LADO / 2}" cy="${LADO / 2}" r="${rDomePx.toFixed(1)}" fi
 // não dá para se orientar, sem legenda a cor não quer dizer nada, e sem lugar
 // nomeado ninguém reconhece a própria cidade. Nesta casa a régua é "escritório
 // top para um sheik", não "chapa de diagnóstico".
-const F = LADO / 2400                                  // fator, para o desenho escalar junto
 const T = (x, y, txt, o = {}) => `<text x="${x}" y="${y}" fill="${o.cor || '#E4D2B9'}" `
   + `font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace" font-size="${(o.tam || 22) * F}" `
   + `letter-spacing="${(o.esp ?? 3) * F}" opacity="${o.op ?? 1}" `
@@ -297,7 +587,7 @@ mob += `<rect x="${m}" y="${m}" width="${LADO - 2 * m}" height="${LADO - 2 * m}"
 // o cartucho
 mob += T(m + 26 * F, m + 52 * F, 'DOGCITY', { tam: 44, esp: 10, cor: '#F5E9D6' })
 mob += T(m + 26 * F, m + 88 * F, 'MARE TRANQUILLITATIS · THE MOON', { tam: 18, esp: 5, op: 0.72 })
-mob += T(m + 26 * F, m + 116 * F, `HYPSOMETRIC CHART · ${PASSO} M CONTOUR · ${MESTRA} M INDEX`, { tam: 15, esp: 4, op: 0.5 })
+mob += T(m + 26 * F, m + 116 * F, (BAIRROS || VIAS ? `CITY PLAN · ${PASSO} M CONTOUR · 168 RADIALS · 26 RINGS` : `HYPSOMETRIC CHART · ${PASSO} M CONTOUR · ${MESTRA} M INDEX`), { tam: 15, esp: 4, op: 0.5 })
 // a escala
 const kmPx = mundoPx(1000) - mundoPx(0)
 const bx = m + 26 * F, by = LADO - m - 44 * F
@@ -313,14 +603,29 @@ const nx = LADO - m - 60 * F, ny = m + 92 * F
 mob += `<path d="M${nx} ${ny - 42 * F}L${nx + 13 * F} ${ny + 12 * F}L${nx} ${ny}L${nx - 13 * F} ${ny + 12 * F}Z" fill="#E4D2B9" opacity="0.9"/>`
   + T(nx, ny + 34 * F, 'N', { tam: 20, anc: 'middle', op: 0.9 })
 // a legenda
-const lx = LADO - m - 260 * F, ly = LADO - m - 132 * F
-mob += veu(lx - 22 * F, ly - 34 * F, 282 * F, 118 * F)
-mob += T(lx, ly, 'WATER', { tam: 14, esp: 3, op: 0.75 })
-  + `<rect x="${lx + 70 * F}" y="${ly - 11 * F}" width="${40 * F}" height="${12 * F}" fill="${AGUA_RASO}"/>`
-  + `<rect x="${lx + 112 * F}" y="${ly - 11 * F}" width="${40 * F}" height="${12 * F}" fill="${AGUA_FUNDO}"/>`
-  + T(lx, ly + 26 * F, 'DOME', { tam: 14, esp: 3, op: 0.75 })
-  + `<line x1="${lx + 70 * F}" y1="${ly + 21 * F}" x2="${lx + 152 * F}" y2="${ly + 21 * F}" stroke="#F7931A" stroke-width="${2.5 * F}" stroke-dasharray="${10 * F} ${7 * F}"/>`
-  + T(lx, ly + 52 * F, `RELIEF ${meta.min.toFixed(0)} TO ${meta.max.toFixed(0)} M`, { tam: 13, esp: 2, op: 0.55 })
+const lx = LADO - m - 260 * F, ly = LADO - m - 366 * F
+mob += veu(lx - 22 * F, ly - 34 * F, 282 * F, 366 * F)
+// ⚠️ A LEGENDA CRESCEU COM A PEÇA. Enquanto a carta era só relevo, três linhas
+// bastavam. Com bairro e via na folha, cor sem verbete é decoração: quem abre o
+// mapa tem de saber que laranja é a alça e que a hachura é terra do projeto.
+const LIN = 26 * F
+let yy = ly
+const verbete = (rot, pinta) => { const t = T(lx, yy, rot, { tam: 13, esp: 3, op: 0.78 }) + pinta(yy); yy += LIN; return t }
+const chip = (cor, op = 1) => (y) => `<rect x="${lx + 196 * F}" y="${y - 11 * F}" width="${34 * F}" height="${12 * F}" fill="${cor}" opacity="${op}"/>`
+const tracinho = (cor, w, dash) => (y) => `<line x1="${lx + 196 * F}" y1="${y - 5 * F}" x2="${lx + 230 * F}" y2="${y - 5 * F}" stroke="${cor}" stroke-width="${w * F}"${dash ? ` stroke-dasharray="${dash}"` : ''}/>`
+mob += verbete('WATER', chip(AGUA_RASO))
+mob += verbete('BEACH', chip('#A69B80', 0.75))
+mob += verbete('SPIT · FRONT', chip('#F2842E', 0.85))
+mob += verbete('SPIT · BACK', chip('#C6641C', 0.85))
+mob += verbete('BAY SHORE', chip('#CB8A3C', 0.7))
+mob += verbete('INNER FABRIC', chip('#AA967A', 0.65))
+mob += verbete('OUTER FABRIC', chip('#706C62', 0.7))
+mob += verbete('OUTSKIRTS', chip('#494640', 0.8))
+mob += verbete('PROJECT LAND', chip('url(#hach)', 0.9))
+mob += verbete('STREETS', tracinho('#F0E2C8', 3))
+mob += verbete('EXPRESSWAY', tracinho('#7FB9D4', 2.5, `${10 * F} ${7 * F}`))
+mob += verbete('DOME', tracinho('#F7931A', 2.5, `${10 * F} ${7 * F}`))
+mob += T(lx, yy + 6 * F, `RELIEF ${meta.min.toFixed(0)} TO ${meta.max.toFixed(0)} M`, { tam: 12, esp: 2, op: 0.55 })
 mob += T(LADO - m - 26 * F, LADO - m - 26 * F, 'DOG DATA', { tam: 15, esp: 5, op: 0.5, anc: 'end' })
 
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${LADO}" height="${LADO}" viewBox="0 0 ${LADO} ${LADO}">
