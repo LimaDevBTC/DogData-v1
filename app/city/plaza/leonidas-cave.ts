@@ -78,6 +78,16 @@ const MARK = new THREE.Color(0.93, 0.91, 0.86)
 // Tudo medido no GLB pronto (`blender/verify_leonidas_*.py`), não copiado de
 // script nenhum. Quadro local do grupo, metros finais, +X saindo da boca.
 const GEODO_URL = '/city/park/leonidas-geode.glb'
+/** ⚠️ O ESPELHO MAGRO DO GEODO, para celular e para o perfil LOW. Mesma espécie
+ *  do espelho KTX2: a fonte de verdade continua sendo o arquivo cheio, e este
+ *  sai dele por `blender/build_leonidas_geode_magro.py` sem os quatro objetos de
+ *  ornamento (55.718 dos 144.094 triângulos, 190 KB contra 928).
+ *
+ *  O ganho não é de triângulo, que a poda abaixo já entregava: é de PICO DE
+ *  MEMÓRIA. Podar depois de carregar significa que o aparelho já pagou o Draco
+ *  inteiro, os buffers de atributo e o VAO antes de jogar fora, e é pico que
+ *  derruba aba de celular, não média. Medido: 5,88 MiB residentes contra 2,27. */
+const GEODO_MAGRO_URL = '/city/park/leonidas-geode-magro.glb'
 // ⚠️ A FORTALEZA GRAYSKULL (11/09/2026) SUBSTITUI A CAVEIRA ANTIGA. Sai de
 // `blender/build_leonidas_grayskull.py --producao`, JÁ no quadro da cidade
 // (+X para fora da boca, 124,5 m de fachada, plano do rosto em x = 22,93 como a
@@ -973,6 +983,10 @@ export async function buildLeonidasCave(opts: {
    * só por ele existir é defeito que esta casa já teve duas vezes (ver a nota de
    * `cortaTextura` em perf.ts). Aqui a pergunta é explícita: `quality` e `tier`.
    *
+   * ⚠️ E DESDE 11/09/2026 ESTE CORTE JÁ VEM FEITO NO ARQUIVO para quem é magro
+   * (`GEODO_MAGRO_URL`): a poda abaixo sobrou para o caminho de emergência, em
+   * que o espelho falta e a cena cai no arquivo cheio.
+   *
    * 88.072 dos 143.790 triângulos do geodo (61,3%) são descartáveis SEM REASSAR
    * NADA, porque `GEO_Drusas` (51.032), `GEO_Talus` (18.980), `GEO_Vein` (12.980)
    * e `GEO_Stalactites` (5.080) são objetos separados com material próprio. Sem
@@ -998,9 +1012,16 @@ export async function buildLeonidasCave(opts: {
 
   async function abreGeodo() {
     baixandoGeodo = true
-    const [rock, shroomTall, shroomClump] = await Promise.all([
-      loadGlb(GEODO_URL), loadSf(opts.gltf, SF.shroomTall), loadSf(opts.gltf, SF.shroomCluster),
+    const [baixado, shroomTall, shroomClump] = await Promise.all([
+      loadGlb(magro ? GEODO_MAGRO_URL : GEODO_URL),
+      loadSf(opts.gltf, SF.shroomTall), loadSf(opts.gltf, SF.shroomCluster),
     ])
+    // ⚠️ O ESPELHO NUNCA PODE APAGAR A CAVERNA. `loadGlb` devolve null tanto para
+    // arquivo ausente quanto para decodificação falha, e logo abaixo um null
+    // MATA a caverna inteira (`if (!rock) return`). Então quem pediu o magro e
+    // não o recebeu volta para o cheio, e a poda por objeto continua ali embaixo
+    // justamente para esse caminho.
+    const rock = baixado ?? (magro ? await loadGlb(GEODO_URL) : null)
     baixandoGeodo = false
     if (!rock) return
     // o visitante pode ter ido embora enquanto a rede respondia
@@ -1336,7 +1357,13 @@ export async function buildLeonidasCave(opts: {
     if (plan && piso) {
       garden = buildCaveGarden({
         tall: shroomTall, cluster: shroomClump, plan, hallBox: caixaLocal(forte),
-        piso, low: opts.profile?.quality === 'low',
+        // ⚠️ O JARDIM CORTA PELA MESMA PERGUNTA DO RESTO DA CAVERNA (`magro`), e
+        // não só por `quality === 'low'`: no celular em BALANCED ele abria os 9
+        // canteiros cheios, ou seja umas 180 peças miúdas e outras tantas
+        // chamadas de desenho a 20 m do rosto da fortaleza. É o mesmo defeito
+        // que a nota de `cortaTextura` registra em perf.ts, de ler metade do
+        // perfil. Com o corte: 6 canteiros e o miúdo pela metade.
+        piso, low: magro,
       })
       // a intensidade com que cada material NASCEU: a respiração multiplica esta,
       // e não a do quadro anterior (multiplicar a corrente faz o brilho derivar
