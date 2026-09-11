@@ -446,6 +446,54 @@ na hierarquia da alça. **MEDIDO** como referência: uma malha de canais a cada 
 de largura renderia 1.242 km de testada consumindo 18,62 km², contra os 14,93 km de testada
 que a alça inteira tem.
 
+### 3.9 — A orla da baía: pedra mais DOG (🔒 2026-09-11)
+
+**MEDIDO, e muda o enquadramento: o airdrop do DOG foi distribuído para holders de
+Runestone.** Por isso ter os dois não é raro, é o estado natural. Cruzando
+`runestone_holders_today.json` (62.749 endereços) com os holders de DOG:
+
+```
+airdrop + nunca vendeu DOG (tiers 1-6)   21.795
+  AINDA TEM a pedra                      20.964   (96,2%)
+  VENDEU a pedra                            831   ( 3,8%)
+Diamond Paws com pedra                   18.642 de 19.288  (96,7%)
+```
+
+**O raro é o contrário:** as 831 que se desfizeram da pedra e ficaram com o DOG.
+
+**DECIDIDO. Três classes, e duas delas ganham a orla:**
+
+| | carteiras | DOG | pedras | precisa |
+|---|---|---|---|---|
+| **A** segurou a pedra E multiplicou o airdrop | 2.322 | 7,65B (7,7%) | 7.633 | 7,78 km² |
+| **B** segurou a pedra E o airdrop intacto | 18.642 | 19,07B (19,1%) | 22.712 | 39,83 km² |
+| **C** comprou a pedra E o DOG no mercado | 4.071 | 6,72B (6,7%) | 12.250 | 7,42 km² |
+
+⚠️ Repare no C: **3,0 pedras por carteira**, contra 1,2 do B. Quem chegou depois acumulou
+pedra com intenção, não recebeu por estar numa lista.
+
+**A orla da baía vai para A e C.** A na primeira fileira, colada à praia, porque segurou a
+pedra e ainda multiplicou o airdrop. C na segunda, atrás do boulevard: comprou os dois no
+mercado, com convicção e sem histórico. **MEDIDO:** os dois somam 15,20 km² e a faixa nobre
+tem 20,56 km² livres depois dos tiers 4 e 5.
+
+**DECIDIDO. Os 5,36 km² que sobram são do projeto, espalhados irregularmente** ao longo da
+costa, e não num trecho contínuo. Dono, 2026-09-11. Parcela de projeto concentrada num
+pedaço só monopolizaria um setor da orla; espalhada, ela costura a frente de água inteira e
+nenhum trecho fica sem um equipamento por perto.
+
+**B fica onde já estava, o tecido central**, e ganha uma leitura em vez de um prêmio: com
+96,7% dos Diamond Paws segurando pedra, "pedra mais airdrop intacto" praticamente DEFINE o
+miolo da cidade. Isso é identidade de bairro, não distinção de minoria. ⚠️ PENDENTE o que
+mais fazer por eles; o lugar já está decidido desde o §3.4.
+
+⚠️ **E A ORLA ERA OITO VEZES MAIOR DO QUE EU MEDIA.** Até esta rodada eu tratava "orla útil"
+como 8,62 km, limitando ao arco 358,5°-99,5° e exigindo 300 m de lâmina. A baía medida de
+verdade, por flood fill a partir do ponto que o gerador publica, tem **69,6 km de perímetro**:
+praia 5,33 km², faixa da via 5,28 km², **faixa nobre 25,62 km²**, que comporta 10.425
+carteiras. As margens laterais, as reentrâncias e o contorno das ilhas internas são litoral, e
+eu os descartava.
+
 ---
 
 ## 4. Pendências abertas
@@ -574,3 +622,8 @@ Quando for reconstruir, o gerador precisa:
   recalibrada para `clamp(1,132380 × √DOG, 40 m², 40.000 m²)` com mediana de 361 m², praia de
   80 m em toda margem de água, e correção dos raios dos bairros, que estavam calculados com a
   densidade antiga e inflavam a terra do projeto.
+- **2026-09-11** — §3.9: a orla da baía vai para quem tem pedra E DOG. Classe A (2.322,
+  multiplicou o airdrop) na primeira fileira, classe C (4.071, comprou os dois) na segunda,
+  e os 5,36 km² restantes do projeto espalhados irregularmente pela costa. Registrado que o
+  airdrop foi para holders de Runestone, que 96,2% dos OG ainda têm a pedra, e que a orla
+  medida tem 69,6 km de perímetro contra os 8,62 km que eu vinha usando.

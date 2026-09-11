@@ -95,9 +95,15 @@ const declEm = (x, z) => {
 // ── marching squares: o contorno da região {altura >= nivel} ────────────────
 // ⚠️ INTERPOLA DENTRO DA CÉLULA. Sem interpolar, a curva sai em degrau de grade e
 // o mapa inteiro vira serrilha, que é exatamente o defeito que a ilha teve.
-function contorno(nivel) {
+// ⚠️ A GRADE É INJETADA porque o mesmo marching squares serve a duas perguntas
+// diferentes: "onde está a cota X" (relevo) e "onde está a X metros da baía"
+// (campo de distância, que desenha a orla). Duplicar o algoritmo para o segundo
+// uso seria a forma mais fácil de os dois divergirem num conserto futuro.
+function contornoEm(nivel, hFn, MM, pxFn) {
   const segs = []
   const t = (a, b) => (nivel - a) / (b - a || 1e-9)
+  const px = pxFn
+  const M = MM, h = hFn
   for (let j = 0; j < M - 1; j++) {
     for (let i = 0; i < M - 1; i++) {
       const a = h(i, j), b = h(i + 1, j), c = h(i + 1, j + 1), d = h(i, j + 1)
@@ -126,6 +132,7 @@ function contorno(nivel) {
   }
   return encadeia(segs)
 }
+const contorno = (nivel) => contornoEm(nivel, h, M, px)
 
 // ⚠️ ENCADEAR É O QUE FAZ VIRAR CURVA E NÃO CONFETE. Sem isto o SVG teria um
 // `path` de duas pontas por célula, dezenas de milhares deles, e nem o traço
@@ -262,6 +269,121 @@ corpo += `<path d="${discoLago}${d(contorno(LAGO_LAMINA), true)}" fill="${AGUA_R
 corpo += `<path d="${d(contorno(LAGO_LAMINA), false)}" fill="none" stroke="#7FB9D4" stroke-width="1.6" opacity="0.75"/>\n`
 corpo += '</g>\n'
 
+// ── A ORLA DA BAÍA, COMO OBRA ──────────────────────────────────────────────
+// ⚠️ A BAÍA TINHA MARGEM, NÃO TINHA ORLA. Litoral sem praia contínua, sem via de
+// contorno e sem quarteirão: a carta mostrava a água encostando no nada. A
+// decisão do fundador é tratá-la como a alça já é — obra, não acidente de
+// relevo: "se preciso mova terreno, terraplane, mas deixe a orla inteira
+// habitável, com infraestrutura de ruas ligada à malha completa".
+//
+// ⚠️ E A GEOMETRIA SAI DE UM CAMPO DE DISTÂNCIA, NÃO DE UM CÍRCULO. A alça pôde
+// ser dois círculos fixos porque a faixa dela é quase um anel perfeito. A margem
+// da baía não é: ela varia de r 3.536 a 6.264, e a versão anterior desenhou a
+// orla como setor de coroa entre 4.800 e 5.700, o que a deixava por cima da água
+// num trecho e longe dela em outro. Aqui cada faixa é uma ISOLINHA do campo de
+// distância até a lâmina, então praia, via e quarteirão acompanham a costa sozinhos,
+// por mais irregular que ela seja.
+//
+//     0 a  80 m da água   praia (terraplanada, como a da alça)
+//    80 a 120 m           recuo da via
+//   120 a 160 m           BOULEVARD DA ORLA, 40 m
+//   160 a 660 m           quarteirão nobre, os 500 m dos tiers 4 e 5
+const ORLA = arg('orla', '0') !== '0'
+let orlaDist = null, orlaNG = 0, orlaCEL = 0
+if (ORLA || arg('vias', '0') !== '0') {
+  // 1. qual água é a BAÍA: flood fill a partir do ponto que o gerador publica,
+  //    e não "o maior corpo" — a mesma armadilha que `lagos.ts` documenta.
+  orlaCEL = +arg('celOrla', 40)
+  orlaNG = Math.ceil((2 * RAIO) / orlaCEL)
+  const agua = new Uint8Array(orlaNG * orlaNG)
+  for (let j = 0; j < orlaNG; j++) {
+    for (let i = 0; i < orlaNG; i++) {
+      const x = -RAIO + (i + 0.5) * orlaCEL, z = -RAIO + (j + 0.5) * orlaCEL
+      if (Math.hypot(x, z) <= 9050 && alturaEm(x, z) <= COTA_AGUA) agua[j * orlaNG + i] = 1
+    }
+  }
+  // ⚠️ O FLOOD FILL NÃO PASSA PELOS CANAIS, e sem isso ele engole a cidade. Os
+  // três canais radiais ligam a baía ao Lago da Praça, então hidrograficamente
+  // tudo é um corpo só — e a primeira versão, correta como hidrografia, pintou
+  // faixa de orla em volta da Satoshi Plaza e ao longo dos canais, a 6 km da
+  // baía. Orla é da BAÍA; canal tem margem, não litoral. Fechar a passagem é o
+  // que separa os dois, e usa a mesma lista publicada que decide ponte.
+  const bloqueio = new Uint8Array(orlaNG * orlaNG)
+  for (const c of (malha.canais?.radiais ?? [])) {
+    const a0 = (c.rumo * Math.PI) / 180
+    const ux = Math.sin(a0), uz = -Math.cos(a0)
+    const meia = (c.lamina ?? 60) / 2 + (malha.canais?.talude ?? 40) + orlaCEL
+    for (let j = 0; j < orlaNG; j++) for (let i = 0; i < orlaNG; i++) {
+      const x = -RAIO + (i + 0.5) * orlaCEL, z = -RAIO + (j + 0.5) * orlaCEL
+      const t = x * ux + z * uz
+      if (t < (c.rInicio ?? 0) || t > (c.rFim ?? 9050)) continue
+      if (Math.abs(x * uz - z * ux) <= meia) bloqueio[j * orlaNG + i] = 1
+    }
+  }
+  // ⚠️ A ORLA É DE TODA A ÁGUA DA CIDADE, NÃO SÓ DA BAÍA. Medindo apenas a margem
+  // da baía eu reportei 3,54 km de frente e concluí que nem os tiers 4 e 5
+  // caberiam (1,7 m de testada cada). Medida a água inteira dentro da cidade, a
+  // frente aproveitável é 50,16 km:
+  //     baía    14,85 km
+  //     lagos   21,84 km   ← os 17 corpos, que eu vinha ignorando
+  //     canais  13,47 km
+  // Com isso os 2.062 dos tiers 4 e 5 ficam com 24,3 m de testada cada, que é
+  // lote urbano de frente para a água. A conclusão anterior estava errada porque
+  // a pergunta estava: "cabe na baía" não é "cabe na cidade".
+  const baia = new Uint8Array(orlaNG * orlaNG)
+  for (let c = 0; c < agua.length; c++) if (agua[c]) baia[c] = 1
+  // 2. distância até a baía, chamfer em duas passadas
+  const INF = 1e9
+  orlaDist = new Float64Array(orlaNG * orlaNG).fill(INF)
+  for (let c = 0; c < baia.length; c++) if (baia[c]) orlaDist[c] = 0
+  const d1 = orlaCEL, d2 = orlaCEL * 1.41421356
+  for (let j = 0; j < orlaNG; j++) for (let i = 0; i < orlaNG; i++) {
+    const c = j * orlaNG + i; if (!orlaDist[c]) continue
+    let b = orlaDist[c]
+    for (const [di, dj, w] of [[-1, 0, d1], [1, 0, d1], [0, -1, d1], [-1, -1, d2], [1, -1, d2]]) {
+      const ni = i + di, nj = j + dj
+      if (ni >= 0 && nj >= 0 && ni < orlaNG && nj < orlaNG) b = Math.min(b, orlaDist[nj * orlaNG + ni] + w)
+    }
+    orlaDist[c] = b
+  }
+  for (let j = orlaNG - 1; j >= 0; j--) for (let i = orlaNG - 1; i >= 0; i--) {
+    const c = j * orlaNG + i; if (!orlaDist[c]) continue
+    let b = orlaDist[c]
+    for (const [di, dj, w] of [[1, 0, d1], [-1, 0, d1], [0, 1, d1], [1, 1, d2], [-1, 1, d2]]) {
+      const ni = i + di, nj = j + dj
+      if (ni >= 0 && nj >= 0 && ni < orlaNG && nj < orlaNG) b = Math.min(b, orlaDist[nj * orlaNG + ni] + w)
+    }
+    orlaDist[c] = b
+  }
+}
+// ⚠️ A ALÇA NÃO É ORLA DA BAÍA, é a alça. Ela margeia a baía pelo lado de fora,
+// então caía inteira dentro da faixa de 660 m e o laranja de "bay shore" cobria
+// o desenho próprio dela — duas obras diferentes com a mesma tinta. Marcando as
+// células da alça como infinitamente distantes, ela sai de todas as faixas e
+// volta a ser o que é: praia, mansões de frente, AN7, mansões de trás, praia.
+if (orlaDist) {
+  for (let j = 0; j < orlaNG; j++) for (let i = 0; i < orlaNG; i++) {
+    const x = -RAIO + (i + 0.5) * orlaCEL, z = -RAIO + (j + 0.5) * orlaCEL
+    const r = Math.hypot(x, z), g = ((Math.atan2(x, -z) * 180) / Math.PI + 360) % 360
+    if (r >= 6400 && (g >= 346 || g <= 116.5)) orlaDist[j * orlaNG + i] = 1e9
+  }
+}
+const distBaia = (x, z) => {
+  if (!orlaDist) return Infinity
+  const i = Math.floor((x + RAIO) / orlaCEL), j = Math.floor((z + RAIO) / orlaCEL)
+  if (i < 0 || j < 0 || i >= orlaNG || j >= orlaNG) return Infinity
+  return orlaDist[j * orlaNG + i]
+}
+const ORLA_PRAIA = +arg('orlaPraia', 80)
+const ORLA_VIA_R = +arg('orlaViaDist', 140)      // eixo do boulevard, em distância da água
+const ORLA_VIA_W = +arg('orlaViaLarg', 40)
+// ⚠️ UMA QUADRA, NÃO MEIO QUILÔMETRO. A faixa nobre tinha 500 m de profundidade,
+// e o fundador viu o efeito: "tem carteira ali que vai morar a 3 quadras da
+// praia". Frente de água que não se vê da janela não é frente de água. Com 50,16
+// km de margem aproveitável, os 2.062 dos tiers 4 e 5 cabem numa fileira só de
+// 100 m de fundo — que é exatamente o que uma quadra tem.
+const ORLA_FUNDO = +arg('orlaFundo', 265)
+
 // ── OS BAIRROS (--bairros=1) ────────────────────────────────────────────────
 // ⚠️ USO DO SOLO VEM POR BAIXO DAS CURVAS, nunca por cima: numa carta a
 // altimetria é o esqueleto e a mancha urbana é a pele. Invertendo, as curvas
@@ -322,9 +444,110 @@ if (BAIRROS) {
   manchas += zona(setor(A_BAIA + PRAIA_W, VIA_R - VIA_W / 2, 346, 116.5), '#F2842E', 0.62)
   manchas += zona(setor(VIA_R + VIA_W / 2, A_MAR - PRAIA_W, 346, 116.5), '#C6641C', 0.62)
   manchas += zona(setor(A_MAR - PRAIA_W, A_MAR, 346, 116.5), '#A69B80', 0.62)
-  // a orla da baía: os tiers 4 e 5, faixa junto à margem no arco da baía
-  manchas += zona(setor(+arg('orlaR0', 4800), +arg('orlaR1', 5700), 358.5, 99.5), '#CB8A3C', 0.42)
+  // ⚠️ O SETOR DE COROA DA ORLA MORREU AQUI. Ele pintava os tiers 4 e 5 entre
+  // r 4.800 e 5.700 no arco 358,5°-99,5°, o que ficava por cima da água num
+  // trecho e longe dela em outro, e ainda cobria só um pedaço do litoral. A orla
+  // agora é desenhada por distância até a lâmina, logo abaixo, e cobre a baía
+  // inteira.
+  // ── A ORLA DA BAÍA, EM FAIXAS ─────────────────────────────────────────────
+  // ⚠️ EMPILHADAS DA MAIS LARGA PARA A MAIS ESTREITA, a mesma técnica das bandas
+  // hipsométricas deste arquivo: cada faixa cobre o miolo da anterior e sobra um
+  // anel. Assim nenhuma precisa ser calculada como polígono com furo, que é onde
+  // este tipo de código costuma quebrar.
+  if (orlaDist) {
+    const hDist = (i, j) => {
+      // ⚠️ A MOLDURA É BAIXA, E EU FIZ AO CONTRÁRIO NA PRIMEIRA VERSÃO. O
+      // cabeçalho de `FUNDO_MOLDURA` neste mesmo arquivo já avisava: marching
+      // squares só fecha laço quando a região {valor >= nível} NÃO toca a borda
+      // do domínio, e emoldurar com valor ALTO faz ela tocar sempre. Os
+      // contornos saíam abertos, o `Z` os fechava com uma corda reta, e a carta
+      // ganhou cunhas gigantes atravessando a cidade inteira — o mesmo defeito
+      // que a primeira geração do mapa teve e que a nota de lá documenta.
+      // Com moldura em −1 toda faixa de distância fecha sozinha.
+      if (i <= 0 || j <= 0 || i >= orlaNG + 1 || j >= orlaNG + 1) return -1
+      return orlaDist[(j - 1) * orlaNG + (i - 1)]
+    }
+    const pxDist = (i) => ((i - 1) / (orlaNG - 1)) * LADO
+    // contornoEm devolve {dist >= nivel}; a faixa é o complemento, então as
+    // bandas vêm de fora para dentro e a última a pintar é a praia
+    const faixa = (ate, cor, op) => {
+      const ls = contornoEm(ate, hDist, orlaNG + 2, pxDist)
+      if (!ls.length) return ''
+      const disco = `M0 0H${LADO}V${LADO}H0Z`
+      return `<path d="${disco}${d(ls, true)}" fill="${cor}" fill-rule="evenodd" opacity="${op}"/>`
+    }
+    // ⚠️ TODO MUNDO DE FRENTE PARA A ÁGUA, e não um tier atrás do outro. A versão
+    // anterior empilhava as classes por PROFUNDIDADE: a primeira fileira tinha a
+    // praia e a segunda olhava por cima. O fundador cortou: "aqueles dois tiers
+    // ali podem ganhar orla, não só o mais claro". Numa orla curta, dividir em
+    // fileiras é dar água a um e vista a outro. Dividir AO LONGO da costa dá
+    // frente de água a todos, e é o que a faixa comporta.
+    //
+    // ⚠️ E OS TRECHOS SE ALTERNAM, não ficam em blocos contíguos. Cada grupo em um
+    // arco só concentraria tudo num setor, que é o defeito que o fundador viu
+    // ("é visível que elas foram concentradas numa área pequena da orla").
+    let orla = ''
+    orla += faixa(ORLA_FUNDO, '#B4763A', 0.44)                    // a faixa nobre inteira
+    orla += faixa(ORLA_VIA_R + ORLA_VIA_W / 2, '#8C8578', 0.5)    // calçada e recuo
+    orla += faixa(ORLA_PRAIA, '#A69B80', 0.72)                    // praia contínua
+    // os trechos claros: alternados ao longo da costa, sobre a mesma faixa
+    {
+      const sem = (n) => { const v = Math.sin(n * 91.7 + 47.3) * 43758.5453; return v - Math.floor(v) }
+      let tr = ''
+      for (let k = 0; k < 40; k += 2) {
+        const g0 = (k / 40) * 360 + 2 * sem(k), g1 = ((k + 1) / 40) * 360 + 2 * sem(k + 1)
+        const pt = (r, g) => { const a2 = (g * Math.PI) / 180
+          return `${mundoPx(Math.sin(a2) * r).toFixed(1)} ${mundoPx(-Math.cos(a2) * r).toFixed(1)}` }
+        let dd = 'M'
+        for (let g = g0; g <= g1; g += 0.5) dd += pt(9050, g) + 'L'
+        for (let g = g1; g >= g0; g -= 0.5) dd += pt(900, g) + 'L'
+        tr += `<path d="${dd.slice(0, -1)}Z" fill="#D89A48" opacity="0.5"/>`
+      }
+      orla += `<g clip-path="url(#orlaNobre)">${tr}</g>`
+    }
+    // ⚠️ AS PARCELAS DO PROJETO VÃO ESPALHADAS, NÃO EM BLOCO. Decisão do fundador:
+    // concentradas num trecho só elas monopolizariam um setor da orla; espalhadas,
+    // costuram a frente de água inteira e nenhum pedaço fica sem equipamento por
+    // perto. O passo é IRREGULAR de propósito — parcela igualmente espaçada ao
+    // longo de 69,6 km de costa leria como cerca, não como cidade.
+    const ang0 = Math.atan2(4863.8, 3738.4)
+    const semente = (n) => { const v = Math.sin(n * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v) }
+    let parcelas = ''
+    for (let k = 0; k < 34; k++) {
+      const t = (k + 0.35 * semente(k) + 0.2 * semente(k * 7)) / 34
+      const g = t * 360
+      const larg = 2.2 + 2.8 * semente(k * 13)
+      // ⚠️ PARCELA É ANEL CURTO, NÃO CUNHA. A primeira versão traçava um setor do
+      // CENTRO da baía até 9 km, e o clip deveria recortá-lo na faixa da orla:
+      // com o clip quebrado pela moldura, sobraram raios azuis rasgando a cidade
+      // inteira. Traçando o anel entre dois raios próximos, a parcela já nasce do
+      // tamanho certo e não depende do clip para existir.
+      const rc = 5600, esp = 900
+      let dd = 'M'
+      for (let gg = g - larg / 2; gg <= g + larg / 2; gg += 0.25) {
+        const a2 = (gg * Math.PI) / 180
+        dd += `${mundoPx(Math.sin(a2) * (rc + esp / 2)).toFixed(1)} ${mundoPx(-Math.cos(a2) * (rc + esp / 2)).toFixed(1)}L`
+      }
+      for (let gg = g + larg / 2; gg >= g - larg / 2; gg -= 0.25) {
+        const a2 = (gg * Math.PI) / 180
+        dd += `${mundoPx(Math.sin(a2) * (rc - esp / 2)).toFixed(1)} ${mundoPx(-Math.cos(a2) * (rc - esp / 2)).toFixed(1)}L`
+      }
+      parcelas += `<path d="${dd.slice(0, -1)}Z" fill="#4E7A93" opacity="0.55"/>`
+    }
+    orla += `<g clip-path="url(#orlaNobre)">${parcelas}</g>`
+    corpo += `<clipPath id="orlaNobre" clipPathUnits="userSpaceOnUse">`
+      + `<path d="M0 0H${LADO}V${LADO}H0Z${d(contornoEm(ORLA_FUNDO, hDist, orlaNG + 2, pxDist), true)}" clip-rule="evenodd"/>`
+      + `</clipPath>\n`
+    // guardado para pintar DEPOIS das manchas: ver a nota logo abaixo
+    var orlaPronta = orla
+  }
   corpo += `<g clip-path="url(#terra)">${manchas}</g>\n`
+  // ⚠️ A ORLA VAI POR CIMA DOS ANÉIS DE BAIRRO, e a ordem invertida foi o motivo
+  // de ela quase não aparecer na carta: pintada antes, os anéis do tecido, do
+  // Grupo e da periferia passavam por cima e só sobrava o naco que calhava de
+  // cair fora deles. A faixa junto à água tem precedência sobre o anel que a
+  // atravessa, porque é ela que define o endereço ali.
+  if (typeof orlaPronta === 'string') corpo += `<g clip-path="url(#terra)">${orlaPronta}</g>\n`
 }
 
 // 3. as curvas finas, e depois as mestras por cima
@@ -468,10 +691,92 @@ if (VIAS) {
       if (res) liga(a, b, classeDe(ir), res.ponte)
     }
   }
-  // ── componente conexo: só a maior rede fica ───────────────────────────────
   const pai = new Map()
   const acha = (a) => { while (pai.get(a) !== a) { pai.set(a, pai.get(pai.get(a))); a = pai.get(a) } return a }
   for (const k of no.keys()) pai.set(k, k)
+
+  // ── O BOULEVARD DA ORLA ───────────────────────────────────────────────────
+  // ⚠️ ELE NÃO É UM ANEL, É UMA ISOLINHA. A margem da baía varia de r 3.536 a
+  // 6.264: qualquer círculo desenhado ali fica por cima da água num trecho e
+  // longe dela em outro, que foi o defeito da versão anterior. Traçado como a
+  // curva {distância até a baía = 140 m}, ele acompanha a costa sozinho.
+  //
+  // ⚠️ E ELE ENTRA NO GRAFO, não é uma linha desenhada por cima. Sem virar
+  // aresta, o boulevard não conectaria nada: os quarteirões da orla continuariam
+  // órfãos e a poda os comeria. Cada vértice dele procura o nó de malha mais
+  // próximo e costura, que é como uma via de contorno funciona de verdade.
+  let nosOrla = 0, ligacoesOrla = 0
+  if (orlaDist) {
+    const hDist = (i, j) => {
+      // ⚠️ A MOLDURA É BAIXA, E EU FIZ AO CONTRÁRIO NA PRIMEIRA VERSÃO. O
+      // cabeçalho de `FUNDO_MOLDURA` neste mesmo arquivo já avisava: marching
+      // squares só fecha laço quando a região {valor >= nível} NÃO toca a borda
+      // do domínio, e emoldurar com valor ALTO faz ela tocar sempre. Os
+      // contornos saíam abertos, o `Z` os fechava com uma corda reta, e a carta
+      // ganhou cunhas gigantes atravessando a cidade inteira — o mesmo defeito
+      // que a primeira geração do mapa teve e que a nota de lá documenta.
+      // Com moldura em −1 toda faixa de distância fecha sozinha.
+      if (i <= 0 || j <= 0 || i >= orlaNG + 1 || j >= orlaNG + 1) return -1
+      return orlaDist[(j - 1) * orlaNG + (i - 1)]
+    }
+    const mundoDist = (i) => -RAIO + (i - 1 + 0.5) * orlaCEL
+    const linhas = contornoEm(ORLA_VIA_R, hDist, orlaNG + 2, mundoDist)
+    const PASSO_ORLA = 120
+    let base = 1e6                       // chaves da orla fora do espaço da teia
+    const nosDaOrla = []
+    for (const linha of linhas) {
+      if (linha.length < 4) continue
+      // reamostra a curva em passos regulares para o traço não ficar denso demais
+      const pontos = []
+      let acum = 0
+      pontos.push(linha[0])
+      for (let t = 1; t < linha.length; t++) {
+        acum += Math.hypot(linha[t][0] - linha[t - 1][0], linha[t][1] - linha[t - 1][1])
+        if (acum >= PASSO_ORLA) { pontos.push(linha[t]); acum = 0 }
+      }
+      if (pontos.length < 2) continue
+      let anterior = null
+      for (const q of pontos) {
+        // ⚠️ A ISOLINHA CORRE PELA FRONTEIRA QUE EU MESMO CRIEI. Ao marcar as
+        // células da alça como infinitamente distantes para tirá-la das faixas,
+        // a distância salta de ~100 m para 1e9 na divisa: a curva de 140 m passa
+        // a acompanhar ESSA descontinuidade e sai atravessando a baía a nado, em
+        // linha grossa, que foi o polígono branco sobre a água. Exclusão por
+        // valor sentinela cria borda, e marching squares acha borda. O filtro
+        // aqui é o mesmo que vale para qualquer rua: só nasce nó onde dá para
+        // construir.
+        const rq = Math.hypot(q[0], q[1])
+        const gq = ((Math.atan2(q[0], -q[1]) * 180) / Math.PI + 360) % 360
+        const seco = alturaEm(q[0], q[1]) > COTA_AGUA && declEm(q[0], q[1]) <= LIMD
+        if (rq > 9050 || naAlca(rq, gq) || !seco) { anterior = null; continue }
+        const k = base++
+        no.set(k, q); pai.set(k, k); nosDaOrla.push(k); nosOrla++
+        if (anterior !== null) {
+          const res = trecho(no.get(anterior), q, 0)
+          if (res) liga(anterior, k, 'bulevar', !!res.ponte)
+        }
+        anterior = k
+      }
+    }
+    // costura com a malha: cada nó da orla busca o vizinho de teia mais próximo
+    const LIG_MAX = +arg('orlaLig', 320)
+    for (const k of nosDaOrla) {
+      const p = no.get(k)
+      let melhor = null, dist = Infinity
+      for (const [k2, q] of no) {
+        if (k2 >= 1e6) continue
+        const d0 = Math.hypot(p[0] - q[0], p[1] - q[1])
+        if (d0 < dist) { dist = d0; melhor = k2 }
+      }
+      if (melhor !== null && dist <= LIG_MAX) {
+        const res = trecho(p, no.get(melhor), LIMIAR_PONTE)
+        if (res) { liga(k, melhor, 'local', !!res.ponte); ligacoesOrla++ }
+      }
+    }
+    console.log(`  orla da baia: ${nosOrla} nos de boulevard, ${ligacoesOrla} ligacoes com a malha`)
+  }
+
+  // ── componente conexo: só a maior rede fica ───────────────────────────────
   for (const e of arestas) { const ra = acha(e.a), rb = acha(e.b); if (ra !== rb) pai.set(ra, rb) }
   const peso = new Map()
   for (const e of arestas) {
@@ -481,7 +786,59 @@ if (VIAS) {
   let raiz = null, maior = -1
   for (const [r, v] of peso) if (v > maior) { maior = v; raiz = r }
   const total = [...peso.values()].reduce((a, b) => a + b, 0)
-  for (const e of arestas) if (acha(e.a) !== raiz) e.viva = false
+
+  // ── COSTURA: bolsão isolado se LIGA, não se joga fora ─────────────────────
+  // ⚠️ DESCARTAR O QUE NÃO CONECTA É METADE DO TRABALHO, e a metade preguiçosa.
+  // Um quarteirão que ficou separado por um canal ou por uma língua de encosta
+  // não é erro de traçado: é um pedaço de cidade esperando uma ligação. Cidade
+  // de verdade resolve isso com uma ponte ou uma rampa, não apagando o bairro.
+  // Aqui cada componente órfão procura o nó mais próximo da rede principal e,
+  // se der para alcançar, ganha a costura. Só o que fica longe demais some.
+  const COSTURA_MAX = +arg('costura', 420)
+  // ⚠️ SÓ COMPONENTE COM RUA ENTRA NA COSTURA. A primeira versão varria TODOS os
+  // nós, e nó sem nenhuma aresta viva é o seu próprio componente: a rotina saiu
+  // costurando 659 pontos soltos que não têm rua nenhuma, inventando ligação
+  // para lugar onde o terreno já tinha dito não. Depois a poda de grau 1 comia
+  // quase tudo de volta (627 arestas), o que é o sintoma clássico de estar
+  // criando e destruindo na mesma passada. Bolsão é pedaço de MALHA, não ponto.
+  const COSTURA_MIN = +arg('costuraMin', 250)
+  const nosPorComp = new Map()
+  for (const e of arestas) {
+    const r = acha(e.a)
+    if ((peso.get(r) ?? 0) < COSTURA_MIN) continue
+    if (!nosPorComp.has(r)) nosPorComp.set(r, new Set())
+    nosPorComp.get(r).add(e.a); nosPorComp.get(r).add(e.b)
+  }
+  for (const [r, set] of nosPorComp) nosPorComp.set(r, [...set])
+  const comRua = new Set()
+  for (const e of arestas) { comRua.add(e.a); comRua.add(e.b) }
+  let costuras = 0, orfaosPerdidos = 0
+  for (let volta = 0; volta < 6; volta++) {
+    let mexeu = false
+    for (const [r, lista] of nosPorComp) {
+      if (acha(lista[0]) === acha(raiz)) continue
+      let melhor = null, dMelhor = Infinity
+      for (const k of lista) {
+        const p = no.get(k)
+        for (const k2 of comRua) {
+          if (acha(k2) !== acha(raiz)) continue
+          const q = no.get(k2)
+          const d0 = Math.hypot(p[0] - q[0], p[1] - q[1])
+          if (d0 < dMelhor) { dMelhor = d0; melhor = [k, k2] }
+        }
+      }
+      if (melhor && dMelhor <= COSTURA_MAX) {
+        const res = trecho(no.get(melhor[0]), no.get(melhor[1]), Math.max(LIMIAR_PONTE, dMelhor))
+        liga(melhor[0], melhor[1], 'costura', !!(res && res.ponte))
+        const ra = acha(melhor[0]), rb = acha(melhor[1])
+        if (ra !== rb) pai.set(ra, rb)
+        costuras++; mexeu = true
+      }
+    }
+    if (!mexeu) break
+  }
+  for (const [r, lista] of nosPorComp) if (acha(lista[0]) !== acha(raiz)) orfaosPerdidos++
+  for (const e of arestas) if (acha(e.a) !== acha(raiz)) e.viva = false
   // ── poda de grau 1, repetida até estabilizar ──────────────────────────────
   // ⚠️ ISTO É O ACABAMENTO. Conectividade sozinha deixa a cauda pendurada: um
   // radial que encosta na rede numa ponta e morre na outra passa no teste e
@@ -514,20 +871,28 @@ if (VIAS) {
     return acc + Math.hypot(p1[0] - p0[0], p1[1] - p0[1])
   }, 0)
   console.log(`  malha gerada: ${no.size} nos, ${arestas.length} arestas candidatas`)
-  console.log(`    conexo: ${(maior / 1000).toFixed(1)} km de ${(total / 1000).toFixed(1)} (${((100 * maior) / total).toFixed(1)}%)`)
+  console.log(`    conexo: ${(maior / 1000).toFixed(1)} km de ${(total / 1000).toFixed(1)} (${((100 * maior) / total).toFixed(1)}%) antes da costura`)
+  console.log(`    costura: ${costuras} ligacoes novas, ${orfaosPerdidos} bolsoes longe demais`)
   console.log(`    poda de grau 1: ${podadas} arestas; rede final ${(kmVivo / 1000).toFixed(1)} km em ${vivas.length} arestas`)
   // ── desenho ───────────────────────────────────────────────────────────────
   const PX = (q) => `${mundoPx(q[0]).toFixed(1)} ${mundoPx(q[1]).toFixed(1)}`
   const dDe = (lista) => lista.map((e) => `M${PX(no.get(e.a))}L${PX(no.get(e.b))}`).join('')
   const lg = (m) => Math.max(0.6 * F, (m / (2 * RAIO)) * LADO)
-  const dLocal = dDe(vivas.filter((e) => e.cls === 'local' || e.cls === 'anel'))
+  // ⚠️ UMA COR SÓ PARA TODA A REDE, e a hierarquia sai da LARGURA. Foi pedido do
+  // fundador e é o que carta de estrada faz: a via importante não é de outra cor,
+  // é mais grossa. Pintando rua local de escuro e bulevar de claro, a peça
+  // passava a ler como duas redes diferentes sobrepostas, que é justamente o que
+  // ela não é — a local nasce do bulevar por subdivisão e desemboca nele.
+  const VIA_COR = '#F0E2C8'
+  const dLocal = dDe(vivas.filter((e) => e.cls === 'local' || e.cls === 'anel' || e.cls === 'costura'))
   const dBul = dDe(vivas.filter((e) => e.cls === 'bulevar'))
   const dPonte = dDe(vivas.filter((e) => e.ponte))
   corpo += `<g clip-path="url(#casca)">`
-    + `<path d="${dLocal}" fill="none" stroke="#20190F" stroke-width="${lg(14).toFixed(2)}" opacity="0.38" stroke-linecap="round"/>`
-    + `<path d="${dBul}" fill="none" stroke="#14100A" stroke-width="${lg(66).toFixed(2)}" opacity="0.55" stroke-linecap="round"/>`
-    + `<path d="${dBul}" fill="none" stroke="#F0E2C8" stroke-width="${lg(40).toFixed(2)}" opacity="0.92" stroke-linecap="round"/>`
-    + (dPonte ? `<path d="${dPonte}" fill="none" stroke="#F5E9D6" stroke-width="${lg(26).toFixed(2)}" opacity="0.95" stroke-dasharray="${7 * F} ${5 * F}"/>` : '')
+    // casing só nas largas: em rua de 1,7 px o contorno come a própria via
+    + `<path d="${dBul}" fill="none" stroke="#14100A" stroke-width="${lg(66).toFixed(2)}" opacity="0.5" stroke-linecap="round"/>`
+    + `<path d="${dLocal}" fill="none" stroke="${VIA_COR}" stroke-width="${lg(15).toFixed(2)}" opacity="0.82" stroke-linecap="round"/>`
+    + `<path d="${dBul}" fill="none" stroke="${VIA_COR}" stroke-width="${lg(42).toFixed(2)}" opacity="0.92" stroke-linecap="round"/>`
+    + (dPonte ? `<path d="${dPonte}" fill="none" stroke="${VIA_COR}" stroke-width="${lg(24).toFixed(2)}" opacity="0.95" stroke-dasharray="${7 * F} ${5 * F}"/>` : '')
     + `</g>\n`
   // a AN7: a via da alça, exceção por decreto (a alça é terraplanagem)
   const an7 = []
@@ -603,8 +968,8 @@ const nx = LADO - m - 60 * F, ny = m + 92 * F
 mob += `<path d="M${nx} ${ny - 42 * F}L${nx + 13 * F} ${ny + 12 * F}L${nx} ${ny}L${nx - 13 * F} ${ny + 12 * F}Z" fill="#E4D2B9" opacity="0.9"/>`
   + T(nx, ny + 34 * F, 'N', { tam: 20, anc: 'middle', op: 0.9 })
 // a legenda
-const lx = LADO - m - 260 * F, ly = LADO - m - 366 * F
-mob += veu(lx - 22 * F, ly - 34 * F, 282 * F, 366 * F)
+const lx = LADO - m - 260 * F, ly = LADO - m - 392 * F
+mob += veu(lx - 22 * F, ly - 34 * F, 282 * F, 392 * F)
 // ⚠️ A LEGENDA CRESCEU COM A PEÇA. Enquanto a carta era só relevo, três linhas
 // bastavam. Com bairro e via na folha, cor sem verbete é decoração: quem abre o
 // mapa tem de saber que laranja é a alça e que a hachura é terra do projeto.
@@ -617,7 +982,8 @@ mob += verbete('WATER', chip(AGUA_RASO))
 mob += verbete('BEACH', chip('#A69B80', 0.75))
 mob += verbete('SPIT · FRONT', chip('#F2842E', 0.85))
 mob += verbete('SPIT · BACK', chip('#C6641C', 0.85))
-mob += verbete('BAY SHORE', chip('#CB8A3C', 0.7))
+mob += verbete('BAY SHORE · FRONT', chip('#D89A48', 0.8))
+mob += verbete('BAY SHORE · BACK', chip('#B4763A', 0.8))
 mob += verbete('INNER FABRIC', chip('#AA967A', 0.65))
 mob += verbete('OUTER FABRIC', chip('#706C62', 0.7))
 mob += verbete('OUTSKIRTS', chip('#494640', 0.8))

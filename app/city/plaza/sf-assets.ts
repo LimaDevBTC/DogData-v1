@@ -57,6 +57,10 @@ export const SF_CREDITS: readonly Credit[] = [
   // embutidas; em `blender/build_leonidas_grayskull.py` entra SÓ A MALHA, com
   // material da casa, porque GLB de cidade tem `images = 0` por convenção.
   { title: 'Demon King Throne – Dark Fantasy Gothic Chair', author: 'UNREAL JOELAB', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/demon-king-throne-dark-fantasy-gothic-chair-83ccfc1c656644278655b113f4083700' },
+  // ⚠️ A ARCADA DA FORTALEZA DO LEÔNIDAS, 11/09: os dentes prismáticos viraram
+  // dentes de verdade. Entra só a arcada SUPERIOR, sem gengiva, com material da
+  // casa (o GLB do acervo tem imagens embutidas; em GLB de cidade, zero).
+  { title: 'Human teeth', author: 'Alexander Antipov', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/human-teeth-c4c569f0e08948e2a572007a7a5726f2' },
   // ⚠️ ROCHA DE DESTAQUE DO PARQUE DE INVERNO, 03/09, frente PISTA E ROCHA.
   // Escaneamentos reais de granito, com veio e cor mosqueada visíveis de perto:
   // peça única, não pacote de massa. Usadas na base da estação e na chegada da
