@@ -399,6 +399,53 @@ curva errada no lugar. ⚠️ **O `foundation_generator` importa `footprintWidth
 cabeçalho dele diz "reused verbatim ... not reinvented"): trocar isso é item obrigatório da
 reconstrução, ver §5.
 
+### 3.8 — Declive a 5°, curva recalibrada e praia contínua (🔒 2026-09-10)
+
+**DECIDIDO. `DECLIVE_MAX` sobe de 3° para 5°.** Os 3° do `gerar_bairros.py` descartavam
+39,27 km² como montanha, mas **78% disso era ondulação entre 3° e 5°**, não encosta. Medido
+sob a abóbada: 3° a 5° são 30,69 km²; acima de 8°, que é montanha de verdade, só 8,68 km².
+
+```
+terra livre e plana   122,38 km² (a 3°)  →  148,38 km² (a 5°)
+  holders, 70%                              103,87 km² urbanos
+  projeto, 30%                               44,51 km²
+  lote total (52%)                           54,01 km²
+```
+
+**A curva do §3.7 foi RECALIBRADA sobre a terra nova** (a forma não muda):
+
+```
+area = clamp(1,132380 × √DOG,  40 m²,  40.000 m²)
+```
+
+Mediana **361 m²** (era 311), portão de 20k com 160 m², airdrop típico com 1.068 m². A média
+de área urbana por carteira sai em 1.211 m².
+
+**DECIDIDO. Praia de 80 m em TODA margem de água**, não só na alça. Dono: *"se preciso
+terraplanamos e fazemos praia em tudo"*. No render ela é calculada por **distância real até a
+lâmina** (transformada de distância na grade do relevo), e não por anel de raio: por isso a
+orla da baía deixou de sair recortada.
+
+⚠️ **CORREÇÃO DE UM ERRO MEU, encontrado pelo dono olhando o mapa.** Os raios dos bairros
+vinham sendo calculados com a densidade do tecido ANTIGO (351 m² por lote) em vez da curva do
+split. O efeito era visível: o tecido parava em r 5.080 e todo o resto virava terra do projeto,
+que no mapa comia mais da metade do disco quando o combinado era 30%. Refeito por **área útil
+acumulada**, faixa de raio a faixa de raio:
+
+| bairro | antes (errado) | agora |
+|---|---|---|
+| tier 6 Diamond Paws | r 960 a 2.376 | **r 960 a 3.300** |
+| Grupo ≥ 20k | 2.376 a 3.975 | **3.300 a 5.300** |
+| Grupo < 20k | 3.975 a 5.080 | **5.300 a 6.900** |
+
+⚠️ **IDEIA ABERTA, ainda não decidida: canais radiais como prêmio dos tiers intermediários.**
+Dono, 2026-09-10. Os tiers 7 a 12 (5.158 carteiras) são os únicos que ficaram sem nada
+próprio: caíram dentro do Grupo, indistintos dos 58 mil que compraram no mercado. Um canal
+radial cortando o tecido daria frente de água a eles sem mover ninguém de bairro e sem tocar
+na hierarquia da alça. **MEDIDO** como referência: uma malha de canais a cada 300 m com 30 m
+de largura renderia 1.242 km de testada consumindo 18,62 km², contra os 14,93 km de testada
+que a alça inteira tem.
+
 ---
 
 ## 4. Pendências abertas
@@ -523,3 +570,7 @@ Quando for reconstruir, o gerador precisa:
   km²) e a curva de área derivada dele, `clamp(0,975228 × √DOG, 40 m², 40.000 m²)`. Revoga a
   calibração de 28/08 mantendo a forma, e registra que `footprintWidth` (a curva do código,
   mediana 48 m²) nunca foi a da fundação.
+- **2026-09-10** — §3.8: `DECLIVE_MAX` a 5° (terra livre 122,38 → 148,38 km²), curva
+  recalibrada para `clamp(1,132380 × √DOG, 40 m², 40.000 m²)` com mediana de 361 m², praia de
+  80 m em toda margem de água, e correção dos raios dos bairros, que estavam calculados com a
+  densidade antiga e inflavam a terra do projeto.
