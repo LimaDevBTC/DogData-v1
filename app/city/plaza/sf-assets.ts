@@ -218,7 +218,9 @@ export const SF = {
   /** ⚠️ APOSENTADO EM 07/09/2026 E SEM NENHUM CHAMADOR. Era o salão do Templo
    *  Leonidas (o pagode japonês), recusado pelo fundador: "esse mini templo
    *  japonês não está à altura dele. Leônidas é uma caveira". No lugar dele entrou
-   *  a fortaleza-caveira esculpida (`/city/park/leonidas-fortress.glb`). Fica aqui
+   *  a fortaleza-caveira esculpida, hoje a Grayskull
+   *  (`/city/park/leonidas-grayskull-lod0.glb`, com LOD2 para celular; a antiga
+   *  `leonidas-fortress.glb` saiu do ar em 11/09/2026). Fica aqui
    *  como registro do acervo; o arquivo continua no disco e não custa nada
    *  enquanto ninguém o carregar (ele trazia 14 imagens e ~15,7 MiB de textura). */
   templeHall: '/city/sf/temple-hall.glb',
