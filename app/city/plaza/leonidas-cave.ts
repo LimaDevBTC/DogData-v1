@@ -78,7 +78,19 @@ const MARK = new THREE.Color(0.93, 0.91, 0.86)
 // Tudo medido no GLB pronto (`blender/verify_leonidas_*.py`), não copiado de
 // script nenhum. Quadro local do grupo, metros finais, +X saindo da boca.
 const GEODO_URL = '/city/park/leonidas-geode.glb'
-const FORTALEZA_URL = '/city/park/leonidas-fortress.glb'
+// ⚠️ A FORTALEZA GRAYSKULL (11/09/2026) SUBSTITUI A CAVEIRA ANTIGA. Sai de
+// `blender/build_leonidas_grayskull.py --producao`, JÁ no quadro da cidade
+// (+X para fora da boca, 124,5 m de fachada, plano do rosto em x = 22,93 como a
+// antiga), por isso continua entrando com rotação zero e escala 1. Dois LODs
+// porque celular e `low` não pagam 145 mil triângulos por uma peça: o LOD2 tem
+// 84 mil e a mesma silhueta a 134 m de leitura. Zero textura embutida (regra da
+// casa desde o incidente do celular); a cor é material.
+const FORTALEZA_LOD0_URL = '/city/park/leonidas-grayskull-lod0.glb'
+const FORTALEZA_LOD2_URL = '/city/park/leonidas-grayskull-lod2.glb'
+function fortalezaUrl(p?: { quality?: string; tier?: string } | null): string {
+  if (p?.quality === 'high') return FORTALEZA_LOD0_URL
+  return (p?.quality === 'low' || p?.tier === 'mobile') ? FORTALEZA_LOD2_URL : FORTALEZA_LOD0_URL
+}
 /** Onde a fortaleza é assentada em X, e este número é a razão de ser da caverna
  *  nova. `build_leonidas_geode.py` escavou o geodo EM VOLTA da fortaleza posta
  *  em x = −213 (constante `FORT_AT` de lá), e a conta que manda é o
@@ -1226,7 +1238,7 @@ export async function buildLeonidasCave(opts: {
     // canteiro dentro de uma muralha de 121 x 124 m. E ele é miúdo, então só é
     // visto por quem está dentro, exatamente como ela.
     const [forte, shroomTall, shroomClump] = await Promise.all([
-      loadGlb(FORTALEZA_URL), loadSf(opts.gltf, SF.shroomTall), loadSf(opts.gltf, SF.shroomCluster),
+      loadGlb(fortalezaUrl(opts.profile)), loadSf(opts.gltf, SF.shroomTall), loadSf(opts.gltf, SF.shroomCluster),
     ])
     baixandoFort = false
     if (!forte) { if (shroomTall) descarta(shroomTall); if (shroomClump) descarta(shroomClump); return }
@@ -1276,6 +1288,11 @@ export async function buildLeonidasCave(opts: {
       // e meio, que é a banda que a fotografia chama de dramático. Antes era
       // 1,256 contra preto absoluto, ou seja infinita: o nome técnico de recorte.
       const zona: Record<string, [number, number]> = {
+        // ⚠️ A GRAYSKULL TEM UMA ZONA SÓ: a brasa (`GS_EyeGlow`, dois pontos de
+        // 0,75 e 0,84 m no fundo de órbitas forradas de preto fosco). O forro
+        // `GS_SocketDark` NÃO acende de propósito: é o preto em volta que faz o
+        // vermelho existir. As entradas Fortress* ficam para a peça antiga.
+        GS_EyeGlow: [0xff1005, 1.20],
         FortressEyeCore: [0xff1005, 1.20],   // o glóbulo quente, 13% da boca
         FortressEye: [0xff2a12, 0.42],       // o bulbo, 41% da boca
         FortressSocket: [0x8a0f0a, 0.42],    // o forro: a superfície de queda
