@@ -533,6 +533,97 @@ linkado de lugar nenhum.
 continuam sendo duas definições de distrito. Isso morre sozinho quando o gerador for
 reconstruído a partir do §3 deste arquivo, e não antes.
 
+
+**P9 — Os holders que estão em corretora.** ABERTO, e é o único item desta lista com
+prazo público: o snapshot é amanhã e a landing já diz que saldo em corretora não é lido.
+
+O dono levantou duas saídas em 11/09 e MEDIÇÃO matou a primeira:
+
+1. *Sacou, ganha um pedaço do terreno da corretora.* **Inviável por aritmética.** A curva de
+   área é raiz do saldo, e raiz é côncava: a soma das raízes é muito maior que a raiz da
+   soma. MEDIDO sobre `data/holders_by_age.csv`, as 20 maiores carteiras somam 33,06B DOG
+   (33,07% do supply) e ocupam **0,53 km² juntas**. Esse mesmo DOG, distribuído, pede:
+
+   ```
+   sacadores de 10M DOG     3.306 carteiras    10,20 km2   (19x o lote da corretora)
+   sacadores de  1M DOG    33.063 carteiras    32,24 km2   (61x)
+   sacadores medianos     324.786 carteiras   101,06 km2  (191x)
+   ```
+
+   Não é problema de fórmula de rateio: o lote a repartir é 19 a 191 vezes pequeno demais.
+
+2. *Sacou, ganha lote novo na reserva.* Aritmeticamente possível, mas só se for limitada por
+   TERRA e não por DOG, e a reserva do projeto (38,46 km²) seria consumida em 84% no
+   cenário de 1M por sacador — justo onde moram marina, clube, hotel e sede.
+
+⚠️ **AS DUAS ESBARRAM EM DOIS PROBLEMAS ANTES DA TERRA.**
+
+**"Sacou" não é observável.** Na cadeia se vê uma saída da hot wallet da corretora para um
+endereço; não dá para distinguir saque de compra, nem saber de quem era o saldo lá dentro.
+Qualquer mecânica baseada nisso vira lista curada, que é o oposto do "no claim, no
+signature, nothing to register" que a página promete.
+
+**A curva PAGA para dividir a carteira.** Dividir em N multiplica a área por raiz de N, e o
+piso de 40 m² transforma isso em catástrofe. MEDIDO:
+
+```
+1M DOG em      1 carteira        975 m2
+          em    100 carteiras  9.752 m2      (10x)
+          em 25.000 carteiras  1.000.000 m2  (1.025x, todas no piso)
+```
+
+O snapshot de amanhã é imune porque lê um passado fechado. Um prêmio por ação FUTURA é uma
+porta aberta com preço de gás. ⚠️ O mesmo vale, em menor escala, para quem dividir a bolsa
+antes de amanhã: ganha área e perde endereço (UTXO novo cai na periferia, e carteira sem
+histórico de airdrop não tem tier). É trade-off conhecido, não defeito.
+
+**DIREÇÃO ACEITA pelo dono em 11/09: há terra para quem sacar.** A saída recomendada não
+inventa mecânica nenhuma — a cidade LÊ A CADEIA DE NOVO, numa segunda altura anunciada, sob
+a mesma regra. Não reparte lote de ninguém (a não linearidade some), não exige provar saque
+(só importa onde a moeda está na altura), e não dá para farmar dividindo (a curva daquela
+coorte se recalibra contra um orçamento de terra fechado, como esta se recalibrou).
+
+FICA ABERTO: a altura da segunda leitura, e se a coorte nova usa a coroa externa (§4.1) ou
+parte da reserva do projeto.
+
+### 4.1 — A coroa externa: 34,17 km² que o gerador não enxerga
+
+**MEDIDO em 11/09** (`scratchpad/sonda-coroa.mjs`, amostragem polar de 10 m × 0,25° sobre a
+superfície como construída, com os nove lagos já cheios):
+
+```
+                                  total    agua   ate 5°   5 a 12°   >12°
+SOB A CUPULA (0 a 9.050)         257,02   62,90   132,50    38,87   22,75
+  dentro da AN7 (0 a 6.950)      151,53   26,39    98,33    20,25    6,56
+  COROA EXTERNA (6.950 a 9.050)  105,49   36,51    34,17    18,62   16,19
+     os dois cabos                10,99    5,31     3,97     1,56    0,14
+     arco da alca                 37,14   31,20     4,80     1,14    0,00
+     o resto, 135 a 330           57,36    0,01    25,39    15,92   16,05
+```
+
+⚠️ **ELA ESTAVA NA CONTA E FORA DO GERADOR.** Os 128,20 km² do §3.7 saíram de medir todo o
+interior da abóbada, então a coroa entrou no número. Mas o loteador nunca chega lá:
+`gerar_bairros.py` para em `R_SITIO` 3.500 e as BANDAS travam em φ 5.500. Terra contada como
+livre e usada por nada. O dono viu isso sozinho, olhando o mapa.
+
+A parte útil está concentrada: **25,39 km² de chão de lote entre 135° e 330°**, sul e oeste,
+com praticamente zero água. Os 4,80 do arco da alça são a própria alça (tiers 1 a 3) e os
+3,97 dos cabos são a frente oceânica que ganhou malha e orla em 11/09.
+
+A casca não é o limite: com flecha 5.500 o pé direito é de 2.764 m na AN7, 1.625 m em
+r 8.000 e 935 m em r 8.500. Só nos últimos 200 m ela fecha.
+
+⚠️ **TRÊS CONSEQUÊNCIAS, E NENHUMA É PEQUENA.**
+
+1. **Acesso.** Rua comum não desemboca na AN7 (regra fechada em 11/09, ver o gerador do
+   mapa). Todo bairro na coroa precisa do bulevar atravessando por trevo, que é o padrão que
+   os dois cabos já usam.
+2. **15,92 km² são de 5° a 12°:** aceitam rua, não aceitam lote. Viram lote com terraço, e
+   sem isso o número real é 25,39 e não 41,31.
+3. **"Reserva" hoje quer dizer duas coisas** — os 30% do projeto e a coroa que o gerador não
+   alcança. Se a coroa virar destino de coorte, as duas precisam de nomes distintos, senão a
+   próxima medição soma uma com a outra.
+
 ---
 
 ## 5. O que o gerador vai precisar (contrato)
@@ -627,3 +718,13 @@ Quando for reconstruir, o gerador precisa:
   e os 5,36 km² restantes do projeto espalhados irregularmente pela costa. Registrado que o
   airdrop foi para holders de Runestone, que 96,2% dos OG ainda têm a pedra, e que a orla
   medida tem 69,6 km de perímetro contra os 8,62 km que eu vinha usando.
+- **2026-09-11** — aberto o **P9** (holders em corretora) e medida a **coroa externa**
+  (§4.1). As duas saídas que o dono levantou foram testadas contra número: repartir o
+  terreno da corretora é inviável (o lote dela é 19 a 191 vezes pequeno demais, porque raiz
+  é côncava), e prêmio por saque esbarra em dois problemas antes da terra — "sacou" não é
+  observável na cadeia, e a curva PAGA para dividir a carteira (1M DOG em 25.000 endereços
+  rende 1.025x a área). Direção aceita pelo dono: a cidade **lê a cadeia de novo** numa
+  segunda altura, sob a mesma regra. E apareceu onde a coorte cabe: a coroa entre a AN7 e a
+  casca tem **34,17 km² de chão de lote**, 25,39 deles entre 135° e 330°, contados nos
+  128,20 km² do §3.7 e nunca alcançados pelo gerador. Ficam abertas a altura da segunda
+  leitura e a escolha entre coroa e reserva do projeto.
