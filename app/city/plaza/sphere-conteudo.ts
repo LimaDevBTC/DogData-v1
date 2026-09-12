@@ -126,6 +126,12 @@ export const ROTULOS = {
   blocoVol: 'DOG MOVED',          // 9
   mintLotes: 'MINTED',            // 6
   mintDono: 'NEW OWNER',          // 9
+  // a venda de licenca: o degrau e o rotulo, porque a palavra grande e LICENSE
+  licencaPessoal: 'PERSONAL',     // 8
+  licencaComercial: 'COMMERCIAL', // 10
+  licencaPatrono: 'PATRON',       // 6
+  fundadorN: 'FOUNDER',           // 7
+  licencaDono: 'NEW OWNER',       // 9
   ocioso: 'SPHERE',               // 6
 } as const
 
@@ -239,6 +245,14 @@ export const GANHO_OCIOSO = 0.50
 export const GANHO_QUEDA = 0.38
 export const GANHO_ALTA = 0.50
 export const GANHO_EVENTO = 0.62
+/**
+ * ⚠️ A LICENCA E O EVENTO MAIS ALTO DA CASA, e por isso ela tem ganho proprio
+ * entre o evento comum (0,62) e o intervalo comercial (0,90). Doacao acontece
+ * varias vezes por dia; CRUZAR UM DEGRAU da escada e o que a cidade vende, e o
+ * fundador pediu que a venda "ecoe". Raridade paga brilho.
+ */
+export const GANHO_LICENCA = 0.78
+
 export const GANHO_ANUNCIO = 0.90
 
 /** mistura dois hex em espaço sRGB (é para tela de LED, não para física) */
@@ -299,6 +313,8 @@ export const MS_GRADE_MIUDA = 16_000
 /** @deprecated use `MS_GRADE_MIUDA` */
 export const MS_KRAY_MIUDO = MS_GRADE_MIUDA
 export const MS_EVENTO_QUADRO = 8_000
+/** o quadro da licenca fica mais tempo: e o unico que nomeia uma PESSOA */
+export const MS_LICENCA_QUADRO = 11_000
 
 /** o dissolve. Ver `QUADRO_MIN`: a troca de textura mora no fundo do vale. */
 export const MS_SAI = 400
@@ -1476,6 +1492,49 @@ function eventoDoacaoChegou(tx: DogTx): Slot | null {
   return { classe: 'evento', nome: 'doacao', quadros: q }
 }
 
+/**
+ * A ESCADA DE LICENCAS, a mesma de `/api/donate/leaderboard`: o endereco de
+ * doacao E o produto, e o ACUMULADO da carteira destrava o degrau.
+ */
+const ESCADA: Array<{ dog: number; rotulo: string }> = [
+  { dog: 500_000, rotulo: ROTULOS.licencaPatrono },
+  { dog: 50_000, rotulo: ROTULOS.licencaComercial },
+  { dog: 10_000, rotulo: ROTULOS.licencaPessoal },
+]
+
+/**
+ * EVENTO 1-bis, A VENDA DE LICENCA.
+ *
+ * ⚠️ A DOACAO JA ECOAVA; A VENDA NAO. O evento de doacao publica valor e cauda
+ * do endereco, e isso e a TRANSFERENCIA. O que a cidade vende e o DEGRAU: passar
+ * de 10 mil (pessoal), 50 mil (comercial) ou 500 mil (patrono) no acumulado
+ * daquela carteira. O fundador: *"eu queria que essas vendas ecoassem... e dar
+ * visibilidade a essa galera"*. Entao aqui saem tres quadros: o degrau, o numero
+ * de fundador que a pessoa acabou de ganhar, e QUEM ela e.
+ *
+ * ⚠️ E QUEM ELA E VEM COM NOME QUANDO EXISTE NOME. A cauda do endereco a propria
+ * pessoa reconhece, mas ninguem mais; com o @handle do perfil, a cidade inteira
+ * ve de quem e a compra, que era a outra metade do pedido. O handle so entra do
+ * cache (preenchido em segundo plano quando a lista de fundadores chega): quadro
+ * NAO espera rede, que e a regra que este arquivo ja aprendeu com o anel.
+ *
+ * ⚠️ O NOME PODE PASSAR DE 7 AZIMUTES, e isso e excecao declarada, a mesma do
+ * nome de parceiro: cortar `@SATOSHIN` em `@SATOSH` publica a pessoa errada.
+ * Dado continua preso ao orcamento; nome de gente, nao.
+ */
+function eventoLicenca(degrau: string, seq: number, quem: string): Slot {
+  const base: Partial<SphereConteudo> = { ganho: GANHO_LICENCA, cor: COR_DADO }
+  return {
+    classe: 'evento',
+    nome: 'licenca',
+    quadros: [
+      quadro('LICENSE', degrau, MS_LICENCA_QUADRO, base),
+      quadro('#' + seq, ROTULOS.fundadorN, MS_LICENCA_QUADRO - 2_000, base),
+      quadro(quem, ROTULOS.licencaDono, MS_LICENCA_QUADRO, base, ORC_PEQUENA),
+    ],
+  }
+}
+
 function eventoDoacaoConfirmou(tx: DogTx): Slot | null {
   if (tx.block_height == null) return null
   return {
@@ -1589,6 +1648,11 @@ export interface ProgramacaoOpts {
   agora?: () => number
 }
 
+/** o recorte de `/api/donate/leaderboard` que o programa usa */
+export interface FundadoresVivos {
+  founders?: Array<{ address?: string; total?: number; founder_seq?: number }>
+}
+
 export interface ProgramacaoSphere {
   /** ligar no `onSnapshot` do feed. Alimenta PULSO, SNAPSHOT e o evento de bloco. */
   snapshot(s: Snapshot | null, staleSeconds: number | null): void
@@ -1596,6 +1660,12 @@ export interface ProgramacaoSphere {
   transacao(tx: DogTx, fase: 'entrou' | 'pousou'): void
   /** o gancho do mint, pronto e sem chamador */
   mint(m: MintAnuncio): void
+  /**
+   * a lista viva de `/api/donate/leaderboard`. Sem ela o programa ainda anuncia
+   * doacao, mas nao sabe dizer que aquela doacao foi uma VENDA: o degrau se
+   * calcula sobre o acumulado da carteira, e o acumulado mora nessa lista.
+   */
+  fundadores(d: FundadoresVivos | null): void
   /** força o quadro corrente na peça (a esfera nasce depois do programa) */
   repintar(): void
   /** o livro-caixa do tempo de tela, que é onde o teto de propaganda se prova */
@@ -1877,7 +1947,55 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
    * de rede nova: `last_dog_block_count` já vem no mesmo payload do feed.
    */
   const historicoTx: number[] = []
+  // ── a escada de licencas, o estado que o evento de venda precisa ─────────
+  // ⚠️ O ACUMULADO E LOCAL DE PROPOSITO. Dava para perguntar a rota a cada
+  // doacao, mas a rota so conhece o que ja confirmou, e o instante que importa e
+  // a chegada na mempool, com a pessoa de carteira na mao. Entao a lista chega
+  // uma vez, o programa soma a doacao nova por cima e sabe o degrau NA HORA.
+  const acumulado = new Map<string, number>()
+  const seqDe = new Map<string, number>()
+  const handles = new Map<string, string>()
+  let nFundadores = 0
+
+  const carregarHandles = (enderecos: string[]) => {
+    // ⚠️ EM SEGUNDO PLANO E LIMITADO. Doze e o que cabe sem virar rajada de
+    // requisicao no boot da praca, e sao os doze mais recentes, que sao os que
+    // tem chance de aparecer num evento antes da proxima visita.
+    for (const de of enderecos.slice(0, 12)) {
+      if (handles.has(de)) continue
+      buscar(`/api/profile?address=${encodeURIComponent(de)}`, { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => {
+          const h = (j?.handle || '').trim()
+          if (h) handles.set(de, ('@' + h).toUpperCase())
+        })
+        .catch(() => {})
+    }
+  }
+
+  const degrauCruzado = (tx: DogTx): Slot | null => {
+    const dog = donationDog(tx)
+    const de = (tx.senders?.[0] || '').toLowerCase()
+    if (!(dog > 0) || !de) return null
+    const antes = acumulado.get(de) ?? 0
+    const depois = antes + dog
+    acumulado.set(de, depois)
+    const degrau = ESCADA.find((e) => depois >= e.dog && antes < e.dog)
+    if (!degrau) return null
+    let seq = seqDe.get(de)
+    if (seq == null) {
+      seq = ++nFundadores
+      seqDe.set(de, seq)
+    }
+    if (!handles.has(de)) carregarHandles([de])
+    return eventoLicenca(degrau.rotulo, seq, handles.get(de) || fmtCauda(de))
+  }
+
   const pesoDoEvento = (s: Slot): number => {
+    // ⚠️ A VENDA PULSA MAIS ALTO QUE TUDO. Ela e o evento mais raro da peca e o
+    // unico que a casa VENDE; se ela pulsasse igual a um bloco, o gesto mais
+    // importante seria o mais repetido.
+    if (s.nome === 'licenca') return 1.8
     if (s.nome !== 'bloco') return 1
     const n = ultimoBlocoTx
     historicoTx.push(n)
@@ -2052,6 +2170,10 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
         if (visto) return
         anunciadas.set(tx.txid, t)
         empilhar(eventoDoacaoChegou(tx), t)
+        // ⚠️ A VENDA VEM DEPOIS DA DOACAO, NA MESMA CHEGADA. Primeiro o valor e a
+        // cauda (o que a pessoa reconhece), depois o degrau, o numero de fundador
+        // e o nome dela. Empilhados, os dois slots rodam em sequencia.
+        empilhar(degrauCruzado(tx), t)
         return
       }
       // pousou: se nunca a vimos em órbita, ela chegou direto no bloco e merece
@@ -2059,6 +2181,7 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
       if (!visto) {
         anunciadas.set(tx.txid, t)
         empilhar(eventoDoacaoChegou(tx), t)
+        empilhar(degrauCruzado(tx), t)
         return
       }
       if (visto < 0) return
@@ -2069,6 +2192,29 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
     mint(m) {
       if (parado) return
       empilhar(eventoMint(m), agora())
+    },
+
+    fundadores(d) {
+      const lista = d?.founders ?? []
+      if (!lista.length) return
+      acumulado.clear()
+      seqDe.clear()
+      nFundadores = 0
+      const recentes: string[] = []
+      for (const f of lista) {
+        const de = (f.address || '').toLowerCase()
+        if (!de) continue
+        acumulado.set(de, Number(f.total) || 0)
+        const seq = Number(f.founder_seq) || 0
+        if (seq > 0) {
+          seqDe.set(de, seq)
+          if (seq > nFundadores) nFundadores = seq
+        }
+        recentes.push(de)
+      }
+      // os mais recentes primeiro: sao os que tem chance de voltar a comprar
+      recentes.sort((a2, b2) => (seqDe.get(b2) ?? 0) - (seqDe.get(a2) ?? 0))
+      carregarHandles(recentes)
     },
 
     repintar() {
@@ -2088,6 +2234,13 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
      */
     forcar(nome) {
       const t = agora()
+      // ⚠️ `licenca` NAO MORA NO ANEL, e por isso `montar` nao a acha: ela e
+      // evento, nasce de uma transacao. Para conferir a peca sem esperar uma
+      // venda de verdade (`?slot=licenca`), aqui vai um exemplar de demonstracao.
+      if (nome === 'licenca') {
+        entrarNo(eventoLicenca(ROTULOS.licencaComercial, Math.max(1, nFundadores + 1), 'DEMO'), t)
+        return true
+      }
       const s = montar(nome, t)
       if (s) entrarNo(s, t)
       return !!s

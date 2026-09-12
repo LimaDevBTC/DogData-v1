@@ -4729,6 +4729,20 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           .catch(() => null)
           .then((data) => {
             if (disposed) return
+            // ⚠️ A MESMA LISTA ALIMENTA A ESFERA. O programa dela precisa do
+            // ACUMULADO de cada carteira para saber que a proxima doacao cruzou
+            // um degrau da escada de licencas; sem isso ele anuncia a
+            // transferencia e perde a VENDA, que e o que o fundador quer que
+            // ecoe. Uma requisicao so, a que ja existia para as placas.
+            programaSphere.fundadores(data)
+            // ⚠️ ?stats=1 → window.__sphereLicenca(): dispara um exemplar do
+            // evento de venda sem esperar uma compra de verdade. A peca so se
+            // confere assim: venda e raro por definicao, e quem for ajustar o
+            // brilho ou o tempo dos quadros nao pode depender da sorte.
+            if (typeof window !== 'undefined'
+                && new URLSearchParams(window.location.search).get('stats') === '1') {
+              (window as any).__sphereLicenca = () => programaSphere.forcar('licenca')
+            }
             founders = buildFoundersWalk({ heightAt, data, profile, culler })
             // ⚠️ ACHADO NESTA RODADA, NÃO ESTAVA NA LISTA: `founders-walk.ts`
             // usa `DECK_Y` como cota ABSOLUTA (`void opts.heightAt`, a função
