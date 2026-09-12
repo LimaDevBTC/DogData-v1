@@ -761,3 +761,83 @@ inclusive a dele.
 - **Os quatro `patron`.** Consertado no código em 12/09 (`licenseFor` não tinha o degrau e os
   quatro doadores de 500k+ apareciam como `commercial`), mas a comunicação da escada ainda
   precisa sair com o rótulo certo.
+
+---
+
+## §12 — A régua de posição: DOG-tempo 🔒 (2026-09-12)
+
+**DECIDIDO pelo dono.** *"Organizar tudo por nível de acumulação, independentemente do
+airdrop. Quem for do airdrop ganha um emblema. Joga todas as carteiras pelo mesmo filtro."*
+
+⚠️ **ISTO EMENDA §3.1 a §3.6 DO CADERNO.** O tier deixa de decidir onde a carteira mora.
+Ele vira **emblema**: história do airdrop, não passaporte de endereço.
+
+### A régua
+
+```
+DOG-tempo = soma, por UTXO, de (DOG x idade em dias) no bloco 966.670
+
+ordem = (lth_pct >= 50) desc
+        DOG-tempo desc
+        transacoes assinadas desc
+        sha256(endereco + hash do bloco 966.670) asc
+```
+
+**Por que DOG-tempo.** Ela responde "quanto você acumulou e por quanto tempo segurou" com
+uma pergunta só, e a mesma para todo mundo. Não precisa saber se a carteira recebeu airdrop,
+comprou, ou as duas coisas.
+
+⚠️ **POR QUE NÃO "NÚMERO DE COMPRAS", que era a leitura literal de acumulação.** Medido:
+**99,7% dos Diamond Paws (19.223 de 19.279) têm UM dia de aquisição**, porque receberam e
+nunca mexeram. Numa régua de "quantas vezes você adicionou", a coorte que o projeto promete
+premiar marca zero e some do mapa. DOG-tempo não faz isso: segurar 889.806 por 872 dias É
+acumulação medida. Os Diamond Paws ficam com melhor posição 30 e **19.067 dos 19.279 dentro
+das primeiras 26.943**.
+
+⚠️ **O FILTRO DE CUSTÓDIA É `lth_pct >= 50`, E NÃO UMA LISTA DE ENDEREÇOS.** Quem gira não
+lidera. Medido: exclui 3.058 carteiras, entre elas as DUAS MAIORES da cidade (12,9B e 3,1B
+DOG, ambas com 0,0% do saldo parado há 155 dias). Nenhum endereço de corretora precisa ser
+nomeado à mão, e isso é muito mais defensável do que manter uma lista curada.
+
+⚠️ **O DESEMPATE É TRANSAÇÃO ASSINADA, e ele não é detalhe: 33.065 carteiras (38,5%) estão
+em empate EXATO de DOG-tempo.** O maior bloco tem **5.847 Diamond Paws** com 889.806 DOG num
+UTXO só, do mesmo bloco: mesma quantidade, mesma idade, mesmo DOG-tempo até o último dígito.
+Decisão do dono: *"carteira que nunca mais assinou nada pode estar perdida e deixamos ela
+mais de lado; galera que fez mais tx está segurando porque quer"*. Isso é coerente com a
+regra da casa de que **só gasto prova controle**. Medido nesse bloco: 2.043 nunca gastaram
+nada na vida, e o desempate o quebra em 376 valores distintos.
+
+⚠️ **A FONTE DO DESEMPATE TEM COBERTURA PARCIAL, e isso é dívida declarada.**
+`chain_stats.jsonl` traz `chain_spent_txo_count` da cadeia inteira (via mempool.space) para
+os 19.279 Diamond Paws, o que cobre **56,7% das carteiras empatadas e 100% do maior bloco**.
+Para o resto, o desempate cai para contagem de envios de DOG no corpus, que é sinal mais
+pobre. Fechar isso exige uma passada de cadeia para as 85.818. O terceiro desempate
+(`sha256` com o hash do bloco) garante ordem determinística e auditável onde os dois
+primeiros empatam: ninguém podia conhecer esse hash antes do bloco 966.670.
+
+### O que a régua produz
+
+```
+                              sem airdrop   com airdrop
+orla nobre (445 de carteira)        282         163
+faixa nobre da baia (10.425)      3.441       6.984
+bloco dos 26.943                  5.142      21.801
+```
+
+Os 61 lotes do land bank do projeto na orla nobre **ficam** (decisão do dono), e os 4 que
+faltavam para caber as carteiras saem deles: 65 menos 4 é 61.
+
+### O preço, escrito para não ser esquecido
+
+**291 das 449 carteiras dos tiers 1 a 3 saem da água.** A defesa é que nenhum lote existe
+demarcado, ninguém foi informado de assento, o snapshot é de hoje e o Charter não aconteceu:
+emendar agora custa coerência interna, não promessa rompida com holder. ⚠️ Isso deixa de ser
+verdade no instante em que a primeira posição for publicada.
+
+⚠️ **E a campanha educativa da Fase 1 (§3) nunca aconteceu.** Consolidar UTXO destrói idade
+e, nesta régua, custa DOG-tempo. Quem consolidou não foi avisado.
+
+### A lista
+
+`data/snapshots/dog_snapshot_966670_ordem.json`, 85.818 carteiras na ordem final, com
+posição, DOG, DOG-tempo, lth_pct, transações assinadas, emblema e área.
