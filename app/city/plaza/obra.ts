@@ -216,10 +216,29 @@ export function* emFatias<T>(
  * programas, isso era o maior item de CPU do boot depois do campo de distância
  * do lago ser consertado.
  *
- * `compileAsync` faz o contrário: dispara todas as compilações e pergunta com
- * `COMPLETION_STATUS_KHR`, que é a consulta NÃO bloqueante da extensão
- * `KHR_parallel_shader_compile`. O driver compila várias em paralelo, em
- * segundo plano, e nós esperamos numa Promise.
+ * `compileAsync` fazia o contrário: disparava todas as compilações e perguntava
+ * com `COMPLETION_STATUS_KHR`, a consulta NÃO bloqueante da extensão
+ * `KHR_parallel_shader_compile`. NÓS NÃO USAMOS MAIS `compileAsync`, e o motivo
+ * é um defeito dele, medido em 12/09/2026.
+ *
+ * ⚠️ NUNCA VOLTE A CHAMAR `renderer.compileAsync()`. Ele sonda os materiais numa
+ * corrente própria de `setTimeout` e lê `properties.get(material).currentProgram`
+ * sem guarda (three.module.js:29691-29694). Material descartado durante a
+ * sondagem (aqui: `disposeGrupo(florestaEsparsa.group)`, inverno.ts, quando a
+ * câmera entra nos 6.000 m da montanha) apaga esse mapa (three.module.js:29393)
+ * e o `program.isReady()` ESTOURA DENTRO DO TIMER: o erro escapa de qualquer
+ * `try/catch` em volta do `await` e vira `pageerror` (o portão de chapas
+ * reprova), e a promessa NUNCA assenta, porque o único reagendamento
+ * (three.module.js:29714) está depois do `forEach`. Grupo que depende dela para
+ * acender fica invisível para sempre, e no inverno isso ficou MASCARADO porque
+ * quem acende aquele grupo é o culler (perf.ts:289-294), não o `revela`.
+ *
+ * A saída é DIRIGIR a sondagem: `renderer.compile()` é público e devolve o MESMO
+ * `Set<Material>` que o `compileAsync` usaria (three.module.js:29588 e 29672), e
+ * `renderer.properties` está exposto no renderizador (three.module.js:29000).
+ * No laço nosso, `currentProgram === undefined` quer dizer "este material foi
+ * embora" e a resposta certa é TIRAR DO SET, nunca estourar. Isso dá de graça o
+ * que o `compileAsync` não tem: cancelamento e teto.
  *
  * ⚠️ E POR ISSO ELE PRECISA SER CHAMADO POR FAIXA, NÃO UMA VEZ SÓ. `compile`
  * varre a cena que EXISTE naquele instante. Se chamarmos só antes de abrir,
@@ -231,30 +250,160 @@ export function* emFatias<T>(
  * esta função vira quase um no-op caro: ela não trava, mas também não garante
  * nada. Não dá para depender dela como se fosse sincronização.
  */
-// ⚠️ TIPADO FROUXO DE PROPÓSITO, e não por preguiça. A assinatura real do
-// three é `compileAsync(scene: Object3D, camera: Camera, targetScene?: Scene)`,
-// e ela NÃO aceita `Scene | null` no terceiro parâmetro em todas as versões dos
-// tipos. Amarrar aqui obriga este módulo a importar THREE só para um tipo, num
-// arquivo que hoje não depende de three nenhum e por isso pode ser testado
-// fora do navegador. O `unknown` no lugar de `object` é o que faz um
-// `WebGLRenderer` de verdade encaixar: `object` não aceita o tipo nominal.
+// ⚠️ TIPADO FROUXO DE PROPÓSITO, e não por preguiça. Este módulo NÃO importa
+// three (é o que permite testá-lo fora do navegador), e os tipos instalados são
+// de outra versão: o repo roda three 0.162.0 contra @types/three 0.185.0, que
+// entra como dependência TRANSITIVA (package-lock.json) e não está no
+// package.json. Amarrar tipo aqui é dívida disfarçada.
+type Programa = { isReady: () => boolean }
 type ComCompile = {
-  compileAsync?: (cena: never, camera: never, alvo?: never) => Promise<unknown>
+  compile?: (cena: never, camera: never, alvo?: never) => Set<unknown>
+  properties?: { get?: (obj: unknown) => unknown }
 }
+
+/** Teto de parede do aquecimento. ⚠️ NÃO É NÚMERO MEDIDO, e não deve ser tratado
+ *  como um: é a MESMA doutrina do `TETO_PARSE` de `carga-glb.ts`. Rede contra
+ *  pendência eterna, nunca mecanismo de assentamento, e por isso FOLGADO.
+ *  O que ESTÁ medido (12/09/2026, /city?stats=1, GTX 1650, extensão presente):
+ *  latência de link p50 16.296 ms, p90 43.800 ms, máx 43.887 ms sobre 194
+ *  programas, e buracos de fome do temporizador de até 39.281 ms enquanto a
+ *  camada perto do inverno constrói. Qualquer teto abaixo de ~45 s VENCE em
+ *  desktop com GPU de verdade, e teto que vence por congestionamento devolve o
+ *  engasgo que o aquecimento existe para evitar. Se este número começar a vencer
+ *  numa conferência, o conserto é MEDIR, não subir o número no escuro. */
+export const TETO_AQUECE = 120000
+
+/** Intervalo da nossa sondagem. O three usa 10 ms (three.module.js:29714); 16 ms
+ *  é o quadro, e a pergunta (`COMPLETION_STATUS_KHR`) não bloqueia. */
+const PASSO_SONDA = 16
+
+/** Sentinela: a API interna que a sondagem lê não existe nesta versão do three. */
+const SEM_API = Symbol('aquece:sem-api')
+
+/** ⚠️ O ÚNICO LUGAR DESTA CASA QUE TOCA `renderer.properties`. É API não
+ *  documentada (three.module.js:29000), e por isso está isolada aqui com
+ *  fallback: se `properties`, `get` ou `currentProgram` não existirem, o laço
+ *  assume pronto e LOGA. Reconferir em todo upgrade de three.
+ *  Devolve: o programa; `undefined` se o material FOI DESCARTADO durante a
+ *  sondagem (three.module.js:29393 apaga o mapa, e `properties.get` recria um
+ *  `{}` vazio em vez de devolver undefined, e é por isso que a mensagem do
+ *  defeito era "reading 'isReady'" e nunca "reading 'currentProgram'"); ou
+ *  `SEM_API`. */
+function programaDe(r: ComCompile, material: unknown): Programa | undefined | typeof SEM_API {
+  const props = r.properties
+  if (!props || typeof props.get !== 'function') return SEM_API
+  const mapa = props.get(material) as { currentProgram?: unknown } | null | undefined
+  if (!mapa || typeof mapa !== 'object') return SEM_API
+  const prog = mapa.currentProgram as { isReady?: () => boolean } | undefined | null
+  if (!prog || typeof prog.isReady !== 'function') return undefined
+  return prog as Programa
+}
+
+export interface AqueceOpts {
+  /** Nome do grupo. ⚠️ NÃO É ENFEITE: é o instrumento. Visibilidade NÃO serve de
+   *  prova (o culler reescreve `.visible` todo quadro, perf.ts:289-294), então a
+   *  única evidência de que um aquecimento assentou é esta linha de log. */
+  nome?: string
+  /** Enquanto devolver false o aquecimento para e assenta como 'cancelado'.
+   *  É o `disposed` de `plaza-scene.tsx`. `compileAsync` não tinha isto. */
+  vivo?: () => boolean
+  tetoMs?: number
+}
+
+export interface RegAquece {
+  nome: string
+  materiais: number
+  /** 'em voo' enquanto sonda; depois 'pronto', 'pronto (N descartado(s)...)',
+   *  'teto', 'cancelado', 'sem-api', 'sem-compile' ou 'compile-falhou'. */
+  motivo: string
+  ms: number
+  restaram: number
+  descartados: number
+  passadas: number
+}
+
+/** Registro VIVO dos aquecimentos desta página, publicado em
+ *  `window.__plazaAquece` com `?stats=1`. Quem ficar em 'em voo' para sempre é o
+ *  pendurado, e isso é leitura de máquina, não palpite. */
+export const AQUECIMENTOS: RegAquece[] = []
 
 export async function aquece(
   renderer: unknown,
   cena: unknown,
   camera: unknown,
   trecho?: unknown,
+  opts?: AqueceOpts,
 ): Promise<void> {
   const r = renderer as ComCompile
-  if (typeof r.compileAsync !== 'function') return
+  const nome = opts?.nome ?? '(grupo sem nome)'
+  const teto = opts?.tetoMs ?? TETO_AQUECE
+  const t0 = performance.now()
+  const reg: RegAquece = { nome, materiais: 0, motivo: 'em voo', ms: 0, restaram: 0, descartados: 0, passadas: 0 }
+  AQUECIMENTOS.push(reg)
+  const fecha = (motivo: string, resta: number) => {
+    reg.motivo = motivo
+    reg.ms = Math.round(performance.now() - t0)
+    reg.restaram = resta
+  }
+  if (typeof r.compile !== 'function') {
+    fecha('sem-compile', 0)
+    console.warn(`[aquece] ${nome}: renderer sem compile(), segui SEM aquecer`)
+    return
+  }
+  let set: Set<unknown>
   try {
-    await r.compileAsync((trecho ?? cena) as never, camera as never, (trecho ? cena : undefined) as never)
+    // mesma assinatura que o `compileAsync` usava: trecho primeiro, cena como
+    // `targetScene` (é de onde o three tira as LUZES, three.module.js:29599)
+    set = r.compile((trecho ?? cena) as never, camera as never, (trecho ? cena : undefined) as never)
   } catch (err) {
-    // ⚠️ AQUECER NUNCA PODE DERRUBAR A CIDADE. É otimização: se falhar, o
-    // caminho normal do render compila do mesmo jeito, só que travando.
-    console.warn('[obra] aquecimento de shader falhou, seguindo sem ele', err)
+    fecha('compile-falhou', 0)
+    console.warn(`[aquece] ${nome}: compile() falhou, segui SEM aquecer`, err)
+    return
+  }
+  const n = set.size
+  reg.materiais = n
+  const motivo = await new Promise<string>((resolve) => {
+    const passo = () => {
+      if (opts?.vivo && !opts.vivo()) { resolve('cancelado'); return }
+      if (set.size === 0) { resolve(reg.descartados ? `pronto (${reg.descartados} descartado(s) na sondagem)` : 'pronto'); return }
+      reg.passadas++
+      // ⚠️ CÓPIA DO SET e UM `try` POR MATERIAL. O defeito do three é justamente
+      // um material derrubar o lote inteiro dentro de um `forEach`
+      // (three.module.js:29689): quem sonda por fora não pode herdar isso.
+      for (const material of Array.from(set)) {
+        let prog: Programa | undefined | typeof SEM_API
+        try { prog = programaDe(r, material) } catch { prog = undefined }
+        if (prog === SEM_API) { resolve('sem-api'); return }
+        // material sem programa = FOI EMBORA (dispose do material, ou
+        // renderer.dispose trocando a WeakMap inteira, three.module.js:29313).
+        // A resposta é tirar do Set. NUNCA estourar: era este estouro o defeito.
+        if (prog === undefined) { set.delete(material); reg.descartados++; continue }
+        let pronto = true
+        try { pronto = prog.isReady() !== false } catch { pronto = true }
+        if (pronto) set.delete(material)
+      }
+      if (set.size === 0) { resolve(reg.descartados ? `pronto (${reg.descartados} descartado(s) na sondagem)` : 'pronto'); return }
+      if (performance.now() - t0 > teto) { resolve('teto'); return }
+      setTimeout(passo, PASSO_SONDA)
+    }
+    passo()
+  })
+  fecha(motivo, set.size)
+  const linha = `[aquece] ${nome}: ${n} materiais, ${motivo}, ${reg.ms} ms`
+  if (motivo === 'teto') {
+    console.warn(`[aquece] segui SEM aquecer o grupo ${nome} depois de ${reg.ms} ms: `
+      + `${set.size} de ${n} materiais não ficaram prontos. O grupo acende assim mesmo, `
+      + `porque engasgo de um quadro é melhor que peça invisível. `
+      + `Se isto virar rotina, MEÇA a latência de link antes de subir TETO_AQUECE.`)
+  } else if (motivo === 'sem-api') {
+    console.warn(`${linha}. renderer.properties/currentProgram não existem nesta versão do three: `
+      + `o aquecimento virou no-op caro. Reconferir a cada upgrade de three.`)
+  } else if (motivo === 'cancelado') {
+    console.log(`${linha} (a cena morreu durante a sondagem)`)
+  } else if (reg.passadas === 1 && reg.descartados === n && n > 0) {
+    console.warn(`${linha}. TODOS os materiais apareceram SEM currentProgram na primeira passada: `
+      + `ou a cena descartou o grupo inteiro, ou o campo mudou de nome no three. Reconferir.`)
+  } else {
+    console.log(linha)
   }
 }

@@ -67,7 +67,7 @@ import { buildLagoa, LAGOA_ATIVA, type Lagoa } from './lagoa'
 import { buildAutopistas, type Autopistas } from './autopistas'
 import { buildEclusas, type Eclusas } from './eclusas'
 import { buildMetro, type Metro } from './metro'
-import { Obra, aquece } from './obra'
+import { Obra, aquece, AQUECIMENTOS } from './obra'
 import { buildMontanha, type Montanha } from './montanha'
 import { buildLago, type Lago, LARG_ORLA } from './lago'
 import { buildAquario, type Aquario } from './aquario'
@@ -1441,7 +1441,13 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     // mesmo assim, sem bloquear, pela extensão de compilação paralela. Só depois
     // dela responder o grupo acende.
     const revela = (g: THREE.Object3D) => {
-      void aquece(renderer, scene, camera, g).then(() => { if (!disposed) g.visible = true })
+      // ⚠️ O NOME VAI NO LOG, e é ele que prova se este aquecimento assentou.
+      // NÃO use "o grupo acendeu" como evidência: para grupo registrado no
+      // culler (o do inverno está) quem escreve `.visible` é o culler todo
+      // quadro (perf.ts:289-294), então o pixel mente. Foi essa leitura que
+      // mandou a investigação de 12/09 para o grupo errado.
+      void aquece(renderer, scene, camera, g, { nome: g.name || '(grupo sem nome)', vivo: () => !disposed })
+        .then(() => { if (!disposed) g.visible = true })
     }
     const wantStats = new URLSearchParams(window.location.search).get('stats') === '1'
     if (wantStats) {
@@ -1490,9 +1496,14 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     // se achou o pé da caverna fora do chão). Declarado aqui, DEPOIS da cena
     // existir: no bloco de stats lá em cima ele caía na zona morta do const.
     if (wantStats) {
-      const w = window as unknown as { __plazaScene?: THREE.Scene; __plazaTHREE?: typeof THREE }
+      const w = window as unknown as {
+        __plazaScene?: THREE.Scene; __plazaTHREE?: typeof THREE; __plazaAquece?: unknown[]
+      }
       w.__plazaScene = scene
       w.__plazaTHREE = THREE
+      // ?stats=1 → window.__plazaAquece: o registro VIVO dos aquecimentos.
+      // Entrada com motivo 'em voo' depois de a cena assentar = PENDURADO.
+      w.__plazaAquece = AQUECIMENTOS
     }
     scene.background = new THREE.Color(0x000000)
     const camera = new THREE.PerspectiveCamera(42, mount.clientWidth / mount.clientHeight, 0.5, 200000)
@@ -4202,7 +4213,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             economizarDados: (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData,
             preparar: async (root) => {
               tameEnv(root)
-              await aquece(renderer, scene, camera, root)
+              await aquece(renderer, scene, camera, root, { nome: 'DOG_ATHLETICS', vivo: () => !disposed })
             },
           })
           atletismo.group.rotation.y = GIRO_CAMPUS
@@ -4223,7 +4234,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             economizarDados: (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData,
             preparar: async (root) => {
               tameEnv(root)
-              await aquece(renderer, scene, camera, root)
+              await aquece(renderer, scene, camera, root, { nome: 'DOG_AQUATICS', vivo: () => !disposed })
             },
           })
           scene.add(aquatics.group)
@@ -4241,7 +4252,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             economizarDados: (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData,
             preparar: async (root) => {
               tameEnv(root)
-              await aquece(renderer, scene, camera, root)
+              await aquece(renderer, scene, camera, root, { nome: 'DOG_DERBY', vivo: () => !disposed })
             },
           })
           scene.add(derby.group)
@@ -4606,7 +4617,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // compila os shaders agora, com o aviso de carga na tela, e não no primeiro
         // arrasto do dedo (eram ~60 programas: segundos de travada no celular)
         stepDone('garden')
-        try { await renderer.compileAsync(scene, camera) } catch { /* driver sem compile paralelo: compila no primeiro quadro */ }
+        // ⚠️ PASSA PELO `aquece`, NÃO pelo `renderer.compileAsync` direto: é o
+        // mesmo defeito de 12/09, e aqui o conjunto é a CENA INTEIRA (o maior
+        // possível), logo a chance de um material morrer no meio é a maior de
+        // todas. Um descarte de nave chegando pelo feed já basta.
+        await aquece(renderer, scene, camera, undefined, { nome: 'cena:jardim', vivo: () => !disposed, tetoMs: 180000 })
         if (disposed) return
 
         // Os monumentos (White Paper, Gênese, Satoshi, Pata, Jardim Ordinal) e a
@@ -4723,7 +4738,13 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // invisível, e a visita guiada passa exatamente pelo que o culling
         // esconde. Compilar com tudo ligado tira o engasgo de cada parada.
         culler.revealAll()
-        try { await renderer.compileAsync(scene, camera) } catch { /* sem compile paralelo */ }
+        // ⚠️ ESTE É O PIOR CASO DO DEFEITO, e por isso ele tem nome e teto.
+        // Pendurar aqui mata `culler.update`, `obra.sela()` e
+        // `stepDone('shaders')`, e 'shaders' não está em `EM_OBRA`, logo entra
+        // no `pronto`: A CORTINA DE CARGA NUNCA CAI e `abrirPortaoInverno()`
+        // nunca dispara. Teto maior que o padrão porque o conjunto é a cena
+        // inteira depois do `revealAll()`.
+        await aquece(renderer, scene, camera, undefined, { nome: 'cena:shaders', vivo: () => !disposed, tetoMs: 180000 })
         culler.update(camera.position)
         // ⚠️ SELA A OBRA: daqui pra frente não entra mais trabalho, e só agora ela
         // pode se dar por encerrada. Ver a nota longa em `obra.ts`: sem esta
@@ -5779,12 +5800,17 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       if (espelhoLigado) ktx2.dispose()
       lunarEnv.dispose()
       scene.traverse((o) => {
-        const m = o as THREE.Mesh
-        if (m.isMesh) {
-          m.geometry?.dispose()
-          const mats = Array.isArray(m.material) ? m.material : [m.material]
-          for (const mat of mats) mat?.dispose()
-        }
+        // ⚠️ MATERIAL DE QUALQUER OBJETO QUE TENHA `.material`, não só de
+        // `isMesh`. `Points` declara `isPoints` e `Sprite` declara `isSprite`,
+        // nunca `isMesh`: com o filtro antigo, o `SpriteMaterial` do brilho e o
+        // `LineBasicMaterial` do rastro das naves vivas (`orbit-layer.ts`) e o
+        // `ShaderMaterial` do `Points` do parque (`park.ts`) nunca eram
+        // descartados no desmonte. Vazamento pré-existente, achado na varredura
+        // de 12/09 e consertado junto porque é uma linha.
+        const k = o as THREE.Mesh
+        k.geometry?.dispose()
+        const mat = k.material as THREE.Material | THREE.Material[] | undefined
+        if (mat) for (const x of Array.isArray(mat) ? mat : [mat]) x?.dispose()
       })
       renderer.dispose()
       if (renderer.domElement.parentElement === mount) mount.removeChild(renderer.domElement)

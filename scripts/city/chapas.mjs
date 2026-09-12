@@ -577,7 +577,7 @@ const erros = [], logs = []
 pag.on('console', (m) => {
   const t = m.text()
   if (m.type() === 'error') { if (!RUIDO.some((r) => r.test(t))) erros.push(t) }
-  else if (/\[(vias|arborização|mobiliário|praças|lagos|canais|abóbada|inverno)\]/.test(t)) logs.push(t)
+  else if (/\[(vias|arborização|mobiliário|praças|lagos|canais|abóbada|inverno|aquece)\]/.test(t)) logs.push(t)
 })
 pag.on('pageerror', (e) => erros.push(`pageerror: ${e.message}`))
 
@@ -617,7 +617,7 @@ await pag.waitForFunction(() => !!window.__invernoCarga, null, { timeout: 180000
   .catch(() => console.log('  (inverno: a floresta nao sinalizou em 180 s; chapas.json sai SEM a linha de carga e a conferencia do parque e inconclusiva)'))
 const inverno = await pag.evaluate(() => window.__invernoCarga ?? null)
 
-const relatorio = { url, quando: new Date().toISOString(), inverno, vistas: {}, logs, erros }
+const relatorio = { url, quando: new Date().toISOString(), inverno, aquece: [], vistas: {}, logs, erros }
 for (const v of lista) {
   let achouEm = null
   let achouAlvo = null // só MONTANHAVISTAS preenche: lá o alvo também é chão ao vivo, não os 60 m projetados de acharChao/acharRua
@@ -668,6 +668,21 @@ for (const v of lista) {
   // nenhuma (ver o comentário da "obra 1" reprovada, dentro de VISTAS).
   console.log(`  ${v.padEnd(12)} ${String(st?.fps).padStart(3)} fps · ${String(st?.calls).padStart(4)} calls · ${((st?.triangles ?? 0) / 1e6).toFixed(2)}M tris · ${String(st?.programs).padStart(3)} prog${achouEm ? ` · olho em (${achouEm.x.toFixed(0)}, ${achouEm.z.toFixed(0)}) cota ${achouEm.superficieAt}` : ''}${achouAlvo ? ` · alvo em (${achouAlvo.x.toFixed(0)}, ${achouAlvo.z.toFixed(0)}) cota ${achouAlvo.superficieAt}` : ''}  -> ${arquivo}`)
 }
+
+// ⚠️ O AQUECIMENTO DE SHADER TEM REGISTRO PROPRIO desde 12/09/2026: entrada com
+// motivo 'em voo' e PROMESSA PENDURADA, que era o defeito invisivel (grupo que
+// nunca acende, peca que nunca entra na cena).
+// ⚠️ A LEITURA E AQUI, DEPOIS DAS CHAPAS, e isso foi medido: lida logo apos o
+// sinal da floresta ela pegava DOG_ATHLETICS, DOG_DERBY e DOG_AQUATICS com
+// 0 ms e "em voo" numa execucao em que as tres assentaram em menos de 900 ms.
+// Instantaneo cedo demais acusa pendurado que nao existe.
+// ⚠️ E ISTO NAO REPROVA A EXECUCAO, tambem de proposito: quem reprova continua
+// sendo so erro de console. Sondagem legitima ainda em curso existe, e portao
+// com falso positivo e portao que ninguem le.
+relatorio.aquece = await pag.evaluate(() => (window.__plazaAquece ?? []).map((a) => ({ ...a })))
+const pendurados = relatorio.aquece.filter((a) => a.motivo === 'em voo')
+if (pendurados.length) console.log(`  (aquece ainda 'em voo' no fim: ${pendurados.map((a) => `${a.nome} (${a.materiais} materiais)`).join(', ')}, confira em chapas.json)`)
+
 await nav.close()
 writeFileSync(join(saida, 'chapas.json'), JSON.stringify(relatorio, null, 2))
 
