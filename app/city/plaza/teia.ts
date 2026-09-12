@@ -324,13 +324,73 @@ export function naAlcaDeTerra(px: number, pz: number): boolean {
  * a arborização lia o JSON cru e plantava onde não havia rua. Substituir num
  * módulo só é substituir para quem lembra de olhar.
  */
+/**
+ * O raio de VÉRTICE que põe o anel viário exatamente sobre uma divisa da teia.
+ *
+ * ⚠️ AS DUAS FAMÍLIAS DE ANEL USAM CONVENÇÕES OPOSTAS, e é daí que vem o defeito
+ * que esta função corrige. `ANEIS[i]` é APÓTEMA (a face, ver `caixaDoModulo` e
+ * `raioDodeca`); `aneisViarios[].r` é VÉRTICE (ver `anelRaio`). Comparados na
+ * mesma unidade, os anéis viários publicados NÃO pousam em divisa nenhuma:
+ *
+ *     AN1 1750 -> apótema 1690,4   divisa mais próxima 1694   sobra  3,6 m
+ *     AN2 2750 -> apótema 2656,3   divisa               2664   sobra  7,7 m
+ *     AN3 3750 -> apótema 3622,2   divisa               3564   sobra 58,2 m
+ *     AN4 4450 -> apótema 4298,4   divisa               4281   sobra 17,4 m
+ *     AN5 5620 -> apótema 5428,5   divisa               5535   sobra 106,5 m
+ *     AN6 6300 -> apótema 6085,3   divisa               6131   sobra 45,7 m
+ *
+ * Os três primeiros números são pequenos e é isso que os torna piores: 3,6 m de
+ * sobra é a arterial RASPANDO o asfalto da teia, e 58,2 m é arterial cortando
+ * quarteirão pelo meio. Nos dois casos há rua em cima de lote, na volta inteira
+ * da cidade.
+ *
+ * ⚠️ E O CONSERTO É MOVER A ARTERIAL, NUNCA A TEIA. Mexer no primeiro anel para
+ * arrumar isto desloca a grade inteira e arrasta as sete peças construídas, que
+ * estão ancoradas em índice de módulo (`{ i: 11, ... }` no campus, na arena, no
+ * atletismo, no geode e no aquatics). Encaixar a arterial na divisa move seis
+ * anéis de via, de 3,8 a 110,3 m, e não move um único lote.
+ */
+const COS15 = Math.cos(Math.PI / 12)
+/**
+ * ⚠️ O ENCAIXE SÓ VALE PARA QUASE-ACERTO, E ISSO NÃO É TIMIDEZ. A primeira versão
+ * puxava todo anel para a divisa mais próxima, custasse o que custasse, e o
+ * `verificar-aquatics.ts` reprovou na hora: o AN3 andava 60,3 m para dentro e
+ * pousava exatamente em 3.564, que é a borda EXTERNA do bloco `{ i: 11, nr: 3 }`
+ * — o bloco que abriga campus, arena, atletismo, geode e aquatics. Arterial de
+ * 26 m centrada numa divisa come 13 m para cada lado, e a parcela ao lado passa
+ * a ter rua dentro dela.
+ *
+ * O defeito que esta função existe para corrigir é o QUASE-ACERTO: AN1 a 3,6 m
+ * da divisa, AN2 a 7,7 e AN4 a 17,4 são arterial RASPANDO o asfalto da teia, com
+ * uma fatia de quarteirão órfã entre as duas pistas. Esses se encaixam e o
+ * defeito some. AN3 (58,2 m), AN5 (106,5) e AN6 (45,7) não estão raspando nada:
+ * eles correm no MEIO de um quarteirão, que é outro problema e não se resolve
+ * arrastando a arterial para cima de uma peça construída.
+ *
+ * 25 m é o limiar: maior que a meia-largura da arterial mais larga (17 m) e
+ * menor que a menor sobra dos três que ficam de fora (45,7 m).
+ */
+export const TOL_DIVISA = 25
+export function anelViarioNaDivisa(r: number, tol = TOL_DIVISA): number {
+  const ap = r * COS15
+  let melhor = ANEIS[0], dist = Infinity
+  for (const a of ANEIS) {
+    const d = Math.abs(a - ap)
+    if (d < dist) { dist = d; melhor = a }
+  }
+  return dist <= tol ? melhor / COS15 : r
+}
+
 export function aneisDaCidade<T extends { id?: string; r: number; larg: number }>(
   aneis: readonly T[],
 ): (T & { circulo?: boolean; arco?: [number, number] })[] {
   return aneis.map((a) =>
     a.id === AVENIDA_ALCA.id
       ? { ...a, r: AVENIDA_ALCA.r, larg: AVENIDA_ALCA.larg, circulo: true, arco: AVENIDA_ALCA.arco }
-      : { ...a })
+      // ⚠️ O ENCAIXE NA DIVISA ACONTECE AQUI E SÓ AQUI, pelo mesmo motivo que a
+      // exceção da alça mora nesta função: enquanto `vias.ts` corrigia a sua
+      // cópia, a arborização lia o JSON cru e plantava onde não havia rua.
+      : { ...a, r: anelViarioNaDivisa(a.r) })
 }
 
 /** o rumo (em radianos) cai dentro do arco deste anel? */

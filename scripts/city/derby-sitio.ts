@@ -12,7 +12,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { ANEIS, N_RAD, passoNoRaio, caixaDoModulo, polyDoModulo, AVENIDAS, anelPonto,
-         type Modulo } from '../../app/city/plaza/teia'
+         type Modulo, aneisDaCidade} from '../../app/city/plaza/teia'
 import { DERBY_PECA_X, DERBY_PECA_Z } from '../../app/city/plaza/derby'
 import { SPHERE_MOD } from '../../app/city/plaza/sphere'
 import { CAMPUS_MOD } from '../../app/city/plaza/campus'
@@ -97,7 +97,7 @@ for (const av of AVENIDAS) {
   vias.push({ id: `avenida:${av.rumo}`, a: [Math.sin(a) * 1420, -Math.cos(a) * 1420],
     b: [Math.sin(a) * 8000, -Math.cos(a) * 8000], half: av.largura / 2 + 6 })
 }
-for (const an of M.aneisViarios as { id: string; r: number; larg: number }[]) {
+for (const an of aneisDaCidade(M.aneisViarios as { id: string; r: number; larg: number }[])) {
   for (let i = 0; i < 12; i++) {
     vias.push({ id: an.id, a: anelPonto(an.r, (i * Math.PI) / 6),
       b: anelPonto(an.r, ((i + 1) * Math.PI) / 6), half: an.larg / 2 + 8 })

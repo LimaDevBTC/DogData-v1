@@ -612,8 +612,54 @@ export async function buildIlhaMata(o: IlhaMataOpts): Promise<IlhaMata> {
     }
   }
   await Promise.all(simples.map((s) => instanciarSimples(s.file, s.papel)))
+  // ⚠️ O CORTE MEDE A DISTÂNCIA ATÉ A ILHA, NÃO ATÉ O CENTRO DA PRAÇA, E A
+  // VERSÃO ANTERIOR FAZIA O CONTRÁRIO. Ela chamava
+  // `culler.add(g, CULL_POR_PAPEL[papel], new Vector3(0, 0, 0))`, e o terceiro
+  // argumento do `DistanceCuller` é o PONTO DE REFERÊNCIA: com (0,0,0) a regra
+  // vira `câmera a menos de 600 m do CENTRO DA PRAÇA`. Como as ilhas estão a
+  // ~1.180 m dali, o sub-bosque acendia exatamente quando a câmera estava no
+  // deck (longe das ilhas) e apagava quando ela se aproximava delas. A lógica
+  // estava invertida: escondia a folhagem justamente quando ela seria vista.
+  //
+  // ⚠️ MEDIDO POR A/B DENTRO DE UMA CARGA SÓ (scratchpad/ab-ilha-mata.mjs, 11/09):
+  // a mesma cena montada, os subgrupos apagados e depois acesos à mão, lendo
+  // `__plazaStats`. Comparar duas cargas diferentes NÃO serve aqui, porque a
+  // contagem total varia meio milhão de triângulos entre voltas só por causa de
+  // qual GLB de floresta venceu o prazo de 45 s.
+  //
+  //   câmera do deck    8,836M -> 8,004M tri   (832.142 tri, 9,4%, 12 chamadas)
+  //   câmera aérea      8,533M -> 7,218M tri (1.314.912 tri, 15,4%, 23 chamadas)
+  //
+  // É feto, samambaia, capim, bananeira, bambu, cica, oleandro e rocha: folhagem
+  // de 0,4 a 1 m de altura debaixo de dossel fechado, que ficava LIGADA vista de
+  // 600 a 900 m (deck) e de 1.400 m de altura (aérea). O LOD de longe do dossel
+  // (168 octaedros, 1.344 triângulos) já existe e é quem responde por essa vista.
+  //
+  // ⚠️ NÃO ENTRA NO `DistanceCuller` PORQUE ELE É DE PONTO ÚNICO. Aqui são SEIS
+  // ilhas e o critério é a MAIS PRÓXIMA: um grupo pode estar perto por uma ilha e
+  // longe por todas as outras. O `update(cam)` deste módulo já roda a cada
+  // 150 m de deslocamento da câmera e é o lugar certo para isso.
+  //
+  // ⚠️ A DISTÂNCIA É 3D, DE PROPÓSITO, e é o que faz a vista aérea economizar
+  // mais que a do deck: o centro da ilha é lido em y = 0, então 1.400 m de
+  // altitude sozinhos já passam do corte de 1.100 m. Sub-bosque rasteiro visto de
+  // cima é exatamente o caso em que ele não deve estar aceso.
+  const centrosIlha = o.ilhas.map((i) => new THREE.Vector3(i.x, 0, i.z))
+  const gruposDeCorte = (Object.entries(gruposPorPapel) as [Papel, THREE.Group][])
+    .filter(([papel]) => CULL_POR_PAPEL[papel] < 4000)
+  const cortarPorIlha = (cam: THREE.Vector3) => {
+    for (const [papel, g] of gruposDeCorte) {
+      let d = Infinity
+      for (const c of centrosIlha) d = Math.min(d, cam.distanceTo(c))
+      g.visible = d < CULL_POR_PAPEL[papel]
+    }
+  }
+  // estado inicial: a câmera nasce no deck, longe das ilhas
+  cortarPorIlha(new THREE.Vector3(0, 0, 0))
+  // os papéis de 4.000 m (dossel e emergente) continuam no culler de ponto único:
+  // nesse alcance o centro da praça e a ilha são a mesma coisa para a decisão.
   for (const [papel, g] of Object.entries(gruposPorPapel) as [Papel, THREE.Group][]) {
-    o.culler?.add(g, CULL_POR_PAPEL[papel], new THREE.Vector3(0, 0, 0))
+    if (CULL_POR_PAPEL[papel] >= 4000) o.culler?.add(g, CULL_POR_PAPEL[papel], new THREE.Vector3(0, 0, 0))
   }
 
   // ── 3b. dossel e emergente: LOD de verdade (perto = GLB, longe = octaedro
@@ -748,6 +794,7 @@ export async function buildIlhaMata(o: IlhaMataOpts): Promise<IlhaMata> {
       if (cam.distanceToSquared(ultima) < 150 * 150) return
       ultima = cam.clone()
       rebalancear(cam)
+      cortarPorIlha(cam)
     },
     dispose() {
       for (const d of disposables) d.dispose()

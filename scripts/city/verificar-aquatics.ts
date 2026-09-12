@@ -9,7 +9,7 @@
  */
 import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
-import { AVENIDAS, anelPonto, caixaDoModulo, polyDoModulo } from '../../app/city/plaza/teia'
+import { AVENIDAS, anelPonto, caixaDoModulo, polyDoModulo, aneisDaCidade} from '../../app/city/plaza/teia'
 import {
   AQUATICS_MOD, AQUATICS_Y, AQUATICS_PECA_X, AQUATICS_PECA_Z, AQUATICS_FOLGA_Y, AQUATICS_RUMO,
   AQUATICS_DESLOC, PODIO_TOPO, aquaticsParcela, aquaticsSitio, aquaticsFolgas, comPodioAquatics,
@@ -34,7 +34,7 @@ function radial(id: string, rumo: number, r0: number, r1: number, half: number) 
 for (const b of M.bulevares) radial(`bulevar:${b.id}`, b.rumo, b.rInicio, b.rFim, b.largura / 2 + 6)
 for (const b of AVENIDAS) radial(`avenida:${b.rumo}`, b.rumo, 1420, 8000, b.largura / 2 + 6)
 for (const a of M.autopistas) { const r = a.rumo * Math.PI / 180, c = Math.cos(r), s = Math.sin(r), o = a.afastamento ?? 0; roads.push({ id: `autopista:${a.id}`, a: [c * o + s * -12000, s * o - c * -12000], b: [c * o + s * 12000, s * o - c * 12000], half: a.largura / 2 + 6 }) }
-for (const a of M.aneisViarios) for (let i = 0; i < 12; i++) roads.push({ id: `anel:${a.id}`, a: anelPonto(a.r, i * Math.PI / 6), b: anelPonto(a.r, (i + 1) * Math.PI / 6), half: a.larg / 2 + 8 })
+for (const a of aneisDaCidade(M.aneisViarios)) for (let i = 0; i < 12; i++) roads.push({ id: `anel:${a.id}`, a: anelPonto(a.r, i * Math.PI / 6), b: anelPonto(a.r, (i + 1) * Math.PI / 6), half: a.larg / 2 + 8 })
 
 async function main() {
   Object.assign(globalThis, { document: { createElement: () => ({ width: 0, height: 0, getContext: () => ({ putImageData() {} }) }) }, ImageData: class { constructor(public data: Uint8ClampedArray, public width: number, public height: number) {} } })

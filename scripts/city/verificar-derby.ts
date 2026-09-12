@@ -15,7 +15,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import assert from 'node:assert/strict'
 import { DERBY_ID, DERBY_MOD, DERBY_PECA_X, DERBY_PECA_Z, DERBY_FOLGA_Y,
          DERBY_AMPLITUDE_MEDIDA, derbySitio, derbyCull, derbyParcela } from '../../app/city/plaza/derby'
-import { polyDoModulo, caixaDoModulo } from '../../app/city/plaza/teia'
+import { polyDoModulo, caixaDoModulo, anelPonto, aneisDaCidade } from '../../app/city/plaza/teia'
 
 type Pt = [number, number]
 const C = JSON.parse(readFileSync('public/city/cidade.json', 'utf8'))
@@ -95,12 +95,20 @@ assert.ok(folgaParcela >= 8, 'folga menor que 8 m até a borda do módulo')
 assert.equal(derbyParcela().poly.length, parcela.length, 'derbyParcela divergiu do módulo')
 
 // ── 2. nenhuma via principal cruza o envelope ──────────────────────────────
+// ⚠️ O ANEL É DODECÁGONO E ESTE TESTE O MEDIA COMO CÍRCULO. `Math.sin(t)*a.r`
+// traça a circunferência que passa pelos 12 VÉRTICES; o asfalto desenhado por
+// `vias.ts` some dela no meio de cada face, e a diferença é a flecha da corda,
+// 3,5% do raio, ou seja ~125 m no AN3. Um teste que mede 125 m fora do lugar
+// aprova peça que está em cima da pista e reprova peça que não está.
+// ⚠️ E A LISTA PASSA POR `aneisDaCidade`, não vem crua do JSON. O JSON publica a
+// alça em 7.600 (a cena usa 6.950) e publica os seis anéis sem encaixe na divisa
+// da teia. Lendo cru, este script audita uma cidade que ninguém desenha.
 const piores: { id: string; folga: number }[] = []
-for (const a of M.aneisViarios as { id: string; r: number; larg: number }[]) {
+for (const a of aneisDaCidade(M.aneisViarios as { id: string; r: number; larg: number }[])) {
   for (let i = 0; i < 24; i++) {
     const t0 = (i * Math.PI) / 12, t1 = ((i + 1) * Math.PI) / 12
-    const p0: Pt = [Math.sin(t0) * a.r, -Math.cos(t0) * a.r]
-    const p1: Pt = [Math.sin(t1) * a.r, -Math.cos(t1) * a.r]
+    const p0: Pt = anelPonto(a.r, t0)
+    const p1: Pt = anelPonto(a.r, t1)
     piores.push({ id: a.id,
       folga: Math.min(...perim.map((q) => pointSeg(q, p0, p1))) - a.larg / 2 })
   }

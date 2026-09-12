@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
-import { ANEIS, N_RAD, passoNoRaio, caixaDoModulo, polyDoModulo, AVENIDAS, anelPonto, type Modulo } from '../../app/city/plaza/teia'
+import { ANEIS, N_RAD, passoNoRaio, caixaDoModulo, polyDoModulo, AVENIDAS, anelPonto, type Modulo, aneisDaCidade} from '../../app/city/plaza/teia'
 import { ESTADIO_MOD, estadioSitio } from '../../app/city/plaza/estadio'
 import { GEODE_MOD, geodeSitio } from '../../app/city/plaza/geode'
 import { SPHERE_MOD } from '../../app/city/plaza/sphere'
@@ -25,7 +25,7 @@ function radial(id:string,rumo:number,r0:number,r1:number,half:number){const a=r
 for(const b of M.bulevares)radial(`json:${b.id}`,b.rumo,b.rInicio,b.rFim,b.largura/2+6)
 for(const b of AVENIDAS)radial(`ativa:${b.rumo}`,b.rumo,1420,8000,b.largura/2+6)
 for(const a of M.autopistas){const r=a.rumo*Math.PI/180,c=Math.cos(r),s=Math.sin(r),o=a.afastamento??0;roads.push({id:a.id,a:[c*o+s*-12000,s*o-c*-12000],b:[c*o+s*12000,s*o-c*12000],half:a.largura/2+6})}
-for(const a of M.aneisViarios){for(let i=0;i<12;i++)roads.push({id:a.id,a:anelPonto(a.r,i*Math.PI/6),b:anelPonto(a.r,(i+1)*Math.PI/6),half:a.larg/2+8})}
+for(const a of aneisDaCidade(M.aneisViarios)){for(let i=0;i<12;i++)roads.push({id:a.id ?? 'anel',a:anelPonto(a.r,i*Math.PI/6),b:anelPonto(a.r,(i+1)*Math.PI/6),half:a.larg/2+8})}
 // ⚠️ O ARENA E A GEODE SAÍRAM DESTA LISTA EM 07/09, e não por descuido: as três
 // peças passaram a dividir a MESMA parcela (o campus esportivo, `campus.ts`), e
 // os blocos delas agora encostam no do atletismo por construção. Enquanto elas
