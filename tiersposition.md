@@ -562,6 +562,59 @@ Usar o arquivo corrente marcaria 8 carteiras que não tinham pedra às 08:26 e d
 fora 13 que tinham. O rastreio para trás é por posição de sat e está validado em 9 de 9
 casos de dono inequívoco (ver o cabeçalho do artefato).
 
+### 3.11 — O piso de 40 m² cai; a curva passa a ser geométrica (🔒 2026-09-12)
+
+**DECIDIDO pelo fundador**, no dia do snapshot: *"esse lote de 40 m² pra cada carteira
+abaixo de 1.600 DOG é generoso demais... essas carteiras não vão receber 40 m² cada, com
+certeza não"*. **Isto emenda a §3.7**, que fica válida em tudo menos no piso.
+
+```
+antes  area = clamp(0,975228 × √DOG,  40 m²,  40.000 m²)
+agora  area = clamp(0,986443 × √DOG,   1 m²,  40.000 m²)
+```
+
+⚠️ **A CONSTANTE FOI RECALIBRADA, E ISSO NÃO É DETALHE.** Só tirar o piso e manter
+`k = 0,975228` levaria a soma de 46,66 para 46,13 km², ou seja **0,553 km² iriam para o
+resíduo do projeto em silêncio**. É exatamente o que a §3.7 proíbe: o split é a linha
+pública, a curva é derivada dele. Com `k = 0,986443` a soma volta a **46,66 km² exatos**,
+o 70/30 fica de pé, e quem está acima da antiga faixa do piso ganha **+1,2%** de lote.
+
+**O efeito, medido sobre as 85.818 carteiras do snapshot:**
+
+| DOG | antes | agora |
+|---|---|---|
+| 1 | 40 m² | **1,0 m²** |
+| 100 | 40 m² | **9,9 m²** |
+| 1.000 | 40 m² | **31,2 m²** |
+| 10k | 98 m² | 98,6 m² |
+| 20k | 138 m² | 139,5 m² |
+| mediana (101.806) | 311 m² | 314,7 m² |
+| airdrop típico | 920 m² | 930,5 m² |
+| Kraken | 40.000 m² | 40.000 m² (teto) |
+
+```
+a faixa abaixo de 1.682 DOG: 22.023 carteiras, de 0,881 km² para 0,333 km²
+```
+
+⚠️ **O PISO DE 1 m² É GEOMÉTRICO, NÃO GENEROSO, e a escolha do número é minha, não do
+fundador.** A curva pura deixava 2.573 carteiras com menos de 1 m² e a menor com
+**0,003 m²**, que são 3 cm²: não é lote, não tem porta, não dá para desenhar. 1 m² custa
+**0,001 km²** a mais que a curva pura (0,333 contra 0,332) e garante que todo lote existe
+no espaço. Derrubar esse metro é uma linha.
+
+⚠️ **E ISSO MATA O ATAQUE DE POEIRA que o piso de 40 m² criava.** Havia 141 carteiras com
+exatamente 0,00001 DOG (mais 82 com 0,00005, e outras repetições), padrão de distribuição
+em lote e não de holder. Com o piso antigo elas levavam **5.640 m²** por 0,00141 DOG; agora
+levam **141 m²**. ⚠️ A concavidade em si continua premiando quem divide (partir em N partes
+iguais multiplica a terra por √N), mas **isso é história**: o snapshot está fechado no bloco
+966.670 e ninguém divide mais nada. O que sobra é auditoria, não prevenção.
+
+⚠️ **A FAIXA DO PISO É DE COMPRADOR PEQUENO, NÃO DE VENDEDOR, e o número é que diz isso.**
+Das 22.020 carteiras abaixo de 1.682 DOG, **20.973 (95,2%) nunca receberam airdrop**: são
+compradores pequenos e recentes, e 797 delas seguram Runestone. Só 1.047 são `paper_hands`.
+Qualquer tratamento temático para essa faixa erraria o alvo em 95% dos casos: ela é a porta
+de entrada da cidade, não a saída.
+
 ## 4. Pendências abertas
 
 Numeradas para poder fechar uma por vez. Nada aqui foi decidido.
@@ -745,6 +798,11 @@ Quando for reconstruir, o gerador precisa:
 
 ## 6. Registro de mudanças deste arquivo
 
+- **2026-09-12** — §3.11: cai o piso de 40 m² (decisão do fundador) e a constante da curva
+  é recalibrada de 0,975228 para **0,986443**, para a soma continuar nos 46,66 km² do split
+  70/30. Piso geométrico de 1 m² (escolha minha, documentada). A faixa baixa sai de 0,881
+  para 0,333 km²; todo mundo acima dela ganha +1,2%. Medido: a faixa do piso é 95,2%
+  compradores pequenos, não vendedores, então cemitério ali seria o alvo errado.
 - **2026-09-12** — snapshot tirado no bloco 966.670. Entra a §3.10: pedra sem DOG não
   entra (33.621 carteiras descartadas, 62.761 pedras). O artefato
   `data/snapshots/dog_snapshot_966670.json` passa a ser a fonte de saldo, tier, idade,

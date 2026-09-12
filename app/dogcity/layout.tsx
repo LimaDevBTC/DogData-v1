@@ -27,9 +27,9 @@ const OG = 'https://www.dogdata.xyz/og-dogcity.jpg?v=3'
 export const metadata: Metadata = {
   title: 'DogCity: a virtual city for DOG holders, on real lunar terrain | dogdata.xyz',
   description:
-    "DogCity is a virtual city for DOG holders, built over real mapped lunar terrain. Bitcoin block 966,670 decides the address of every self-custody DOG wallet. No claim, no signature, nothing to register.",
+    "DogCity is a virtual city for DOG holders, built over real mapped lunar terrain. Bitcoin block 966,670 decided the address of every self-custody DOG wallet. 85,818 wallets hold a lot.",
   openGraph: {
-    title: 'DogCity: block 966,670 decides your address on the Moon',
+    title: 'DogCity: block 966,670 decided your address on the Moon',
     description:
       "Built over mapped lunar elevation at Mare Tranquillitatis. Whatever $DOG your wallet holds in self custody at that block is what the city reads. A date is our word. A Bitcoin block is Bitcoin's word.",
     type: 'website',
@@ -40,9 +40,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'DogCity: block 966,670 decides your address on the Moon',
+    title: 'DogCity: block 966,670 decided your address on the Moon',
     description:
-      "Hold $DOG in self custody before block 966,670. No claim, no signature, nothing to register.",
+      "The snapshot was taken at block 966,670. 85,818 wallets hold a lot in DogCity. No claim, no signature, nothing to register.",
     images: [OG],
   },
 }

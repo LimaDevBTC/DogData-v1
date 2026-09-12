@@ -119,7 +119,7 @@ const CUSTODIA = [
     label: "In my own wallet",
     titulo: "Then there is nothing to do.",
     texto:
-      "The snapshot reads the chain on its own. You do not sign anything, you do not pay anything, you do not register anything. Just do not move the coins into someone else's custody before the block.",
+      "The snapshot reads the chain on its own. You do not sign anything, you do not pay anything, you do not register anything. The block has landed: what the chain showed at 966,670 is what counts, and nothing you do now changes it.",
     cta: { href: "#how", label: "See how placement is decided" },
   },
   {
@@ -127,7 +127,7 @@ const CUSTODIA = [
     label: "On an exchange",
     titulo: "An exchange address is not your address.",
     texto:
-      "Coins sitting on a platform are held under the platform's keys, not yours, and the chain records them that way. Withdrawing to a wallet you control is one transaction, and it has to confirm before the block lands.",
+      "Coins sitting on a platform are held under the platform's keys, not yours, and the chain records them that way. Coins that were on a platform at block 966,670 were not counted. Withdrawing now does not change that block, and there is nothing to rush.",
     cta: { href: "#how", label: "See how placement is decided" },
   },
   {

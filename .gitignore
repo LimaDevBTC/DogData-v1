@@ -132,3 +132,9 @@ tmp/
 # Diretorios de build paralelos (NEXT_DIST_DIR, ver next.config.js): existem pra
 # uma sessao compilar sem derrubar o `next dev` que esta no ar.
 .next-*/
+
+# ⚠️ LOTE NOMINAL NAO E PUBLICO. Este diretorio tinha 33 MB de lotes demarcados
+# por endereco (rua, numero, x, z, area) de 10/07, publicos no raw do GitHub e
+# CONTRADIZENDO o snapshot: a mesma carteira aparecia ring0_visionary no distrito 0
+# e no snapshot e diamond_paws no tecido. Retirado em 12/09/2026.
+data/foundation/
