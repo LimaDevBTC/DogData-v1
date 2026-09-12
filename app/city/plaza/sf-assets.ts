@@ -61,6 +61,7 @@ export const SF_CREDITS: readonly Credit[] = [
   // dentes de verdade. Entra só a arcada SUPERIOR, sem gengiva, com material da
   // casa (o GLB do acervo tem imagens embutidas; em GLB de cidade, zero).
   { title: 'Human teeth', author: 'Alexander Antipov', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/human-teeth-c4c569f0e08948e2a572007a7a5726f2' },
+  { title: 'Accessory_Hood Cowl 001', author: 'collinsweeney', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/accessory-hood-cowl-001-9a6d8f8c1113444fb8504d758d032b38' },
   // ⚠️ ROCHA DE DESTAQUE DO PARQUE DE INVERNO, 03/09, frente PISTA E ROCHA.
   // Escaneamentos reais de granito, com veio e cor mosqueada visíveis de perto:
   // peça única, não pacote de massa. Usadas na base da estação e na chegada da
