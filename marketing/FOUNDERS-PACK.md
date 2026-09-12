@@ -36,6 +36,7 @@ Every rung includes everything below it.
 
 - Name on the Founders' Monument, in order of arrival
 - Founder number, permanent and never issued again
+- Access to the Founders Club, on its island in the bay
 - One entry in the Founders' draw
 
 There is **no building licence below 10,000 $DOG**. The recognition is permanent either
@@ -70,6 +71,18 @@ Adds:
 
 **NOT PUBLIC. Do not put this rung, or a price, in any public document.** It exists, it is
 the top rung, and it adds a mark on a civic building. It is handled case by case.
+
+### The Founders Club island
+
+An island in the city's bay, carrying the Founders Club: a mooring, a hall, and the view of
+the city from across the water. **Every Founder has access, at any rung.**
+
+It is a **club, not a condominium**. Nobody owns land on that island, no lot is assigned
+there, and no Founder's lot moves because of it. The island is new ground, made by the
+project inside its own water, so it costs no wallet a single square metre.
+
+There is no Founders' district and there will not be one. Where a wallet lives comes from
+block 966,670. What the island gives is a place to meet, not an address.
 
 ### Why the custom building stops at Patron
 

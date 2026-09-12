@@ -698,6 +698,34 @@ propriedade real na L1 em vez de linha em banco.
 Produção: o pipeline do Sketchfab já existe, com as regras de licença decididas (CC0 e CC-BY
 entram, SA/NC/ND não, crédito no mesmo commit).
 
+### A Ilha do Founders Club 🔒 (2026-09-12)
+
+**DECIDIDO.** Uma ilha na **baía**, com a sede do Founders Club. Fundador tem **acesso**,
+não tem escritura.
+
+```
+baía   centro (4.863,8, -3.738,4)   34,3 km2 de água   lâmina em -40
+```
+
+⚠️ **CLUBE, NÃO CONDOMÍNIO, E A DIFERENÇA É O PROJETO INTEIRO.** O dono tinha descartado o
+bairro dos fundadores poucas horas antes, e condomínio na baía seria o mesmo bairro com
+endereço melhor. O que separa um do outro é uma pergunta só: **alguém passa a ser dono de
+terra ali?** No clube, não. Há acesso, ancoradouro, salão e vista; não há lote, não há
+deed, e o lote de ninguém se move.
+
+⚠️ **POR QUE ILHA E NÃO ORLA.** A orla da baía é a §10 e está **4 lotes curta**: o snapshot
+manda 449 carteiras dos tiers 1 a 3 para lá e existem 445 lotes de carteira. Além de não
+caber, pôr Fundador na melhor água por ter doado é o §0.1 no ponto mais sensível que existe,
+porque é exatamente onde 449 pessoas chegaram por história on-chain. **Ilha é terra NOVA,
+criada pelo projeto dentro da própria água**, e não sai da cota de ninguém.
+
+⚠️ **E É O MELHOR OUTDOOR QUE A CIDADE TEM.** A ilha fica na frente da orla nobre. Iluminada
+à noite, ela é vista de graça por todo mundo que ainda não é Fundador, todos os dias, sem
+custar um metro de lote a ninguém.
+
+**Em aberto:** o desenho da ilha, e se o clube recebe programa próprio no §5 (onde já moram
+`Founders Pool`, `Founders' Monument` e `Patrons' Walk`, o mesmo instinto nunca desenhado).
+
 ### O que o Fundador NÃO é
 
 Não é cota, não é investimento, não é rendimento. Não muda a posição do lote de ninguém,
