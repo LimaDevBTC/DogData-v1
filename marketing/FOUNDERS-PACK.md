@@ -58,7 +58,6 @@ Adds:
 
 - Extended item pack: leisure ground, garden, lighting
 - **A lunar rover** parked on the lot
-- Height class on the building
 
 ### Patron, 500,000 $DOG
 

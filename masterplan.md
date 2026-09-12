@@ -643,6 +643,12 @@ existe escolher lote, e o sorteio NÃO distribui endereço (ver abaixo).
 | Marca em prédio cívico | | | | | ✓ |
 | Concorre ao sorteio | ✓ | ✓ | ✓ | ✓ | ✓ |
 
+⚠️ **ALTURA NÃO SE COMPRA, E EU TENTEI VENDER.** Numa primeira versão desta tabela eu
+tinha posto "classe de altura" no degrau commercial. Colide de frente com o §1, que está
+travado: *"altura respira com o saldo"*. Se a doação mexesse na altura, o prédio pararia de
+informar: olhando um prédio alto ninguém saberia se significa "tem muito DOG" ou "pagou
+muito". Removido antes de sair em documento nenhum.
+
 ⚠️ **PRÉDIO PERSONALIZADO SÓ NO PATRON E NO INSTITUCIONAL.** A cidade tem **tipologia por
 bairro**: cada bairro tem sua casa e suas variáveis, e é isso que a mantém coesa. Personalizar
 fora desses dois degraus fura a coerência arquitetônica, que é um ativo da cidade e não um
