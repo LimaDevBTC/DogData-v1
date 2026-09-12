@@ -528,6 +528,40 @@ eu os descartava.
 
 ---
 
+### 3.10 — Pedra sem DOG não entra (🔒 2026-09-12)
+
+**DECIDIDO pelo fundador, no dia do snapshot:** *"essas que tem pedra e não tem DOG podem
+ser descartadas"*. A Runestone qualifica, mas **não sozinha**: sem saldo de DOG no bloco
+966.670 a carteira não entra na cidade.
+
+**MEDIDO no snapshot fixado** (`data/snapshots/dog_snapshot_966670.json`):
+
+```
+62.632  carteiras tinham Runestone no bloco 966.670        (112.384 pedras)
+29.011  delas tinham DOG e entram                          ( 49.623 pedras)
+33.621  DESCARTADAS: tem pedra, zero DOG as 08:26          ( 62.761 pedras, 55,8% do total)
+```
+
+⚠️ **Mais da metade das pedras fica de fora**, e isso é esperado: o airdrop do DOG foi
+distribuído para holders de Runestone, então muita carteira recebeu, vendeu o DOG e
+manteve a pedra. A regra premia quem ficou com os dois, que é o que a §3.9 já dizia.
+
+**Os números da §3.9 foram REMEDIDOS no snapshot** e ficam assim (a §3.9 usou o arquivo
+`runestone_holders_today.json`, que é do bloco corrente e não do snapshot; a decisão dela
+não muda, só a contagem):
+
+```
+com pedra E airdrop           24.942
+com pedra E Diamond Paws      18.633  de 19.279   (96,6%)
+```
+
+⚠️ **A LISTA DE PEDRA TAMBEM E FIXADA NO 966.670, e isso não é detalhe.**
+`runestone_holders_today.json` é do bloco corrente: no dia do snapshot ele estava no
+966.699, 29 blocos e ~6 horas à frente, e **31 pedras mudaram de dono nessa janela**.
+Usar o arquivo corrente marcaria 8 carteiras que não tinham pedra às 08:26 e deixaria de
+fora 13 que tinham. O rastreio para trás é por posição de sat e está validado em 9 de 9
+casos de dono inequívoco (ver o cabeçalho do artefato).
+
 ## 4. Pendências abertas
 
 Numeradas para poder fechar uma por vez. Nada aqui foi decidido.
@@ -711,6 +745,13 @@ Quando for reconstruir, o gerador precisa:
 
 ## 6. Registro de mudanças deste arquivo
 
+- **2026-09-12** — snapshot tirado no bloco 966.670. Entra a §3.10: pedra sem DOG não
+  entra (33.621 carteiras descartadas, 62.761 pedras). O artefato
+  `data/snapshots/dog_snapshot_966670.json` passa a ser a fonte de saldo, tier, idade,
+  contagem de UTXO, `position_score` e `tem_runestone`, todos fixados no bloco do
+  snapshot. Contagem de tier no snapshot: 88 / 100 / 261 / 713 / 1.349 / 19.279, contra
+  88 / 99 / 258 / 715 / 1.347 / 19.289 de 10/09. Tiers 1 a 3 somam **449** carteiras
+  contra os 510 lotes da Orla Nobre: cabe.
 - **2026-09-10** — criado. Entra a decisão 3.1 (Orla Nobre, tiers 1 a 3) e as pendências
   P1 a P8. Implementado no código nesta data: só a geometria da via (AN7 de volta a
   r 6.950, verificada por `verificar-orla.ts`, `verificar-alca.ts` e `vias-varredura.mjs`).
