@@ -1160,7 +1160,11 @@ if (VIAS) {
   // via que dá acesso à faixa nobre. O nó da orla já testava 18° e a ARESTA
   // continuava em 12°: o resultado era isolinha aceita e trecho recusado, ou
   // seja, nó sem via — que na carta é o toco de 200 m que o fundador viu.
-  const trecho = (p0, p1, limiar, obra = false, limD = LIMD) => {
+  // ⚠️ `canalOk` DECIDE SE ESTA ARESTA PODE ATRAVESSAR CANAL. Sem ele, qualquer
+  // via com 122 m de vão passava por cima da lâmina, porque 122 cabe nos 200 m de
+  // tolerância de canal. MEDIDO antes da regra: 138 arestas vivas cruzavam canal,
+  // 128 delas rua comum, e ZERO bulevares.
+  const trecho = (p0, p1, limiar, obra = false, limD = LIMD, canalOk = true) => {
     const comp = Math.hypot(p1[0] - p0[0], p1[1] - p0[1])
     const n = Math.max(2, Math.ceil(comp / PASSO))
     let molhadoSeguido = 0, pior = 0, temPonte = false, molhado = 0, ingremeSeguido = 0
@@ -1177,7 +1181,7 @@ if (VIAS) {
       const h = alturaEm(x, z)
       if (naAgua(x, z)) {
         // canal atravessa-se sempre; o resto obedece ao limiar da classe
-        const lim = sobreCanal(x, z) ? Math.max(limiar, LIMIAR_CANAL) : limiar
+        const lim = sobreCanal(x, z) ? (canalOk ? Math.max(limiar, LIMIAR_CANAL) : 0) : limiar
         molhadoSeguido += comp / n
         molhado += comp / n
         if (molhadoSeguido > lim) return null
@@ -1246,6 +1250,28 @@ if (VIAS) {
   // tecido morria a 769 m da avenida (mediana), deixando a faixa de frente sem
   // rua. Corte e aterro em 300 m de talude é obra ordinária; a ÁGUA continua
   // vetando, e a alça também.
+  // ── ONDE O CANAL SE ATRAVESSA ─────────────────────────────────────────────
+  // ⚠️ PONTE É EVENTO, NÃO ROTINA, e era rotina. Com 128 ruas comuns cruzando as
+  // três lâminas, a carta lia como escada: dezenas de pontinhas paralelas sobre a
+  // mesma água, a poucos metros uma da outra. O fundador pediu o contrário, e a
+  // geometria dá razão a ele por um caminho que ele não previu: canal e bulevar
+  // são os DOIS radiais (25°, 55° e 85° contra múltiplos de 30°), então eles
+  // nunca se encontram. Quem cruza canal é o ANEL, por construção.
+  //
+  // Logo a regra não pode ser "via principal atravessa": ela seria "ninguém
+  // atravessa", e as cunhas entre canais viram ilhas — que é exatamente o defeito
+  // que este arquivo já documenta, quando o quarteirão entre canais ficou sem
+  // acesso e o componente conexo o comeu inteiro.
+  //
+  // A regra é de ESPAÇAMENTO: um anel a cada `ponteCada` metros de raio ganha a
+  // travessia, o resto morre na margem. A ponte volta a ser obra, e o canal ganha
+  // as duas margens como frente.
+  const PONTE_CADA = +arg('ponteCada', 1200)
+  const pontesEm = new Set()
+  {
+    let ultimo = -1e9
+    ANEIS.forEach((r, ia) => { if (r - ultimo >= PONTE_CADA) { pontesEm.add(ia); ultimo = r } })
+  }
   const IA_MARGINAL = ANEIS.length - 1
   ANEIS.forEach((r, ia) => {
     // ⚠️ ANEL DENTRO DA FAIXA DA AUTOPISTA NÃO EXISTE COMO ANEL. Nos dois cabos o
@@ -1264,7 +1290,8 @@ if (VIAS) {
       // paralelas sobre a água, que na carta lê como escada e não como cidade.
       // Ponte é obra de arte, e obra de arte é de via estrutural. Rua de bairro
       // encontra a lâmina e acaba ali, que é o que ela faz no 3D.
-      const res = trecho(no.get(a), no.get(b), 0, marginal)
+      // o anel é o único que encontra canal, e só nos raios sorteados para ponte
+      const res = trecho(no.get(a), no.get(b), 0, marginal, LIMD, pontesEm.has(ia))
       if (res) liga(a, b, marginal ? 'marginal' : 'anel', res.ponte)
     }
   })
@@ -1287,7 +1314,12 @@ if (VIAS) {
       // usam. Rua LOCAL continua obedecendo aos 12°: ela serve quarteirão, e
       // quarteirão não se constrói em talude de 17°.
       const ehBulevar = classeDe(ir) === 'bulevar'
-      const res = trecho(no.get(a), no.get(b), ehBulevar ? LIMIAR_PONTE : 0, ultima || ehBulevar)
+      // ⚠️ RADIAL NUNCA ATRAVESSA CANAL, E ISSO CORRIGE UM DEFEITO ANTIGO. O canal
+      // também é radial, então as duas convergem no centro: perto de r 1.450 há
+      // dois ou três rumos da teia DENTRO da lâmina, e como o trecho de 122 m
+      // cabia nos 200 m de tolerância, eles nasciam como rua correndo pelo leito
+      // do canal. MEDIDO: 40 arestas radiais vivas em cima de água de canal.
+      const res = trecho(no.get(a), no.get(b), ehBulevar ? LIMIAR_PONTE : 0, ultima || ehBulevar, LIMD, false)
       if (res) {
         liga(a, b, classeDe(ir), res.ponte)
         if (ehBulevar && res.pior > LIMD) arestas[arestas.length - 1].elevado = res.pior
@@ -1343,6 +1375,62 @@ if (VIAS) {
       }
     }
     console.log(`  anel da praca: r ${R_ANEL_PRACA} m, ${arestasPraca} de ${N_PRACA} trechos, ${radiaisPraca} pernas ate o primeiro dodecagono`)
+  }
+
+  // ── A ORLA DO CANAL: AS DUAS MARGENS VIRAM FRENTE ─────────────────────────
+  // ⚠️ SEM ELA, CORTAR AS TRAVESSIAS DEIXA A RUA MORRENDO NO NADA. Pedido do
+  // fundador: "as ruas comuns, que não vão cruzar os canais radiais, devem ser
+  // ligadas, formando uma espécie de orla nos canais radiais". É o mesmo
+  // movimento que a orla do lago fez: a água deixa de ser fundo de quarteirão e
+  // passa a ser endereço.
+  //
+  // ⚠️ ELA NÃO VEM DO CAMPO DE DISTÂNCIA, e isso é decisão, não atalho. Os canais
+  // foram tirados daquele campo hoje de manhã para matar a faixa de tier 4 e 5
+  // que eles ganhavam ao longo de toda a diagonal. Religá-los ali traria a via E
+  // a pintura de volta juntas. Como o canal é uma reta publicada em
+  // `cidade-malha.json`, a margem dele se desenha direto da geometria, exata, sem
+  // passar pelo campo.
+  //
+  // ⚠️ E O NÓ NASCE NO RAIO DE CADA ANEL, não a passo constante. É o que faz a rua
+  // que morreu na margem encontrar um nó esperando por ela em vez de parar a
+  // meio caminho entre dois.
+  const OFF_CANAL = +arg('orlaCanal', 110)
+  {
+    let nosCanal = 0, arestasCanal = 0, costurasCanal = 0
+    let chaveC = 7e6
+    for (const c of CANAIS) {
+      for (const lado of [-1, 1]) {
+        let anterior = null
+        for (let ia = 0; ia < ANEIS.length; ia++) {
+          const r = ANEIS[ia]
+          if (r < c.r0 - 1 || r > c.r1 + 1) { anterior = null; continue }
+          // ponto a OFF_CANAL do eixo, do lado escolhido
+          const q = [c.ux * r - lado * c.uz * OFF_CANAL, c.uz * r + lado * c.ux * OFF_CANAL]
+          if (Math.hypot(q[0], q[1]) > 9050 || naAgua(q[0], q[1]) || declEm(q[0], q[1]) > LIMD) { anterior = null; continue }
+          const k = chaveC++
+          no.set(k, q); nosCanal++
+          if (anterior !== null) {
+            const res = trecho(no.get(anterior), q, 0, false, LIMD, false)
+            if (res) { liga(anterior, k, 'canal', !!res.ponte); arestasCanal++ }
+          }
+          anterior = k
+          // costura: a rua de anel que morreu aqui encontra a margem
+          let melhor = null, dist = Infinity
+          for (let ir = 0; ir < NR; ir++) {
+            const km = chave(ia, ir)
+            if (!no.has(km)) continue
+            const pm = no.get(km)
+            const d2 = Math.hypot(pm[0] - q[0], pm[1] - q[1])
+            if (d2 < dist) { dist = d2; melhor = km }
+          }
+          if (melhor !== null && dist <= 320) {
+            const res = trecho(q, no.get(melhor), 0, false, LIMD, false)
+            if (res) { liga(k, melhor, 'canal', !!res.ponte); costurasCanal++ }
+          }
+        }
+      }
+    }
+    console.log(`  orla do canal: ${nosCanal} nos nas seis margens, ${arestasCanal} trechos, ${costurasCanal} costuras com a malha`)
   }
 
   // ⚠️ A RAMPA DE ACESSO À AN7 NÃO MORA MAIS AQUI. Ela precisa saber qual é a
@@ -1999,6 +2087,25 @@ if (VIAS) {
     console.log(`    REGRA DA AUTOPISTA: rua comum mais proxima da AN7 a ${pior.toFixed(0)} m (classe ${quem}); ${encostam} arestas a menos de 120 m`)
   }
 
+  // ── QUEM ATRAVESSA OS CANAIS RADIAIS, POR CLASSE ──────────────────────────
+  {
+    const cruza = new Map()
+    let total = 0
+    for (const e of arestas) {
+      if (!e.viva) continue
+      const p0 = no.get(e.a), p1 = no.get(e.b)
+      const n2 = Math.max(2, Math.ceil(Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) / 15))
+      let molhou = false
+      for (let t = 0; t <= n2; t++) {
+        const x = p0[0] + ((p1[0] - p0[0]) * t) / n2, z = p0[1] + ((p1[1] - p0[1]) * t) / n2
+        if (sobreCanal(x, z) && naAgua(x, z)) { molhou = true; break }
+      }
+      if (molhou) { cruza.set(e.cls, (cruza.get(e.cls) ?? 0) + 1); total++ }
+    }
+    console.log(`    TRAVESSIAS DE CANAL RADIAL: ${total} arestas vivas cruzam lamina de canal`)
+    for (const [c, n3] of [...cruza].sort((a, b) => b[1] - a[1])) console.log(`      ${c.padEnd(10)} ${n3}`)
+  }
+
   // ⚠️ AUDITORIA DE COMPRIMENTO. Toda rotina que "liga" aqui tem um alcance
   // próprio (costura 1.400 m, fecho 900, ramal 700, prolongamento 2.200), e cada
   // uma parece razoável sozinha. Somadas elas produzem traço atravessando a
@@ -2074,7 +2181,11 @@ if (VIAS) {
   // é bulevar (não vai a lugar nenhum, corre em paralelo à AN7). Desenhada como
   // local, o leitor não vê que existe uma via ali e volta a achar que a rua
   // desemboca na avenida.
-  const dMarginal = dDe(vivas.filter((e) => e.cls === (MARCA ? 'praca' : 'marginal') || e.cls === 'praca'))
+  // ⚠️ A ORLA DO CANAL TEM O CALIBRE DA MARGINAL, e pelo mesmo motivo: as duas são
+  // via de frente d'água que recolhe o tecido e não leva a lugar nenhum sozinha.
+  // Desenhada como rua local ela sumia dentro da trama e o corte das travessias
+  // parecia ter deixado a cidade partida em cunhas.
+  const dMarginal = dDe(vivas.filter((e) => e.cls === (MARCA ? 'praca' : 'marginal') || e.cls === 'praca' || (!MARCA && e.cls === 'canal')))
   // ⚠️ O ELEVADO DE BULEVAR GANHA O MESMO SÍMBOLO DA AN7: traço perpendicular de
   // apoio. Sem ele o leitor vê uma avenida atravessando uma encosta de 17° como
   // se fosse chão plano, que é mentira de carta.
@@ -2563,7 +2674,7 @@ mob += `<path d="M${nx} ${ny - 42 * F}L${nx + 13 * F} ${ny + 12 * F}L${nx} ${ny}
 // a legenda
 // ⚠️ A CAIXA CRESCE COM O NÚMERO DE VERBETES, e ela já estourou uma vez: ao
 // entrar o viaduto, a linha de RELIEF saiu por baixo do véu.
-const N_VERBETES = 14 + (an7TemTunel ? 1 : 0)
+const N_VERBETES = 15 + (an7TemTunel ? 1 : 0)
 const ALT_LEG = (N_VERBETES * 26 + 80) * F
 const lx = LADO - m - 260 * F, ly = LADO - m - ALT_LEG
 mob += veu(lx - 22 * F, ly - 34 * F, 282 * F, ALT_LEG)
@@ -2588,6 +2699,7 @@ mob += verbete('AN7 · PERIMETER', tracinho('#FFF2DC', 6))
 mob += verbete('SHORE ROAD', tracinho('#F0E2C8', 4))
 mob += verbete('BOULEVARDS', tracinho('#F0E2C8', 3.6))
 mob += verbete('FRONTAGE ROAD', tracinho('#F0E2C8', 2.6))
+mob += verbete('CANAL BANK', tracinho('#F0E2C8', 2.6))
 mob += verbete('STREETS', tracinho('#F0E2C8', 1.6))
 mob += verbete('BRIDGE', tracinho('#F0E2C8', 2.5, `${7 * F} ${5 * F}`))
 mob += verbete('VIADUCT', (y) => `<line x1="${lx + 196 * F}" y1="${y - 5 * F}" x2="${lx + 230 * F}" y2="${y - 5 * F}" stroke="#FFF2DC" stroke-width="${6 * F}"/>`
