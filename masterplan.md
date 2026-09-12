@@ -107,25 +107,43 @@ comprovadamente segura por construção, não por sorte de espaçamento.
 
 ## §3 — Linha do tempo da fundação 🔒 (tudo em blocos, nada em datas)
 
+⚠️ **REESCRITA EM 12/09/2026, PORQUE A REALIDADE DESACOPLOU O SNAPSHOT DO FUNDO.** A versão
+anterior travava `snapshot em N = B + 1008`, onde B era o bloco em que o fundo cruzasse os
+10M. **Não foi o que aconteceu:** o snapshot foi tirado no bloco **966.670** com o fundo em
+**4.901.656 DOG, 49,0%**. Manter a linha antiga deixava a constituição descrevendo uma
+sequência que já não é a que está em curso, e qualquer um que lesse os dois apontaria.
+
 ```
-fundo 75% ──── fundo = 10M (bloco B) ──── snapshot (N = B + 1008) ──── auditoria (432 blocos ≈ 3 dias) ──── Charter ──── MINT
-   │                    │                          │                             │                            │
-   educação:       proclamação             registry computado             mapa + merkle root           deeds nascem
-   "não gaste/     automática do           do estado da chain             públicos; qualquer           filhos do
-   consolide       bloco N (regra          no bloco N                     um reproduz o                Charter
-   UTXOs antigos"  pública, zero                                          cálculo
-                   arbitrariedade)
+snapshot (966.670)  ────  reconciliacao + regra  ────  auditoria (432 blocos)  ────  Charter  ────  fundo = 10M  ────  MINT
+       │                          │                             │                      │                │
+   FEITO, fechado          o que ainda falta            mapa + merkle root        deeds nascem      janela de
+   e verificado            decidir e publicar           publicos; qualquer        filhos do         Fundador
+                                                        um reproduz               Charter           FECHA
 ```
 
-1. **Fase 1 (fundo ~75%):** campanha educativa — consolidar UTXO destrói idade e custa a
-   posição central. Countdown ainda não existe.
-2. **Fase 2 (fundo cruza 10M no bloco B):** snapshot auto-agendado para `N = B + 1008`
-   (~1 semana). Site mostra contagem regressiva **em blocos**. Semana final = última
-   chance de saldo (área do lote) e preservação de UTXO (posição).
-3. **Fase 3 (bloco N):** registry computado; mapa completo + merkle root publicados;
-   **432 blocos (~3 dias) de auditoria pública** 🔒 (144 foi rejeitado como curto demais).
+**O que mudou, em uma frase:** o snapshot deixou de ser consequência do fundo e virou
+**marco independente**. O fundo continua sendo o gatilho do MINT e do fechamento da janela
+de Fundador; ele não é mais o gatilho da fotografia.
+
+1. **Fase 1, FEITA em 12/09/2026.** Snapshot no bloco 966.670. 85.818 carteiras,
+   239.432 UTXOs, 99.975.593.202,33 DOG. Supply e identidade do conjunto fecham em zero,
+   zero saldo negativo. Artefatos e hashes em `data/snapshots/` (fora do git, ver §11 do
+   caderno). Relatório público em `marketing/SNAPSHOT-REPORT.md`.
+   ⚠️ A campanha educativa da fase 1 antiga ("não consolide UTXO antigo, isso destrói
+   idade e custa posição") **não aconteceu antes do snapshot**, e o custo disso é medido:
+   513 Diamond Paws perdem posição central por terem consolidado. Quem consolidou não foi
+   avisado. Isso é dívida, não é escolha, e precisa aparecer em qualquer comunicação sobre
+   posição.
+2. **Fase 2, EM ABERTO.** A régua de posição para as 58.875 carteiras sem tier (68,6% da
+   cidade, 69,89B DOG) não está decidida. Ver o caderno. Nada de posição pode ser publicado
+   antes dela.
+3. **Fase 3.** Registry computado; mapa completo e merkle root publicados; **432 blocos
+   (~3 dias) de auditoria pública** 🔒 (144 foi rejeitado como curto demais).
+   ⚠️ **Merkle root ainda NÃO EXISTE.** A landing já promete reprodutibilidade; hoje o que
+   existe é o sha256 do artefato, que prova que o arquivo não mudou mas não deixa terceiro
+   recomputar a lista. Ou nasce o script, ou a promessa muda de texto.
 4. **Fase 4:** **DogCity Charter** inscrito (Ordinal-pai com o merkle root) → mint abre.
-   Opcional: inscrever também a proclamação da Fase 2 on-chain.
+5. **Fase 5:** o fundo cruza 10M e a **janela de Fundador fecha para sempre** (§11).
 
 ---
 
