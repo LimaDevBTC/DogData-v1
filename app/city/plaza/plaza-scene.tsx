@@ -1985,6 +1985,17 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
 
     const draco = new DRACOLoader()
     draco.setDecoderPath('/draco/')
+    // ⚠️ ARMAR O DECODIFICADOR NO BOOT, FORA DO PARSE. Sem isto o download de
+    // 250.876 bytes de `/draco/` (58.456 do wrapper + 192.420 do wasm, medidos)
+    // acontece DENTRO do primeiro `parseAsync`, ou seja no lado que, desde
+    // `carga-glb.ts`, passou a não ter teto de rede. `preload()` não devolve
+    // promessa, então não há o que aguardar nem o que cronometrar aqui: o ganho
+    // é de TEMPO (começa no boot, não no primeiro GLB), e a guarda contra um
+    // `/draco/` que nunca responde continua sendo o TETO DE PARSE.
+    // ⚠️ O resultado é cacheado na INSTÂNCIA (`decoderPending`), e esta é a
+    // única instância da cena: um `/draco/` morto pendura TODOS os GLB Draco,
+    // não uma espécie.
+    draco.preload()
     // ⚠️ O ESPELHO KTX2 DO ACERVO, e ele é o remédio para o defeito que o teto de
     // textura não alcança. As imagens do Sketchfab são 512x512: cabem folgadas em
     // `texLado(2048)`, então nenhum teto por lado toca nelas, e mesmo assim são
@@ -2064,6 +2075,16 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         if (m && CIDADE_ESPELHADA.has(m[1])) return url.replace(`/city/${m[1]}`, `/city/ktx2/${m[1]}`)
         return url
       })
+      // ⚠️ O TRANSCODIFICADOR DO BASIS SÓ EXISTE NO CAMINHO DO ESPELHO, e por
+      // isso `init()` entra aqui e não no desktop: são 562.272 bytes
+      // (`basis_transcoder.js` 62.337 + `.wasm` 499.935, medidos) que o desktop
+      // nunca baixa porque nunca recebe um `.ktx2`. Armar no boot tira essa rede
+      // de dentro do parse, que é onde ela ficaria sem relógio nenhum depois de
+      // `carga-glb.ts`.
+      // ⚠️ NÃO É AGUARDADO e NÃO segura o portão: quanto tempo o `init()` leva
+      // no aparelho de referência NÃO ESTÁ MEDIDO. Se um dia for medido e for
+      // caro, a decisão de esperar por ele é outra frente.
+      void ktx2.init().catch((e) => console.warn('[plaza] transcodificador Basis não armou no boot; ele será baixado dentro do primeiro parse de .ktx2', e))
     } else if (profile.cortaTextura && !temFormatoComprimido) {
       console.warn('[plaza] aparelho sem formato de textura comprimida: carregando o acervo original')
     }

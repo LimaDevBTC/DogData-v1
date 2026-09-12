@@ -93,6 +93,7 @@
 import * as THREE from 'three'
 import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { DistanceCuller } from './perf'
+import { carregarCenaGlb } from './carga-glb'
 
 // ⚠️ CONSERTO DE 03/09, ACHADO AO VIVO NO MESMO DIA: `gltf.load()` para os GLB
 // convertidos hoje (chalé, bilheteria, snowcat, cerca) pode disparar e NUNCA
@@ -102,15 +103,18 @@ import type { DistanceCuller } from './perf'
 // caixa placeholder, a estação inteira travaria pra sempre. Mesma regra em
 // `inverno.ts`: recurso externo nunca trava a cena, estourar o teto é falha
 // como qualquer outra.
-function comLimiteDeTempo<T>(p: Promise<T>, ms: number, rotulo: string): Promise<T> {
-  return Promise.race([
-    p,
-    new Promise<T>((_res, rej) => setTimeout(
-      () => rej(new Error(`${rotulo}: sem resposta em ${ms} ms (decodificador travado ou rede lenta)`)),
-      ms,
-    )),
-  ])
-}
+// ⚠️ A CÓPIA LOCAL MORREU EM 11/09. O achado de 03/09 continua de pé, mas o
+// relógio de 8 s de PAREDE cobria rede e parse juntos, e foi medido em 06/09 que
+// é o parse na thread congestionada que estoura: o teto matava a peça com tudo
+// funcionando. Os dois relógios separados moram em `carga-glb.ts`.
+//
+// ⚠️ AS QUATRO PEÇAS CONTINUAM EM SÉRIE (chalé, bilheteria, snowcat, cerca) E O
+// TETO DE REDE É O PADRÃO. Consequência assumida por escrito: se a rede
+// PENDURAR (não falhar, pendurar), o pior caso é 4 vezes o teto de rede com a
+// caixa placeholder de pé. Aceito porque o fallback é VISÍVEL e porque a
+// alternativa, teto curto, já foi medida em 06/09 e mata a peça à toa. Quanto
+// tempo uma pendência real dura aqui NÃO ESTÁ MEDIDO; medir isso é o
+// pré-requisito para encurtar o número.
 
 // ── tipos ────────────────────────────────────────────────────────────────
 export type DificuldadePista = 'verde' | 'azul' | 'vermelha' | 'preta' | 'parque'
@@ -369,10 +373,7 @@ async function carregarPecaUnica(
   gltf: GLTFLoader, url: string, x: number, z: number, azGraus: number, y: number, sombra: boolean,
 ): Promise<{ obj: THREE.Object3D; triangulos: number } | null> {
   try {
-    const cena = await comLimiteDeTempo(
-      new Promise<THREE.Group>((res, rej) => gltf.load(url, (g) => res(g.scene), undefined, rej)),
-      8000, `[estacao-inverno] ${url}`,
-    )
+    const cena = await carregarCenaGlb(gltf, url, `[estacao-inverno] ${url}`)
     const caixa = new THREE.Box3().setFromObject(cena)
     cena.position.set(x - (caixa.min.x + caixa.max.x) / 2, y - caixa.min.y, z - (caixa.min.z + caixa.max.z) / 2)
     cena.rotation.y = (azGraus * Math.PI) / 180
@@ -397,10 +398,7 @@ async function carregarPecaUnica(
  *  nós nomeados. */
 async function carregarGeometriaEMaterial(gltf: GLTFLoader, url: string): Promise<{ geo: THREE.BufferGeometry; mat: THREE.Material } | null> {
   try {
-    const cena = await comLimiteDeTempo(
-      new Promise<THREE.Group>((res, rej) => gltf.load(url, (g) => res(g.scene), undefined, rej)),
-      8000, `[estacao-inverno] ${url}`,
-    )
+    const cena = await carregarCenaGlb(gltf, url, `[estacao-inverno] ${url}`)
     let achado: THREE.Mesh | null = null
     cena.traverse((k) => { if (!achado && (k as THREE.Mesh).isMesh) achado = k as THREE.Mesh })
     if (!achado) return null

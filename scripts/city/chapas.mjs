@@ -577,7 +577,7 @@ const erros = [], logs = []
 pag.on('console', (m) => {
   const t = m.text()
   if (m.type() === 'error') { if (!RUIDO.some((r) => r.test(t))) erros.push(t) }
-  else if (/\[(vias|arborização|mobiliário|praças|lagos|canais|abóbada)\]/.test(t)) logs.push(t)
+  else if (/\[(vias|arborização|mobiliário|praças|lagos|canais|abóbada|inverno)\]/.test(t)) logs.push(t)
 })
 pag.on('pageerror', (e) => erros.push(`pageerror: ${e.message}`))
 
@@ -608,7 +608,16 @@ await pag.waitForTimeout(1500)
 // chegando e a contagem de triângulos sobe por mais uns segundos.
 await pag.waitForTimeout(25000)
 
-const relatorio = { url, quando: new Date().toISOString(), vistas: {}, logs, erros }
+// ⚠️ A FLORESTA DO INVERNO SOBE **FORA** DA FILA DA CIDADE, entao `__plazaPronto`
+// nao a cobre: o portao podia fechar o navegador antes de a floresta terminar e a
+// execucao saia "sem erro de console" sem ter conferido nada. Esperamos o sinal
+// PROPRIO dela e NAO reprovamos se ele nao vier: quem reprova continua sendo so
+// erro de console.
+await pag.waitForFunction(() => !!window.__invernoCarga, null, { timeout: 180000 })
+  .catch(() => console.log('  (inverno: a floresta nao sinalizou em 180 s; chapas.json sai SEM a linha de carga e a conferencia do parque e inconclusiva)'))
+const inverno = await pag.evaluate(() => window.__invernoCarga ?? null)
+
+const relatorio = { url, quando: new Date().toISOString(), inverno, vistas: {}, logs, erros }
 for (const v of lista) {
   let achouEm = null
   let achouAlvo = null // só MONTANHAVISTAS preenche: lá o alvo também é chão ao vivo, não os 60 m projetados de acharChao/acharRua

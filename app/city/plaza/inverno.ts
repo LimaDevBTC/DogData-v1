@@ -444,6 +444,7 @@ import type { DistanceCuller, PerfProfile } from './perf'
 import { Obra, emFatias, type Tarefa, type Trabalho } from './obra'
 import { buildEstacaoInverno, type EstacaoInverno } from './estacao-inverno'
 import { buildInvernoDetalhe } from './inverno-detalhe'
+import { carregarCenaGlb, type MedidaCarga } from './carga-glb'
 
 // ⚠️ DEFEITO ACHADO E CONSERTADO EM 03/09, DEPOIS DE LIGAR O PADRÃO POR
 // PADRÃO. Medido ao vivo: os `gltf.load()` desta rodada (pinheiro, sequoia,
@@ -485,24 +486,44 @@ import { buildInvernoDetalhe } from './inverno-detalhe'
  * diz quanto tempo passou de verdade, para a próxima pessoa não voltar a
  * culpar a rede.
  */
-const TETO_CARGA = 45000
+// ⚠️ DESFECHO DE 11/09: O TETO DE 45 s DE PAREDE ERA O INSTRUMENTO ERRADO.
+// Numa conferência de chapa `sq-med-4.glb` (154.160 bytes, medido no disco)
+// caiu com "sem resposta em 45000 ms", servido pelo `next dev`. Um relógio de
+// parede em volta do `gltf.load()` INTEIRO cronometra rede + parse Draco +
+// callback na thread principal, e o que congestiona é justamente a última
+// parte: o teto media a metade errada e matava a espécie com tudo funcionando.
+//
+// Os dois relógios agora moram em `carga-glb.ts` (REDE curta e cancelável de
+// verdade, PARSE folgado como rede de segurança contra o Draco pendurado de
+// 03/09), e as TRÊS cópias de `comLimiteDeTempo` desta casa morreram com ele
+// (aqui, em `inverno-detalhe.ts` e em `estacao-inverno.ts`, estas duas com 8 s
+// e com a mensagem que a nota de 06/09 já havia desmentido).
+//
+// ⚠️ NÃO volte a envolver `gltf.load()` num teto de parede. E o que o patch
+// garante é "não derruba mais por causa do PARSE", não "thread ocupada nunca
+// mais derruba espécie": a starvation continua existindo, o que mudou é que o
+// instrumento parou de mentir sobre ela. O sinal dela é `parseMsPior`.
 
-function comLimiteDeTempo<T>(p: Promise<T>, ms: number, rotulo: string): Promise<T> {
-  const t0 = performance.now()
-  return Promise.race([
-    p.then((v) => {
-      const dt = performance.now() - t0
-      if (dt > 4000) console.warn(`${rotulo}: subiu em ${(dt / 1000).toFixed(1)} s (thread principal congestionada)`)
-      return v
-    }),
-    new Promise<T>((_res, rej) => setTimeout(
-      () => rej(new Error(
-        `${rotulo}: sem resposta em ${ms} ms. Antes de culpar a rede, confira: `
-        + `o arquivo existe em public/? o loader tem DRACOLoader? Se as duas forem sim, `
-        + `é a thread principal congestionada e o teto é que está curto.`)),
-      ms,
-    )),
-  ])
+/** O que a carga do parque fez, para o portão de conferência ler sem abrir
+ *  navegador à mão. Publicado em `window.__invernoCarga` quando a fila termina.
+ *  ⚠️ `redeMsPior` e `parseMsPior` são a PROVA do conserto: rede em ordem de
+ *  milissegundos com parse em ordem de segundos é o quadro esperado, e é
+ *  exatamente o que o relógio único de parede não sabia distinguir. */
+export interface CargaInverno {
+  esperadas: number
+  vivas: number
+  caidas: string[]
+  redeMsPior: number
+  parseMsPior: number
+  bytesTotal: number
+}
+
+const cargaInverno: CargaInverno = { esperadas: 0, vivas: 0, caidas: [], redeMsPior: 0, parseMsPior: 0, bytesTotal: 0 }
+
+function anotarCarga(m: MedidaCarga) {
+  cargaInverno.redeMsPior = Math.max(cargaInverno.redeMsPior, m.redeMs)
+  cargaInverno.parseMsPior = Math.max(cargaInverno.parseMsPior, m.parseMs)
+  cargaInverno.bytesTotal += m.bytes
 }
 // ⚠️ OS DOIS RELEVOS ASSADOS (script Python, fora deste arquivo, dos scans
 // fotogramétricos reais: ver a nota "SEGUNDA CORREÇÃO" acima) NÃO SÃO MAIS
@@ -2634,9 +2655,8 @@ async function carregarInstanciavel(
   gltf: GLTFLoader, especie: EspecieArvore,
 ): Promise<MalhaArvore | null> {
   try {
-    const cena = await comLimiteDeTempo(
-      new Promise<THREE.Group>((res, rej) => gltf.load(especie.url, (g) => res(g.scene), undefined, rej)),
-      TETO_CARGA, `[inverno] floresta: ${especie.url}`,
+    const cena = await carregarCenaGlb(
+      gltf, especie.url, `[inverno] floresta: ${especie.url}`, {}, anotarCarga,
     )
     cena.updateMatrixWorld(true)
     const partes: ParteArvore[] = []
@@ -2727,57 +2747,6 @@ function disposeGrupo(group: THREE.Group) {
   group.clear()
 }
 
-/**
- * REDE: as 10 espécies de árvore (`ARVORES`). Falha PARCIAL não é erro: quem
- * não carregar fica de fora e o peso dela é redistribuído entre as outras
- * (ver `instanciarFlorestaDensa`); falha TOTAL devolve lista vazia e a
- * camada perto sobe sem floresta real (a esparsa, cone-only, continua de
- * pé, ver "ACHADO 3" no cabeçalho).
- */
-async function carregarEspeciesArvore(
-  gltf: GLTFLoader, enxuto: boolean,
-): Promise<{ especie: EspecieArvore; malha: MalhaArvore }[]> {
-  // ⚠️ O ELENCO É ESCOLHIDO ANTES DA REDE, não depois: no perfil enxuto os seis
-  // arquivos que não entram nem são BAIXADOS (1.154 KB e 6 parses de Draco a
-  // menos). Filtrar depois de carregar economizaria triângulo e não economizaria
-  // nem rede nem memória, que é o que dói no celular. Ver `EspecieArvore.noEnxuto`.
-  const elenco = enxuto ? ARVORES.filter((a) => a.noEnxuto) : ARVORES
-  // ⚠️ EM FILA DE DOIS, NÃO TODAS DE UMA VEZ. Com `Promise.all` as onze espécies
-  // disparavam juntas no instante em que o portão abre, que é o instante em que
-  // a `Obra` está fatiando parque, chalé, monumentos e adereços. O worker do
-  // Draco termina, mas o CALLBACK precisa da thread principal, e onze callbacks
-  // disputando uma thread ocupada é uma fila em que ninguém chega.
-  //
-  // Medido em 06/09, na conferência de chapa: com teto de 8 s falhavam as 11;
-  // subindo o teto para 45 s passaram 3 (entre elas o pinheiro, que é metade da
-  // floresta) e falharam 8. Ou seja não era o teto, era a CONCORRÊNCIA: quem
-  // chega primeiro passa, o resto morre de fome esperando a thread.
-  //
-  // Em fila de dois, cada carga pega a thread por vez e termina bem dentro do
-  // teto. O tempo total de parede cresce, e não custa nada: a floresta sobe
-  // FORA da fila da cidade (ver "FORA DE `daCidade`" em `plaza-scene.tsx`), o
-  // visitante já está andando pela praça enquanto ela carrega.
-  const carregadas: (MalhaArvore | null)[] = new Array(elenco.length).fill(null)
-  let proxima = 0
-  async function trabalhador() {
-    for (;;) {
-      const i = proxima++
-      if (i >= elenco.length) return
-      carregadas[i] = await carregarInstanciavel(gltf, elenco[i])
-    }
-  }
-  await Promise.all([trabalhador(), trabalhador()])
-  const vivas = elenco
-    .map((esp, i) => ({ especie: esp, malha: carregadas[i] }))
-    .filter((v): v is { especie: EspecieArvore; malha: MalhaArvore } => v.malha !== null)
-  if (vivas.length === 0) {
-    console.error('[inverno] floresta: NENHUMA espécie carregou. A camada perto sobe sem árvore real; a esparsa (cone) continua de pé.')
-  } else if (vivas.length < elenco.length) {
-    console.warn(`[inverno] floresta: subiu com ${vivas.length}/${elenco.length} espécies (ver os erros acima por nome de arquivo).`)
-  }
-  return vivas
-}
-
 /** REDE: o pacote de rochas, cru (só o par geo/mat do primeiro mesh achado).
  *  `null` sem `gltf`, se o `.glb` falhar, ou se não tiver mesh dentro.
  *
@@ -2793,9 +2762,8 @@ async function carregarPacoteRochas(gltf?: GLTFLoader): Promise<{ geo: THREE.Buf
     return null
   }
   try {
-    const cena = await comLimiteDeTempo(
-      new Promise<THREE.Group>((res, rej) => gltf.load('/city/sf/rocks-stylized-pack.glb', (g) => res(g.scene), undefined, rej)),
-      TETO_CARGA, '[inverno] penhascos (rocks-stylized-pack.glb)',
+    const cena = await carregarCenaGlb(
+      gltf, '/city/sf/rocks-stylized-pack.glb', '[inverno] penhascos (rocks-stylized-pack.glb)', {}, anotarCarga,
     )
     let malha: THREE.Mesh | null = null
     cena.traverse((k) => { if (!malha && (k as THREE.Mesh).isMesh) malha = k as THREE.Mesh })
@@ -3218,11 +3186,78 @@ interface AtivosDoInverno {
 // e substitui a caixa placeholder quando terminar (ver lá embaixo).
 async function baixaAtivosInverno(o: InvernoOpts, orc: OrcamentoPerto): Promise<AtivosDoInverno> {
   void carregarRelevo()
-  const [arvores, rochas] = await Promise.all([
-    o.gltf ? carregarEspeciesArvore(o.gltf, orc.enxuto) : Promise.resolve([]),
-    carregarPacoteRochas(o.gltf),
-  ])
-  return { arvores, rochas }
+  if (!o.gltf) {
+    console.warn('[inverno] sem `gltf`: nem floresta real nem penhasco, só cone e cor de rocha.')
+    return { arvores: [], rochas: null }
+  }
+  const gltf = o.gltf
+  // ⚠️ O ELENCO É ESCOLHIDO ANTES DA REDE, não depois: no perfil enxuto os seis
+  // arquivos que não entram nem são BAIXADOS (1.154 KB e 6 parses de Draco a
+  // menos). Filtrar depois de carregar economizaria triângulo e não economizaria
+  // nem rede nem memória, que é o que dói no celular. Ver `EspecieArvore.noEnxuto`.
+  const elenco = orc.enxuto ? ARVORES.filter((a) => a.noEnxuto) : ARVORES
+  const carregadas: (MalhaArvore | null)[] = new Array(elenco.length).fill(null)
+  let rochas: { geo: THREE.BufferGeometry; mat: THREE.Material } | null = null
+
+  // ⚠️ EM FILA DE DOIS, NÃO TODAS DE UMA VEZ. Com `Promise.all` as espécies
+  // disparavam juntas no instante em que o portão abre, que é o instante em que
+  // a `Obra` está fatiando parque, chalé, monumentos e adereços. O worker do
+  // Draco termina, mas o CALLBACK precisa da thread principal, e onze callbacks
+  // disputando uma thread ocupada é uma fila em que ninguém chega.
+  //
+  // Medido em 06/09, na conferência de chapa: com teto de 8 s falhavam as 11;
+  // subindo o teto para 45 s passaram 3 (entre elas o pinheiro, que é metade da
+  // floresta) e falharam 8. Ou seja não era o teto, era a CONCORRÊNCIA.
+  //
+  // ⚠️ E A ROCHA ENTRA NA MESMA FILA DESDE 11/09, que é conserto de um defeito
+  // achado na leitura: o comentário falava em dois trabalhadores, mas
+  // `carregarPacoteRochas` corria em `Promise.all` AO LADO deles, então o pico
+  // real eram TRÊS parses disputando a thread. A rocha é justamente a peça sem
+  // redistribuição possível (quando ela cai, o bloco de penhascos inteiro some)
+  // e era a que estava fora da fila.
+  const tarefas: (() => Promise<void>)[] = [
+    ...elenco.map((esp, i) => async () => { carregadas[i] = await carregarInstanciavel(gltf, esp) }),
+    async () => { rochas = await carregarPacoteRochas(gltf) },
+  ]
+  let proxima = 0
+  const trabalhador = async () => {
+    for (;;) {
+      const i = proxima++
+      if (i >= tarefas.length) return
+      await tarefas[i]()
+    }
+  }
+  await Promise.all([trabalhador(), trabalhador()])
+
+  const vivas = elenco
+    .map((esp, i) => ({ especie: esp, malha: carregadas[i] }))
+    .filter((v): v is { especie: EspecieArvore; malha: MalhaArvore } => v.malha !== null)
+
+  cargaInverno.esperadas = tarefas.length
+  cargaInverno.vivas = vivas.length + (rochas ? 1 : 0)
+  cargaInverno.caidas = [
+    ...elenco.filter((_e, i) => carregadas[i] === null).map((e) => e.url),
+    ...(rochas ? [] : ['/city/sf/rocks-stylized-pack.glb']),
+  ]
+  // ⚠️ UMA LINHA DE SAÍDA SEMPRE, INCLUSIVE NO SUCESSO, e ela é o contrato com
+  // `scripts/city/chapas.mjs`: o portão só reprova por ERRO de console, então
+  // sem esta linha uma execução limpa é indistinguível de uma execução em que a
+  // floresta nem chegou a terminar antes de o navegador fechar.
+  console.log(
+    `[inverno] carga: ${cargaInverno.vivas}/${cargaInverno.esperadas} GLB, `
+    + `${(cargaInverno.bytesTotal / 1024).toFixed(0)} KB, rede pior caso ${cargaInverno.redeMsPior.toFixed(0)} ms, `
+    + `parse pior caso ${cargaInverno.parseMsPior.toFixed(0)} ms`
+    + (cargaInverno.caidas.length ? `; CAÍRAM: ${cargaInverno.caidas.join(', ')}` : ''),
+  )
+  if (typeof window !== 'undefined') {
+    (window as unknown as { __invernoCarga?: CargaInverno }).__invernoCarga = { ...cargaInverno, caidas: [...cargaInverno.caidas] }
+  }
+  if (vivas.length === 0) {
+    console.error('[inverno] floresta: NENHUMA espécie carregou. A camada perto sobe sem árvore real; a esparsa (cone) continua de pé.')
+  } else if (vivas.length < elenco.length) {
+    console.warn(`[inverno] floresta: subiu com ${vivas.length}/${elenco.length} espécies (ver os erros acima por nome de arquivo).`)
+  }
+  return { arvores: vivas, rochas }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3290,7 +3325,17 @@ export async function invernoComoTrabalho(
   // REDE, porque o elenco de espécies (que decide QUANTOS `.glb` baixar) faz
   // parte dele. Ver `orcamentoPerto`.
   const orc = orcamentoPerto(o.profile)
-  const ativos = await baixaAtivosInverno(o, orc)
+  // ⚠️ A REDE NÃO FICA MAIS NA FRENTE DO `return`, E ESTA É A DEFESA QUE NÃO
+  // DEPENDE DE RELÓGIO NENHUM. Ela DISPARA aqui e é aguardada dentro de
+  // `dispararCamadaPerto`, o único consumidor de `ativos` no arquivo. Antes,
+  // uma promessa que nunca assentasse aqui travava o parque INTEIRO para sempre
+  // (o defeito de 03/09, logo acima), e a única defesa era o teto. Agora o pior
+  // caso é: pista, halfpipe, teleférico, vila, floresta esparsa e o detalhe de
+  // inverno de pé, e a camada perto sem floresta densa e sem penhasco.
+  const pAtivos = baixaAtivosInverno(o, orc).catch((e) => {
+    console.error('[inverno] a rede do parque falhou inteira; a camada perto sobe sem floresta densa nem penhasco.', e)
+    return { arvores: [], rochas: null } as AtivosDoInverno
+  })
 
   const saida: { parque: Inverno | null } = { parque: null }
   return {
@@ -3413,39 +3458,46 @@ export async function invernoComoTrabalho(
       const dispararCamadaPerto = () => {
         if (pertoDisparado) return
         pertoDisparado = true
-        obraPerto.põe({
-          nome: 'inverno:camada-perto',
-          peso: 1,
-          faixa: 2,
-          *fatia() {
-            if (ativos.arvores.length > 0) {
-              const saidaFl: { floresta: Floresta | null } = { floresta: null }
-              // ⚠️ A SOMBRA DA CAMADA PERTO É `o.sombra` **E** O PERFIL, não só
-              // `o.sombra`: `?sombra=0` continua desligando tudo, mas o celular
-              // e o LOW ficam fora do passe mesmo com a sombra ligada (a conta
-              // do texel está em `orcamentoPerto`).
-              const g = instanciarFlorestaDensa(ativos.arvores, candidatos, (o.sombra ?? true) && orc.sombra, orc.arvores, saidaFl)
-              while (!g.next().done) yield
-              if (saidaFl.floresta) {
-                group.remove(florestaEsparsa.group)
-                disposeGrupo(florestaEsparsa.group)
-                group.add(saidaFl.floresta.group)
-                florestaAtual = saidaFl.floresta
-                console.log(`[inverno] camada perto: floresta densa, ${saidaFl.floresta.arvores.toLocaleString('pt-BR')} árvores, ${saidaFl.floresta.triangulos.toLocaleString('pt-BR')} triângulos (${orc.arvores} em malha real no perfil ${o.profile?.tier ?? 'desktop'}/${o.profile?.quality ?? 'balanced'}, ${ativos.arvores.length} espécies, sombra ${(o.sombra ?? true) && orc.sombra ? 'sim' : 'não'}; o resto em cone)`)
+        // ⚠️ A ESPERA DA REDE MORA AQUI DESDE 11/09 (ver `pAtivos` lá em cima).
+        // A guarda de `dispostoDeVerdade` é a mesma da estação, e pelo mesmo
+        // motivo: a rede pode assentar depois de o visitante sair e `dispose()`
+        // rodar, e aí não há `group` para encher.
+        void pAtivos.then((ativos) => {
+          if (dispostoDeVerdade) return
+          obraPerto.põe({
+            nome: 'inverno:camada-perto',
+            peso: 1,
+            faixa: 2,
+            *fatia() {
+              if (ativos.arvores.length > 0) {
+                const saidaFl: { floresta: Floresta | null } = { floresta: null }
+                // ⚠️ A SOMBRA DA CAMADA PERTO É `o.sombra` **E** O PERFIL, não só
+                // `o.sombra`: `?sombra=0` continua desligando tudo, mas o celular
+                // e o LOW ficam fora do passe mesmo com a sombra ligada (a conta
+                // do texel está em `orcamentoPerto`).
+                const g = instanciarFlorestaDensa(ativos.arvores, candidatos, (o.sombra ?? true) && orc.sombra, orc.arvores, saidaFl)
+                while (!g.next().done) yield
+                if (saidaFl.floresta) {
+                  group.remove(florestaEsparsa.group)
+                  disposeGrupo(florestaEsparsa.group)
+                  group.add(saidaFl.floresta.group)
+                  florestaAtual = saidaFl.floresta
+                  console.log(`[inverno] camada perto: floresta densa, ${saidaFl.floresta.arvores.toLocaleString('pt-BR')} árvores, ${saidaFl.floresta.triangulos.toLocaleString('pt-BR')} triângulos (${orc.arvores} em malha real no perfil ${o.profile?.tier ?? 'desktop'}/${o.profile?.quality ?? 'balanced'}, ${ativos.arvores.length} espécies, sombra ${(o.sombra ?? true) && orc.sombra ? 'sim' : 'não'}; o resto em cone)`)
+                }
               }
-            }
-            if (ativos.rochas) {
-              const candidatosRocha: CandidatoRocha[] = []
-              for (const it2 = varrerCandidatosRocha(o.heightAt, (c) => candidatosRocha.push(c)); !it2.next().done; ) yield
-              const saidaRo: { mesh: THREE.InstancedMesh | null; triangulos: number } = { mesh: null, triangulos: 0 }
-              const g2 = instanciarPenhascos(ativos.rochas.geo, ativos.rochas.mat, candidatosRocha, (o.sombra ?? true) && orc.sombra, orc.rochas, saidaRo)
-              while (!g2.next().done) yield
-              if (saidaRo.mesh) {
-                group.add(saidaRo.mesh)
-                console.log(`[inverno] camada perto: ${saidaRo.mesh.count.toLocaleString('pt-BR')} penhascos, ${saidaRo.triangulos.toLocaleString('pt-BR')} triângulos`)
+              if (ativos.rochas) {
+                const candidatosRocha: CandidatoRocha[] = []
+                for (const it2 = varrerCandidatosRocha(o.heightAt, (c) => candidatosRocha.push(c)); !it2.next().done; ) yield
+                const saidaRo: { mesh: THREE.InstancedMesh | null; triangulos: number } = { mesh: null, triangulos: 0 }
+                const g2 = instanciarPenhascos(ativos.rochas.geo, ativos.rochas.mat, candidatosRocha, (o.sombra ?? true) && orc.sombra, orc.rochas, saidaRo)
+                while (!g2.next().done) yield
+                if (saidaRo.mesh) {
+                  group.add(saidaRo.mesh)
+                  console.log(`[inverno] camada perto: ${saidaRo.mesh.count.toLocaleString('pt-BR')} penhascos, ${saidaRo.triangulos.toLocaleString('pt-BR')} triângulos`)
+                }
               }
-            }
-          },
+            },
+          })
         })
         // ⚠️ A ESTAÇÃO REAL RODA FORA DA `Obra`, EM PARALELO, DE PROPÓSITO. Ela
         // é `async` por natureza (busca 4 `.glb` próprios) e não fatia CPU

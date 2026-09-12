@@ -137,20 +137,16 @@
 import * as THREE from 'three'
 import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { INVERNO_ATIVO, PISTAS, type Pista } from './inverno'
+import { carregarCenaGlb } from './carga-glb'
 
-// ⚠️ CONSERTO DE 03/09, mesmo achado e mesma regra de `inverno.ts` e
-// `estacao-inverno.ts`: `gltf.load()` pode travar sem nunca voltar. Aqui o
-// efeito é menor (as 2 rochas de destaque simplesmente nunca apareceriam,
-// sem erro nenhum no console), mas a mesma defesa se aplica.
-function comLimiteDeTempo<T>(p: Promise<T>, ms: number, rotulo: string): Promise<T> {
-  return Promise.race([
-    p,
-    new Promise<T>((_res, rej) => setTimeout(
-      () => rej(new Error(`${rotulo}: sem resposta em ${ms} ms (decodificador travado ou rede lenta)`)),
-      ms,
-    )),
-  ])
-}
+// ⚠️ A CÓPIA LOCAL DE `comLimiteDeTempo` MORREU EM 11/09, e este era o pior
+// lugar dela. O conserto de 03/09 (`gltf.load()` que trava sem nunca voltar)
+// continua valendo, mas o relógio de parede de 8 s media rede e parse juntos e
+// a mensagem ainda dizia "decodificador travado ou rede lenta", que é o
+// diagnóstico que a medição de 06/09 desmentiu. E `buildInvernoDetalhe` é
+// chamado DENTRO da fatia da camada longe, ou seja no instante de maior
+// ocupação da thread, que é a causa medida das falhas de teto. Os dois
+// relógios separados moram em `carga-glb.ts`.
 
 // ── bandeira própria, E POR QUE ELA NÃO É UM PORTÃO ─────────────────────
 // ⚠️ CORRIGIDO (revisão do coordenador): a primeira versão deste módulo
@@ -655,6 +651,26 @@ export function buildInvernoDetalhe(o: InvernoDetalheOpts): InvernoDetalhe {
     atualizar() {}, dispose() { group.clear() },
   }
   if (!INVERNO_ATIVO) return resultado
+  // ⚠️ SEM PISTA NÃO HÁ O QUE VESTIR, E ISTO É O PADRÃO DA CENA DESDE 05/09.
+  // As pistas saíram por decisão do fundador e `PISTAS` só é populada com
+  // `?pistas=1` (`inverno.ts`, `PISTAS_ATIVAS`). Este módulo inteiro é
+  // guarnição de pista: a fita de sulco, o rastro de esqui, a pegada e o gelo
+  // saem das amostras das pistas, e até as 4 rochas de granito são ancoradas em
+  // dois pontos LIDOS delas (o fim da verde e o fim da Descida do Mar da
+  // Tranquilidade). Sem lista, `PISTAS.find(...) ?? PISTAS[PISTAS.length - 1]`
+  // devolvia `PISTAS[-1]`, ou seja `undefined`, e a linha seguinte estourava em
+  // `.pontos`.
+  //
+  // ⚠️ ACHADO EM 11/09, E ELE ESTAVA ESCONDIDO POR TEMPO, não consertado: a
+  // exceção derrubava o `Trabalho` "Winter Park" INTEIRO ("[obra] caiu e foi
+  // descartada"), e só apareceu quando a rede saiu da frente do `return` de
+  // `invernoComoTrabalho` e a camada longe passou a ser fatiada cedo o
+  // bastante para chegar aqui. Não é regressão daquela mudança: é um defeito
+  // que ela acendeu a luz em cima.
+  if (PISTAS.length === 0) {
+    console.log('[inverno-detalhe] sem pistas na cena (padrão desde 05/09; use ?pistas=1): nada a guarnecer, 0 triângulos.')
+    return resultado
+  }
 
   const RAIO = o.raio ?? RAIO_DETALHE_PADRAO
   const heightAt = o.heightAt
@@ -862,9 +878,10 @@ export function buildInvernoDetalhe(o: InvernoDetalheOpts): InvernoDetalhe {
   group.add(grupoRochas)
   let rochaTrianguloTeto = 0
   if (o.gltf) {
-    const carregar = (arquivo: string) => comLimiteDeTempo(
-      new Promise<THREE.Group>((res, rej) => o.gltf!.load(`/city/sf/${arquivo}`, (g) => res(g.scene), undefined, rej)),
-      8000, `[inverno-detalhe] ${arquivo}`,
+    // ⚠️ AS DUAS CONTINUAM EM `Promise.all` porque nada aqui é aguardado por
+    // ninguém: falhar custa as duas rochas de destaque, não a cena.
+    const carregar = (arquivo: string) => carregarCenaGlb(
+      o.gltf!, `/city/sf/${arquivo}`, `[inverno-detalhe] ${arquivo}`,
     )
     Promise.all([carregar('inverno-rocha-granito-a.glb'), carregar('inverno-rocha-granito-b.glb')])
       .then(([cenaA, cenaB]) => {
