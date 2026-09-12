@@ -52,7 +52,7 @@ import { buildPracas, type Pracas } from './pracas'
 import { buildArborizacao, type Arborizacao, type Cova } from './arborizacao'
 import { buildCanais, type Canais } from './canais'
 import { buildMobiliarioUrbano, type MobiliarioUrbano } from './mobiliario-urbano'
-import { aneisDaCidade } from './teia'
+import { aneisDaCidade, anelRaio } from './teia'
 // ⚠️ SÓ O TIPO, E ISSO É ORÇAMENTO DE REDE, NÃO ESTILO. `type` é apagado na
 // compilação e não custa um byte no pacote; a função entra por `import()`
 // dinâmico lá embaixo, dentro da bandeira. O padrão é o de `pos.ts`, que já
@@ -2740,9 +2740,55 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 // lâmina opaca esconde o que está embaixo, que é o comportamento
                 // certo. Houve uma versão com banco raso pintado acima da lâmina;
                 // saiu a pedido do fundador ("faça só as ilhas").
+                //
+                // ⚠️ FUNDADOR, 12/09: "nos canais radiais, ao menos as vias
+                // principais merecem ponte pra cruzar o canal, os três no caso".
+                // Ver `LagosOpts.pontesGarantidas` em lagos.ts para a causa medida
+                // (0 travessias nos três rumos, 25/55/85, de r 1.450 a 7.200): o
+                // canal fica abaixo de −40 do início à foz e por isso herda o id
+                // de corpo da baía por conectividade, que empurra sempre (regra de
+                // 03/09) sem nunca medir os 100 m reais de CANAL_LAMINA.
+                //
+                // ⚠️ REFINAMENTO DO FUNDADOR, MESMO DIA: não é "toda via
+                // principal", é um padrão legível, os MESMOS três anéis nos três
+                // canais (simetria, elementos repetidos igualmente espaçados).
+                // Escolhidos AN1 Anel Interior (r 1.750), AN2 Anel Médio (2.750) e
+                // AN3 Anel Exterior (3.750): os três cabem dentro do `rFim` dos
+                // três canais (CR01 7.200, CR02 7.180, CR03 7.200, lidos de
+                // `cidade-malha.json` em 12/09), então nenhum precisou de troca por
+                // cair na foz (vão medido acima de `LIMIAR_PONTE`). Nove pontes em
+                // grade regular, não pontes espalhadas por conta de qual avenida
+                // calhou de cruzar cada canal.
+                //
+                // ⚠️ O RAIO QUE VALE É O DE `anelRaio`, NÃO `an.r` CRU: o anel é
+                // dodecágono (`teia.ts`), a corda entre vértices foge do círculo
+                // até 3,5% do raio, e é essa flecha que faz o mesmo anel cruzar
+                // CR01/CR02/CR03 em raios ligeiramente diferentes (os três canais
+                // caem no mesmo resto de 25° dentro do setor de 30°, então na
+                // prática saem quase iguais: ~1.716/2.697/3.679 nos três rumos).
+                // Meia janela de 30 (o mesmo ENCAB de canais.ts) + metade da
+                // largura do anel (13, os 26 m de AN1/AN2/AN3) cobre a pista do
+                // anel mais o encabeçamento da ponte sem alcançar o próximo anel
+                // da teia (o vizinho mais perto fica a mais de 120 m).
+                const PONTES_ANEIS_RAIO = [1750, 2750, 3750] as const   // AN1, AN2, AN3
+                const _pontesCanalRadial = (x: number, z: number) => {
+                  const r = Math.hypot(x, z)
+                  const ang = Math.atan2(x, -z)
+                  for (const c of _cnr) {
+                    if (r < c.rInicio || r > (c.rFim ?? 1e9)) continue
+                    const a2 = (c.rumo * Math.PI) / 180
+                    const d = Math.abs(x * Math.cos(a2) + z * Math.sin(a2))
+                    if (d >= CANAL_LAMINA / 2 + 30) continue
+                    for (const anelR of PONTES_ANEIS_RAIO) {
+                      if (Math.abs(r - anelRaio(anelR, ang)) < 30 + 13) return true
+                    }
+                  }
+                  return false
+                }
                 lagos = buildLagos({
                   cota: (mc?.lagos?.cota ?? -40),
                   superficieAt: terrain.superficieAt,
+                  pontesGarantidas: _pontesCanalRadial,
                   // ⚠️ A ÁGUA ENTRA NO CANAL, A MARGEM NÃO. Tirar a água do
                   // corredor fazia o contorno da baía CONTORNAR a boca e construir
                   // cais atravessado nela: o fundador viu um U de cais fechando a

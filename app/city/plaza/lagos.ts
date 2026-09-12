@@ -93,6 +93,24 @@ export interface LagosOpts {
    *  chamou de "pedaços de um rio tortuoso colocado num canal reto". Não são dois
    *  desenhos do mesmo canal: são dois sistemas de água pisando um no outro. */
   foraDe?: (x: number, z: number) => boolean
+  /** ⚠️ O CANAL RADIAL SEMPRE GANHA PONTE, por regra do fundador, não por medição
+   *  daqui. A causa do defeito de 12/09: o leito do canal fica a −44, abaixo da
+   *  lâmina de −40, e corre assim do início ao fim, até a foz, onde encosta na
+   *  baía (também abaixo de −40). Isso faz o preenchimento por conectividade
+   *  (`rot`, logo abaixo) rotular TODO o canal com o MESMO id da baía, e
+   *  `empurra[baia]` é forçado a 1 sem medir nada (é a regra de 03/09, "a baía
+   *  empurra sempre"). Resultado: os 100 m reais de lâmina do canal (CANAL_LAMINA,
+   *  bem abaixo de LIMIAR_PONTE = 150) nunca chegam a ser comparados contra o
+   *  limiar, porque o corpo já chega com o veredito da baía. Medido em produção,
+   *  três rumos (25, 55, 85), de r 1.450 a 7.200 de 10 em 10 m: 0 travessias.
+   *
+   *  Este predicado avisa quando o ponto está numa das NOVE interseções
+   *  escolhidas (os mesmos três anéis viários, nos três canais, refinamento do
+   *  fundador no mesmo dia: padrão legível em vez de ponte espalhada), e nesse
+   *  caso `bloqueiaMalha` responde `false` antes mesmo de olhar o id do corpo.
+   *  Quem decide QUAIS interseções é o chamador (`plaza-scene.tsx`); este
+   *  módulo só obedece. */
+  pontesGarantidas?: (x: number, z: number) => boolean
   sombra?: boolean
 }
 
@@ -491,6 +509,10 @@ export function buildLagos(o: LagosOpts): Lagos {
   if (baia >= 0) empurra[baia] = 1
 
   const bloqueiaMalha = (x: number, z: number): boolean => {
+    // ⚠️ O CANAL RADIAL VEM PRIMEIRO. Ver `pontesGarantidas` na interface: sem
+    // este `return` cedo, o ponto do canal caía no `corpoNo` de baixo, herdava o
+    // id da baía por conectividade e nunca ganhava ponte (causa medida em 12/09).
+    if (o.pontesGarantidas && o.pontesGarantidas(x, z)) return false
     const c = corpoNo(x, z)
     if (c >= 0 && empurra[c] === 1) return true
     // ⚠️ CONSERTO 3: A BAÍA EMPURRA SEMPRE (`empurra[baia]=1`, acima), e a alça
