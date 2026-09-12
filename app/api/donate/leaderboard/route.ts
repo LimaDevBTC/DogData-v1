@@ -25,7 +25,14 @@ function parseJsonArr(val: string | any[] | null | undefined): any[] {
   try { return JSON.parse(val) } catch { return [] }
 }
 
-function licenseFor(total: number): 'commercial' | 'personal' | 'citizen' {
+// ⚠️ O DEGRAU `patron` EXISTIA NA TABELA E NÃO EXISTIA NA FUNÇÃO, de 12/09/2026
+// para trás. `PATRON_TIER` era publicado em `tiers` (linha ~223) e a escada parava
+// em `commercial`: os QUATRO doadores de 500k ou mais, incluindo o maior de todos
+// com 1.000.000 DOG, recebiam o mesmo rótulo de quem deu 50 mil. Achado na
+// auditoria do dia do snapshot, com o Founders Pack prestes a dar nome de rua e
+// prédio personalizado ao `patron`.
+function licenseFor(total: number): 'patron' | 'commercial' | 'personal' | 'citizen' {
+  if (total >= PATRON_TIER) return 'patron'
   if (total >= COMMERCIAL_LICENSE) return 'commercial'
   if (total >= PERSONAL_LICENSE) return 'personal'
   return 'citizen'

@@ -611,3 +611,101 @@ está a 7% dos 333 prometidos.
 `lib/city/zones.ts`, que é a curva VISUAL da cidade v3: mediana de **48 m²**, teto de 0,29 ha.
 Com ela o resíduo do projeto seria 119,31 km², ou **93,1% da terra livre**. Trocar por §3.7 é
 item obrigatório da reconstrução.
+
+---
+
+## §11 — O Founders Pack 🔒 (2026-09-12)
+
+**O que é um Fundador.** Qualquer contribuição ao fundo de construção antes dele atingir
+10.000.000 DOG. **Não há teto de participantes.** O que fecha é o tempo, nunca a vaga.
+
+**Os três eixos**, decididos pelo dono: **ser visto, ser lembrado, ser primeiro.**
+
+⚠️ **O QUE O FUNDADOR NÃO COMPRA: POSIÇÃO.** O §0.1 continua inteiro. O lote de todo mundo,
+Fundador ou não, vem do bloco 966.670 e de mais nada. Não existe bairro de Fundador, não
+existe escolher lote, e o sorteio NÃO distribui endereço (ver abaixo).
+
+### A escada
+
+| | citizen (qualquer) | personal 10k | commercial 50k | patron 500k | institucional (sob demanda) |
+|---|---|---|---|---|---|
+| Nome no Monumento, por ordem de chegada | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Número de Fundador, permanente e irrepetível | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Licença de construção, permanente | | ✓ | ✓ | ✓ | ✓ |
+| Minta ANTES da abertura (prédio de pé no dia 1) | | ✓ | ✓ | ✓ | ✓ |
+| Acesso antecipado ao jogo, testes e updates | | ✓ | ✓ | ✓ | ✓ |
+| A luz do Fundador (visível de cima) | | ✓ | ✓ | ✓ | ✓ |
+| Pack de itens base (quintal, placa) | | ✓ | ✓ | ✓ | ✓ |
+| Pack ampliado (área de lazer, veículo) | | | ✓ | ✓ | ✓ |
+| Rover lunar | | | ✓ | ✓ | ✓ |
+| Nome de rua | | | | ✓ | ✓ |
+| **Prédio personalizado** | | | | ✓ | ✓ |
+| Marca em prédio cívico | | | | | ✓ |
+| Concorre ao sorteio | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+⚠️ **PRÉDIO PERSONALIZADO SÓ NO PATRON E NO INSTITUCIONAL.** A cidade tem **tipologia por
+bairro**: cada bairro tem sua casa e suas variáveis, e é isso que a mantém coesa. Personalizar
+fora desses dois degraus fura a coerência arquitetônica, que é um ativo da cidade e não um
+detalhe. O tier institucional é o maior de todos, preço sob demanda, e não vai nos documentos
+públicos de escada.
+
+⚠️ **E É POR ISSO QUE A DISTINÇÃO DO FUNDADOR MORA NO ITEM, NÃO NO PRÉDIO.** Com tipologia
+por bairro, a personalidade tem de viver em volta da casa: quintal, veículo, luz e placa. É a
+mesma razão pela qual condomínio bonito padroniza fachada e libera jardim.
+
+### O sorteio
+
+Entre TODOS os Fundadores, de qualquer degrau, com **data marcada e anunciada**.
+
+Prêmios: uma **Runestone**, um **prédio personalizado** (normalmente só patron), um **nome de
+rua** e o **1 de 1** do catálogo de itens (o primeiro rover já mintado).
+
+⚠️ **NÃO SE SORTEIA LOTE, E A PROPOSTA ORIGINAL ERA ESSA.** O dono propôs sortear um lote em
+cada um dos três primeiros tiers da Orla Nobre, com o argumento de que três lotes não fazem
+cócegas no land bank. Duas medições mudaram a decisão:
+
+1. **Aritmética.** A Orla Nobre já não fecha: são 445 lotes de carteira para as 449 que o
+   snapshot manda (frente 188 contra 187, trás 261 contra 258). Os 4 que faltam já saem do
+   land bank (65 → 61); mais 3 do sorteio levaria a 58, uma queda de 10,8%, quebrando duas
+   vezes os blocos de 5 do §10, na única fileira que o próprio §10 declara escassa e fixa.
+2. **§0.1.** Sortear posição é pagar por chance de posição. Hoje "como se chega na orla
+   nobre" tem uma resposta só: história on-chain. Com o sorteio, para três endereços a
+   resposta vira "doou e teve sorte", e essa é a pergunta que as outras 445 fariam sobre os
+   vizinhos.
+
+O valor do sorteio nunca foi o prêmio, foi o **relógio**: sorteio tem data, e data move gente.
+Medido no funil: 38 doadores em 6.252 sessões nos últimos 30 dias, e mediana de 2,6 horas até
+doar, ou seja quem não converte no mesmo dia some. O pack não tinha nada que fizesse agir hoje
+em vez de mês que vem; o sorteio é isso. Trocar o prêmio preserva o relógio e não custa orla.
+
+### Itens: estratégia MISTA 🔒
+
+```
+item de Fundador e de conquista   SOULBOUND     vale por provar algo que você fez
+item de catálogo, comprado        TRANSFERÍVEL  vale por gosto, e por isso pode ter mercado
+```
+
+Ninguém compra a prova de ter sido primeiro; todo mundo compra decoração. Isso dá mercado sem
+transformar mérito em mercadoria.
+
+⚠️ **O PADRÃO DE INSCRIÇÃO JÁ ESTÁ PROVADO NESTA CASA, em 112.384 cópias.** A coleção Runestone
+usa `delegate`: um modelo mestre inscrito uma vez e filhos de **zero byte** apontando para ele.
+O mestre dela custou 1,0977 BTC porque foi inscrito a 27,7 sats/byte; a taxa em 12/09/2026
+estava em **1,0 sat/vB**. Um item de 200 KB custa da ordem de 200 mil sats para existir, uma
+vez, e cada cópia depois é só o envelope da transação. É o que torna item de jogo uma
+propriedade real na L1 em vez de linha em banco.
+
+Produção: o pipeline do Sketchfab já existe, com as regras de licença decididas (CC0 e CC-BY
+entram, SA/NC/ND não, crédito no mesmo commit).
+
+### O que o Fundador NÃO é
+
+Não é cota, não é investimento, não é rendimento. Não muda a posição do lote de ninguém,
+inclusive a dele.
+
+### Aberto
+
+- **A data do sorteio.** É ela que vira o relógio da campanha.
+- **Os quatro `patron`.** Consertado no código em 12/09 (`licenseFor` não tinha o degrau e os
+  quatro doadores de 500k+ apareciam como `commercial`), mas a comunicação da escada ainda
+  precisa sair com o rótulo certo.

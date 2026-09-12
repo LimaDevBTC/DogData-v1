@@ -13,7 +13,11 @@ export interface RecentEntry {
 
 // Um registro do fundo: quem entrou. A licenca vem de /api/donate/leaderboard,
 // calculada por total doado (citizen < personal < commercial).
-export type License = "citizen" | "personal" | "commercial"
+// ⚠️ `patron` ENTROU EM 12/09/2026 e faltava aqui. O degrau existe desde sempre em
+// `components/donate/donate-modal.tsx:65` (500k) e na tabela `tiers` da API, mas
+// `licenseFor` no leaderboard parava em `commercial` e o tipo aqui também: os quatro
+// doadores de 500k+ chegavam à UI rotulados como `commercial`.
+export type License = "citizen" | "personal" | "commercial" | "patron"
 
 // Fundador: ordenado por CHEGADA (a primeira doacao da carteira), nunca por
 // volume. `founder_seq` e a posicao na fila e nao muda quando alguem doa mais.
