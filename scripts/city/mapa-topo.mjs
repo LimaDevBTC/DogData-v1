@@ -89,6 +89,17 @@ const COTA_AGUA = +arg('agua', -40)
 // um script próprio, ele divergiria do mapa grande no primeiro ajuste de via, e
 // aí a cadeia e o jogo mostrariam cidades diferentes.
 const MINI = arg('minimapa', '0') !== '0'
+// ⚠️ `--marca=1` É O MINIMAPA LEVADO AO OSSO, PARA VIRAR LOGO. Ele herda tudo do
+// minimapa e tira mais: a orla dos lagos, a marginal, a rampa. Sobra o que
+// identifica a cidade a 32 px, que é o teste de favicon: a autopista redonda, os
+// doze bulevares, o anel da praça e a silhueta da baía.
+//
+// ⚠️ A BAÍA É O QUE IMPEDE A MARCA DE SER UMA RODA GENÉRICA. Doze raios num
+// círculo é um volante, um sol, uma roleta: já existe mil vezes. O recorte
+// irregular da água no nordeste é a única coisa do desenho que não se confunde
+// com outra marca, então ele fica, mesmo custando a maior parte dos bytes.
+const MARCA = arg('marca', '0') !== '0'
+const MINIMO = MINI || MARCA
 const F = LADO / 2400   // fator, para o desenho escalar junto
 // ⚠️ A GRADE É EMOLDURADA POR UMA BORDA BAIXA, E SEM ISSO O MAPA SAI RASGADO.
 // Marching squares só devolve laço FECHADO quando a região não toca a borda do
@@ -401,8 +412,39 @@ function encadeia(segs) {
 // décima de pixel importa; no minimapa, a 16,7 m por pixel, ela descreve 1,67 m
 // de lua e ninguém vê. Coordenada inteira corta cerca de um quinto do arquivo
 // sem mudar um traço visível.
-const CASAS = MINI ? 0 : 1
-const d = (linhas, fechar) => linhas.map((l) =>
+const CASAS = MINIMO ? 0 : 1
+// ⚠️ NA MARCA A COSTA É SIMPLIFICADA POR DOUGLAS-PEUCKER, não por decimação.
+// Decimar de N em N pontos corta o custo igual mas destrói justamente o que
+// identifica a baía: a reentrância isolada some no mesmo ritmo que a reta longa,
+// e sobra um borrão. Douglas-Peucker mantém o vértice que carrega a forma e come
+// só o ponto que está em cima da reta entre os vizinhos, que é o contrário.
+const RDP_TOL = +arg('marcaTol', 2.4)
+function simplifica(linha, tol) {
+  if (linha.length < 3) return linha
+  const sq = (a, b) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2
+  const dist2 = (p, a, b) => {
+    const l = sq(a, b)
+    if (l === 0) return sq(p, a)
+    let t = ((p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])) / l
+    t = Math.max(0, Math.min(1, t))
+    return sq(p, [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])])
+  }
+  const t2 = tol * tol
+  const fica = new Uint8Array(linha.length)
+  fica[0] = fica[linha.length - 1] = 1
+  const pilha = [[0, linha.length - 1]]
+  while (pilha.length) {
+    const [i, j] = pilha.pop()
+    let pior = -1, ki = -1
+    for (let k = i + 1; k < j; k++) {
+      const d2 = dist2(linha[k], linha[i], linha[j])
+      if (d2 > pior) { pior = d2; ki = k }
+    }
+    if (pior > t2 && ki > 0) { fica[ki] = 1; pilha.push([i, ki], [ki, j]) }
+  }
+  return linha.filter((_, i) => fica[i])
+}
+const d = (linhas0, fechar) => (MARCA ? linhas0.map((l) => simplifica(l, RDP_TOL)) : linhas0).map((l) =>
   'M' + l.map((p) => `${p[0].toFixed(CASAS)} ${p[1].toFixed(CASAS)}`).join('L') + (fechar ? 'Z' : '')).join('')
 
 // ── a paleta: linguagem escura de mapa de lote, a do resto do produto ───────
@@ -424,7 +466,7 @@ let corpo = ''
 // 1. bandas de terra, empilhadas de baixo para cima. TODAS as cotas, inclusive as
 //    abaixo da lâmina: fora da cúpula não existe água, existe regolito seco, e a
 //    primeira geração pintou o mapa inteiro de azul por ter esquecido disso.
-const bandas = MINI ? [] : niveis
+const bandas = MINIMO ? [] : niveis
 bandas.forEach((v, k) => {
   const cor = TERRA[Math.min(TERRA.length - 1, Math.floor((k / bandas.length) * TERRA.length))]
   const ls = contorno(v)
@@ -460,12 +502,12 @@ corpo += '<g clip-path="url(#casca)">\n'
 // vazio de fora da abóbada ficam os dois pretos, e o sítio some: sobra a água
 // azul flutuando num nada, sem contorno de onde a cidade acaba. Um degrau
 // mínimo acima do fundo já resolve, e é um path só (o disco da casca).
-if (MINI) corpo += `<path d="${disco}" fill="#14120E"/>\n`
-const CAMADAS_AGUA = MINI ? [[0.5, AGUA_RASO, 1]] : [[0.5, AGUA_RASO, 1], [30, AGUA_FUNDO, 0.92]]
+if (MINIMO) corpo += `<path d="${disco}" fill="#14120E"/>\n`
+const CAMADAS_AGUA = MINIMO ? [[0.5, AGUA_RASO, 1]] : [[0.5, AGUA_RASO, 1], [30, AGUA_FUNDO, 0.92]]
 for (const [fundo, cor, op] of CAMADAS_AGUA) {
   corpo += `<path d="${disco}${d(contornoTerra(fundo), true)}" fill="${cor}" fill-rule="evenodd" opacity="${op}"/>\n`
 }
-if (!MINI) corpo += `<path d="${d(contornoTerra(), false)}" fill="none" stroke="#7FB9D4" stroke-width="1.6" opacity="0.75"/>\n`
+if (!MINIMO) corpo += `<path d="${d(contornoTerra(), false)}" fill="none" stroke="#7FB9D4" stroke-width="1.6" opacity="0.75"/>\n`
 corpo += '</g>\n'
 
 // ⚠️ OS TRÊS CANAIS RADIAIS SÃO VETOR, NÃO AMOSTRA, e a razão é de resolução.
@@ -908,24 +950,24 @@ if (BAIRROS) {
   // bairros muda o que o grafo enxerga. Minimapa que mostra outra cidade é pior
   // que minimapa nenhum, então ele desenha a MESMA cidade e só deixa de PINTAR
   // a leitura por cima dela.
-  if (!MINI) corpo += `<g clip-path="url(#terra)">${manchas}</g>\n`
+  if (!MINIMO) corpo += `<g clip-path="url(#terra)">${manchas}</g>\n`
   // ⚠️ A ORLA VAI POR CIMA DOS ANÉIS DE BAIRRO, e a ordem invertida foi o motivo
   // de ela quase não aparecer na carta: pintada antes, os anéis do tecido, do
   // Grupo e da periferia passavam por cima e só sobrava o naco que calhava de
   // cair fora deles. A faixa junto à água tem precedência sobre o anel que a
   // atravessa, porque é ela que define o endereço ali.
-  if (!MINI && typeof orlaPronta === 'string') corpo += `<g clip-path="url(#terra)">${orlaPronta}</g>\n`
+  if (!MINIMO && typeof orlaPronta === 'string') corpo += `<g clip-path="url(#terra)">${orlaPronta}</g>\n`
 }
 
 // 3. as curvas finas, e depois as mestras por cima
 let finas = '', mestras = ''
-for (const v of (MINI ? [] : niveis)) {
+for (const v of (MINIMO ? [] : niveis)) {
   const ls = contorno(v)
   if (!ls.length) continue
   if (v % MESTRA === 0) mestras += d(ls, false)
   else finas += d(ls, false)
 }
-if (!MINI) {
+if (!MINIMO) {
   corpo += `<path d="${finas}" fill="none" stroke="${CURVA}" stroke-width="1" opacity="0.30"/>\n`
   corpo += `<path d="${mestras}" fill="none" stroke="${CURVA_MESTRA}" stroke-width="2" opacity="0.60"/>\n`
 }
@@ -2003,8 +2045,8 @@ if (VIAS) {
   // tem 44 m e num quadrado de 250 px isso dá meio pixel. A hierarquia por
   // espessura continua valendo (a autopista é a mais grossa, o bulevar vem
   // depois), mas o piso sobe para o traço não sumir na tela do jogo.
-  const PISO_MINI = +arg('minimapaTraco', 2.6)
-  const lg = (m) => Math.max(MINI ? PISO_MINI * F : 0.6 * F, (m / (2 * RAIO)) * LADO * (MINI ? 2.2 : 1))
+  const PISO_MINI = +arg('minimapaTraco', MARCA ? 5.0 : 2.6)
+  const lg = (m) => Math.max(MINIMO ? PISO_MINI * F : 0.6 * F, (m / (2 * RAIO)) * LADO * (MINIMO ? 2.2 : 1))
   // ⚠️ UMA COR SÓ PARA TODA A REDE, e a hierarquia sai da LARGURA. Foi pedido do
   // fundador e é o que carta de estrada faz: a via importante não é de outra cor,
   // é mais grossa. Pintando rua local de escuro e bulevar de claro, a peça
@@ -2017,8 +2059,8 @@ if (VIAS) {
   // serve para achar, que é a estrutura (a autopista, os doze bulevares, a orla,
   // o anel da praça). MEDIDO: ela sozinha custava 163 KB de 460, e sem ela a
   // silhueta da cidade fica MAIS legível, não menos.
-  const dLocal = MINI ? '' : dDe(vivas.filter((e) => e.cls === 'local' || e.cls === 'anel' || e.cls === 'costura'))
-  const dRamal = MINI ? '' : dDe(vivas.filter((e) => e.cls === 'ramal'))
+  const dLocal = MINIMO ? '' : dDe(vivas.filter((e) => e.cls === 'local' || e.cls === 'anel' || e.cls === 'costura'))
+  const dRamal = MINIMO ? '' : dDe(vivas.filter((e) => e.cls === 'ramal'))
   // ⚠️ A ORLA E A PERIMETRAL GANHAM CALIBRE PRÓPRIO. Desenhadas com a mesma
   // largura dos bulevares, elas somem no meio deles: o fundador procurou o anel
   // da orla nobre na chapa e não achou, mesmo com ele traçado e ligado. A regra
@@ -2026,13 +2068,13 @@ if (VIAS) {
   // largura e não cor — via de contorno é mais larga que radial de distrito,
   // como é numa cidade de verdade.
   const dBul = dDe(vivas.filter((e) => e.cls === 'bulevar'))
-  const dAnelOrla = dDe(vivas.filter((e) => e.cls === 'orla'))
+  const dAnelOrla = MARCA ? '' : dDe(vivas.filter((e) => e.cls === 'orla'))
   // ⚠️ A MARGINAL TEM CALIBRE PRÓPRIO, entre a rua local e o bulevar. Ela não é
   // rua de quarteirão (recolhe o tecido inteiro no encontro com a autopista) nem
   // é bulevar (não vai a lugar nenhum, corre em paralelo à AN7). Desenhada como
   // local, o leitor não vê que existe uma via ali e volta a achar que a rua
   // desemboca na avenida.
-  const dMarginal = dDe(vivas.filter((e) => e.cls === 'marginal' || e.cls === 'praca'))
+  const dMarginal = dDe(vivas.filter((e) => e.cls === (MARCA ? 'praca' : 'marginal') || e.cls === 'praca'))
   // ⚠️ O ELEVADO DE BULEVAR GANHA O MESMO SÍMBOLO DA AN7: traço perpendicular de
   // apoio. Sem ele o leitor vê uma avenida atravessando uma encosta de 17° como
   // se fosse chão plano, que é mentira de carta.
@@ -2058,17 +2100,22 @@ if (VIAS) {
       dApoio += `M${PX([q[0] + uz * meia, q[1] - ux * meia])}L${PX([q[0] - uz * meia, q[1] + ux * meia])}`
     }
   }
-  const dPonte = MINI ? '' : dDe(vivas.filter((e) => e.ponte))
+  const dPonte = MINIMO ? '' : dDe(vivas.filter((e) => e.ponte))
+  // ⚠️ NA MARCA O CASING SAI, e ele era 36,4% do arquivo. O contorno escuro existe
+  // para a via se destacar de um relevo claro; sobre o fundo quase preto de uma
+  // logo ele desenha preto sobre preto e só custa bytes. O mesmo vale para os
+  // apoios do viaduto e para os trevos: a 200 px eles viram sujeira no traço.
+  const semCasing = MARCA
   corpo += `<g clip-path="url(#casca)">`
     // casing só nas largas: em rua de 1,7 px o contorno come a própria via
-    + `<path d="${dAnelOrla}" fill="none" stroke="#14100A" stroke-width="${lg(92).toFixed(2)}" opacity="0.55" stroke-linecap="round"/>`
-    + `<path d="${dBul}" fill="none" stroke="#14100A" stroke-width="${lg(66).toFixed(2)}" opacity="0.5" stroke-linecap="round"/>`
+    + (semCasing ? '' : `<path d="${dAnelOrla}" fill="none" stroke="#14100A" stroke-width="${lg(92).toFixed(2)}" opacity="0.55" stroke-linecap="round"/>`)
+    + (semCasing ? '' : `<path d="${dBul}" fill="none" stroke="#14100A" stroke-width="${lg(66).toFixed(2)}" opacity="0.5" stroke-linecap="round"/>`)
     + `<path d="${dLocal}" fill="none" stroke="${VIA_COR}" stroke-width="${lg(15).toFixed(2)}" opacity="0.82" stroke-linecap="round"/>`
     + `<path d="${dRamal}" fill="none" stroke="${VIA_COR}" stroke-width="${lg(26).toFixed(2)}" opacity="0.9" stroke-linecap="round"/>`
     + `<path d="${dMarginal}" fill="none" stroke="${VIA_COR}" stroke-width="${lg(30).toFixed(2)}" opacity="0.92" stroke-linecap="round"/>`
-    + `<path d="${dApoio}" fill="none" stroke="#14100A" stroke-width="${lg(13).toFixed(2)}" opacity="0.6" stroke-linecap="butt"/>`
+    + (semCasing ? '' : `<path d="${dApoio}" fill="none" stroke="#14100A" stroke-width="${lg(13).toFixed(2)}" opacity="0.6" stroke-linecap="butt"/>`)
     + `<path d="${dBul}" fill="none" stroke="${VIA_COR}" stroke-width="${lg(42).toFixed(2)}" opacity="0.92" stroke-linecap="round"/>`
-    + `<path d="${dApoio}" fill="none" stroke="${VIA_COR}" stroke-width="${lg(7).toFixed(2)}" opacity="0.9" stroke-linecap="butt"/>`
+    + (semCasing ? '' : `<path d="${dApoio}" fill="none" stroke="${VIA_COR}" stroke-width="${lg(7).toFixed(2)}" opacity="0.9" stroke-linecap="butt"/>`)
     + `<path d="${dAnelOrla}" fill="none" stroke="${VIA_COR}" stroke-width="${lg(60).toFixed(2)}" opacity="0.96" stroke-linecap="round"/>`
     + (dPonte ? `<path d="${dPonte}" fill="none" stroke="${VIA_COR}" stroke-width="${lg(24).toFixed(2)}" opacity="0.95" stroke-dasharray="${7 * F} ${5 * F}"/>` : '')
     + `</g>\n`
@@ -2233,17 +2280,17 @@ if (VIAS) {
       }
     }
     const perimetro = (2 * Math.PI * AN7_R_BASE) / 1000
-    corpo += `<path d="${d0}" fill="none" stroke="#14100A" stroke-width="${lg(92).toFixed(2)}" opacity="0.55" stroke-linecap="round"/>`
-      + `<path d="${trevos}" fill="none" stroke="#14100A" stroke-width="${lg(76).toFixed(2)}" opacity="0.5" stroke-linecap="round"/>`
+    corpo += (MARCA ? '' : `<path d="${d0}" fill="none" stroke="#14100A" stroke-width="${lg(92).toFixed(2)}" opacity="0.55" stroke-linecap="round"/>`)
+      + (MARCA ? '' : `<path d="${trevos}" fill="none" stroke="#14100A" stroke-width="${lg(76).toFixed(2)}" opacity="0.5" stroke-linecap="round"/>`)
       // o tabuleiro: sombra larga sob a pista, e os apoios atravessando
-      + `<path d="${dPilar}" fill="none" stroke="#14100A" stroke-width="${lg(16).toFixed(2)}" opacity="0.6" stroke-linecap="butt"/>`
+      + (MARCA ? '' : `<path d="${dPilar}" fill="none" stroke="#14100A" stroke-width="${lg(16).toFixed(2)}" opacity="0.6" stroke-linecap="butt"/>`)
       + `<path d="${d0}" fill="none" stroke="#FFF2DC" stroke-width="${lg(62).toFixed(2)}" opacity="0.97" stroke-linecap="round"/>`
-      + `<path d="${dPilar}" fill="none" stroke="#FFF2DC" stroke-width="${lg(9).toFixed(2)}" opacity="0.9" stroke-linecap="butt"/>`
+      + (MARCA ? '' : `<path d="${dPilar}" fill="none" stroke="#FFF2DC" stroke-width="${lg(9).toFixed(2)}" opacity="0.9" stroke-linecap="butt"/>`)
       // ⚠️ O TÚNEL SE APAGA, NÃO SE INTERROMPE. Cortar a linha quebraria o
       // círculo que o fundador acabou de mandar fechar; o tracejado escuro por
       // cima da pista é o símbolo de trecho coberto e mantém a volta inteira.
-      + `<path d="${dTunel}" fill="none" stroke="#3B3327" stroke-width="${lg(62).toFixed(2)}" opacity="0.85" stroke-dasharray="${11 * F} ${9 * F}"/>`
-      + `<path d="${trevos}" fill="none" stroke="#FFF2DC" stroke-width="${lg(44).toFixed(2)}" opacity="0.95" stroke-linecap="round"/>\n`
+      + (MARCA ? '' : `<path d="${dTunel}" fill="none" stroke="#3B3327" stroke-width="${lg(62).toFixed(2)}" opacity="0.85" stroke-dasharray="${11 * F} ${9 * F}"/>`)
+      + (MARCA ? '' : `<path d="${trevos}" fill="none" stroke="#FFF2DC" stroke-width="${lg(44).toFixed(2)}" opacity="0.95" stroke-linecap="round"/>\n`)
     console.log(`  AN7 como perimetral: circulo fechado de r ${AN7_R_BASE} m, ${perimetro.toFixed(1)} km`)
     console.log(`    greide: rampa maxima ${(rampaMax * 100).toFixed(1)}%, cota de ${Math.min(...greide).toFixed(0)} a ${Math.max(...greide).toFixed(0)} m`)
     console.log(`    VIADUTO ${kmDe(runsVia).toFixed(1)} km em ${runsVia.length} tramos, tabuleiro ate ${deckMax.toFixed(0)} m acima do chao`)
@@ -2272,7 +2319,18 @@ if (VIAS) {
     }
     console.log(`  trevos de acesso: ${chegouAN7.size} radiais x 2 ramos, recuo ${RECUO_TREVO} m, abertura ${ABERTURA}°`)
   }
-  // autopistas: correm SOB a cidade, não se recortam
+  // ⚠️ AS AUTOPISTAS SAEM DO MINIMAPA, e o fundador pediu depois de olhar e não
+  // reconhecer o que eram. Elas são três túneis: rumo 24°, 99° e 158°, 26 m de
+  // largura, cota −42, ou seja DOIS METROS ABAIXO da lâmina d'água da cidade.
+  // Por isso são tracejadas na carta, que é a convenção de "não está na
+  // superfície". Numa carta impressa, com legenda ao lado, isso se lê. Num
+  // minimapa de 250 px, sem legenda, três riscos atravessando o mapa inteiro em
+  // diagonal são a única coisa da peça que faz o leitor perguntar "o que é
+  // aquilo" — e a pergunta dele foi exatamente essa.
+  //
+  // ⚠️ E HÁ UM ARGUMENTO MAIS FORTE PARA A INSCRIÇÃO: o minimapa é candidato a
+  // pai de todas as escrituras, e pai bom é o que não envelhece. Túnel é
+  // programa, e programa muda. Chão, água, abóbada e rede de superfície não.
   let au = ''
   for (const a of (malha.autopistas ?? [])) {
     const ru = (a.rumo * Math.PI) / 180, off = a.afastamento, L = 9050
@@ -2280,7 +2338,7 @@ if (VIAS) {
     au += `M${mundoPx(nx * off - dx * L).toFixed(1)} ${mundoPx(nz * off - dz * L).toFixed(1)}`
         + `L${mundoPx(nx * off + dx * L).toFixed(1)} ${mundoPx(nz * off + dz * L).toFixed(1)}`
   }
-  corpo += `<g clip-path="url(#casca)"><path d="${au}" fill="none" stroke="#7FB9D4" `
+  if (!MINIMO) corpo += `<g clip-path="url(#casca)"><path d="${au}" fill="none" stroke="#7FB9D4" `
     + `stroke-width="${lg(30).toFixed(2)}" opacity="0.45" stroke-dasharray="${14 * F} ${10 * F}"/></g>\n`
 }
 
@@ -2548,15 +2606,22 @@ mob += T(LADO - m - 26 * F, LADO - m - 26 * F, 'DOG DATA', { tam: 15, esp: 5, op
 // quadrado de 250 px eles viram sujeira, e numa inscrição são 44 KB de bytes que
 // ninguém lê. O jogo desenha por cima o que for de estado (posição do jogador,
 // névoa, pino), e a inscrição fica sendo só o território.
-const ehMini = MINI
+const ehMini = MINIMO
+// ⚠️ A MARCA É RECORTADA NA ABÓBADA, e não na moldura do mapa. O desenho nasce
+// num quadrado de 20 km porque é assim que a carta enquadra o sítio, mas a
+// cidade tem 18,1 km de diâmetro: sobram 9,5% de margem morta de cada lado. Numa
+// carta isso é respiro; numa logo é a marca nascer 19% menor do que poderia,
+// para sempre, em cada lugar que ela for usada.
+const m0 = MARCA ? (LADO / 2) - rDomePx - 6 : 0
+const lado0 = MARCA ? 2 * (rDomePx + 6) : LADO
 const svg = ehMini
-  ? `<svg xmlns="http://www.w3.org/2000/svg" width="${LADO}" height="${LADO}" viewBox="0 0 ${LADO} ${LADO}">`
-    + `<rect width="${LADO}" height="${LADO}" fill="${FUNDO}"/>${corpo}</svg>`
+  ? `<svg xmlns="http://www.w3.org/2000/svg" width="${lado0.toFixed(0)}" height="${lado0.toFixed(0)}" viewBox="${m0.toFixed(0)} ${m0.toFixed(0)} ${lado0.toFixed(0)} ${lado0.toFixed(0)}">`
+    + `<rect x="${m0.toFixed(0)}" y="${m0.toFixed(0)}" width="${lado0.toFixed(0)}" height="${lado0.toFixed(0)}" fill="${FUNDO}"/>${corpo}</svg>`
   : `<svg xmlns="http://www.w3.org/2000/svg" width="${LADO}" height="${LADO}" viewBox="0 0 ${LADO} ${LADO}">
 ${ESTILO}
 <rect width="${LADO}" height="${LADO}" fill="${FUNDO}"/>
 ${corpo}${mob}</svg>`
-const NOME = ehMini ? 'minimapa-dogcity.svg' : 'mapa-topo.svg'
+const NOME = MARCA ? 'marca-dogcity.svg' : ehMini ? 'minimapa-dogcity.svg' : 'mapa-topo.svg'
 writeFileSync(`${SAI}/${NOME}`, svg)
 console.log(`${NOME}: ${(svg.length / 1e6).toFixed(2)} MB`)
 console.log(`  ${niveis.length} niveis de ${min} a ${max} m, passo ${PASSO}, mestra ${MESTRA}`)
