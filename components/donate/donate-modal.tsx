@@ -10,6 +10,7 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
+import qrcode from 'qrcode-generator'
 import {
   ArrowUpRight, Check, Copy, ExternalLink, Loader2, ShieldAlert, ShieldCheck, Wallet, X,
 } from 'lucide-react'
@@ -55,7 +56,6 @@ const LADDER = [
 const SATS_PRESETS = [10_000, 50_000, 200_000]
 
 const BTC_METHOD = DONATION_METHODS.find((m) => m.key === 'bitcoin')
-const DOG_METHOD = DONATION_METHODS.find((m) => m.key === 'dog')
 
 const n0 = (n: number) => Math.round(n).toLocaleString('en-US')
 // O que a pessoa digitou, mostrado como digitou: arredondar 1.234,5 para 1.235
@@ -87,6 +87,78 @@ function ladderHint(dog: number): string {
   return reached
     ? `Unlocks ${reached}. ${missing} DOG more would reach ${next.name}.`
     : `Founder, by arrival. ${missing} DOG more would unlock ${next.name}.`
+}
+
+// ── como pagar sem a carteira conectada ────────────────────────────────────
+
+const BIP21_LABEL = encodeURIComponent('DogCity construction fund')
+
+/** Margem exigida pelo padrão. Sem os 4 módulos de silêncio, leitor nenhum lê. */
+const QUIET = 4
+
+/**
+ * `bitcoin:<endereco>?amount=<btc>&label=…`, o pedido de pagamento do BIP-21.
+ * ⚠️ O amount é em BTC com ponto decimal, NUNCA em satoshi, e o campo daqui é
+ * em satoshi. Sem valor digitado o parâmetro sai fora inteiro: `amount=0` é um
+ * pedido de pagar zero, não "pergunte quanto".
+ * Rune não tem equivalente disto, então o DOG não ganha URI inventada.
+ */
+function bip21Uri(address: string, sats: number): string {
+  const params: string[] = []
+  if (sats > 0) {
+    const btc = (Math.round(sats) / 1e8).toFixed(8).replace(/\.?0+$/, '')
+    params.push(`amount=${btc}`)
+  }
+  params.push(`label=${BIP21_LABEL}`)
+  return `bitcoin:${address}?${params.join('&')}`
+}
+
+/**
+ * O QR desenhado aqui, da MESMA string que o link usa. O que existia antes era
+ * um JPEG na pasta public: derivado que não acompanhava o endereço (se a
+ * constante mudasse, o código mandava dinheiro para o lugar errado e nada
+ * acusava), e compressão com perda suja justamente a borda dos módulos, que é
+ * o que a câmera precisa ler.
+ */
+function QrCode({ text, label }: { text: string; label: string }) {
+  const { d, size } = useMemo(() => {
+    const q = qrcode(0, 'M')
+    q.addData(text)
+    q.make()
+    const n = q.getModuleCount()
+    // Um path só, acumulando corridas horizontais de módulos escuros: fica bem
+    // mais leve no DOM que um <rect> por módulo.
+    let path = ''
+    for (let row = 0; row < n; row += 1) {
+      let col = 0
+      while (col < n) {
+        if (!q.isDark(row, col)) { col += 1; continue }
+        let run = 1
+        while (col + run < n && q.isDark(row, col + run)) run += 1
+        path += `M${col + QUIET} ${row + QUIET}h${run}v1h-${run}z`
+        col += run
+      }
+    }
+    return { d: path, size: n + QUIET * 2 }
+  }, [text])
+
+  return (
+    <svg
+      viewBox={`0 0 ${size} ${size}`}
+      role="img"
+      aria-label={label}
+      // O que está codificado, legível de fora: o endereço fica auditável sem
+      // precisar decodificar a imagem.
+      data-qr-text={text}
+      shapeRendering="crispEdges"
+      className="w-36 h-36 shrink-0"
+    >
+      {/* ⚠️ Contraste aqui é requisito de leitura, não estilo: branco e preto,
+          nunca a paleta escura da casa. */}
+      <rect width={size} height={size} fill="#FFFFFF" />
+      <path d={d} fill="#000000" />
+    </svg>
+  )
 }
 
 // ── provedor ───────────────────────────────────────────────────────────────
@@ -204,6 +276,13 @@ function DonateModal({
   const value = Number(amount.replace(/[^\d.]/g, '')) || 0
   const unlocked = asset === 'dog' ? licenseFor(value) : null
   const overBalance = asset === 'dog' && balance ? value > balance.spendable : false
+
+  // Uma string só serve o QR e o link, e ela sai do endereço da constante: não
+  // existe segunda cópia do destino para sair de sincronia.
+  const payUri = useMemo(
+    () => (asset === 'btc' ? bip21Uri(address, value) : address),
+    [asset, address, value],
+  )
 
   const copyAddress = useCallback(() => {
     navigator.clipboard?.writeText(address)
@@ -344,11 +423,13 @@ function DonateModal({
                 )}
               </div>
             ) : (
+              // Caminho principal quando ninguém está conectado: é por aqui que
+              // a carteira assina, então ele pesa mais que tudo embaixo.
               <button
                 onClick={() => { onClose(); openModal() }}
-                className="w-full flex items-center justify-center gap-2 border border-lava/50 bg-lava/[0.08] px-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.18em] text-lava hover:bg-lava/[0.16] transition-colors"
+                className="w-full flex items-center justify-center gap-2 bg-lava px-4 py-3.5 font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-void hover:bg-lava-light transition-colors"
               >
-                <Wallet className="w-3.5 h-3.5" />
+                <Wallet className="w-4 h-4" />
                 Connect a wallet to send from here
               </button>
             )}
@@ -452,39 +533,18 @@ function DonateModal({
               )}
             </div>
 
-            {/* O destino fica na cara, não escondido atrás de um "mostrar
-                endereço": é o único número que a pessoa pode conferir contra o
-                popup da carteira antes de aprovar. */}
-            <div className="border border-white/10 bg-white/[0.02] px-3 py-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-dusty">
-                  going to
-                </p>
-                <button
-                  onClick={copyAddress}
-                  className="inline-flex items-center gap-1 font-mono text-[10px] text-dusty hover:text-snow transition-colors"
-                >
-                  {copied ? <Check className="w-3 h-3 text-[#10B981]" /> : <Copy className="w-3 h-3" />}
-                  {copied ? 'Copied' : 'Copy'}
-                </button>
-              </div>
-              <p className="font-mono text-[11px] text-snow break-all mt-1">{address}</p>
-              <p className="font-mono text-[10px] text-dusty mt-1.5 leading-relaxed">
-                Your wallet must show this same address. If it shows another one, reject it.
-              </p>
-            </div>
-
             {error && <p className="font-mono text-[11px] text-[#EF4444]">{error}</p>}
 
-            {/* disparo */}
+            {/* ── caminho principal: a carteira conectada assina daqui ──
+                ⚠️ Só o PESO VISUAL mudou. O disparo é o mesmo. */}
             {account && support === 'rpc' ? (
-              <>
+              <div className="space-y-2">
                 <button
                   onClick={send}
                   disabled={sending || value <= 0 || overBalance}
-                  className="w-full flex items-center justify-center gap-2 border border-lava/60 bg-lava/[0.12] px-4 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-lava hover:bg-lava/[0.2] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-center gap-2 bg-lava px-4 py-4 font-mono text-[12px] font-bold uppercase tracking-[0.2em] text-void hover:bg-lava-light transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {sending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  {sending && <Loader2 className="w-4 h-4 animate-spin" />}
                   {sending
                     ? 'Confirm in your wallet'
                     : `Send ${value > 0 ? nAmt(value) : ''} ${asset === 'dog' ? 'DOG' : 'sats'}`}
@@ -493,7 +553,7 @@ function DonateModal({
                   Your wallet shows the final amount and asks for confirmation. Network fees are
                   paid in BTC.
                 </p>
-              </>
+              </div>
             ) : (
               account && (
                 <p className="font-mono text-[10px] text-dusty">
@@ -503,8 +563,34 @@ function DonateModal({
               )
             )}
 
-            {/* caminho garantido: endereço e QR */}
-            <div className="border-t border-white/[0.06] pt-4">
+            {/* ── outras formas de pagar: mesmo destino, peso visual menor ──
+                O endereço continua à vista, não atrás de um "mostrar endereço":
+                é o único número que a pessoa pode conferir contra o popup da
+                carteira antes de aprovar. */}
+            <div className="border-t border-white/[0.06] pt-4 space-y-3">
+              <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-dusty">
+                Other ways to pay
+              </p>
+
+              <div className="border border-white/[0.08] bg-white/[0.015] px-3 py-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-dusty">
+                    going to
+                  </p>
+                  <button
+                    onClick={copyAddress}
+                    className="inline-flex items-center gap-1 font-mono text-[10px] text-dusty hover:text-snow transition-colors"
+                  >
+                    {copied ? <Check className="w-3 h-3 text-[#10B981]" /> : <Copy className="w-3 h-3" />}
+                    {copied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+                <p className="font-mono text-[11px] text-snow break-all mt-1">{address}</p>
+                <p className="font-mono text-[10px] text-dusty mt-1.5 leading-relaxed">
+                  Your wallet must show this same address. If it shows another one, reject it.
+                </p>
+              </div>
+
               {support === 'rpc' && (
                 <button
                   onClick={() => setShowManual((v) => !v)}
@@ -515,18 +601,37 @@ function DonateModal({
               )}
 
               {(showManual || support !== 'rpc') && (
-                // O endereço já está inteiro no bloco "going to" acima, com o
-                // botão de copiar. Aqui embaixo fica só o que ele não resolve:
-                // o código para a câmera de quem vai mandar do celular.
-                <div className="mt-3 flex flex-col items-center gap-2">
-                  {(asset === 'dog' ? DOG_METHOD?.qr : BTC_METHOD?.qr) && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={(asset === 'dog' ? DOG_METHOD?.qr : BTC_METHOD?.qr) as string}
-                      alt={`QR code for the ${asset === "dog" ? "DOG" : "Bitcoin"} construction fund address`}
-                      className="w-32 h-32 border border-white/10"
-                    />
+                // O código para a câmera de quem vai mandar do celular, e para
+                // o Bitcoin o mesmo pedido como link: tocar abre a carteira com
+                // o valor já preenchido, que é onde a pessoa desistia antes.
+                <div className="flex flex-col items-center gap-2.5">
+                  <QrCode
+                    text={payUri}
+                    label={`QR code to pay the construction fund in ${asset === 'dog' ? 'DOG' : 'Bitcoin'}`}
+                  />
+
+                  {asset === 'btc' ? (
+                    <>
+                      <a
+                        href={payUri}
+                        className="w-full inline-flex items-center justify-center gap-1.5 border border-lava/40 bg-lava/[0.06] px-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.18em] text-lava hover:bg-lava/[0.14] transition-colors"
+                      >
+                        <Wallet className="w-3.5 h-3.5" />
+                        Open in a Bitcoin wallet
+                      </a>
+                      <p className="font-mono text-[10px] text-dusty text-center leading-relaxed">
+                        {value > 0
+                          ? `The code and the link carry the address and ${n0(value)} sats.`
+                          : 'The code and the link carry the address. Type an amount above to carry it too.'}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="font-mono text-[10px] text-dusty text-center leading-relaxed">
+                      DOG has no payment link, so this code carries the address only. Type the
+                      amount in your wallet.
+                    </p>
                   )}
+
                   <p className="font-mono text-[10px] text-dusty text-center">
                     Scan from your wallet. Confirm the address matches the one above.
                   </p>
