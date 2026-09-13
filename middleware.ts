@@ -30,7 +30,10 @@ export function middleware(req: NextRequest) {
     // ⚠️ `strict-dynamic` deixa o script com nonce carregar os chunks do Next sem listar
     // cada um. O `unsafe-inline` no fim é ignorado por navegador que entende nonce, e serve
     // só de rede de segurança para navegador velho.
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline'`,
+    // ⚠️ `unsafe-eval` SÓ EM DEV: o hot reload do Next usa eval, e sem isto a página quebra
+    // EM SILÊNCIO, sem erro de console. Em produção o Next não usa eval e ele NÃO entra.
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline'${
+      process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''}`,
     "style-src 'self' 'unsafe-inline'",       // o Next emite style inline na hidratacao
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",

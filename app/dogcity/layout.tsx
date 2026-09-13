@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { headers } from 'next/headers'
 import { OG_URL, OG_ALT, OG_IMAGE } from '@/lib/og'
 
 // The landing itself is a client component, so it cannot export metadata.
@@ -99,10 +100,13 @@ try {
 } catch (e) { /* navegador que proíbe: o efeito em page.tsx ainda tenta */ }
 `
 
-export default function DogCityLayout({ children }: { children: React.ReactNode }) {
+export default async function DogCityLayout({ children }: { children: React.ReactNode }) {
+  // ⚠️ O NONCE DA CSP de `middleware.ts`. O Next carimba nonce nos scripts DELE sozinho, mas
+  // em script inline nosso não: sem isto a CSP bloqueia este bloco e a página não hidrata.
+  const nonce = (await headers()).get('x-nonce') ?? undefined
   return (
     <>
-      <script dangerouslySetInnerHTML={{ __html: TOPO_ANTES_DA_HIDRATACAO }} />
+      <script nonce={nonce} dangerouslySetInnerHTML={{ __html: TOPO_ANTES_DA_HIDRATACAO }} />
       {children}
     </>
   )

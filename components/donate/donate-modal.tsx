@@ -120,6 +120,34 @@ function bip21Uri(address: string, sats: number): string {
  * acusava), e compressão com perda suja justamente a borda dos módulos, que é
  * o que a câmera precisa ler.
  */
+/**
+ * ⚠️ SEGUNDA DECLARAÇÃO DOS ENDEREÇOS, DE PROPÓSITO.
+ *
+ * O endereço que a página mostra vem de `DONATION_METHODS`. Esta constante é uma CÓPIA
+ * INDEPENDENTE das pontas do mesmo endereço, escrita à mão aqui. Se alguém editar um dos dois
+ * lugares, os dois passam a discordar e o componente SE RECUSA a mostrar endereço, QR ou link.
+ *
+ * ⚠️ O QUE ISTO PEGA: bug nosso montando a URI errada, edição desatenta em um só arquivo, e
+ * extensão de navegador que troca texto no DOM antes da montagem.
+ * ⚠️ O QUE ISTO NÃO PEGA, e é honesto dizer: quem consegue INJETAR SCRIPT na página remenda
+ * esta checagem junto. Contra esse vetor valem a CSP de `middleware.ts` e, acima de tudo, a
+ * tela de confirmação da carteira, que mostra o destino e que atacante nenhum na nossa página
+ * consegue alterar.
+ *
+ * ⚠️ SE TROCAR UM ENDEREÇO DE VERDADE, tem de trocar NOS DOIS LUGARES. É o ponto.
+ */
+const PONTAS_ESPERADAS: Record<string, { ini: string; fim: string; tam: number }> = {
+  dog: { ini: 'bc1pxk7aw9', fim: 'qdylk2p', tam: 62 },
+  btc: { ini: 'bc1qkq43g', fim: 'jspc63', tam: 42 },
+}
+
+/** true quando o endereço bate com a segunda declaração. Fora disso, não renderiza nada. */
+function enderecoConfere(asset: string, addr: string): boolean {
+  const e = PONTAS_ESPERADAS[asset === 'dog' ? 'dog' : 'btc']
+  if (!e) return false
+  return addr.length === e.tam && addr.startsWith(e.ini) && addr.endsWith(e.fim)
+}
+
 function QrCode({ text, label }: { text: string; label: string }) {
   const { d, size } = useMemo(() => {
     const q = qrcode(0, 'M')
@@ -279,6 +307,9 @@ function DonateModal({
 
   // Uma string só serve o QR e o link, e ela sai do endereço da constante: não
   // existe segunda cópia do destino para sair de sincronia.
+  // ⚠️ PORTÃO: se a segunda declaração discordar, nada de endereço vai para a tela.
+  const enderecoOk = useMemo(() => enderecoConfere(asset, address), [asset, address])
+
   const payUri = useMemo(
     () => (asset === 'btc' ? bip21Uri(address, value) : address),
     [asset, address, value],
@@ -567,6 +598,20 @@ function DonateModal({
                 O endereço continua à vista, não atrás de um "mostrar endereço":
                 é o único número que a pessoa pode conferir contra o popup da
                 carteira antes de aprovar. */}
+            {/* ⚠️ PORTÃO DE SEGURANÇA. Se a segunda declaração do endereço discordar da
+                constante, NADA de endereço, QR ou link vai para a tela. Melhor a pessoa não
+                conseguir pagar do que pagar no endereço errado. */}
+            {!enderecoOk ? (
+              <div className="border border-lava/60 bg-lava/[0.08] px-3 py-3">
+                <p className="font-mono text-[11px] text-lava">
+                  Address check failed. This screen will not show a payment address.
+                </p>
+                <p className="font-mono text-[10px] text-mist mt-2 leading-relaxed">
+                  Do not send anything from here. Use the connected wallet button above, which
+                  shows the destination in your own wallet, or reach the team before paying.
+                </p>
+              </div>
+            ) : (
             <div className="border-t border-white/[0.06] pt-4 space-y-3">
               <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-dusty">
                 Other ways to pay
@@ -637,7 +682,7 @@ function DonateModal({
                   </p>
                 </div>
               )}
-            </div>
+            </div>)}
           </div>
         )}
       </div>
