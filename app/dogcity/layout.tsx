@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { OG_URL, OG_ALT, OG_IMAGE } from '@/lib/og'
 
 // The landing itself is a client component, so it cannot export metadata.
 // This layout carries it.
@@ -22,7 +23,7 @@ import type { Metadata } from 'next'
 // ⚠️ O `?v=` existe porque X e Facebook guardam a chapa pela URL e não
 // voltam a buscar quando o arquivo muda no mesmo caminho. Ao trocar o JPG,
 // incremente o número, senão o post sai com a imagem antiga.
-const OG = 'https://www.dogdata.xyz/og-dogcity.jpg?v=5'
+const OG = OG_URL
 
 export const metadata: Metadata = {
   title: 'DogCity: a virtual city for DOG holders, on real lunar terrain | dogdata.xyz',

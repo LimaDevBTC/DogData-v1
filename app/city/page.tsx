@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import PlazaClient from './plaza/plaza-client'
+import { OG_URL, OG_ALT, OG_IMAGE } from '@/lib/og'
 
 // /city IS the plaza now (praca-central.md, D3): Satoshi Plaza on real Mare
 // Tranquillitatis terrain, with the DOG mempool in orbit above it. The landing at
@@ -23,9 +24,7 @@ const DESCRIPTION =
 // pela URL e não voltam a buscar quando o arquivo muda no mesmo caminho: sem o
 // selo, o post de hoje sairia com a chapa de 18/08, que é anterior à baía, às
 // vias, ao canal e à abóbada. Ao trocar o JPG, incremente o número.
-const OG = '/city/og-plaza.jpg?v=3'
-const OG_ALT =
-  'Inside the DogCity dome on the Moon: the honeycomb shell overhead with stars through it, the bay, the radial road web, and Satoshi Plaza with the Needle, Kray Tower, BitFlow HQ and the OrdCards Chalet'
+const OG = OG_URL
 
 export const metadata: Metadata = {
   title: TITLE,

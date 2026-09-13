@@ -6,6 +6,7 @@ import { WalletProvider } from '@/contexts/WalletContext'
 import { DonateProvider } from '@/components/donate/donate-modal'
 import { AnalyticsTracker } from '@/components/analytics-tracker'
 import { RouteMemory } from '@/components/route-memory'
+import { OG_URL, OG_ALT, OG_IMAGE } from '@/lib/og'
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
@@ -89,7 +90,7 @@ export const metadata: Metadata = {
     siteName: 'DOG DATA',
     images: [
       {
-        url: '/DOGDATAOG.png',
+        url: OG_URL,
         width: 1200,
         height: 630,
         alt: 'DOG DATA \u2014 The world\'s most comprehensive DOG rune data platform',
@@ -102,7 +103,7 @@ export const metadata: Metadata = {
     description:
       '89K+ holders, 35 API endpoints, MCP Server, SSE events. ' +
       'Forensic analysis & Diamond Score. Bitcoin Core + Ord powered.',
-    images: ['/DOGDATAOG.png'],
+    images: [OG_URL],
   },
 }
 

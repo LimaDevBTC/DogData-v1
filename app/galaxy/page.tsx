@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import TreeClientWrapper from './tree-client-wrapper'
+import { OG_URL, OG_ALT, OG_IMAGE } from '@/lib/og'
 
 // A CASA do $DOG Galaxy desde 26/08. A URL antiga (/holders/tree) virou um
 // 307 pra ca: nenhum link compartilhado quebra. As rotas de API continuam
@@ -9,7 +10,7 @@ const TITLE = '$DOG Galaxy'
 const TITULO_SOCIAL = '$DOG Galaxy: every wallet DOG ever touched, mapped'
 const DESCRIPTION =
   'The living galaxy of DOG: all 263,000 wallets since the airdrop, each one a real star sized by its balance, branching from the treasury generation by generation. Click any star to open its dossier.'
-const OG = 'https://www.dogdata.xyz/galaxy-og.jpg'
+const OG = OG_URL
 
 export const metadata: Metadata = {
   title: TITLE,

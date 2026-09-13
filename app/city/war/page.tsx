@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import WarClientWrapper from './war-client-wrapper'
+import { OG_URL, OG_ALT, OG_IMAGE } from '@/lib/og'
 
 const TITLE = 'The Price War'
 const DESCRIPTION =
@@ -12,13 +13,13 @@ export const metadata: Metadata = {
     title: TITLE,
     description: DESCRIPTION,
     type: 'website',
-    images: [{ url: '/war-og.png', width: 1200, height: 630, alt: 'Shiba army in Bitcoin orange faces the bears across the DOG/USD front line on the Moon' }],
+    images: [OG_IMAGE],
   },
   twitter: {
     card: 'summary_large_image',
     title: TITLE,
     description: DESCRIPTION,
-    images: ['/war-og.png'],
+    images: [OG_URL],
   },
 }
 

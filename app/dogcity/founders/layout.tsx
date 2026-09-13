@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { OG_URL, OG_ALT, OG_IMAGE } from '@/lib/og'
 
 // Metadata desta rota. page.tsx é "use client" (usa <Layout> da casa, que puxa
 // useRouter, e busca o fundo ao vivo num useEffect) e um Client Component não
@@ -13,7 +14,7 @@ import type { Metadata } from "next"
 // ⚠️ A imagem é obrigatória, senão todo link compartilhado sai como card sem
 // imagem. O `?v=` existe porque X e Facebook guardam a chapa pela URL e não
 // voltam a buscar quando o arquivo muda no mesmo caminho.
-const OG = "https://www.dogdata.xyz/og-dogcity.jpg?v=3"
+const OG = OG_URL
 
 export const metadata: Metadata = {
   title: "DogCity Founders Pack | DOG DATA",
