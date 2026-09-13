@@ -93,6 +93,46 @@ so it stops at the top.
 With per district typology, personality has to live around the house: yard, vehicle, light,
 plaque. Same reason a well built neighbourhood standardises facades and frees the garden.
 
+### The ladder escalates in kind, not only in count
+
+Every rung includes everything below it, and that was already true. What this adds: **where a
+variant exists, the higher rung receives the exclusive version of the same item**, not only new
+items.
+
+```
+                 PERSONAL            COMMERCIAL              PATRON
+vehicle          none                lunar rover             black tuned rover
+light            Founder's light     pack lighting           its own signature, seen from
+                                                             above at night
+plaque           house number        same                    own material and finish
+ground           yard                leisure ground, garden  pieces from the closed catalogue
+```
+
+⚠️ **Every exclusive variant is SOULBOUND.** If the black rover could be sold, exclusivity
+becomes merchandise and anyone buys a Patron's standing on the secondary market. The tradable
+catalogue stays tradable, because it is taste. What proves merit does not circulate.
+
+### What "custom building" covers, and what it does not
+
+The custom building is custom in **form**, never in **mass**.
+
+```
+CUSTOM        shape, facade, materials, crown, ornament, plan, roof
+NOT CUSTOM    height, mass, floors    come from the live balance
+              footprint               comes from the lot area set by the snapshot
+```
+
+**A Patron gets a unique building, not a bigger one.** The envelope stays honest, the design
+inside it is exclusive.
+
+This is the same logic the pack already uses for why a Founder's distinction lives in the items:
+a well built neighbourhood standardises the facade and frees the garden. Here, the city
+standardises the envelope and frees the design.
+
+⚠️ Say this in the copy. Without it, a Patron who contributes 500,000 $DOG while holding 15,000
+$DOG expects a tower and receives a small building of unique design. That is a complaint with
+some merit, because nobody told them where the boundary was.
+
 ## 4. The Founders' draw
 
 One draw, among **every Founder at any rung**, on an announced date that will not move.

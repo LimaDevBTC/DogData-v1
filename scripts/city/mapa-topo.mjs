@@ -738,6 +738,30 @@ const TIER_COR = {
 // a opacidade com que cada mancha vai ao terreno; o painel usa as mesmas
 const TIER_OP = { t1: 0.86, t2: 0.86, t3: 0.86, t4: 0.8, t5: 0.78, t6: 0.66, g20: 0.68, g00: 0.7 }
 
+// ── O DISTRITO FINANCEIRO, DENTRO DA SATOSHI PLAZA ──────────────────────────
+// ⚠️ tiersposition.md §3.12.5 REVOGOU a coroa entre AN1 e AN2: o distrito de
+// custódia (corretora, ponte, mesa) agora mora DENTRO da Praça (r <= 1.420,
+// 6,33 km²), separado da fila residencial. Ele ocupa 30% da área da Praça,
+// como uma coroa que começa onde o chão cívico acaba (R_PRACA_CHAO). A conta
+// é feita aqui, em nível de módulo, porque tanto a mancha (dentro de
+// `if (BAIRROS)`) quanto o rótulo no terreno (mais abaixo, em LUGARES)
+// precisam do mesmo raio, sem duplicar a fórmula em dois lugares.
+const R_PLAZA = 1420
+const R_PRACA_CHAO_BASE = +arg('rPracaChao', 1024)
+const R_DISTRITO_FIN = Math.sqrt(R_PRACA_CHAO_BASE ** 2 + 0.3 * R_PLAZA ** 2)
+// cor à parte, fora da escada de tier: não é privilégio residencial, é custódia
+// ⚠️ (14/09) A PRIMEIRA COR NÃO CONTRASTAVA. '#5E7A96' a 0,6 de opacidade, sobre
+// o cinza-azulado que a banda hipsométrica já põe ali, lia quase igual ao chão
+// cívico ('#A79C89'): rasterizado a 1400 px de largura, o distrito ficava
+// invisível a olho nu. Um azul mais saturado e mais opaco resolve, do mesmo
+// jeito que a água (escura) e a praia (bege) já se distinguem uma da outra.
+// ⚠️ TOM QUENTE DE PROPÓSITO. Este anel já foi azul (#3E7CB1) e no mapa impresso ele lia
+// como FOSSO: ficava do mesmo lado do espectro da água (#1C4E63) e o leitor via um lago em
+// volta da praça. Distrito é solo construído, então a cor tem de estar do lado da terra.
+// Não pode ser o laranja de BUILT (esse é estado de obra, não de uso) nem a areia do civic
+// core (#A79C89), que é o anel vizinho colado nele.
+const DISTRITO_COR = '#9A5B34', DISTRITO_OP = 0.78
+
 // ── OS BAIRROS (--bairros=1) ────────────────────────────────────────────────
 // ⚠️ USO DO SOLO VEM POR BAIXO DAS CURVAS, nunca por cima: numa carta a
 // altimetria é o esqueleto e a mancha urbana é a pele. Invertendo, as curvas
@@ -796,22 +820,23 @@ if (BAIRROS) {
   // Ela não ganha cor de tier porque não tem lote nenhum — é núcleo cívico.
   const R_PRACA_CHAO = +arg('rPracaChao', 1024)
   manchas += zona(coroa(60, R_PRACA_CHAO), '#A79C89', 0.55)         // a praça, chão cívico
-  manchas += zona(coroa(R_PRACA, R_T6), TIER_COR.t6, TIER_OP.t6)    // tier 6, Diamond Paws
-  manchas += zona(coroa(R_T6, R_G20), TIER_COR.g20, TIER_OP.g20)    // Grupo >= 20k
-  manchas += zona(coroa(R_G20, R_PER), TIER_COR.g00, TIER_OP.g00)   // periferia < 20k
+  // ⚠️ O DISTRITO FINANCEIRO ENTRA AQUI, NA COROA QUE SOBRAVA ENTRE O CHÃO
+  // CÍVICO E O TECIDO (tiersposition §3.12.5). Cor própria, fora da escada de
+  // tier: ele é custódia verificada, não posição na fila residencial.
+  manchas += zona(coroa(R_PRACA_CHAO, R_DISTRITO_FIN), DISTRITO_COR, DISTRITO_OP)
+  // ⚠️ AS MANCHAS DE DIAMOND PAWS, THE GROUP E EVERY OTHER HOLDER SAÍRAM DAQUI
+  // (13/09). Elas pintavam tier de airdrop, ou seja posicionamento, e o
+  // fundador foi explícito que posicionamento não vai a público ainda. R_T6 e
+  // R_G20 ficam sem uso por ora (só R_PER segue servindo a hachura de terra do
+  // projeto, logo abaixo); a cor de tier volta quando a posição for pública.
   // ⚠️ A TERRA DO PROJETO VAI EM HACHURA, NÃO EM CHAPADO. Pintada de azul ela
   // era lida como água: numa carta, área azul contínua é lâmina, e o olho não
   // negocia isso. Hachura diagonal é a convenção de "reservado" desde sempre.
   manchas += zona(coroa(R_PER, 9050), 'url(#hach)', 0.9)
-  // ⚠️ OS DOIS CABOS SAEM DA HACHURA. Enquanto não tinham rua, eles eram terra do
-  // projeto como todo o resto além de r 6.900. Agora têm malha e orla, e terreno
-  // com rua é bairro. Ficam na faixa de "todo o resto" — periferia sem ordenação,
-  // que é o que §3.5 manda para quem está fora dos seis primeiros tiers; a frente
-  // d'água deles continua sendo pintada pela faixa de orla, por cima disto.
-  // ⚠️ ISTO É DECISÃO NOVA e ainda não está no `tiersposition.md`: os cabos não
-  // aparecem em nenhuma seção de lá. Entra como o default conservador, não como
-  // escolha fechada.
-  for (const [ga, gb] of CABOS_MANCHA) manchas += zona(setor(R_PER, 9050, ga, gb), TIER_COR.g00, TIER_OP.g00)
+  // ⚠️ OS DOIS CABOS TAMBÉM PERDERAM A COR DE TIER, pelo mesmo motivo acima.
+  // Antes tinham rua e ganhavam a cor de "todo o resto" (g00); sem publicar
+  // posicionamento eles ficam sem mancha, como o resto da periferia agora. A
+  // frente d'água deles continua pintada pela faixa de orla, por cima disto.
   // a alça: praia, mansões de frente, via, mansões de trás, praia
   manchas += zona(setor(A_BAIA, A_BAIA + PRAIA_W, 346, 116.5), '#A69B80', 0.62)
   // ⚠️ A FILEIRA DA FRENTE TEM DOIS DONOS, E ELES NÃO SE MISTURAM. `tiersposition`
@@ -2485,13 +2510,18 @@ const LUGARES = [
   [-508, 11188, 'SPACEPORT', 'middle'],
   [5420, -4360, 'THE SPIT', 'middle'],
   [3180, -2480, 'BAY SHORE', 'middle'],
-  // ⚠️ O TOPÔNIMO PASSOU A DIZER O TIER, e não o apelido do anel. Com o painel
-  // "WHO LIVES WHERE" nomeando os oito, o rótulo no terreno que dizia "INNER
-  // FABRIC" obrigava o leitor a voltar ao painel para descobrir de quem era
-  // aquele cinza. Quem abre a carta pergunta onde ELE mora; o nome responde.
-  [-2450, 1180, 'DIAMOND PAWS', 'middle'],
-  [-4180, 2900, 'THE GROUP', 'middle'],
-  [-3100, 5980, 'EVERY OTHER HOLDER', 'middle'],
+  // ⚠️ DIAMOND PAWS, THE GROUP E EVERY OTHER HOLDER SAÍRAM DAQUI (13/09). Eram
+  // nome de TIER de airdrop, isto é, posicionamento, e o fundador foi
+  // explícito que posicionamento não vai a público ainda. Pior: a legenda nova
+  // (mais abaixo) não explica mais nenhum deles, então virariam bairro sem
+  // significado para quem lê. Só ficam nomes GEOGRÁFICOS de verdade (a alça, a
+  // praça, o parque, a orla) e as âncoras cívicas, na lista `ANCORAS` abaixo.
+  // ⚠️ "FINANCIAL DISTRICT" NÃO ENTRA AQUI. O painel padrão de LUGARES desenha
+  // uma linha só, no tamanho 19 px, e a Satoshi Plaza é pequena demais na
+  // folha (raio de 1.420 m contra 10.000 m de meia largura da carta) para
+  // esse topônimo comprido caber numa linha sem vazar para fora do círculo,
+  // por cima do tecido: foi exatamente o defeito relatado em 13/09. Ele ganhou
+  // desenho próprio, em duas linhas, logo depois do laço de LUGARES abaixo.
 ]
 
 // ⚠️ AS ÂNCORAS ENTRAM COMO PONTO NOMEADO, NUNCA COMO POLÍGONO DE LOTE, e a
@@ -2507,7 +2537,11 @@ const ANCORAS = [
   [2506, 628, 'CENTRAL PARK'],
   [-861, 2406, 'OLYMPIC PARK'],
   [1976, 2408, 'DOG DERBY'],
-  [-1909, 1416, 'FINANCIAL DISTRICT'],
+  // ⚠️ "FINANCIAL DISTRICT" SAIU DAQUI. Esta lista é âncora de programa (ponto
+  // solto, sem mancha); o distrito ganhou mancha e rótulo próprios dentro da
+  // Satoshi Plaza (tiersposition §3.12.5), então mora em LUGARES agora, não
+  // aqui: nome repetido em dois lugares diferentes é erro, não redundância
+  // (mesma razão do `_construidas` logo abaixo).
   [-699, -1954, 'COHORT GARDENS'],
   [2106, 1728, '$DOG ARENA'],
   [1663, 1111, 'DOG UNIVERSITY'],
@@ -2549,6 +2583,33 @@ for (const [x, z, nome, anc] of LUGARES) {
     + `paint-order="stroke" stroke-linejoin="round" opacity="0.9" `
     + `font-family="'JetBrains Mono', ui-monospace, monospace" font-size="${19 * F}" `
     + `letter-spacing="${4 * F}" text-anchor="${anc}">${esc(nome)}</text>`
+}
+// ── O RÓTULO DO DISTRITO FINANCEIRO, COM LINHA DE CHAMADA ───────────────────
+// ⚠️ (13/09) DUAS LINHAS EM 10 PX FICAVAM ILEGÍVEIS: rasterizado, o rótulo
+// sumia contra o anel, porque a coroa do distrito (raio 1.024 a 1.286 m,
+// dentro de uma Praça de só 1.420 m) é pequena demais na folha de 20 km para
+// caber "FINANCIAL DISTRICT" no mesmo corpo dos outros topônimos (19 px,
+// como "SATOSHI PLAZA") sem vazar do círculo.
+//
+// ⚠️ (14/09) A SOLUÇÃO É A CARTOGRÁFICA DE SEMPRE PARA ESSE APERTO: um PONTO
+// sobre a mancha, o TEXTO em corpo legível FORA da Praça (onde há espaço) e
+// uma LINHA DE CHAMADA fina ligando os dois. O texto agora sai no mesmo corpo
+// e halo dos outros topônimos, só um pouco menor (15 px contra 19), e o ponto
+// de saída foi escolhido medindo distância contra LUGARES e ANCORAS vizinhas
+// (Cohort Gardens, Dog University, Central Park) para não colidir com nenhum.
+{
+  const rPonto = (R_PRACA_CHAO_BASE + R_DISTRITO_FIN) / 2   // o ponto fica em cima da mancha
+  const pxPonto = mundoPx(0), pyPonto = mundoPx(-rPonto)   // norte, dentro do anel
+  const rTexto = 1750, angTexto = (50 * Math.PI) / 180     // fora da Praça, longe da vizinhança
+  const xTexto = rTexto * Math.sin(angTexto), zTexto = -rTexto * Math.cos(angTexto)
+  const pxTexto = mundoPx(xTexto), pyTexto = mundoPx(zTexto)
+  mob += `<line x1="${pxPonto.toFixed(1)}" y1="${pyPonto.toFixed(1)}" x2="${pxTexto.toFixed(1)}" y2="${(pyTexto + 10 * F).toFixed(1)}" `
+    + `stroke="#F5E9D6" stroke-width="${1.4 * F}" opacity="0.7"/>`
+  mob += `<circle cx="${pxPonto.toFixed(0)}" cy="${pyPonto.toFixed(0)}" r="${4 * F}" fill="#F7931A"/>`
+  mob += `<text x="${pxTexto.toFixed(1)}" y="${pyTexto.toFixed(1)}" fill="#F5E9D6" stroke="#14100A" stroke-width="${4 * F}" `
+    + `paint-order="stroke" stroke-linejoin="round" opacity="0.95" `
+    + `font-family="'JetBrains Mono', ui-monospace, monospace" font-size="${15 * F}" `
+    + `letter-spacing="${3 * F}" text-anchor="middle">${esc('FINANCIAL DISTRICT')}</text>`
 }
 // o recinto construído: limite fino e o nome no limite, porque ele é uma parcela
 // e não um ponto
@@ -2603,56 +2664,57 @@ mob += `<rect x="${m}" y="${m}" width="${LADO - 2 * m}" height="${LADO - 2 * m}"
 mob += T(m + 26 * F, m + 52 * F, 'DOGCITY', { tam: 44, esp: 10, cor: '#F5E9D6' })
 mob += T(m + 26 * F, m + 88 * F, 'MARE TRANQUILLITATIS · THE MOON', { tam: 18, esp: 5, op: 0.72 })
 mob += T(m + 26 * F, m + 116 * F, (BAIRROS || VIAS ? `CITY PLAN · ${PASSO} M CONTOUR · NEIGHBOURHOODS & NETWORK` : `HYPSOMETRIC CHART · ${PASSO} M CONTOUR · ${MESTRA} M INDEX`), { tam: 15, esp: 4, op: 0.5 })
-// ── QUEM MORA ONDE: a legenda de tier ──────────────────────────────────────
-// ⚠️ A LEGENDA DE COR DIZIA O NOME DO BAIRRO, NÃO QUEM VIVE NELE. Para uma carta
-// de trabalho isso basta; para material de divulgação não, porque a pergunta que
-// o leitor traz é uma só: "onde EU vou morar". Este painel responde ligando cada
-// mancha ao tier que a ocupa.
+// ── QUEM MORA ONDE: o painel da régua atual ────────────────────────────────
+// ⚠️ ESTE PAINEL FICOU OBSOLETO E FOI TROCADO EM 13/09. A versão anterior
+// listava 8 tiers (Satoshi Visionary, BTC Maximalist... Every Other Holder),
+// e aquilo classificava só quem RECEBEU O AIRDROP. A régua atual classifica as
+// 85.818 carteiras por acumulação medida na cadeia, TENHA A CARTEIRA RECEBIDO
+// AIRDROP OU NÃO (tiersposition.md §3.12 a §3.12.5). O airdrop virou EMBLEMA
+// na carteira, não endereço na cidade, e o nome oficial da copy do projeto é
+// GENESIS BADGE (14/09, trocado de "airdrop badge"): identidade e legado,
+// nunca terra, nunca retorno, é marca, não lote. O painel agora explica a
+// régua, não lista tier por tier, porque a régua ainda não fechou posição por
+// posição.
 //
-// ⚠️ E ELE DIZ QUEM, NUNCA QUANTOS. Contagem de carteira e posição são saídas do
-// snapshot, e material publicado vira promessa. O tier é um critério já público e
-// auditável; o número de lotes de cada bairro não é, e não entra aqui.
+// ⚠️ E ELE DIZ QUEM, NUNCA QUANTOS. Posição de carteira e número de lote são
+// saídas do snapshot do bloco 966.670 e ainda não são publicadas (decisão do
+// fundador, 13/09). O critério é público e auditável; o resultado não entra
+// aqui.
 const px2 = m + 26 * F
 let py2 = m + 178 * F
-// ⚠️ O VÉU TEM DE CABER A LINHA MAIS LONGA, e não a média. "from 20k DOG ·
-// oldest UTXO sits closer in" são 40 caracteres em monoespaçada com espacejamento:
-// com 620 de largura a frase saía por fora do painel e terminava em cima do
-// terreno, ilegível justamente na linha que explica a regra de posição.
-mob += veu(m, py2 - 30 * F, 700 * F, 300 * F)
+// ⚠️ O VÉU TEM DE CABER A LINHA MAIS LONGA, e não a média. As descrições agora
+// vão numa linha própria, abaixo do título de cada verbete (e não numa segunda
+// coluna): "custody for exchanges, bridges and desks, apart from the queue"
+// não cabia ao lado do título com a largura do painel.
+const QUEM_LEG = [
+  [TIER_COR.t1, TIER_OP.t1, 'RESIDENTIAL QUEUE',
+    'ranked by on chain accumulation, every wallet, at block 966,670'],
+  ['#F5E9D6', 0.9, 'GENESIS BADGE',
+    'identity and legacy, never land, never a return, a mark not a lot'],
+  [DISTRITO_COR, DISTRITO_OP, 'FINANCIAL DISTRICT',
+    'custody for exchanges, bridges and desks, apart from the queue'],
+]
+const ALT_QUEM = (30 + QUEM_LEG.length * 40 + 70) * F
+mob += veu(m, py2 - 30 * F, 700 * F, ALT_QUEM)
 mob += T(px2, py2, 'WHO LIVES WHERE', { tam: 14, esp: 4, cor: '#F7931A', op: 0.95 })
 py2 += 30 * F
-// ⚠️ UMA LINHA POR TIER, e não uma por bairro. O painel dizia "THE SPIT · FRONT
-// — Satoshi Visionary · BTC Maximalist": dois tiers numa cor só, quando a
-// posição deles dentro da alça está fechada e é DIFERENTE (§3.2: Visionary no
-// centro do arco, Maximalist nos flancos). O mesmo valia para a frente d'água.
-// A carta agora pinta os oito, e o painel é a chave deles.
-const TIERS_LEG = [
-  [TIER_COR.t1, TIER_OP.t1, '1 · SATOSHI VISIONARY', 'the spit · front row, centre of the arc'],
-  [TIER_COR.t2, TIER_OP.t2, '2 · BTC MAXIMALIST', 'the spit · front row, both flanks'],
-  [TIER_COR.t3, TIER_OP.t3, '3 · RUNE MASTER', 'the spit · back row'],
-  [TIER_COR.t4, TIER_OP.t4, '4 · ORDINAL BELIEVER', 'waterfront · facing the water'],
-  [TIER_COR.t5, TIER_OP.t5, '5 · DOG SUPPORTER', 'waterfront · behind the shore road'],
-  [TIER_COR.t6, TIER_OP.t6, '6 · DIAMOND PAWS', 'inner fabric · by how the wallet is used'],
-  [TIER_COR.g20, TIER_OP.g20, '7 TO 12 · THE GROUP', 'from 20k DOG · oldest UTXO sits closer in'],
-  [TIER_COR.g00, TIER_OP.g00, 'EVERY OTHER HOLDER', 'under 20k DOG · outskirts, no ranking'],
-]
 // ⚠️ O QUADRADINHO É PINTADO COMO A MANCHA, sobre um fundo de terreno e com a
 // mesma opacidade. A versão anterior mostrava a cor PURA: no painel o tier 6 era
 // pedra clara, no mapa saía compondo com a banda hipsométrica e virava outro
 // tom. Chave que não bate com o mapa é pior que chave nenhuma, porque o leitor
 // procura a cor errada.
-for (const [cor, op, bairro, quem] of TIERS_LEG) {
+for (const [cor, op, titulo, desc] of QUEM_LEG) {
   mob += `<rect x="${px2}" y="${py2 - 10 * F}" width="${13 * F}" height="${13 * F}" fill="#6F5C45"/>`
   mob += `<rect x="${px2}" y="${py2 - 10 * F}" width="${13 * F}" height="${13 * F}" fill="${cor}" opacity="${op}"/>`
-  mob += T(px2 + 22 * F, py2, bairro, { tam: 13, esp: 2.6, cor: '#F0E4D0', op: 0.95 })
-  mob += T(px2 + 268 * F, py2, quem, { tam: 12, esp: 1.6, cor: '#C9B99E', op: 0.85 })
-  py2 += 25 * F
+  mob += T(px2 + 22 * F, py2, titulo, { tam: 13, esp: 2.6, cor: '#F0E4D0', op: 0.95 })
+  mob += T(px2 + 22 * F, py2 + 16 * F, desc, { tam: 11, esp: 1.4, cor: '#C9B99E', op: 0.85 })
+  py2 += 40 * F
 }
-mob += T(px2, py2 + 6 * F, 'AIRDROP BEHAVIOUR DECIDES THE DISTRICT · WALLET AGE DECIDES THE STREET',
+mob += T(px2, py2 + 6 * F, 'ACCUMULATION AT BLOCK 966,670 DECIDES THE STREET, NOT THE AIRDROP',
   { tam: 11, esp: 1.8, op: 0.5 })
-// ⚠️ A CARTA É PRÉ-SNAPSHOT E TEM DE DIZER ISSO. Ela mostra ONDE cada tier mora,
-// que é regra fechada; não mostra lote de ninguém, porque lote é saída do bloco
-// 966.670. Publicada sem esta linha, um holder lê a mancha do tier dele como
+// ⚠️ A CARTA É PRÉ-SNAPSHOT E TEM DE DIZER ISSO. Ela mostra COMO a régua ordena
+// a cidade, que é regra fechada; não mostra lote de ninguém, porque lote é
+// saída do bloco 966.670. Publicada sem esta linha, um holder lê a mancha como
 // endereço prometido. O número já é público (o countdown da landing usa ele).
 mob += T(px2, py2 + 26 * F, 'PLAN BEFORE THE SNAPSHOT · EVERY WALLET IS PLACED AT BLOCK 966,670',
   { tam: 11, esp: 1.8, cor: '#F7931A', op: 0.72 })
@@ -2674,7 +2736,7 @@ mob += `<path d="M${nx} ${ny - 42 * F}L${nx + 13 * F} ${ny + 12 * F}L${nx} ${ny}
 // a legenda
 // ⚠️ A CAIXA CRESCE COM O NÚMERO DE VERBETES, e ela já estourou uma vez: ao
 // entrar o viaduto, a linha de RELIEF saiu por baixo do véu.
-const N_VERBETES = 15 + (an7TemTunel ? 1 : 0)
+const N_VERBETES = 16 + (an7TemTunel ? 1 : 0)
 const ALT_LEG = (N_VERBETES * 26 + 80) * F
 const lx = LADO - m - 260 * F, ly = LADO - m - ALT_LEG
 mob += veu(lx - 22 * F, ly - 34 * F, 282 * F, ALT_LEG)
@@ -2692,6 +2754,7 @@ const tracinho = (cor, w, dash) => (y) => `<line x1="${lx + 196 * F}" y1="${y - 
 mob += verbete('WATER', chip(AGUA_RASO))
 mob += verbete('BEACH', chip('#A69B80', 0.75))
 mob += verbete('CIVIC CORE', chip('#A79C89', 0.8))
+mob += verbete('FINANCIAL DISTRICT', chip(DISTRITO_COR, DISTRITO_OP))
 mob += verbete('BUILT · VISIT NOW', (y) => `<rect x="${lx + 208 * F}" y="${y - 11 * F}" width="${11 * F}" height="${11 * F}" fill="#F7931A"/>`)
 mob += verbete('PLANNED', (y) => `<circle cx="${lx + 213.5 * F}" cy="${y - 5.5 * F}" r="${4.6 * F}" fill="none" stroke="#F5E9D6" stroke-width="${1.6 * F}"/>`)
 mob += verbete('PROJECT LAND', chip('url(#hach)', 0.9))

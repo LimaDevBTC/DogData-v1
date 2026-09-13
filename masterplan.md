@@ -870,3 +870,66 @@ endereço de depósito da CoinEx, sabida por rótulo.
 
 Detalhe completo em `data/snapshots/dog_966670_dossie_topo.json` e nos scripts
 `scripts/city/{forma_tx,dossie_topo,pagadores}.py`.
+
+## §13 — A altura é dado, não recompensa 🔒 (2026-09-13)
+
+Decisão fechada pelo fundador depois de avaliar três caminhos: altura por saldo, por item de
+loja, ou por tamanho de doação. **Fica no saldo**, e a regra em uma linha é:
+
+> **O saldo decide o TAMANHO. Todo o resto decide a APARÊNCIA.**
+
+```
+massa, andares, altura medida     SALDO VIVO. nao vende, nao doa, nao presenteia.
+pele, coroa, luz, material,       LOJA. e onde o mercado cosmetico vive, e nao tem teto
+  telhado, fachada                porque gosto nao tem teto.
+licenca, ordem de chegada,        DOACAO. dizem QUEM CHEGOU PRIMEIRO, nunca QUANTO E GRANDE.
+  marca, luz do Founder, numero
+  na fachada, nome de rua
+```
+
+**Por que não pode vir de outro lugar.** A altura é a única coisa na cidade que é **dado vivo**:
+andando por ela, sem abrir interface nenhuma, você lê quem segura o quê. É o DogData renderizado
+como cidade, e é o que o projeto tem de mais difícil de copiar. No momento em que a altura vem
+de outra fonte, a cidade vira cenário bonito com números ao lado, que qualquer um faz.
+
+E colide com a frase que sustenta tudo: se "localização não se compra" mas altura se compra, a
+promessa vira advogado.
+
+⚠️ **Item de loja que adiciona andar é doação com um passo a mais.** Proibido pelo mesmo motivo.
+
+### 🔑 A saída que abre a loja sem tocar no dado: AGULHA NÃO É ANDAR
+
+Pináculo, antena e coroa iluminada **não são pavimento**. O Chrysler Building é famoso por uma
+ponta que não tem escritório nenhum dentro. A loja pode vender **estatura percebida** enquanto a
+altura medida continua honesta: o prédio parece maior, o dado não muda.
+
+### ⚠️ Pendência que sai daqui: a direção do encolhimento
+
+Se a altura respira com o saldo (§1), o prédio **ENCOLHE quando a pessoa vende**. É a parte que
+dói e é de onde vem reclamação. Falta decidir se encolhe na hora, com atraso, ou se existe piso.
+
+### §11.1 — A escada do Founder sobe em qualidade 🔒 (2026-09-13)
+
+Todo degrau inclui tudo dos de baixo, e **onde existe variante o degrau de cima recebe a VERSÃO
+EXCLUSIVA do mesmo item**, não só itens novos. Exemplo do fundador: o rover do Commercial é o
+lunar rover; o do Patron é o **rover preto tunado**.
+
+⚠️ **Toda variante exclusiva é SOULBOUND.** Se a versão exclusiva puder ser vendida, a
+exclusividade vira mercadoria e o status do Patron se compra no secundário, o que derruba a
+frase do pacote de que ninguém compra a prova de ter chegado primeiro.
+
+### §11.2 — A fronteira do custom building 🔒 (2026-09-13)
+
+```
+CUSTOM        forma, fachada, materiais, coroa, ornamento, planta, telhado
+NAO CUSTOM    altura, massa, pavimentos   vem do SALDO VIVO (§13)
+              pegada                      vem da AREA DO LOTE (curva do snapshot)
+```
+
+**O Patron ganha prédio ÚNICO, não prédio MAIOR.** Sem essa fronteira escrita, um Patron que
+doa 500.000 $DOG segurando 15.000 $DOG espera torre e recebe casa pequena de desenho único, e
+reclama com alguma razão.
+
+⚠️ Isso também mata a ideia de "coroa exclusiva do Patron" como benefício separado: se o prédio
+é de desenho único, a coroa já vem no desenho. A agulha de §13 é produto de LOJA para quem tem
+prédio de catálogo, não benefício de degrau.
