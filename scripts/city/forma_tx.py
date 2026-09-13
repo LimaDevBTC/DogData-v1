@@ -72,9 +72,10 @@ ordem = json.load(io.open(os.path.join(SNAP, 'dog_snapshot_966670_ordem.json'),
 
 # grupos: topo, rotulados, e um controle aleatorio de carteiras COMUNS com saldo relevante
 alvo = {x['address'] for x in ordem[:TOPO]} | set(ROTULADOS)
-rnd = random.Random(966670)
-comuns = [x for x in ordem[TOPO:] if x['dog'] >= 100000 and (utx.get(x['address']) or [])]
-ctrl = {x['address'] for x in rnd.sample(comuns, min(CONTROLE, len(comuns)))}
+# CONTROLE = censo COMPLETO da populacao comparavel (fora do topo, 20+ depositos).
+# ⚠️ Sortear por SALDO nao serve: quase nenhuma carteira de saldo alto tem 20+ depositos,
+# e o controle saiu com 3 carteiras. A populacao comparavel tem 978 e cabe medir inteira.
+ctrl = {x['address'] for x in ordem[TOPO:] if x['utxo_count'] >= 20}
 alvo |= ctrl
 json.dump(sorted(ctrl), io.open(os.path.join(SCR, 'controle.json'), 'w'))
 
