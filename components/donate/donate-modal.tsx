@@ -523,7 +523,7 @@ function DonateModal({
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={(asset === 'dog' ? DOG_METHOD?.qr : BTC_METHOD?.qr) as string}
-                      alt={`QR code for the ${asset === 'dog' ? 'DOG' : 'Bitcoin'} donation address`}
+                      alt={`QR code for the ${asset === "dog" ? "DOG" : "Bitcoin"} construction fund address`}
                       className="w-32 h-32 border border-white/10"
                     />
                   )}

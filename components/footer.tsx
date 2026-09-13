@@ -230,7 +230,7 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
               className="w-full md:w-auto px-6 md:px-8 py-3 bg-gradient-to-r from-lava to-lava-dark hover:from-lava-dark hover:to-lava-dark text-snow font-mono font-bold text-sm transition-all duration-300 shadow-[0_0_24px_rgba(245,110,15,0.15)] hover:shadow-[0_0_36px_rgba(245,110,15,0.25)] hover:scale-[1.02] flex items-center justify-center space-x-2.5 group rounded-xl"
             >
               <Gift className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" />
-              <span className="tracking-wider">MAKE DONATION</span>
+              <span className="tracking-wider">FUND THE CITY</span>
             </button>
           </div>
         </div>

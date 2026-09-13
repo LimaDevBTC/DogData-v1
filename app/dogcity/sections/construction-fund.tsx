@@ -617,7 +617,12 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
               })}
             </Stagger>
 
-            {/* ── DONATION METHODS — the conversion point of the page ────── */}
+            {/* ── COMO SE PAGA. ⚠️ NUNCA escrever "donation" no texto visivel: quem paga
+                 recebe uma LICENCA permanente de construcao, entao nao e doacao, e
+                 contradiz o que ja esta publicado ("a construction fund, not a
+                 raise" / "a goal, not a sale"). A casa diz "fund the city" e
+                 "build the city". Os identificadores internos (openDonate,
+                 DONATION_METHODS, /api/donate) podem ficar. ───────────────── */}
             <div className="mt-10 space-y-3">
               <Reveal y={12}>
                 <button
@@ -625,7 +630,7 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
                   className="w-full min-h-[48px] inline-flex items-center justify-center gap-2 border border-lava/60 bg-lava/[0.12] px-4 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-lava transition-colors hover:bg-lava/[0.2]"
                 >
                   <Wallet className="w-4 h-4" />
-                  Donate from your wallet
+                  Build the city from your wallet
                 </button>
               </Reveal>
 

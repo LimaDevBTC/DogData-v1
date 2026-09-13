@@ -913,7 +913,7 @@ export default function ProfilePage() {
               {standing ? (
                 <div className="space-y-3">
                   <p className="font-display font-bold text-xl text-snow tabular-nums">
-                    {dog(standing.total)} <span className="text-mist text-sm font-mono">DOG donated</span>
+                    {dog(standing.total)} <span className="text-mist text-sm font-mono">DOG contributed</span>
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {standing.founder_seq && (
@@ -953,7 +953,7 @@ export default function ProfilePage() {
                       onClick={() => openDonate({ asset: "dog" })}
                       className="inline-flex items-center gap-1.5 border border-lava/50 bg-lava/[0.08] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-lava hover:bg-lava/[0.16] transition-colors"
                     >
-                      Donate now
+                      Fund the city
                     </button>
                     <Link
                       href="/dogcity#build"
