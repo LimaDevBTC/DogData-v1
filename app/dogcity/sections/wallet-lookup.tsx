@@ -129,84 +129,47 @@ function blocosTipologia(utxoCount: number): 1 | 4 | 9 {
   return 9
 }
 
-function LotDrawing({ areaM2, utxoCount }: { areaM2: number; utxoCount: number }) {
-  const lado = Math.sqrt(areaM2)
-  const ref = referenciaPara(areaM2)
-  const contagem = areaM2 / ref.area
-  const blocos = blocosTipologia(utxoCount)
-  const concentrada = blocos === 1
-  const n = Math.round(Math.sqrt(blocos)) // 1, 2 ou 3: lado da grade da tipologia
-
-  const QUADRO = 100 // lado do lote no desenho, em unidades de viewBox (relativo, nunca px)
-  const px = QUADRO / lado // unidades de desenho por metro real DESTE lote
-
-  const tileW = Math.max(ref.larg * px, 1)
-  const tileH = Math.max(ref.alt * px, 1)
-
-  // pegadas da tipologia: grade N x N sempre CHEIA e igualmente espaçada,
-  // nunca uma linha parcial (o fundador prefere simetria a densidade exata,
-  // ver feedback_founder_prefere_simetria.md).
-  const razaoBloco = n === 1 ? 0.22 : 0.55
-  const celula = QUADRO / n
-  const ladoBloco = celula * razaoBloco
-  const desloc = (celula - ladoBloco) / 2
-  const pegadas = Array.from({ length: n * n }, (_, i) => ({
-    x: (i % n) * celula + desloc,
-    y: Math.floor(i / n) * celula + desloc,
-  }))
-
-  const MX = 15 // margem lateral do viewBox
-  const MY = 20 // margem de cima (rótulo do lado do lote)
-  const vbW = QUADRO + MX * 2
-  const vbH = MY + QUADRO + 40 // 40 = legenda de baixo, duas linhas + respiro
-  const patternId = `lotref-${Math.round(areaM2 * 10)}-${utxoCount}` // estável por resultado, sem colidir entre buscas
-
+// ⚠️ AQUI MORAVA O DESENHO DO LOTE (quadrado em escala, referência humana ladrilhada e
+// pegadas de tipologia pelo utxo_count). O fundador cortou em 13/09/2026 e pediu "algo
+// genérico e bonito no lugar". O desenho estava quase pronto e sai por `git log` deste
+// arquivo se alguém quiser de volta.
+//
+// O que ficou: curvas de nível lunares, decorativas. Elas NÃO codificam dado nenhum, e é de
+// propósito: qualquer coisa derivada do lote aqui viraria pista de posicionamento, que não
+// vai a público. É a mesma linguagem do mapa topográfico da cidade, então lê como DogCity
+// sem afirmar nada.
+function TerrainMark() {
+  // anéis irregulares e determinísticos, não aleatórios: sem `Math.random`, o desenho é
+  // sempre o mesmo e não muda entre renders nem entre servidor e cliente.
+  const aneis = [46, 38, 30.5, 23.5, 17, 11.5, 7]
+  const caminho = (r: number, i: number) => {
+    const pts = Array.from({ length: 28 }, (_, k) => {
+      const a = (k / 28) * Math.PI * 2
+      // deformação suave e reprodutível, para a curva não virar círculo perfeito
+      const d = r * (1 + 0.055 * Math.sin(a * 3 + i) + 0.03 * Math.cos(a * 5 - i * 2))
+      return `${(60 + d * Math.cos(a)).toFixed(2)},${(60 + d * Math.sin(a) * 0.82).toFixed(2)}`
+    })
+    return `M${pts.join('L')}Z`
+  }
   return (
-    <div className="mt-4 flex flex-col items-center">
-      <svg
-        viewBox={`0 0 ${vbW} ${vbH}`}
-        className="w-full max-w-[220px] md:max-w-[260px] block"
-        role="img"
-        aria-label={`Square lot, ${lado.toFixed(1)} meters per side. Footprint ${concentrada ? "concentrated, like a tower" : "spread out, like a low rise"}.`}
-      >
-        <defs>
-          <pattern id={patternId} patternUnits="userSpaceOnUse" width={tileW} height={tileH} x={MX} y={MY}>
-            <rect x={0.5} y={0.5} width={Math.max(tileW - 1, 0.5)} height={Math.max(tileH - 1, 0.5)}
-              fill="none" stroke="#9CA3AF" strokeOpacity={0.35} strokeWidth={0.5} />
-          </pattern>
-        </defs>
-
-        {/* o lote: quadrado ladrilhado com a referência humana, recortada na própria borda do lote (nunca um encaixe fingido) */}
-        <rect x={MX} y={MY} width={QUADRO} height={QUADRO} fill={`url(#${patternId})`} />
-        <rect x={MX} y={MY} width={QUADRO} height={QUADRO} fill="none" stroke="#F0F0F2" strokeWidth={1.5} />
-
-        {/* tipologia: pegadas sólidas por cima da grade de referência. cor de DADO da casa
-            (#E8660D), nunca a lava de UI (#F56E0F, ver project_chart_palette) */}
-        {pegadas.map((p, i) => (
-          <rect key={i} x={MX + p.x} y={MY + p.y} width={ladoBloco} height={ladoBloco} fill="#E8660D" />
+    <div className="mt-5 flex justify-center" aria-hidden="true">
+      <svg viewBox="0 0 120 120" className="w-full max-w-[200px] md:max-w-[230px] block">
+        {aneis.map((r, i) => (
+          <path
+            key={r}
+            d={caminho(r, i)}
+            fill="none"
+            stroke="#E8660D"
+            strokeOpacity={0.10 + i * 0.055}
+            strokeWidth={i === aneis.length - 1 ? 1.1 : 0.6}
+          />
         ))}
-
-        <text x={vbW / 2} y={MY - 6} textAnchor="middle" fontSize={7.5} fontWeight={700} fill="#F0F0F2" className="font-mono">
-          {lado.toFixed(1)} m side
-        </text>
-
-        <text x={vbW / 2} y={MY + QUADRO + 17} textAnchor="middle" fontSize={7} fill="#F0F0F2" className="font-mono">
-          ~{contagem.toFixed(1)}x {ref.plural}
-        </text>
-        <text x={vbW / 2} y={MY + QUADRO + 29} textAnchor="middle" fontSize={6} fill="#6B6B78" className="font-mono">
-          ({ref.dim} each)
-        </text>
+        <circle cx="60" cy="60" r="1.6" fill="#E8660D" fillOpacity={0.85} />
       </svg>
-
-      <p className="text-[11px] text-dusty mt-2.5 leading-relaxed text-center max-w-[240px]">
-        Footprint from {utxoCount.toLocaleString("en-US")} UTXO{utxoCount === 1 ? "" : "s"} at the snapshot:{" "}
-        {concentrada ? "concentrated, like a tower" : "spread out, like a low rise"}. Frozen: merging UTXOs later will not change it.
-      </p>
     </div>
   )
 }
 
-// ── o resultado, desenhado como ESCRITURA, não como notificação ─────────────
 function Documento({ r }: { r: Resultado }) {
   if (r.status === "exchange") {
     return (
@@ -264,7 +227,7 @@ function Documento({ r }: { r: Resultado }) {
         {linhaDoc("BLOCK HASH", <span className="break-all">{hashCurto(SNAPSHOT_PROOF.hash)}</span>)}
       </div>
 
-      <LotDrawing areaM2={r.area_m2} utxoCount={r.utxo_count} />
+      <TerrainMark />
 
       <p className="text-[13px] md:text-sm text-mist mt-4 leading-relaxed">
         You already own this. It was not for sale and it cannot be bought.

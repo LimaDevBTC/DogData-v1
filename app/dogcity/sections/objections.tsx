@@ -157,8 +157,8 @@ export function ObjectionWait() {
       id="faq-wait"
       eyebrow="WHAT IF I JUST WAIT?"
       title="You can build later. You cannot become a Founder later."
-      docHref="/dogcity/docs#founders-program"
-      docLabel="See the Founders ladder"
+      docHref="/dogcity/founders"
+      docLabel="Read the full Founders Pack"
     >
       <p>
         The construction fund window closes at 10,000,000 $DOG. Land you can still get, in
