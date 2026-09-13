@@ -459,6 +459,21 @@ the 66.767 km2 of urban fabric available, with 15.71 km2 to spare.
 
 ## 6. The Founders Program
 
+### The construction fund address
+
+These are the only addresses the construction fund uses. They are published here on purpose,
+away from the screen that takes the payment, so that anyone can check what a payment screen
+shows before sending anything. If an address on any page does not match one of these, do not
+send, and tell us.
+
+```
+$DOG      bc1pxk7aw9ug55jkkz02z7ayhlkxxq92ya0ctegcwm5j8jumgaavjlkqdylk2p
+BITCOIN   bc1qkq43gqyr7gjzj0mxz0v7e0nzs3cm59g9jspc63
+```
+
+The strongest check is not this page either: a connected wallet shows the destination in its own
+confirmation screen, which no script on our site can change. Prefer that path.
+
 Founders are a separate track from the residential city: a way to fund and unlock the
 city's construction, layered on top of a wallet's own lot from section 3, never a
 substitute for it. A wallet's Genesis Badge, tier, and lot never change because of anything

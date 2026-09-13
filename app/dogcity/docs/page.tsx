@@ -815,6 +815,28 @@ export default function DogCityDocsPage() {
                 change because of anything in this section.
               </P>
 
+              {/* ⚠️ O ENDEREÇO PUBLICADO AQUI DE PROPÓSITO, e este comentário é o motivo.
+                  Ele é uma SEGUNDA FONTE DE VERDADE, fora da tela que recebe dinheiro. Se a
+                  landing for comprometida por script injetado ou por extensão de navegador, a
+                  pessoa tem onde conferir antes de pagar. Trocar o endereço exige trocar AQUI,
+                  em `dogcity-data.ts` e na segunda declaração dentro do modal de pagamento. */}
+              <Sub>The construction fund address</Sub>
+              <P className="mt-0">
+                These are the only addresses the construction fund uses. They are published here
+                on purpose, away from the screen that takes the payment, so that anyone can check
+                what a payment screen shows before sending anything. If an address on any page
+                does not match one of these, do not send, and tell us.
+              </P>
+              <DataBlock>
+                <Row label="$DOG" value="bc1pxk7aw9ug55jkkz02z7ayhlkxxq92ya0ctegcwm5j8jumgaavjlkqdylk2p" />
+                <Row label="BITCOIN" value="bc1qkq43gqyr7gjzj0mxz0v7e0nzs3cm59g9jspc63" />
+              </DataBlock>
+              <P>
+                The strongest check is not this page either: a connected wallet shows the
+                destination in its own confirmation screen, which no script on our site can
+                change. Prefer that path.
+              </P>
+
               <Sub>What a Founder is</Sub>
               <P className="mt-3">
                 A Founder is any wallet that contributes to the city&apos;s construction fund before
