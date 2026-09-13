@@ -9,7 +9,7 @@
 // inteira da página, porque a alegação central da seção ("isto é terreno
 // lunar real, não paisagem procedural") só convence em tamanho grande.
 //
-// ⚠️ MESMO ARQUIVO DE IMAGEM de ./city-map.tsx (/landing/citymap-1600.webp,
+// ⚠️ MESMO ARQUIVO DE IMAGEM de ./city-map.tsx (/landing/citymap-1600-v2.webp,
 // 1.600px, 365 KB) — não existe versão maior versionada; a resolução real
 // mora atrás do link para o SVG, que é onde ela pesa.
 // ═══════════════════════════════════════════════════════════════════════════
@@ -37,7 +37,7 @@ export default function MapFull() {
           className={`group relative mt-7 block border ${HAIR} bg-white/[0.02] overflow-hidden`}
         >
           <Image
-            src="/landing/citymap-1600.webp"
+            src="/landing/citymap-1600-v2.webp"
             alt="City plan of DogCity: concentric districts around Satoshi Plaza, the spit along the bay, and the AN7 ring expressway, drawn over the real elevation of Mare Tranquillitatis."
             width={1600}
             height={1600}
