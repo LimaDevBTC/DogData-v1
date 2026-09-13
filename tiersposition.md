@@ -936,3 +936,171 @@ Bitflow. **Temos endereço de 5 das 14.**
    Fecha a brecha de se declarar corretora para pegar endereço nobre.
 3. **As 9 corretoras sem endereço não entram por dedução, procuram a gente.** Vira gancho
    comercial: torre no centro é peça de marketing do time delas.
+
+### §3.12.1 — Decisões travadas do Distrito Financeiro 🔒 (2026-09-13)
+
+1. **LUGAR: a coroa entre AN1 e AN2** (r 1.750 a 2.750), 13,50 km² disponíveis contra 1,89 km²
+   projetados. Não disputa o miolo com Praça, Lago, Sphere e Coliseu.
+2. **ENTRADA: identidade verificada, e corretora e projeto firmam PARCERIA.** Não se entra por
+   dedução nossa. Simetria: no bairro residencial você prova **o que fez**; aqui, **quem é**.
+3. **ÁREA escala com o tamanho**, mesma curva, teto 150.000 m² (ver §3.12).
+4. **TAG DE COMPORTAMENTO INSTITUCIONAL** para carteira sem parceria mas com comportamento de
+   mercado, **com direito a RECURSO**: o dono alega que é pessoal e troca por terreno da
+   reserva do projeto.
+5. **O PROJETO MANTÉM RESERVA DE TERRENO EM TODOS OS PONTOS NOBRES DA CIDADE**, sem exceção.
+   Não é luxo: é o que torna o recurso exequível. Sem reserva no nível certo não há troca.
+
+### ⚠️ A trava que o recurso não cobre sozinho
+
+**A tag institucional EXIGE SAÍDA. Nunca se aplica a carteira que nunca enviou DOG.**
+O recurso só funciona para quem percebe e recorre; carteira perdida ou dormente jamais
+recorreria, e o erro viraria permanente e silencioso. A regra protege **58.695 carteiras**
+(68% da cidade) que nunca assinaram nada, e é estruturalmente correta: serviço que não paga
+ninguém não é serviço.
+
+### Cobertura MEDIDA dos instrumentos (o que a tag consegue e o que não consegue)
+
+```
+ritmo circadiano (100+ depositos)      120 carteiras   0,14%   concentram 28% do supply
+sobreposicao (20+ depositos)         1.170            1,36%
+qualquer sinal de forma (10+)        3.353            3,91%   concentram 52% do supply
+MUDAS (menos de 10)                 82.465           96,09%
+   dessas, nunca assinaram          58.695                    resolvidas por EXCLUSAO
+   genuinamente sem sinal           23.770           27,70%
+no TOP 500: 57% tem 10+, 38% tem 20+, 10% tem 100+
+```
+
+**Não dá para classificar a cidade inteira; dá para classificar onde o dinheiro está.** Com o
+recurso, a régua deve ser calibrada para RECALL (pegar instituição mesmo errando um pouco),
+porque o erro caro passou a ser corretora na Orla Nobre, não pessoa no distrito.
+
+### A posição 2 NÃO é corretora
+
+2,62 B DOG, a maior carteira anônima da cidade. Corretora tem milhares de destinos e
+sobreposição ~zero (Gate.io 1.024 destinos e 0%, MEXC 1.093 e 0%, CoinEx 1.047 e 2%). A #2 tem
+**147 destinos e 58% de sobreposição**: perfil de DEPÓSITO E RESGATE, mesma família de #49
+(69%), #178 (96%) e da ponte do Stacks (63%). Ponte, pool ou custodial. Institucional do mesmo
+jeito, mas de outro tipo, e o distrito precisa comportar os dois.
+
+### §3.12.2 — Reserva do projeto: 15% de TODOS os bairros 🔒 (2026-09-13)
+
+**Decisão do fundador:** o projeto reserva **15% dos lotes em todos os bairros**, distribuídos
+em vários pontos dentro de cada um, não concentrados num bloco.
+
+**Por que existe:** não é cota comercial, é **infraestrutura do recurso** contra a tag de
+comportamento institucional (§3.12.1). Quem for marcado por engano troca por um terreno da
+reserva no mesmo nível. Sem reserva no nível certo, a tag vira sentença sem apelação.
+
+⚠️ **ARITMÉTICA NA ORLA NOBRE, que contraria a intuição:** 15% de 510 é **77**, e hoje a
+reserva lá é **65**. A reserva AUMENTA em 12 e os lotes de carteira caem de 445 para **433**.
+O que libera espaço na Orla Nobre é outra coisa: as institucionais saindo da fila residencial
+fazem as carteiras de trás subirem, sem mudar a contagem de lotes.
+
+Duas leituras possíveis, e a diferença precisa ficar explícita:
+- **15% uniforme** (gravado): Orla Nobre vai de 65 para 77 reservados.
+- **15% como teto**: mantém os 65 já decididos onde já existe reserva.
+
+**Distribuição:** vários pontos por bairro, nunca um bloco único, para que exista reserva
+equivalente perto de onde cada recurso aparecer.
+
+### §3.12.3 — A regra da TAG DE COMPORTAMENTO INSTITUCIONAL 🔒 (2026-09-13)
+
+```
+TRAVA DE SAIDA, obrigatoria: a carteira precisa ter ENVIADO DOG alguma vez
+                             (destinos distintos >= 1, pela regra do delta)
+E pelo menos UM destes:
+  A. ROTULO      identidade verificada em verified_addresses.json, ou entrada em
+                 dog_labels de corretora, ponte, desk, marketplace ou distributor
+  B. FLUXO       >= 300 destinos distintos de DOG na historia completa
+  C. DEPOSITO E  sobreposicao >= 50% entre quem paga e quem recebe, com >= 10 destinos
+     RESGATE
+  D. RITMO       >= 100 depositos E R de Rayleigh < 0,15 na hora UTC do deposito
+```
+
+**Por que a trava de saída existe:** o recurso só funciona para quem percebe e recorre.
+Carteira perdida ou dormente nunca recorreria, e o erro viraria permanente e silencioso. A
+trava protege **58.695 carteiras** (68% da cidade) que nunca assinaram nada. É estruturalmente
+correta: serviço que não paga ninguém não é serviço.
+
+**Calibragem dos limiares, medida:**
+- **B em 300**: a distribuição de destinos no top 500 tem vale claro em `511, 416, 228`. A
+  pessoa que mais paga (pos 22, holder confirmado) tem 191, bem abaixo.
+- **C em 50%**: três polos medidos. Pessoa (pos 22) **0%**, corretora (CoinEx) **2%**, ponte do
+  Stacks, endereço dado pelo fundador, **63%**.
+- **D**: ⚠️ o R esperado sob uniformidade é 0,886/√n, então limiar fixo sem piso de n é ruído.
+  Custo medido no censo completo da população comparável: pega 3 de 71, e as 3 assinaram 300+
+  vezes, ou seja são serviço. Zero carteira honesta rebaixada.
+
+### Resultado da primeira aplicação (top 500)
+
+```
+21 carteiras marcadas de 500        13.660.491.106 DOG = 13,66% do supply
+8 delas no top 10, 15 no top 60
+13 das 21 pegas por UM sinal so, sem rotulo  <- as frageis, alvo provavel de RECURSO
+```
+
+⚠️ **A regra so rodou no TOP 500**, porque a varredura de sobreposição cobre esse recorte.
+Abaixo disso só o critério D é aplicável hoje (120 carteiras na cidade têm 100+ depósitos).
+
+**Nova ordem residencial:** `data/snapshots/dog_966670_ordem_residencial.json`, 85.797
+carteiras. O novo primeiro colocado é a antiga posição 5: 1,03 B DOG, 18 UTXOs, 5 assinaturas,
+R 0,668, uma baleia que dorme. 21 carteiras entram no top 500 vindas de trás, maior salto da
+521 para a 500.
+
+### §3.12.4 — A reserva é 15% em TODOS os bairros, orgânica 🔒 (2026-09-13)
+
+**Decisão do fundador, que simplifica e destrava:** não é preciso escolher quais pontos são
+nobres. **15% dos lotes em todos os bairros, distribuídos de maneira orgânica.**
+
+Isso ENCERRA o único bloqueio de publicação que existia (o antigo Balde 2). Não há mais
+decisão pendente para a tag institucional ir a público.
+
+### Orçamento de terra, medido
+
+```
+carteiras residenciais               85.797
+lotes com 15% reservado             100.938
+lotes de RESERVA do projeto          15.141
+area das carteiras (curva atual)      46,30 km2
+area da reserva (lote mediano 314 m2)  4,76 km2
+TOTAL                                 51,05 km2   contra 66,767 km2 de tecido
+folga                                 15,71 km2
+```
+
+⚠️ A reserva é **CARVADA do inventário**, não somada: é a mesma conta da Orla Nobre, onde
+510 = 445 de carteira + 65 do projeto.
+
+### ⚠️ "Orgânico" tem de virar regra executável, senão o gerador inventa uma
+
+**Orgânico aqui significa RUÍDO AZUL (amostragem de Poisson), não aleatório puro.** Os três
+caminhos e por que só um serve:
+
+- **Aleatório puro NÃO serve.** Ele forma grumos e deixa buracos. Um recurso que nascer dentro
+  de um buraco recebe oferta de lote distante ou pior, e o recurso vira fachada.
+- **Grade NÃO serve.** Vira treliça visível de lotes vazios e lê como artificial. (Ver
+  [[feedback_founder_prefere_simetria]]: a preferência por simetria vale para elemento
+  repetido construído, não para amostragem de vazio.)
+- **Ruído azul serve.** Lê como natural e ao mesmo tempo **garante distância máxima até a
+  reserva mais próxima**, que é exatamente o requisito funcional.
+
+**O teste de aceitação, e é ele que importa:** todo lote da cidade precisa ter um lote de
+reserva de **qualidade comparável** dentro de um raio curto. Não é estética, é o que torna a
+troca do recurso honesta. O raio ainda precisa ser escolhido e medido contra o loteamento real.
+
+### §3.12.5 — O Distrito Financeiro vai para DENTRO da Satoshi Plaza 🔒 (2026-09-13)
+
+**REVOGA a decisão 1 de §3.12.1**, que o punha na coroa entre AN1 e AN2. O fundador levantou
+que a Plaza é grande demais para o que tem hoje, e a medida confirma.
+
+**A Satoshi Plaza é tudo que fica dentro de r 1.420**, porque o tecido da cidade só começa em
+r 1.450 (banda "Nucleo", 1.450 a 2.180) e os bulevares nascem em 1.420.
+
+```
+Satoshi Plaza                        r 1.420 m     6,33 km2
+distrito financeiro (80 carteiras)                 1,89 km2   30% da praca
+reserva do projeto, 15% da praca                   0,95 km2   15%
+sobra para nucleo civico e os 4 predios            3,49 km2   55%
+```
+
+**Por que dentro é melhor que na coroa:** o endereço é mais nobre, o espaço já está vazio, e
+não tira lote nenhum do tecido residencial. A coroa AN1 a AN2 volta a ser tecido comum.
