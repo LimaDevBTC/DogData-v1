@@ -841,3 +841,32 @@ e, nesta régua, custa DOG-tempo. Quem consolidou não foi avisado.
 
 `data/snapshots/dog_snapshot_966670_ordem.json`, 85.818 carteiras na ordem final, com
 posição, DOG, DOG-tempo, lth_pct, transações assinadas, emblema e área.
+
+### §12.1 — Custódia não se mede na cadeia 🔒 (2026-09-13)
+
+Sete métricas de cadeia foram medidas para separar custódia de convicção e **todas falharam**.
+A razão é estrutural: **custódia CONSOLIDA**. O endereço de uma corretora recebe da própria
+infraestrutura, não do público, então tem poucas contrapartes, saldo velho e pouco giro. Ou
+seja, custódia se parece com convicção, e no sentido que mais importa parece melhor.
+
+Consequência: a frase `"filtro_custodia: ... nao usa lista de endereco de corretora"` gravada
+em `dog_snapshot_966670_ordem.json` **não é cumprível** e sai. O programa de rótulos deixa de
+ser recurso de analytics e passa a ser infraestrutura de posicionamento.
+
+O instrumento que sobrou, medido contra o censo completo da população comparável:
+
+```
+n >= 100 depositos E R < 0,15    R = concentracao circadiana (teste de Rayleigh) na hora
+                                 UTC do deposito. servico opera 24 h, pessoa dorme.
+```
+
+Custo: 3 de 71 carteiras do controle, e as 3 assinaram 300+ vezes (são serviço escondido no
+controle). Zero carteira honesta rebaixada. ⚠️ O limiar depende de n: o R esperado sob
+uniformidade é 0,886/√n, então limiar fixo sobre amostra pequena é puro ruído.
+
+**Decisão:** atacadista e mesa que compraram de gente real e seguraram **acumularam de verdade
+e FICAM**. Só sai custódia, moeda que é de outra pessoa. No top 60 isso é uma carteira: a #6,
+endereço de depósito da CoinEx, sabida por rótulo.
+
+Detalhe completo em `data/snapshots/dog_966670_dossie_topo.json` e nos scripts
+`scripts/city/{forma_tx,dossie_topo,pagadores}.py`.
