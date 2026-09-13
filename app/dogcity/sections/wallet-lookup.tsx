@@ -227,7 +227,7 @@ function Documento({ r }: { r: Resultado }) {
           arrival, does not depend on owning land yet, and the window shuts at 10,000,000 $DOG.
         </p>
         <a
-          href="#offer"
+          href="/dogcity/founders"
           className="mt-5 inline-flex items-center justify-center h-11 px-6 font-mono font-bold text-[12px] tracking-[0.1em]
                      bg-lava text-void hover:bg-lava-light transition-colors duration-200"
         >
@@ -257,7 +257,7 @@ function Documento({ r }: { r: Resultado }) {
         You already own this. It was not for sale and it cannot be bought.
       </p>
       <a
-        href="#offer"
+        href="/dogcity/founders"
         className="mt-4 inline-flex items-center justify-center h-11 px-6 font-mono font-bold text-[12px] tracking-[0.1em]
                    bg-lava text-void hover:bg-lava-light transition-colors duration-200"
       >

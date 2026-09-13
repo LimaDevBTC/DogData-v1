@@ -256,6 +256,20 @@ export default function Section({}) {
             <Deed key={t.key} t={t} index={i} count={tiers.length} />
           ))}
         </Stagger>
+
+        {/* ⚠️ SAIDA PROPRIA DA ESCADA, e UMA so, FORA do laco dos degraus. Quem se convence
+            olhando a escada nao tinha para onde ir: o unico link para a pagina de oferta
+            ficava la embaixo, na objecao "e se eu esperar?". Aqui e o momento em que a pessoa
+            acabou de comparar os quatro. */}
+        <div className="mt-8">
+          <a
+            href="/dogcity/founders"
+            className="inline-flex items-center gap-2 font-mono text-[11px] tracking-[0.12em] text-dusty hover:text-mist transition-colors duration-200"
+          >
+            SEE EVERYTHING A FOUNDER GETS
+            <span aria-hidden="true">&rarr;</span>
+          </a>
+        </div>
       </div>
 
       <style jsx global>{`
