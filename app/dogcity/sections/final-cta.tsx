@@ -308,10 +308,15 @@ export default function Section({}) {
             </a>
             {/* ⚠️ ERA "Find Your Lot" apontando para #deed. A seção do deed saiu
                 da landing em 04/09: mostrar posição antes do bloco 966.670 é
-                publicar um lote que ainda pode mudar. O fecho da página volta
-                para o mesmo lugar onde ela abre, que é o relógio. */}
+                publicar um lote que ainda pode mudar.
+                ⚠️ E DEPOIS APONTOU PARA #snapshot, que a v3 da landing (13/09) levou
+                embora junto com a seção do relógio. Ficou link MORTO até o fundador
+                ver na tela. O destino certo agora é #proof, a seção que traz o bloco,
+                o hash e as duas verificações em zero: é o snapshot desta página.
+                ⚠️ Âncora interna não quebra build nem teste. Varrer href="#..." contra
+                os id= da página renderizada é a única forma de pegar. */}
             <a
-              href="#snapshot"
+              href="#proof"
               className="inline-flex items-center gap-2 px-7 py-3.5 font-mono text-sm text-snow border border-white/20 hover:border-white/[0.45]"
             >
               The Snapshot
