@@ -872,3 +872,67 @@ Quando for reconstruir, o gerador precisa:
   nada de área, nada a fazer pelo holder. É a única forma de prêmio testada nesta rodada que
   não disputa o recurso escasso da cidade.
 
+
+## §3.12 — Distrito Financeiro (decisão em aberto, 2026-09-13)
+
+**O problema:** a régua de DOG-tempo joga a Kraken (maior saldo da cidade, 12,95 B) para a
+posição 82.761. O fundador: "as corretoras que a gente busca listagem, a gente joga pro final
+da fila? A Kraken trouxe mídia, trouxe tudo isso". Jogar custódia para o fim não é
+neutralidade, é punição de quem ajudou.
+
+**A virada:** corretora não é problema de EXCLUSÃO, é problema de ENDEREÇO. A régua mede
+acumulação pessoal e instituição nunca competiu nesse eixo. Proposta do fundador: **distrito
+financeiro** dentro da Satoshi Plaza ou no primeiro arco em volta dela.
+
+### Dimensionamento medido
+
+```
+22 carteiras institucionais JA identificadas   28,85% do supply contado
+  pela curva atual                              0,393 km2
+  com teto de 40.000 m2 cada                    0,880 km2
+projecao ~80 carteiras (14 corretoras x 4 + pontes)  3,20 km2
+
+AN1 Anel Interior, r 1.750   9,19 km2 internos
+coroa AN1 a AN2              13,50 km2
+```
+
+Cabe com folga: o distrito projetado é um terço do disco interno.
+
+### As 20 listagens (CoinGecko, 13/09/2026)
+
+14 custodiais: Kraken, Gate, MEXC, BigONE, DigiFinex, BingX, Bitget, CoinW, Bitrue, Ourbit,
+CoinEx, BitKan, Mercado Bitcoin, UniSat. 6 on-chain: Raydium, DotSwap, Meteora (2), Orca,
+Bitflow. **Temos endereço de 5 das 14.**
+
+### Recomendações (a decisão é do fundador)
+
+1. **Área ESCALA com o tamanho** 🔒 (decisão do fundador, 13/09: "são carteiras grandes, então
+   merecem espaço adequado no centro financeiro"). Eu havia sugerido lote uniforme e fui
+   vencido, com razão: no distrito financeiro ninguém lê o terreno da Kraken como riqueza
+   pessoal, lê como sede de instituição, e "endereço não se compra" é promessa da régua
+   RESIDENCIAL.
+
+   ⚠️ **Mas o teto de 40.000 m² da cidade EMPATA seis carteiras no máximo** e a Kraken fica do
+   tamanho da MEXC. Regra recomendada: **mesma curva da cidade, teto elevado a 150.000 m²
+   dentro do distrito**.
+
+   ```
+   Kraken     11,22 ha   12,95 B DOG      CoinEx      2,96 ha   0,90 B
+   treasury    5,50 ha    3,11 B          teto 150.000 m2 nao corta ninguem hoje
+   Gate.io     5,43 ha    3,03 B          (Kraken para em 112.247), e trilho de
+   Bitget      5,21 ha    2,79 B          seguranca se aparecer carteira maior
+   anonima #2  5,05 ha    2,62 B
+   MEXC        4,22 ha    1,83 B
+   ```
+
+   Custo de tirar o teto: 0,393 para **0,519 km²** nas 22 conhecidas; projeção de 80 carteiras
+   dá **1,89 km²** contra 9,19 km² dentro do AN1. Sobra muito.
+
+   **A raiz quadrada continua funcionando aqui:** a Kraken tem 4,3x o DOG da Gate.io e só 2,1x
+   o terreno. O distrito não vira concentração, e a frase é defensável em público igual à do
+   bairro residencial.
+2. **Entrada por IDENTIDADE VERIFICADA, nunca por medição.** Simetria que o projeto ganha de
+   graça: no bairro residencial você prova **o que fez**; no distrito financeiro, **quem é**.
+   Fecha a brecha de se declarar corretora para pegar endereço nobre.
+3. **As 9 corretoras sem endereço não entram por dedução, procuram a gente.** Vira gancho
+   comercial: torre no centro é peça de marketing do time delas.
