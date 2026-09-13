@@ -59,6 +59,29 @@ export const SNAPSHOT = {
   announcedTip: 965_522,
 }
 
+// ── A PROVA (dobra 2 de marketing/LANDING-V3-DESENHO.md) ───────────────────
+// O snapshot já aconteceu: `data/snapshots/dog_snapshot_966670.json` (gitignored,
+// gerado 2026-09-12) tem o bloco minerado, com hash e hora reais. Estes números
+// são o cabeçalho `snapshot` e `totais` daquele arquivo, copiados um a um — não
+// arredondar, não trocar por "mais de 85 mil": a precisão É o argumento.
+export const SNAPSHOT_PROOF = {
+  block: 966_670,
+  // hash do bloco 966.670, do nosso próprio nó
+  hash: '00000000000000000001151e3718cd3766940941fa7815f7eaeb1b8588acd927',
+  timeUtc: '2026-09-12T11:26:45Z',
+  // totais.carteiras / totais.utxos / totais.supply_dog do snapshot
+  wallets: 85_818,
+  utxos: 239_432,
+  dogTotal: 99_975_593_202.33,
+  // supply total mintada da rune DOG•GO•TO•THE•MOON menos o que o snapshot
+  // encontrou em circulação: o que falta foi queimado (endereços OP_RETURN e
+  // UTXOs de rune sem dono), não é erro de conta.
+  burned: 24_406_797.66,
+  // verificacao.diferenca_de_supply === 0 e identidade_D_igual_C_unspent === true
+  supplyConservation: 'closed at exactly zero',
+  setIdentity: 'matched to the unit',
+}
+
 // ── $DOG Galaxy (app/galaxy) ───────────────────────────────────────────────
 // Snapshot da genealogia lido do NO RAIZ (a tesouraria do airdrop) em
 // 2026-08-26 via /api/holders/tree?depth=0. Sao exatamente os campos que o
@@ -220,8 +243,17 @@ export const PHASE_ANNOTATIONS: PhaseAnnotation[][] = [
 
 export const TIERS = [
   {
-    key: "founder",
-    name: "Founder",
+    // ⚠️ RENOMEADO DE "founder" PARA "citizen" EM 13/09 (LANDING-V3-DESENHO.md,
+    // dobra 4: "A escada: Citizen, Personal, Commercial, Patron"). A palavra
+    // "Founder" continua existindo no produto, só que para OUTRA coisa: o
+    // programa inteiro (qualquer contribuinte, o número de ordem de chegada,
+    // o monumento em ./sections/founders-register.tsx). Chamar o primeiro
+    // degrau da escada de "Founder" também fazia as duas coisas colidirem no
+    // mesmo texto ("Become a Founder" citando o degrau de baixo, ao lado de
+    // "Founders' Monument" citando o programa inteiro). `key` muda porque
+    // alimenta o CSS (--lot-rest etc. em tiers.tsx); a cor e o limiar não mudam.
+    key: "citizen",
+    name: "Citizen",
     threshold: "Any amount",
     color: "#CBD5E1",
     perks: [
@@ -229,8 +261,8 @@ export const TIERS = [
       "Counts toward the 10M Grand Opening",
       "Personal progress bar toward your license",
     ],
-    note: "Contributions below 10,000 DOG do not include the right to mint a building. Founder recognition is permanent; the mint license starts at Personal.",
-    cta: "Become a Founder",
+    note: "Contributions below 10,000 DOG do not include the right to mint a building. Citizen recognition is permanent; the mint license starts at Personal.",
+    cta: "Become a Citizen",
   },
   {
     key: "personal",

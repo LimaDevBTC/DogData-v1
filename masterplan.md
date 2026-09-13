@@ -933,3 +933,100 @@ reclama com alguma razão.
 ⚠️ Isso também mata a ideia de "coroa exclusiva do Patron" como benefício separado: se o prédio
 é de desenho único, a coroa já vem no desenho. A agulha de §13 é produto de LOJA para quem tem
 prédio de catálogo, não benefício de degrau.
+
+## §14 — Anéis de expansão: a cidade cresce, nunca se divide 🔒 (2026-09-13)
+
+Pergunta do fundador: carteira nova que aparece hoje divide o terreno existente com as do
+airdrop, ou a gente cria lote novo? Três caminhos, e só um serve.
+
+**Dividir o terreno existente: DESCARTADO.** Diluir quem já estava para caber quem chegou
+destrói a promessa central, de que posição vem do histórico e ninguém mexe nela. Quem comprou
+hoje ganharia às custas de quem segurou dois anos.
+
+**Não dar nada a quem chega: DESCARTADO.** Mata o funil para sempre e contradiz o que já está
+publicado: *"nothing about arriving today shuts you out"*.
+
+**A cidade CRESCE.** É o que o deck do Founder Program já dizia na seção 07 (*"THE CITY GROWS,
+around the asset that already exists"*), só que sem mecanismo. Agora tem.
+
+### 🔑 O SNAPSHOT NÃO CRIOU ESCASSEZ DE TERRA, CRIOU ESCASSEZ DE PROXIMIDADE
+
+Terra sempre cabe mais: o sítio tem **248,3 km²** e o tecido de hoje usa **66,8 km², que é
+27%**. Cabe quase quatro vezes a cidade atual sem sair do sítio. O que **nunca mais** pode ser
+fabricado é estar perto do centro, porque isso foi decidido no bloco 966.670 e acabou.
+
+Isso torna o snapshot MAIS valioso, não menos: quem estava lá é central para sempre, e a
+distância até o centro é literalmente o registro de quando a pessoa chegou.
+
+### O mecanismo
+
+Cada anel novo abre com **um snapshot novo, num bloco futuro anunciado**.
+
+```
+Anel 1   bloco 966.670    a fundacao, 85.818 carteiras
+Anel 2   bloco futuro     quem chegou depois
+Anel 3   ...
+```
+
+- **Nunca dilui.** Anel fechado é anel fechado, para sempre.
+- **O funil nunca fecha.** Sempre existe o próximo, e sempre existe razão para entrar antes,
+  porque o próximo é mais longe.
+- **Cada anel é um evento repetível:** bloco anunciado, contagem regressiva, lista que fecha.
+- **A cidade ganha anéis de idade, como tronco de árvore.** O anel diz quando você chegou, e é
+  visível no mapa para sempre, sem interface nenhuma.
+
+⚠️ **Uma carteira pertence ao PRIMEIRO anel em que apareceu**, e o lote é daquele anel. Se ela
+acumular depois, o prédio cresce (§13), mas **o endereço não muda**.
+
+### Consequência imediata: a landing tem DOIS públicos, não um
+
+```
+QUEM ESTA NO SNAPSHOT     "voce ja tem um lote".  A busca por endereco prova na hora,
+(85.818 carteiras)         mostrando a area em m2. CTA: virar Founder para construir nele.
+QUEM CHEGA AGORA          "a cidade esta crescendo". A busca devolve "esta carteira nao
+                           estava no bloco 966.670". CTA: travar o Founder number antes dos
+                           10M, com a terra vindo no Anel 2.
+```
+
+**A mesma busca serve aos dois e é ela que RAMIFICA o funil.** Digita o endereço, e a página
+decide qual conversa ter. Muito melhor que escolher um discurso e perder metade das pessoas.
+
+⚠️ **O anel precisa estar anunciado ANTES da busca ir ao ar**, nem que seja só como direção sem
+bloco marcado. Senão a busca devolve negativa seca para todo recém-chegado.
+
+### O passo que a landing tem de gritar
+
+Para quem chega: **comprar não basta, tem de SACAR para carteira própria.** DOG parado em
+corretora não é seu na cadeia, o lote vai para o endereço da corretora, e esse endereço agora
+vai para o Distrito Financeiro. Serve ao projeto duas vezes, porque tira moeda de custódia e
+põe em auto-custódia.
+
+E o que é escasso para quem chega agora não é a terra, é **a ordem**: o Founder number é por
+ordem de chegada, não depende de ter lote, e a janela fecha nos 10M. *"You can build later. You
+cannot become a Founder later."*
+
+### §14.1 — Várias carteiras contam SEPARADO 🔒 (2026-09-13)
+
+Decisão do fundador. Cada carteira é um lote, sem agregação por pessoa. Também é o único
+resultado possível para o Anel 1, que já está congelado no bloco 966.670, e não existe prova de
+posse de múltiplas carteiras que permitisse o contrário.
+
+⚠️ **A CONSEQUÊNCIA, MEDIDA:** como a área cresce com a RAIZ do saldo, dividir em N carteiras
+multiplica a terra total por **√N**.
+
+```
+1.000.000 DOG em 1 carteira        986 m2
+dividido em 10 de 100.000        3.119 m2    3,16x
+dividido em 100 de 10.000        9.864 m2   10,00x
+```
+
+Para o Anel 1 é irrelevante (congelado). Para o **Anel 2 é incentivo explícito**: quem souber
+divide antes do bloco.
+
+**Por que isso se defende sozinho: terra é de graça, CONSTRUIR não é.** Quem divide em 100
+carteiras ganha 100 lotes VAZIOS e precisa de 100 licenças de 10.000 $DOG para construir em
+todos. O custo de ocupar cresce LINEAR enquanto a terra cresce por RAIZ, então a divisão para
+de compensar rápido.
+
+**Na copy, responder direto:** sim, contam separado, pode dividir se quiser, mas cada lote
+precisa da própria licença para virar prédio.

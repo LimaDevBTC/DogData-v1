@@ -63,10 +63,12 @@ export const metadata: Metadata = {
 // O `#âncora` explícito continua valendo: chegar em /dogcity#build é pedido, não
 // posição restaurada. Por isso a guarda de hash aqui e no efeito.
 //
-// ⚠️ #snapshot É EXCEÇÃO, E A EXCEÇÃO É O CAMINHO MAIS IMPORTANTE DA PÁGINA.
-// O anúncio de 04/09 publicou /dogcity#snapshot para uma audiência inteira, e
-// desde então a seção do snapshot É a hero: ela abre a página, logo abaixo da
-// faixa da mempool. Pedir "#snapshot" é pedir o topo.
+// ⚠️ #snapshot E #lookup SÃO EXCEÇÃO, E A EXCEÇÃO É O CAMINHO MAIS IMPORTANTE
+// DA PÁGINA. O anúncio de 04/09 publicou /dogcity#snapshot para uma audiência
+// inteira; a reestruturação de 13/09 (marketing/LANDING-V3-DESENHO.md) trocou
+// a hero pelo campo de endereço em ./sections/wallet-lookup.tsx, id="lookup".
+// As DUAS âncoras continuam valendo topo: o link antigo não pode quebrar, e o
+// novo é o que a dobra 1 usa de agora em diante.
 //
 // Deixar o salto de âncora nativo cuidar disso NÃO funciona, e foi medido em
 // 04/09 num viewport de 1440x900: o navegador salta para a posição da seção no
@@ -81,7 +83,7 @@ export const metadata: Metadata = {
 const TOPO_ANTES_DA_HIDRATACAO = `
 try {
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-  var noTopo = function () { return !location.hash || location.hash === '#snapshot'; };
+  var noTopo = function () { return !location.hash || location.hash === '#snapshot' || location.hash === '#lookup'; };
   if (noTopo()) {
     window.scrollTo(0, 0);
     // a carga ainda vai mexer no layout (fontes, imagens, o scrub do herói):

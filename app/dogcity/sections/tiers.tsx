@@ -108,7 +108,12 @@ function SectionHead({ eyebrow, title, sub }: { eyebrow: string; title: string; 
 // ground already covers at rest. It is the section's escalation, expressed as
 // material. Nothing here is a claim about the product.
 const LOT_REST_FILL: Record<string, number> = {
-  founder: 22,
+  // ⚠️ CHAVE RENOMEADA DE "founder" PARA "citizen" EM 13/09, junto de
+  // dogcity-data.ts (LANDING-V3-DESENHO.md, dobra 4). Sem este ajuste o
+  // primeiro degrau perde o --lot-rest (cai no default do :root, 100%) e
+  // nasce cheio em vez de 22%, quebrando a escalada visual que é o ponto
+  // inteiro desta seção (ver o comentário de topo do arquivo).
+  citizen: 22,
   personal: 44,
   commercial: 66,
   patron: 100,
