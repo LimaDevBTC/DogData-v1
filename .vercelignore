@@ -1,5 +1,9 @@
 mcp-server/
 sdk/
 migrations/
-docs/
+# ⚠️ ANCORADO NA RAIZ DE PROPOSITO. Sem a barra inicial o padrao casa QUALQUER
+# diretorio chamado docs em qualquer nivel, e derrubava as rotas app/docs (o
+# Scalar da API) e app/dogcity/docs, as duas com 404 em producao sem ninguem
+# perceber. Achado em 13/09/2026.
+/docs/
 backend/
