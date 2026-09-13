@@ -22,7 +22,7 @@ import type { Metadata } from 'next'
 // ⚠️ O `?v=` existe porque X e Facebook guardam a chapa pela URL e não
 // voltam a buscar quando o arquivo muda no mesmo caminho. Ao trocar o JPG,
 // incremente o número, senão o post sai com a imagem antiga.
-const OG = 'https://www.dogdata.xyz/og-dogcity.jpg?v=3'
+const OG = 'https://www.dogdata.xyz/og-dogcity.jpg?v=5'
 
 export const metadata: Metadata = {
   title: 'DogCity: a virtual city for DOG holders, on real lunar terrain | dogdata.xyz',
