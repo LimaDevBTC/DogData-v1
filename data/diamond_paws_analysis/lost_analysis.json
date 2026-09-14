@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-14T15:41:54.188763+00:00",
+  "generated_at": "2026-09-14T19:53:12.110206+00:00",
   "data_source": {
     "forensic_behavioral_analysis": "data/forensic_behavioral_analysis.json",
     "chain_stats_jsonl": "data/diamond_paws_analysis/chain_stats.jsonl",
@@ -16,34 +16,34 @@
     }
   },
   "totals": {
-    "diamond_paws_with_stats": 19272,
+    "diamond_paws_with_stats": 19270,
     "diamond_paws_missing_stats": 0,
-    "total_airdrop_dog": 19792844664.0,
-    "pct_of_supply": 19.792844664
+    "total_airdrop_dog": 19791065052.0,
+    "pct_of_supply": 19.791065052
   },
   "lost_relaxed": {
     "count": 5890,
-    "pct_of_diamond_paws": 30.56247405562474,
+    "pct_of_diamond_paws": 30.565646081992735,
     "dog_locked": 5608447218.0,
-    "pct_of_diamond_paws_dog": 28.335730983636036,
+    "pct_of_diamond_paws_dog": 28.338278931750743,
     "pct_of_supply": 5.608447217999999
   },
   "lost_strict": {
     "count": 2,
-    "pct_of_diamond_paws": 0.0103777501037775,
+    "pct_of_diamond_paws": 0.010378827192527244,
     "dog_locked": 1779612.0,
-    "pct_of_diamond_paws_dog": 0.008991188635137565,
+    "pct_of_diamond_paws_dog": 0.008991997122560921,
     "pct_of_supply": 0.0017796119999999999
   },
   "active_after_airdrop": {
-    "count": 13382,
-    "pct_of_diamond_paws": 69.43752594437525,
-    "dog_held": 14184397446.0,
+    "count": 13380,
+    "pct_of_diamond_paws": 69.43435391800726,
+    "dog_held": 14182617834.0,
     "spent_txo_buckets": {
       "100+": 1845,
-      "21-100": 3630,
+      "21-100": 3629,
       "6-20": 3284,
-      "2-5": 2687,
+      "2-5": 2686,
       "1": 1936
     },
     "note": "These wallets sent something (BTC, other runes\u2026) but their DOG balance equals the airdrop amount \u2014 they're alive HODLers, not lost."
@@ -83,7 +83,7 @@
       "p2wpkh/p2wsh": 260
     },
     "active": {
-      "p2tr": 10981,
+      "p2tr": 10979,
       "p2sh": 333,
       "p2wpkh/p2wsh": 1911,
       "p2pkh": 157
