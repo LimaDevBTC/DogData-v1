@@ -1238,7 +1238,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
   const [introLua] = useState(() => {
     if (typeof window === 'undefined') return false
     const q = new URLSearchParams(window.location.search)
-    return !navigator.webdriver && !lite && !q.get('view') && q.get('plate') !== '1' && q.get('lite') !== '1' && q.get('intro') === '1' /* TEMPORÁRIO: só por ?intro=1 até a conferência visual */
+    return !navigator.webdriver && !lite && !q.get('view') && q.get('plate') !== '1' && q.get('lite') !== '1' && q.get('intro') !== '0'
   })
   const [chegada, setChegada] = useState<'lua' | 'saindo' | 'feita'>(() => (introLua ? 'lua' : 'feita'))
   // ⚠️ O BOTÃO "N" NÃO É REACT DESTA CENA, e por isso o `!plate` do JSX nunca o

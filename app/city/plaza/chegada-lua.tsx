@@ -28,9 +28,9 @@ const LUA_MINIMO_S = 4.5
 const MERGULHO_S = 3.6
 // fração do mergulho em que a cortina começa a cair. Abaixo de ~90 km de altura
 // a textura de 2048 já lê borrada; a cidade entra por cima antes disso.
-const MERGULHO_CORTINA = 0.52
-// altura final do mergulho, em raios lunares (0,006 R = 10 km)
-const ALTURA_FIM = 0.006
+const MERGULHO_CORTINA = 0.45
+// altura final do mergulho, em raios lunares (0,015 R = 26 km)
+const ALTURA_FIM = 0.015
 
 const LARANJA = '#F7931A'
 
@@ -132,19 +132,10 @@ export default function ChegadaLua({ progresso, pronto, onFim }: Props) {
     lua.add(brilho)
 
     // ── sol de lado: o terminador na borda direita é o que desenha as crateras
-    const sol = new THREE.DirectionalLight(0xfff4e6, 3.2)
+    const sol = new THREE.DirectionalLight(0xfff4e6, 3.6)
     sol.position.set(-0.85, 0.3, 0.6)
     scene.add(sol)
     scene.add(new THREE.AmbientLight(0x8aa4ff, 0.05)) // luz da Terra
-
-    // ── a Terra ao fundo, pequena, só no quadro deitado
-    const terra = new THREE.Mesh(
-      new THREE.SphereGeometry(0.26, 48, 32),
-      new THREE.MeshStandardMaterial({ map: tex('/city/earth/earth_atmos_1024.jpg', true), roughness: 0.9 }),
-    )
-    terra.position.set(-6.4, 3.1, -16)
-    terra.rotation.z = 0.41
-    scene.add(terra)
 
     // ── estrelas
     {
@@ -243,10 +234,11 @@ export default function ChegadaLua({ progresso, pronto, onFim }: Props) {
       camera.lookAt(sitioMundo.x * (e * 0.999), sitioMundo.y * e, sitioMundo.z * e)
 
       // o brilho: um alfinete de tamanho constante na tela enquanto a Lua é
-      // disco, e de perto trava no tamanho físico da cidade (~21 km), que é
-      // quando ele deixa de ser marca e vira a luz para onde se cai
+      // disco. ⚠️ NO MERGULHO ELE APAGA: travado em tamanho físico ele virava
+      // um sol borrado ocupando meia tela, e o que se quer ver ali é o chão.
       const alt = Math.max(0.0001, camera.position.distanceTo(sitioMundo))
-      brilho.scale.setScalar(Math.max(alt * (0.018 + 0.006 * Math.sin(t * 2.2) * (1 - e)), 0.012))
+      brilho.scale.setScalar(alt * (0.018 + 0.006 * Math.sin(t * 2.2)))
+      ;(brilho.material as THREE.SpriteMaterial).opacity = 1 - suave(e / 0.3)
 
       renderer.render(scene, camera)
 
