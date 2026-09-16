@@ -21,6 +21,7 @@ import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { createBattlefield, type Battlefield } from '../war/battlefield'
 import WarLegend from './war-legend'
+import ChegadaLua from './chegada-lua'
 import { loadTerrain, PRACA_Y, LAGO_R1, CANAL_LAMINA, CANAL_BANDA, CANAL_PRAIA } from './terrain'
 import { criarTerrenoFino, ligarNaVia, type TerrenoFino } from './terreno-fino'
 import type { SombraCascata } from './sombra'  // mesma razão do decalques: 747 linhas fora do pacote
@@ -1228,6 +1229,18 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
   const [boardOpen, setBoardOpen] = useState(false)
   // ?plate=1: só a cena, sem HUD (para fotografar as chapas da landing)
   const [plate] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('plate') === '1')
+  // ⚠️ A CHEGADA PELA LUA (fundador, 16/09: "o cara nem sabe que a cidade é na
+  // lua"). A cortina de carga vira o globo girando até a Mare Tranquillitatis e
+  // o mergulho no sítio quando a cidade abre (`chegada-lua.tsx`). Fica de fora:
+  // automação (o portão `chapas.mjs` espera `__plazaPronto` e fotografaria a
+  // Lua), `?view=` (link direto para um lugar), `?plate=1`, o modo lite do
+  // navegador de carteira (é um segundo contexto WebGL) e `?intro=0`.
+  const [introLua] = useState(() => {
+    if (typeof window === 'undefined') return false
+    const q = new URLSearchParams(window.location.search)
+    return !navigator.webdriver && !lite && !q.get('view') && q.get('plate') !== '1' && q.get('lite') !== '1' && q.get('intro') === '1' /* TEMPORÁRIO: só por ?intro=1 até a conferência visual */
+  })
+  const [chegada, setChegada] = useState<'lua' | 'saindo' | 'feita'>(() => (introLua ? 'lua' : 'feita'))
   // ⚠️ O BOTÃO "N" NÃO É REACT DESTA CENA, e por isso o `!plate` do JSX nunca o
   // alcançou: ele é o custom element <nextjs-portal> que o dev server injeta no
   // body (32 x 32 px em x 22, y 846 numa janela de 900) e que sobrava em toda
@@ -5910,8 +5923,27 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       />
 
       {/* ── o portão: a praça só é entregue montada ────────────────────────── */}
-      {!boot.ready && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-black px-8 text-center">
+      {(!boot.ready || chegada !== 'feita') && (
+        <div
+          className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-black px-8 text-center transition-opacity duration-[1200ms] ease-out"
+          style={{ opacity: chegada === 'saindo' ? 0 : 1, pointerEvents: chegada === 'saindo' ? 'none' : 'auto' }}
+        >
+          {introLua && (
+            <ChegadaLua
+              progresso={bootPct}
+              pronto={boot.ready}
+              onFim={() => {
+                setChegada('saindo')
+                setTimeout(() => setChegada('feita'), 1250)
+              }}
+            />
+          )}
+          {/* com a Lua atrás, o título sobe para o terço de cima e a barra desce
+              para o pé: o centro é do globo. Some quando o mergulho começa. */}
+          <div
+            className={`relative flex flex-col items-center gap-6 transition-opacity duration-500 ${introLua ? 'h-full w-full justify-between py-[max(3rem,env(safe-area-inset-top))]' : ''}`}
+            style={{ opacity: boot.ready ? 0 : 1, ...(introLua ? VISOR : null) }}
+          >
           <div>
             {/* ⚠️ O QUE CARREGA É A CIDADE, NÃO A PRAÇA (fundador, 31/08). A praça
                 é o centro dela, e anunciar o centro como se fosse o todo diz ao
@@ -5919,6 +5951,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/40">Mare Tranquillitatis · the Moon</p>
             <h1 className="mt-2 font-mono text-xl font-semibold tracking-tight text-white sm:text-2xl">DogCity</h1>
           </div>
+          <div className="flex w-full flex-col items-center gap-6">
           <div className="w-full max-w-sm">
             <div className="h-[3px] w-full overflow-hidden bg-white/10">
               <div
@@ -5939,10 +5972,13 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             The city loads before it opens: terrain, avenues, towers and gardens. The chalet, the
             monuments and the park keep building once you are already inside.
           </p>
+          </div>
+          </div>
         </div>
       )}
 
-      {boot.ready && <>
+      {/* o HUD espera o mergulho: aparece junto com a cortina caindo */}
+      {boot.ready && chegada !== 'lua' && <>
 
       {/* ── o que ainda sobe com a cidade já aberta ──────────────────────────
           ⚠️ ISTO EXISTE PORQUE O SILÊNCIO ERA O DEFEITO. A cortina caía e o

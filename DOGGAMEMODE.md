@@ -226,3 +226,25 @@ aritmética, não medição contra o loteamento, que ainda não existe: os lotes
 hoje são teste e os de verdade nascem no snapshot do bloco 966.670. Nada aqui foi
 verificado em telefone físico nem com personagem em cena, porque personagem em
 cena ainda não existe.
+
+## 9. Decisões do fundador, 16/09/2026
+
+Contexto: snapshot do bloco 966.670 já passou e o fundo está a menos de 2M dos
+10M. O modo a pé entra junto com a estruturação da cidade, em três trilhos:
+A (caminho do mint), B (modo a pé), C (cidade no chão). O trilho B não pode
+bloquear o A.
+
+1. **A vista aérea vira MODO MAPA.** O modo a pé é o principal; o mapa fica para
+   visão geral, escolha de destino e o tour da live.
+2. **Carro existe, como item.** Carros são Ordinals, itens dentro da cidade. Isso
+   substitui a proibição de carro particular do plano diretor.
+3. **Celular tem modo a pé já na primeira versão**, em perfil leve.
+4. **Arte do boneco:** o fundador está desenhando. Até lá o trilho B anda com
+   cápsula no lugar do personagem.
+5. **Em aberto:** declividade máxima lotável e quem paga o talude entre lotes
+   vizinhos (§7). Trava o registro final e portanto o mint.
+
+Ordem do trilho B: B1 controlador 2,5D sobre `superficieAt` com colisão por
+pegada 2D e câmera de ombro (desktop e toque); B2 plano de profundidade, sombra
+que segue o jogador, névoa e perfil "a pé"; B3 personagem; B4 portão de escala
+humana com robô que percorre o grafo de vias.
