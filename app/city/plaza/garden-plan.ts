@@ -80,6 +80,11 @@ export const PAW_PLAQUE = onDiagonal('SE', 498, 12)
 /** Leonidas, o fundador do DOG: no eixo da diagonal, atrás dos dedos da pata, de frente para o deck */
 export const LEONIDAS_POS = onDiagonal('SE', 730)
 export const LEONIDAS_PLINTH_R = 8
+/** A casa do LeonidasNFT ("The Block"): o cubo fecha a vista da alameda SE
+ *  atrás da estátua, como o Gênese fecha a NE. Fachada olhando o deck.
+ *  O LeonidasNFT pediu MAIOR: o módulo escala 1,4× (cubo ~45 m, pódio ~62 m). */
+export const BLOCK_POS = onDiagonal('SE', 825)
+export const BLOCK_R = 45 // meia diagonal do pódio 1,4× (43,6) + folga
 /** árvores de flor branca em arco atrás dos dedos, dos dois lados da alameda */
 export const PAW_BLOSSOMS: [number, number][] = (() => {
   const [cx, cz] = PAW_PALM
@@ -194,6 +199,7 @@ export const RESERVED: [number, number, number][] = [
   ...PAW_TOES.map(([x, z]) => [x, z, PAW_TOE_R + 8] as [number, number, number]),
   [PAW_PLAQUE[0], PAW_PLAQUE[1], 6],
   [LEONIDAS_POS[0], LEONIDAS_POS[1], LEONIDAS_PLINTH_R + 10],
+  [BLOCK_POS[0], BLOCK_POS[1], BLOCK_R],
   ...PAW_BLOSSOMS.map(([x, z]) => [x, z, 5] as [number, number, number]),
   [ORDINAL_CENTER[0], ORDINAL_CENTER[1], ORDINAL_RING_R + 14],
   ...ORDINAL_PLAQUES.map(([x, z]) => [x, z, 5] as [number, number, number]),
