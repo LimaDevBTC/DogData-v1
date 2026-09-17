@@ -251,7 +251,11 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   for (let i = 0; i < 4; i++) {
     const a = Math.PI / 4 + (i * Math.PI) / 2
     allee(a, R_RING + RING_W / 2 - 2, 560 - 52) // do anel ao espelho d'água
-    allee(a, 560 + 52, R_EDGE - 6)              // do espelho à muralha
+    // A diagonal SE (i=0) morre no pé do pódio do Bloco (a casa do LeonidasNFT,
+    // r 825 e 1,4×: o pódio avança até r≈781): o cubo FECHA a alameda, como o
+    // Gênese fecha a NE — sem isto o pavimento seguia num beco cego atrás dele
+    // até a muralha, visível de cima. As outras três vão até a muralha.
+    allee(a, 560 + 52, i === 0 ? 781 : R_EDGE - 6) // do espelho à muralha (ou ao Bloco)
   }
   const R_PROM = 745, PROM_W = 12
   const promenadeArc = (a0: number, a1: number) => {
