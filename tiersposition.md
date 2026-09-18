@@ -438,13 +438,21 @@ acumulada**, faixa de raio a faixa de raio:
 | Grupo ≥ 20k | 2.376 a 3.975 | **3.300 a 5.300** |
 | Grupo < 20k | 3.975 a 5.080 | **5.300 a 6.900** |
 
-⚠️ **IDEIA ABERTA, ainda não decidida: canais radiais como prêmio dos tiers intermediários.**
-Dono, 2026-09-10. Os tiers 7 a 12 (5.158 carteiras) são os únicos que ficaram sem nada
-próprio: caíram dentro do Grupo, indistintos dos 58 mil que compraram no mercado. Um canal
-radial cortando o tecido daria frente de água a eles sem mover ninguém de bairro e sem tocar
-na hierarquia da alça. **MEDIDO** como referência: uma malha de canais a cada 300 m com 30 m
-de largura renderia 1.242 km de testada consumindo 18,62 km², contra os 14,93 km de testada
-que a alça inteira tem.
+⚠️ ~~**IDEIA ABERTA: canais radiais como prêmio dos tiers intermediários.**~~
+**DESCARTADA em 2026-09-18 pelo fundador.** A ideia (dele, 2026-09-10) era dar frente de água
+aos tiers 7 a 12 (5.158 carteiras), os únicos sem nada próprio, com uma malha de canais a cada
+300 m. **MEDIDO antes de descartar:** 1.242 km de testada consumindo **18,62 km²**, que são 28%
+do tecido, contra os 14,93 km de testada que a alça inteira tem.
+
+**O motivo do descarte, na palavra do fundador:** *"nós colocamos todas as carteiras sobre o
+mesmo filtro, então acho que isso pode ter uma outra resolução. Empresas com perfil financeiro
+de comportamento vão pra Satoshi Plaza, todo o restante das carteiras são organizadas pelo
+perfil de comportamento que criamos."*
+
+⚠️ **E é a mesma regra que fechou o tier B em §3.9: prêmio que não custa terra.** A identidade
+dos tiers intermediários vem do lugar que o perfil de comportamento já dá a eles (§3.5 e
+§3.12.5), não de um recorte de água feito só para eles. A cidade congela com a rede de canais
+que já existe: 8 radiais de 96 m e 5 anéis de 56 m, que dão frente de água a 12.625 lotes.
 
 ### 3.9 — A orla da baía: pedra mais DOG (🔒 2026-09-11)
 
@@ -798,6 +806,11 @@ Quando for reconstruir, o gerador precisa:
 
 ## 6. Registro de mudanças deste arquivo
 
+- **2026-09-18** — **canais radiais DESCARTADOS** (§3.8). Todas as carteiras passam pelo mesmo
+  filtro, o perfil de comportamento já diz onde cada uma mora, e os 18,62 km² não se gastam.
+  Entra também a demarcação dos **anéis de expansão 2 e 3** dentro da abóbada (masterplan §14):
+  coroas r 7.200 a 8.100 e r 8.100 a 8.900, 86,1 km² somados, hoje vazias. Depois do Anel 3 a
+  cidade precisa de casca nova.
 - **2026-09-12** — §3.11: cai o piso de 40 m² (decisão do fundador) e a constante da curva
   é recalibrada de 0,975228 para **0,986443**, para a soma continuar nos 46,66 km² do split
   70/30. Piso geométrico de 1 m² (escolha minha, documentada). A faixa baixa sai de 0,881
