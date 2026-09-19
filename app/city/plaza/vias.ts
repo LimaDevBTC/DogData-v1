@@ -2100,9 +2100,21 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
           const bx = B0x + (B1x - B0x) * u0, bz = B0z + (B1z - B0z) * u0
           // ⚠️ O ANEL PARA NA ORLA, pelo mesmo motivo da avenida. O teste
           // é por SUBTRECHO, não pelo lado inteiro: um lado do dodecágono tem até
-          // 3.900 m e pode entrar na baía por 300 m — matar o lado todo devolveria
-          // o buraco de 3 km que a auditoria acabou de fechar.
-          if (paraNaAgua((ax + cx) / 2, (az + cz) / 2)) continue
+          // 3.900 m e pode entrar na baía por 300 m, e matar o lado todo devolveria
+          // o buraco de 3 km que a auditoria já fechou.
+          //
+          // ⚠️ E O TESTE É NA PEGADA, NÃO NO CENTRO, que é a mesma armadilha já
+          // registrada no cruzamento da teia e no assentamento do lote. Medido em
+          // 18/09/2026 pela auditoria: o AN1 tinha 11.456 m² de pista dentro da
+          // água (5,2% do anel), o AN2 10.944 e o AN3 10.624. A máscara não estava
+          // faltando, ela testava só o meio do quad: com banda de até 34 m e o
+          // anel raspando a orla do Lago da Praça, o centro cai em terra e a borda
+          // externa cai na lâmina. Testar os quatro cantos encosta o pavimento na
+          // linha d'água em vez de invadi-la. Ponte curta continua passando,
+          // porque `paraNaAgua` só bloqueia corpo largo demais para tabuleiro.
+          if (paraNaAgua((ax + cx) / 2, (az + cz) / 2)
+            || paraNaAgua(ax, az) || paraNaAgua(bx, bz)
+            || paraNaAgua(cx, cz) || paraNaAgua(dx, dz)) continue
           // ⚠️ ORDEM ANTI-HORÁRIA VISTA DE CIMA: ângulo primeiro, raio depois. A
           // ordem natural de escrever (raio, depois ângulo) dá normal para BAIXO
           // e o backface culling apaga o anel inteiro. Mesma armadilha de
@@ -2916,6 +2928,88 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     }
   }
 
+  // ── A REDE É UMA SÓ: fora toco flutuante e asfalto em ilha ───────────────
+  //
+  // 🔒 FUNDADOR, 18/09/2026: "sem ruas flutuando, e não quero ruas nas ilhas".
+  //
+  // ⚠️ AS DUAS COISAS SÃO O MESMO DEFEITO, e é por isso que UMA regra resolve as
+  // duas: rua em ilha é, por definição, rua sem ligação com a rede, porque não
+  // existe ponte até lá. Cortar "o que está em ilha" exigiria saber o que é ilha;
+  // cortar "o que não se liga" não exige saber nada além do próprio traçado.
+  //
+  // ⚠️ E O CRITÉRIO É O MESMO QUE A AUDITORIA JÁ USA (`scripts/city/vias-varredura.mjs`):
+  // componente conexo, maior componente é a rede. A diferença é que aqui ele
+  // deixa de ser laudo e vira construção: o que o auditor apontaria não chega a
+  // ser desenhado.
+  //
+  // ⚠️ SÓ ARESTA INTEIRA LIGA. Uma aresta partida no meio pela água tem as duas
+  // pontas vivas e não liga ponta nenhuma: tratá-la como ligação costuraria as
+  // duas margens de um lago como se houvesse ponte. Ponte de verdade não parte a
+  // aresta (`teiaBloqueado` deixa passar o vão curto), então ela entra aqui como
+  // aresta inteira, que é o que ela é.
+  const teiaEixo = (e: number) => {
+    const ar = teiaArestas[e]
+    const bA = ar.bA, bB = ar.bB
+    if (!bA || !bB) return null
+    const e0 = bA.cd, e1 = bA.ce, f0 = bB.ce, f1 = bB.cd
+    const cax = (e0[0] + e1[0]) / 2, caz = (e0[1] + e1[1]) / 2
+    const cbx = (f0[0] + f1[0]) / 2, cbz = (f0[1] + f1[1]) / 2
+    const comp = Math.hypot(cbx - cax, cbz - caz)
+    if (comp < 0.6) return null
+    return { cax, caz, dx: (cbx - cax) / comp, dz: (cbz - caz) / comp, comp, meia: bA.meia }
+  }
+
+  const TEIA_VIV: (number[] | null)[] = new Array(teiaArestas.length).fill(null)
+  const teiaPai = new Int32Array(teiaNos.length)
+  for (let i = 0; i < teiaPai.length; i++) teiaPai[i] = i
+  const teiaAcha = (x: number): number => {
+    while (teiaPai[x] !== x) { teiaPai[x] = teiaPai[teiaPai[x]]; x = teiaPai[x] }
+    return x
+  }
+  const teiaUne = (a: number, b: number) => {
+    const ra = teiaAcha(a), rb = teiaAcha(b)
+    if (ra !== rb) teiaPai[ra] = rb
+  }
+  const teiaComp = (e: number): number => {
+    const v = TEIA_VIV[e]
+    if (!v) return 0
+    let L = 0
+    for (let k = 0; k < v.length; k += 2) L += v[k + 1] - v[k]
+    return L
+  }
+  for (let e = 0; e < teiaArestas.length; e++) {
+    if (!teiaViva[e]) continue
+    const ei = teiaEixo(e)
+    if (!ei) continue
+    const ar = teiaArestas[e]
+    const v = teiaVivos(ei.cax, ei.caz, ei.dx, ei.dz, ei.comp, ar.arco ? ei.meia : 0)
+    TEIA_VIV[e] = v
+    if (v.length === 2 && v[0] <= 0.05 && v[1] >= ei.comp - 0.05) teiaUne(ar.a, ar.b)
+  }
+  const teiaSoma = new Map<number, number>()
+  for (let e = 0; e < teiaArestas.length; e++) {
+    if (!TEIA_VIV[e]) continue
+    const r = teiaAcha(teiaArestas[e].a)
+    teiaSoma.set(r, (teiaSoma.get(r) ?? 0) + teiaComp(e))
+  }
+  let teiaRede = -1, teiaRedeM = -1
+  for (const [r, L] of teiaSoma) if (L > teiaRedeM) { teiaRedeM = L; teiaRede = r }
+  const teiaServido = new Uint8Array(teiaNos.length)
+  let teiaSoltas = 0, teiaSoltasM = 0
+  for (let e = 0; e < teiaArestas.length; e++) {
+    if (!TEIA_VIV[e]) continue
+    const ar = teiaArestas[e]
+    if (teiaAcha(ar.a) === teiaRede || teiaAcha(ar.b) === teiaRede) {
+      teiaServido[ar.a] = 1
+      teiaServido[ar.b] = 1
+      continue
+    }
+    teiaSoltas++
+    teiaSoltasM += teiaComp(e)
+    TEIA_VIV[e] = null
+    teiaViva[e] = false
+  }
+
   // ── e o laço: cada aresta em pedaços vivos, cada nó uma vez ──────────────
   let teiaTrechos = 0
   for (let e = 0; e < teiaArestas.length; e++) {
@@ -2933,7 +3027,10 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     const dx = (cbx - cax) / comp, dz = (cbz - caz) / comp
     const px = -dz, pz = dx
     const meia = bA.meia
-    const viv = teiaVivos(cax, caz, dx, dz, comp, ar.arco ? meia : 0)
+    // ⚠️ JÁ MEDIDO na passada de conectividade, acima: chamar `teiaVivos` de novo
+    // aqui custaria a varredura inteira duas vezes e, pior, poderia divergir dela.
+    const viv = TEIA_VIV[e]
+    if (!viv) continue
     for (let k = 0; k < viv.length; k += 2) {
       const s0 = viv[k], s1 = viv[k + 1]
       if (s1 - s0 < 1) continue
@@ -3020,10 +3117,19 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     console.log(`[vias] via de orla: ${orlaTrechos} trechos, ${(orlaMetros / 1000).toFixed(2)} km `
       + `costurando a margem dos lagos que empurram a malha`)
   }
+  if (teiaSoltas) {
+    console.log(`[vias] rede: ${teiaSoltas} arestas soltas apagadas `
+      + `(${(teiaSoltasM / 1000).toFixed(2)} km), a rede ficou com ${(teiaRedeM / 1000).toFixed(2)} km`)
+  }
 
   let teiaCruz = 0
-  for (const no of teiaNos) {
+  for (let ni = 0; ni < teiaNos.length; ni++) {
+    const no = teiaNos[ni]
     if (no.br.length === 0) continue
+    // ⚠️ CRUZAMENTO DE RUA QUE NÃO EXISTE MAIS TAMBÉM É RUA FLUTUANDO. Sem esta
+    // linha, apagar a aresta solta deixaria a praça do cruzamento dela no lugar,
+    // que é uma ilha de asfalto de 12 m boiando sozinha.
+    if (!teiaServido[ni]) continue
     // ⚠️ O TESTE É NA PEGADA, NÃO NO CENTRO. O cruzamento tem 12 m de lado; medir
     // só o nó deixaria um deles entrar 6 m por baixo do Anel Interior, que é
     // exatamente a sobreposição que esta rodada veio consertar. `ce` são os cantos
