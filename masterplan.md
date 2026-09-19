@@ -747,8 +747,74 @@ criada pelo projeto dentro da própria água**, e não sai da cota de ninguém.
 à noite, ela é vista de graça por todo mundo que ainda não é Fundador, todos os dias, sem
 custar um metro de lote a ninguém.
 
-**Em aberto:** o desenho da ilha, e se o clube recebe programa próprio no §5 (onde já moram
-`Founders Pool`, `Founders' Monument` e `Patrons' Walk`, o mesmo instinto nunca desenhado).
+### §11.3 — O desenho da ilha 🔒 (2026-09-18)
+
+**A ilha é um ATOL, e o nome dela é `The Founders Club`.** Projeto em
+`scripts/city/ilha-founders.py` (que também exporta a geometria), geometria publicada em
+`public/city/founders-club.json`, chapa IF-01.
+
+```
+posicao      rumo 51,3, r 5.600, NO EIXO do meio da orla nobre
+             900 m de lamina aberta entre a ilha e a orla
+anel         24,6 ha de terra, dodecagono r 450 com faixa de 120 m
+bacia        32,7 ha de agua abrigada, r 330
+a Casa       1,5 ha, ilhota central: assembleia, conselho, mesa
+10 pavilhoes 96 x 54 m, um por face, 5 de cada lado
+2 bocas      90 m, nas pontas do eixo. paredes RETAS, nao setor angular
+porto        2 cais de 200 m dentro da bacia, na boca da cidade
+2 helipontos r 26 m, nas pontas da perpendicular, na cabeceira das passarelas
+cota         lamina -40, conves -32, gabarito 2 pavimentos
+```
+
+⚠️ **A POSIÇÃO NÃO É O MEIO DA BAÍA, É O EIXO.** A folga máxima da água está no rumo 42
+(1.210 m medidos), mas o meio da orla nobre está no 51,3. Um objeto que 510 lotes olham todo
+dia, posto fora do eixo deles, lê como acidente. Custou 260 m de folga.
+
+⚠️ **E ELA É BAIXA DE PROPÓSITO.** O topo fica **23 m abaixo do datum da cidade**, porque a
+baía está a -40. A ilha nunca encobre a skyline de ninguém: é joia acesa numa bacia, vista de
+cima. Isso também mata a ideia do farol, que o fundador descartou em 18/09.
+
+⚠️ **UMA ENTRADA SÓ, e é isso que torna o portão possível.** Com duas entradas equivalentes,
+controle vira cerca; com uma, vira porta. A boca norte fica aberta ao barco (é a janela para a
+orla nobre), mas quem desembarca desembarca na boca da cidade.
+
+### §11.4 — O Portão 🔒 (2026-09-18)
+
+**O portão é literal:** uma passarela atravessa o canal por cima. O barco passa por baixo, a
+pessoa passa por cima, e é ali que a carteira é conferida. Fica desenhado, não é regra
+invisível.
+
+**A regra de acesso, decidida pelo fundador:**
+```
+passa    Founder QUE TAMBEM TEM LICENCA (>= personal, 10k)
+passa    endereco na lista manual do fundador
+NAO passa  quem so doou (citizen). doar nao da acesso.
+NAO passa  quem licenciou DEPOIS dos 10M: licenca sem Founder nao abre o portao
+```
+Medido em 17/09: dos 110 doadores, **99 teriam acesso** (56 personal, 35 commercial, 8 patron)
+e 11 não. A lista manual é campo próprio, nunca um remendo na lista de doação.
+
+**A máquina já existe e está em produção na `/city`:** conectar carteira, provar posse
+(BIP-322 no Xverse e OKX, Schnorr no Kray), sessão no Redis. ⚠️ **Conectar não é provar:** só
+existe sessão quando a posse foi assinada, e é a sessão que o portão lê.
+
+**O mirante público é o funil, não cortesia.** Plataforma na água 190 m antes do portão, com
+molhe para o barco de visita. Quem não passa chega até lá, vê o clube aceso do outro lado e
+não entra. É o melhor outdoor da cidade e não custa um metro de lote a ninguém.
+
+### §11.5 — O convite é item 🔒 (2026-09-18)
+
+**Convidado existe, e o convite é um ITEM**, não uma lista. Consequências que isso traz de
+graça: o convite tem dono, aparece no inventário, pode ser dado de presente e pode ser raro.
+
+⚠️ **Ele é a exceção útil à regra de §11 sobre item soulbound:** o convite é **transferível
+enquanto fechado** e **queima no uso**, ligando-se ao endereço que entrou. Assim ele tem
+mercado antes de virar prova, e deixa de ter mercado no instante em que vira prova.
+
+**Em aberto:** quantos convites por Fundador e por degrau, se o convite expira, e se o
+convidado entra sozinho ou só acompanhado. O item em si depende do pipeline de inscrição
+(`marketing/mint.md`, F6), então na primeira versão ele pode nascer como registro fora da
+cadeia e ser inscrito depois.
 
 ### O que o Fundador NÃO é
 

@@ -174,6 +174,7 @@ async function main() {
       'public/city/cidade-malha.json': sha(leia('public/city/cidade-malha.json')),
       'public/city/cidade.json': sha(leia('public/city/cidade.json')),
       'public/lunar/btc-core-heightmap.f32': sha(bufHm),
+      'public/city/founders-club.json': sha(leia('public/city/founders-club.json')),
     },
     teia: {
       rDentro: R_DENTRO, rFora: R_FORA, meiaLargura: HR, nRad: N_RAD,
@@ -215,6 +216,12 @@ async function main() {
         estado: 'demarcado, vazio', poligono: null,
       },
       forma: { phiBorda: PHI_BORDA, k: +K_FORMA.toFixed(5), area_km2: +(areaContorno / 1e6).toFixed(3) },
+      // ⚠️ A ILHA DO CLUBE ENTRA COMO TERRA, e por isso mora no mapa e não numa
+      // lista de peças à parte: ela é terra NOVA criada dentro da água, e o
+      // gerador de lotes precisa saber que aquele pedaço de baía deixou de ser
+      // lâmina. A geometria nasce em `scripts/city/ilha-founders.py`, que é onde
+      // ela foi projetada; aqui ela só é incorporada.
+      foundersClub: JSON.parse(leia('public/city/founders-club.json').toString()),
       limite: {
         r: DOME_R,
         nota: 'A casca e limite de pressao. Do Anel 4 em diante a cidade precisa de casca nova.',
@@ -245,6 +252,7 @@ reservas      plaza  ${km2((Math.PI * PLAZA_R * PLAZA_R) / 1e6)} km2  (r ${PLAZA
               anel 2 ${km2(coroa(ANEL2.de, ANEL2.ate))} km2  (phi ${ANEL2.de} a ${ANEL2.ate})
               anel 3 ${km2(coroa(ANEL3.de, ANEL3.ate))} km2  (phi ${ANEL3.de} a ${ANEL3.ate})
 forma         contorno ${(areaContorno / 1e6).toFixed(3)} km2 em phi ${PHI_BORDA}, k ${K_FORMA.toFixed(5)}
+              ilha do clube  ${(JSON.parse(leia('public/city/founders-club.json').toString()).area_m2.terra / 1e4).toFixed(1)} ha de terra nova na baia
 limite        casca em r ${DOME_R}
 `)
 }

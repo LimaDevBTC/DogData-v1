@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # ═══════════════════════════════════════════════════════════════════════════
-# THE FOUNDERS ATOLL: chapa de estudo da ilha dos Founders na baía.
+# THE FOUNDERS CLUB: chapa de estudo da ilha do clube, na baía.
+#
+# 🔒 NOME TRAVADO PELO FUNDADOR em 18/09/2026: "The Founders Club". "Atoll" era
+# chute meu e morreu aqui; atol descreve a FORMA, o nome é do clube.
 #
 # Uso:  python3 scripts/city/ilha-founders.py --mascara=/tmp/baia --saida=ilha.png
 #
@@ -46,6 +49,9 @@ BOCA = 90              # largura de cada boca, nas duas pontas do eixo
 PONTE = 14             # as duas passarelas, perpendiculares ao eixo
 N_PAV = 10             # pavilhões: 12 faces menos as 2 que viram boca
 PAV_W, PAV_H = 96, 54
+R_HELI = 26            # os dois helipontos, nas pontas da perpendicular
+CAIS = 200             # comprimento de cada cais do porto, dentro da bacia
+MIRANTE = 190          # o mirante publico, afastado da boca da cidade
 
 A = math.radians(RUMO)
 CX, CZ = math.sin(A) * RAIO_CENTRO, -math.cos(A) * RAIO_CENTRO
@@ -203,10 +209,62 @@ for s in (1, -1):
             pa(CX + math.sin(t) * R_INT, CZ - math.cos(t) * R_INT)],
            fill=(206, 196, 178), width=max(2, int(PONTE * AE * 0.5)))
 
+# ── O PORTO E O PORTAO, na boca da cidade ──────────────────────────────────
+# ⚠️ UMA ENTRADA SO, e e isso que torna o portao possivel. Com duas entradas
+# equivalentes o controle vira cerca; com uma, vira porta. A boca do nordeste
+# continua aberta para o barco atravessar, mas quem DESEMBARCA desembarca aqui.
+i1, o1 = parede(1, -1)
+i2, o2 = parede(-1, -1)
+# os dois cais: tangentes a bacia, encostados na terra, um de cada lado da boca
+# ⚠️ CAIS E BORDA DE AGUA, nao molhe atravessado. A primeira versao cruzava a
+# parede da boca e lia como obstaculo no canal.
+LARG_CAIS = 22
+for lado in (1, -1):
+    t0 = math.atan2(i1[0] - CX, -(i1[1] - CZ)) if lado > 0 else math.atan2(i2[0] - CX, -(i2[1] - CZ))
+    dt = (CAIS / R_INT) * lado
+    pts_o = [ponto(t0 + dt * k / 24, R_INT) for k in range(25)]
+    pts_i = [ponto(t0 + dt * k / 24, R_INT - LARG_CAIS) for k in range(25)][::-1]
+    poli(pa, pts_o + pts_i, (132, 122, 104), 2, fill=(66, 62, 55))
+
+# o portao: a passarela que atravessa o canal por cima. O barco passa por baixo,
+# a pessoa passa por cima, e e aqui que a carteira e conferida.
+g1 = (i1[0] - UX * 40, i1[1] - UZ * 40)
+g2 = (i2[0] - UX * 40, i2[1] - UZ * 40)
+d.line([pa(*g1), pa(*g2)], fill=LARANJA, width=7)
+for g in (g1, g2):
+    q = pa(*g)
+    d.ellipse([q[0] - 9, q[1] - 9, q[0] + 9, q[1] + 9], fill=LARANJA)
+
+# ── OS DOIS HELIPONTOS, nas pontas da perpendicular ────────────────────────
+# ⚠️ FORA DO EIXO DA AGUA, DE PROPOSITO: quem chega por ar nao cruza a rota de
+# quem chega por agua, e cada heliponto cai na cabeceira de uma passarela, entao
+# o caminho ate a Casa e o mesmo para os dois modos.
+for lado in (1, -1):
+    t = A + lado * math.pi / 2
+    hx, hz = CX + math.sin(t) * (R_EXT - 62), CZ - math.cos(t) * (R_EXT - 62)
+    q = pa(hx, hz)
+    r = R_HELI * AE
+    d.ellipse([q[0] - r, q[1] - r, q[0] + r, q[1] + r], outline=CREME, width=2)
+    d.ellipse([q[0] - r * 0.62, q[1] - r * 0.62, q[0] + r * 0.62, q[1] + r * 0.62],
+              outline=(150, 154, 162), width=1)
+    d.line([(q[0] - r * 0.3, q[1]), (q[0] + r * 0.3, q[1])], fill=CREME, width=3)
+    d.line([(q[0], q[1] - r * 0.34), (q[0], q[1] + r * 0.34)], fill=CREME, width=3)
+
+# ── O MIRANTE PUBLICO, fora do portao ──────────────────────────────────────
+# ⚠️ ELE E O FUNIL, nao cortesia. Quem nao e Fundador chega ate aqui, ve o clube
+# aceso do outro lado da agua e nao entra. O portao e a conversao.
+mx = CX - UX * (R_EXT + MIRANTE)
+mz = CZ - UZ * (R_EXT + MIRANTE)
+mir = [(mx + PX * 115 - UX * 26, mz + PZ * 115 - UZ * 26),
+       (mx - PX * 115 - UX * 26, mz - PZ * 115 - UZ * 26),
+       (mx - PX * 115 + UX * 26, mz - PZ * 115 + UZ * 26),
+       (mx + PX * 115 + UX * 26, mz + PZ * 115 + UZ * 26)]
+poli(pa, mir, (126, 130, 138), 2, fill=(34, 36, 41))
+# o molhe do mirante, virado para a agua aberta, onde o barco de visita encosta
+d.line([pa(mx - UX * 26, mz - UZ * 26), pa(mx - UX * 90, mz - UZ * 90)],
+       fill=(126, 130, 138), width=4)
+
 poli(pa, casa, CREME, 3, fill=(58, 51, 42))
-fx, fz = pa(CX, CZ)
-d.ellipse([fx - 9, fz - 9, fx + 9, fz + 9], fill=LARANJA)
-d.ellipse([fx - 20, fz - 20, fx + 20, fz + 20], outline=LARANJA_FRACO, width=2)
 
 # cotas do quadro A
 def cota(x1, z1, x2, z2, txt, dy=-10):
@@ -229,15 +287,19 @@ def rot(fn, x, z, txt, cor=CREME, dx=0, dy=0, f=FP):
     d.text((p[0] + dx, p[1] + dy), txt, font=f, fill=cor)
 
 rot(pa, CX, CZ, 'A CASA', CREME, -30, -R_CASA * AE - 52)
-rot(pa, CX, CZ, 'farol do Fundador', TEXTO, -66, -R_CASA * AE - 30)
+rot(pa, CX, CZ, 'assembleia, conselho, mesa', TEXTO, -104, -R_CASA * AE - 30)
 tp = GIRO + math.pi / 12 + 2 * math.pi * 3 / 12
-rot(pa, CX + math.sin(tp) * (R_EXT + 30), CZ - math.cos(tp) * (R_EXT + 30), 'PAVILHAO  1 de 10', CREME, 10, -8)
+rot(pa, CX + math.sin(tp) * (R_EXT + 26), CZ - math.cos(tp) * (R_EXT + 26), 'PAVILHAO  1 de 10', CREME, 16, -10)
 rot(pa, CX + math.sin(A) * (R_EXT + 40), CZ - math.cos(A) * (R_EXT + 40), 'BOCA NORTE', CREME, -40, -26)
 rot(pa, CX + math.sin(A) * (R_EXT + 40), CZ - math.cos(A) * (R_EXT + 40), 'para a orla nobre', TEXTO, -60, -6)
-rot(pa, CX - math.sin(A) * (R_EXT + 40), CZ + math.cos(A) * (R_EXT + 40), 'BOCA DA CIDADE', CREME, -60, 6)
-rot(pa, CX - math.sin(A) * (R_EXT + 40), CZ + math.cos(A) * (R_EXT + 40), 'chegada, ancoradouro', TEXTO, -80, 26)
+rot(pa, CX - math.sin(A) * (R_EXT + 26), CZ + math.cos(A) * (R_EXT + 26), 'O PORTAO', LARANJA, -190, -48)
+rot(pa, CX - math.sin(A) * (R_EXT + 26), CZ + math.cos(A) * (R_EXT + 26), 'so carteira verificada passa', TEXTO, -190, -28)
+rot(pa, CX - math.sin(A) * (R_EXT + 120), CZ + math.cos(A) * (R_EXT + 120), 'PORTO', CREME, 30, -6)
+rot(pa, CX - math.sin(A) * (R_EXT + MIRANTE + 30), CZ + math.cos(A) * (R_EXT + MIRANTE + 30), 'MIRANTE PUBLICO', CREME, -60, 16)
+rot(pa, CX - math.sin(A) * (R_EXT + MIRANTE + 30), CZ + math.cos(A) * (R_EXT + MIRANTE + 30), 'ate aqui qualquer um chega', TEXTO, -90, 36)
 tb = A + math.pi / 2
 rot(pa, CX + math.sin(tb) * (R_INT + 30), CZ - math.cos(tb) * (R_INT + 30), 'passarela', TEXTO, -30, -34)
+rot(pa, CX + math.sin(tb) * (R_EXT - 62), CZ - math.cos(tb) * (R_EXT - 62), 'HELIPONTO  1 de 2', CREME, -240, -14)
 rot(pa, CX + math.sin(A + 2.5) * (R_INT - 120), CZ - math.cos(A + 2.5) * (R_INT - 120), 'BACIA PROTEGIDA', CREME, -70, 0)
 rot(pa, CX + math.sin(A + 2.5) * (R_INT - 120), CZ - math.cos(A + 2.5) * (R_INT - 120), '32,7 ha de agua abrigada', TEXTO, -70, 20)
 
@@ -308,8 +370,8 @@ d.text((ex + L + 8, ey - 8), '1.000 m', font=FM, fill=CREME)
 # ────────────────────────────────────────────────────────────────── TEXTO ───
 x, y = 60, 62
 d.text((x, y), 'D O G C I T Y', font=FB, fill=CREME)
-d.text((x, y + 42), 'THE FOUNDERS ATOLL', font=FT, fill=LARANJA)
-d.text((x, y + 110), 'a sede do Founders Club, na baia, em frente a orla nobre', font=F, fill=TEXTO)
+d.text((x, y + 42), 'THE FOUNDERS CLUB', font=FT, fill=LARANJA)
+d.text((x, y + 110), 'a ilha do clube, na baia, em frente a orla nobre', font=F, fill=TEXTO)
 
 linhas = [
     ('posicao', f'rumo {RUMO}, r {RAIO_CENTRO} m    ({CX:.0f}, {CZ:.0f})'),
@@ -322,28 +384,64 @@ linhas = [
     ('a Casa', f'{area_poly(casa)/1e4:.1f} ha     ilhota central, r {R_CASA} m'),
     ('pavilhoes', f'{len(FACES)} de {PAV_W} x {PAV_H} m, um por face, 5 de cada lado'),
     ('bocas', f'2 de {BOCA} m, nas duas pontas do eixo'),
+    ('porto', f'2 cais de {CAIS} m na boca da cidade, dentro da bacia'),
+    ('helipontos', f'2 de r {R_HELI} m, nas pontas da perpendicular'),
     ('promenade', f'{2*math.pi*(R_EXT+R_INT)/2/1000:.2f} km em volta do anel'),
     ('', ''),
     ('cota', 'lamina -40, conves -32, gabarito 2 pavimentos'),
     ('', 'o topo fica 23 m ABAIXO do datum da cidade,'),
     ('', 'entao a ilha nao encobre a skyline de ninguem'),
     ('', ''),
-    ('acesso', 'so por agua. Nao ha ponte ate a ilha, e e proposital:'),
+    ('acesso', 'agua e ar. Sem ponte ate a ilha, e e proposital:'),
     ('', 'a travessia e parte do lugar'),
+    ('o portao', 'UMA entrada so. Carteira verificada passa;'),
+    ('', 'quem nao e Fundador para no mirante e olha'),
     ('terra', 'criada pelo projeto dentro da agua.'),
     ('', 'nao sai da cota de lote de ninguem'),
 ]
-y = 250
+y = 232
 for k, v in linhas:
     if k:
         d.text((x, y), k.ljust(17), font=FM, fill=(116, 120, 128))
         d.text((x + 150, y), v, font=FP, fill=CREME)
     elif v:
         d.text((x + 150, y), v, font=FP, fill=TEXTO)
-    y += 26
+    y += 24
 
 d.text((W - 470, H - 74), 'DOGCITY  ·  FOLHA IF-01  ·  2026-09-18', font=FM, fill=(116, 120, 128))
 d.text((W - 470, H - 52), 'agua medida em celula de 10 m sobre o relevo cortado', font=FM, fill=(88, 92, 100))
+
+# ── a geometria vai para o mapa, nao so para a chapa ───────────────────────
+# ⚠️ UMA FONTE SO. A ilha nasceu aqui, entao e daqui que ela sai para o
+# `mapa-v1.json` e, depois, para a cena. Redesenhar os mesmos numeros em TS seria
+# a terceira grade da cidade, que e o defeito que este congelamento veio matar.
+GEO = {
+    'id': 'FC01',
+    'nome': 'The Founders Club',
+    'nota': 'ilha do clube na baia. terra criada pelo projeto dentro da agua; nao sai da cota de lote de ninguem.',
+    'centro': [round(CX, 1), round(CZ, 1)],
+    'rumo': RUMO,
+    'raio_centro': RAIO_CENTRO,
+    'r_ext': R_EXT, 'r_int': R_INT, 'r_casa': R_CASA, 'boca': BOCA,
+    'cota': {'lamina': -40, 'conves': -32, 'gabarito_pav': 2},
+    'area_m2': {'terra': round(area_anel), 'bacia': round(area_bacia), 'casa': round(area_poly(casa))},
+    'crescentes': [[[round(x, 1), round(z, 1)] for x, z in c] for c in CRESCENTES],
+    'casa_poly': [[round(x, 1), round(z, 1)] for x, z in casa],
+    'pavilhoes': [{'rumo': round(math.degrees(t) % 360, 2),
+                   'x': round(CX + math.sin(t) * rm, 1), 'z': round(CZ - math.cos(t) * rm, 1),
+                   'w': PAV_W, 'h': PAV_H} for t in FACES],
+    'helipontos': [{'x': round(CX + math.sin(A + l * math.pi / 2) * (R_EXT - 62), 1),
+                    'z': round(CZ - math.cos(A + l * math.pi / 2) * (R_EXT - 62), 1),
+                    'r': R_HELI} for l in (1, -1)],
+    'porto': {'cais': 2, 'comprimento': CAIS, 'largura': 22, 'boca': 'cidade'},
+    'portao': {'x': round((g1[0] + g2[0]) / 2, 1), 'z': round((g1[1] + g2[1]) / 2, 1),
+               'vao': BOCA,
+               'regra': 'Founder COM licenca (>= personal 10k), mais a lista manual do fundador. Doar sozinho nao da acesso.'},
+    'mirante': {'x': round(mx, 1), 'z': round(mz, 1), 'largura': 230,
+                'nota': 'publico. quem nao passa no portao chega ate aqui.'},
+}
+with open('public/city/founders-club.json', 'w') as f:
+    json.dump(GEO, f)
 
 img.save(SAIDA)
 print(f"""
