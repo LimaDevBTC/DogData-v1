@@ -269,16 +269,34 @@ async function main() {
   /** a carteira da vez, ou undefined quando a fila acabou */
   const cabeca = () => { avanca(); return wp < carteiras.length ? carteiras[wp] : undefined }
 
-  /** a profundidade que esta carteira quer, dentro do que a fileira oferece */
-  const fundoDe = (area: number, fundoMax: number) =>
-    Math.max(Math.min(fundoMax, area / FRENTE_ALVO), Math.min(fundoMax, 10))
+  // ⚠️ A FAIXA E UMA FILEIRA SO, DE FUNDO CHEIO, e esta foi a lição da rodada
+  // que plantou 495 lotes e travou. Antes a faixa virava DUAS fileiras de meio
+  // fundo, e isso abria uma FAIXA MORTA de tamanho: um lote de 2.000 m² não
+  // cabia na fileira (precisaria de 80 m de testada em 25 m de fundo, acima do
+  // teto de 60) e também não pedia quarteirão (com 50 m de fundo bastariam 40 m
+  // de testada). Ele ficava na cabeça da fila para sempre, e como a fila vem
+  // ordenada do maior para o menor, a espiada de 20 posições nunca alcançava
+  // um lote pequeno. A cidade inteira parou atrás de uma carteira.
+  //
+  // Com o fundo cheio, os dois limites passam a ser O MESMO número: a fileira
+  // aceita até `FRENTE_MAX * faixa` e o quarteirão começa exatamente aí. Não há
+  // mais buraco entre as duas regras, e é isso que garante que a fila anda.
+  //
+  // ⚠️ E A TESTADA SAI DO FUNDO, não o contrário: `frente = area / faixa`,
+  // limitada entre 5 e 60 m. Um lote de 312 m² numa faixa de 50 vira 6,2 x 50,
+  // que é lote de casa de canal de Amsterdam (5 a 6 m de testada). Um de 10 m²
+  // vira 5 x 2. Nenhum lote fica com área inflada pelo fundo que não usa.
 
-  /** a testada que ela ocupa com esse fundo */
-  const frenteDe = (area: number, fundo: number) => Math.max(FRENTE_MIN, area / fundo)
+  /** a testada que esta carteira ocupa na faixa */
+  const frenteDe = (area: number, faixa: number) =>
+    Math.min(FRENTE_MAX, Math.max(FRENTE_MIN, area / faixa))
 
-  /** ela cabe numa fileira, ou so num quarteirao inteiro? */
-  const pedeQuarteirao = (area: number, fundoMax: number) =>
-    frenteDe(area, fundoDe(area, fundoMax)) > FRENTE_MAX
+  /** o fundo que sobra dela, sempre dentro da faixa */
+  const fundoDe = (area: number, faixa: number) =>
+    Math.min(faixa, area / frenteDe(area, faixa))
+
+  /** ela cabe numa faixa, ou so num quarteirao inteiro? */
+  const pedeQuarteirao = (area: number, faixa: number) => area / FRENTE_MAX > faixa
 
   /**
    * Os trechos VIVOS de uma fileira, em pares de angulo.
@@ -306,103 +324,172 @@ async function main() {
     return out
   }
 
-  /** enche uma fileira viva com a fila, e devolve quantos metros consumiu */
-  function encherFileira(r0: number, r1: number, a0: number, a1: number, i: number, j: number): number {
-    const rm = (r0 + r1) / 2
-    const fundoMax = r1 - r0
-    let usados = 0
-    for (const [t0, t1] of trechosVivos(r0, r1, a0, a1)) {
-      let cursor = t0
-      const fim = t1
-      while (cabeca()) {
-        const resta = (fim - cursor) * rm
-        if (resta < FRENTE_MIN) break
-        // quem entra: a cabeca da fila, ou a primeira das proximas `ESPIADA`
-        // que caiba no que sobrou (e so quando a cabeca NAO cabe)
-        let escolhido = -1
-        for (let k = 0; k < ESPIADA && wp + k < carteiras.length; k++) {
-          if (tomada[wp + k]) continue
-          const c = carteiras[wp + k]
-          if (pedeQuarteirao(c.area_m2, fundoMax)) continue
-          const fundo = fundoDe(c.area_m2, fundoMax)
-          if (frenteDe(c.area_m2, fundo) <= resta) { escolhido = wp + k; break }
-          if (k === 0 && frenteDe(c.area_m2, fundo) > resta) continue
-        }
-        if (escolhido < 0) break
-        const c = carteiras[escolhido]
-        const fundo = fundoDe(c.area_m2, fundoMax)
-        const frente = frenteDe(c.area_m2, fundo)
-        const dAng = frente / rm
-        registrarLote(c, r0, r0 + fundo, cursor, cursor + dAng, i, j)
-        tomada[escolhido] = 1
-        avanca()
-        cursor += dAng
-        usados += frente
-      }
-    }
-    return usados
+  // ⚠️ A VAGA FICA ABERTA ATE O ANEL ACABAR, e esta foi a terceira lição do dia.
+  // Na versão anterior a fileira era varrida UMA vez: quando a cabeça da fila
+  // não cabia no que restava dela, a fileira fechava e a ponta ia fora. Como a
+  // fila vem ordenada do maior para o menor, a cabeça quase nunca cabia numa
+  // ponta, e a cidade perdeu 1.276 km de testada em pontas abandonadas.
+  //
+  // Agora as vagas de um anel ficam TODAS abertas enquanto o anel estiver em
+  // uso, e cada carteira procura a primeira que a comporte. As pontas pequenas
+  // sobram para as carteiras menores, que chegam depois.
+  //
+  // ⚠️ E O ANEL E A FRONTEIRA DISSO, de propósito. Deixar a vaga aberta pela
+  // cidade inteira faria a última carteira da fila cair numa ponta sobrando no
+  // anel 2, ou seja endereço central para quem chegou por último, que é
+  // exatamente o que a régua existe para impedir. Quando o anel se esgota, o
+  // que sobrou nele é abandonado e a fila segue para fora. A ordem manda no
+  // anel; dentro do anel, o encaixe manda.
+  // ⚠️ A QUADRA PROFUNDA, e ela existe porque a superquadra estava jogando terra
+  // fora. Um lote de 3.000 m² não cabe numa faixa de 50 (precisaria de 60 m de
+  // testada, o teto) e, na versão anterior, tomava o QUARTEIRÃO INTEIRO de
+  // 12.300 m²: 75% de desperdício, e com 620 carteiras nessa faixa de tamanho a
+  // cidade ficava sem quadra para elas (todas as 620 que sobraram eram isto).
+  //
+  // O certo é o óbvio depois de visto: lote grande não precisa de mais QUADRA,
+  // precisa de mais FUNDO. Ele atravessa o quarteirão inteiro de rua a rua (110
+  // a 286 m de profundidade, sem travessa no meio) e ocupa só um pedaço do arco.
+  // Aquele mesmo lote de 3.000 m² vira 27 x 110, que é quadra de armazém, não
+  // um quarteirão inteiro vazio.
+  //
+  // ⚠️ E O QUARTEIRAO E DE UM MODO SO: ou ele se divide em faixas, ou ele é
+  // profundo. Quem chega primeiro decide, e como a fila vem do maior para o
+  // menor, quem decide é sempre o maior. Misturar os dois no mesmo quarteirão
+  // exigiria contabilidade de arco por faixa, que é onde este loteador já se
+  // perdeu três vezes.
+  interface Vaga {
+    r0: number; r1: number; a0: number; a1: number; faixa: number
+    i: number; j: number; cursor: number
+    bloco: number; profunda: boolean
   }
 
-  // ⚠️ O QUARTEIRAO INTEIRO SO NASCE PARA QUEM NAO CABE EM FILEIRA, e ele pode
-  // tomar mais de um bloco VIZINHO no mesmo anel: o maior lote da cidade pede
-  // 40.000 m² e um quarteirao do anel 0 tem 12.300. Sem isso a baleia seria
-  // empurrada para a periferia, que contraria a regra de que a ordem decide a
-  // distancia ate o centro.
-  const tomados = new Set<string>()
+  /** os trechos vivos de uma faixa viram vagas abertas */
+  function vagasDaFaixa(r0: number, r1: number, a0: number, a1: number, i: number, j: number,
+                        bloco: number, profunda = false): Vaga[] {
+    const faixa = r1 - r0
+    return trechosVivos(r0, r1, a0, a1)
+      .map(([t0, t1]) => ({ r0, r1, a0: t0, a1: t1, faixa, i, j, cursor: t0, bloco, profunda }))
+  }
+
+  const esperandoBloco: number[] = []   // indices de carteira que pedem quarteirao e ainda nao acharam
 
   for (let i = 0; i < ANEIS.length - 1 && cabeca(); i++) {
     const passo = passoDoAnel(i)
-    for (let j = 0; j < N_RAD && cabeca(); j += passo) {
-      if (tomados.has(`${i}|${j}`)) continue
+
+    // ── 1. as vagas e os blocos livres deste anel ──────────────────────────
+    const vagas: Vaga[] = []
+    const blocos: { a0: number; a1: number; rIn: number; rOut: number; j: number; area: number }[] = []
+    for (let j = 0; j < N_RAD; j += passo) {
       const a0 = anguloDe(j), a1 = anguloDe(j + passo)
       const am = (a0 + a1) / 2
       const rIn = anelRaio(ANEIS[i], am) + MEIA_RUA
       const rOut = anelRaio(ANEIS[i + 1], am) - MEIA_RUA
       const prof = rOut - rIn
       if (prof < MIN_FAIXA) continue
-
-      // quantas faixas cabem, e a faixa e o que sobra dividido por elas
       let k = 1
       for (let t = 5; t >= 2; t--) if (t * MIN_FAIXA + (t - 1) * TRAVESSA <= prof) { k = t; break }
       const faixa = (prof - (k - 1) * TRAVESSA) / k
-      const areaBloco = ((a1 - a0) * (rIn + rOut) / 2) * prof
-      disponivelAnel[i] += 2 * k * ((a1 - a0) * (rIn + rOut) / 2)
+      const arco = (a1 - a0) * ((rIn + rOut) / 2)
+      disponivelAnel[i] += k * arco
+      const b = blocos.length
+      blocos.push({ a0, a1, rIn, rOut, j, area: arco * prof })
+      for (let f = 0; f < k; f++) {
+        const rf0 = rIn + f * (faixa + TRAVESSA)
+        for (const v of vagasDaFaixa(rf0, rf0 + faixa, a0, a1, i, j, b)) vagas.push(v)
+      }
+      // a mesma quadra, oferecida INTEIRA a quem precisa de fundo
+      for (const v of vagasDaFaixa(rIn, rOut, a0, a1, i, j, b, true)) vagas.push(v)
+    }
+    if (!vagas.length && !blocos.length) continue
 
-      // a cabeca da fila pede quarteirao?
-      const c = cabeca()!
-      if (pedeQuarteirao(c.area_m2, faixa)) {
-        let blocos = 1
-        let areaAcc = areaBloco
-        while (areaAcc < c.area_m2 && blocos < 4 && j + blocos * passo < N_RAD) {
-          if (tomados.has(`${i}|${j + blocos * passo}`)) break
-          areaAcc += areaBloco
-          blocos++
+    const blocoLivre = blocos.map(() => true)
+    const sobra = (v: Vaga) => (v.a1 - v.cursor) * ((v.r0 + v.r1) / 2)
+
+    /** o quarteirao (ou os vizinhos) para quem nao cabe em faixa */
+    const tentaBloco = (idx: number): boolean => {
+      const c = carteiras[idx]
+      for (let b = 0; b < blocos.length; b++) {
+        if (!blocoLivre[b]) continue
+        let n = 1, acc = blocos[b].area
+        while (acc < c.area_m2 && n < 4 && b + n < blocos.length && blocoLivre[b + n]
+               && Math.abs(blocos[b + n].a0 - blocos[b + n - 1].a1) < 1e-9) {
+          acc += blocos[b + n].area; n++
         }
-        const aFim = anguloDe(j + blocos * passo)
-        if (!testarCantos(cantosDe(rIn, rOut, a0, aFim))
-            && !testarCantos([[Math.sin((a0 + aFim) / 2) * (rIn + rOut) / 2,
-                              -Math.cos((a0 + aFim) / 2) * (rIn + rOut) / 2]])) {
-          registrarLote(c, rIn, rOut, a0, aFim, i, j)
-          superquadras++
-          usadaAnel[i] += (aFim - a0) * (rIn + rOut) / 2
-          for (let b = 0; b < blocos; b++) tomados.add(`${i}|${j + b * passo}`)
-          tomada[wp] = 1
+        if (acc < c.area_m2 * 0.9) continue
+        const aFim = blocos[b + n - 1].a1
+        const { rIn, rOut, a0, j } = blocos[b]
+        if (testarCantos(cantosDe(rIn, rOut, a0, aFim))) continue
+        registrarLote(c, rIn, rOut, a0, aFim, i, j)
+        superquadras++
+        usadaAnel[i] += (aFim - a0) * ((rIn + rOut) / 2)
+        for (let t = 0; t < n; t++) blocoLivre[b + t] = false
+        tomada[idx] = 1
+        avanca()
+        return true
+      }
+      return false
+    }
+
+    // ── 2. quem ficou esperando quarteirao tenta primeiro, neste anel novo ──
+    for (let e = esperandoBloco.length - 1; e >= 0; e--) {
+      if (tomada[esperandoBloco[e]]) { esperandoBloco.splice(e, 1); continue }
+      if (tentaBloco(esperandoBloco[e])) esperandoBloco.splice(e, 1)
+    }
+
+    // ── 3. a fila anda neste anel ate ninguem mais caber ────────────────────
+    let primeira = 0
+    while (cabeca()) {
+      const idx = wp
+      const c = carteiras[idx]
+      // a maior faixa que este anel oferece decide se e caso de quarteirao
+      const faixaMax = vagas.length ? Math.max(...vagas.map((v) => v.faixa)) : 0
+      // quem nem na quadra profunda cabe (area maior que o quarteirao inteiro)
+      // vai para os blocos vizinhos, e se nao houver, espera o proximo anel
+      if (faixaMax > 0 && pedeQuarteirao(c.area_m2, faixaMax)) {
+        const maiorProfunda = vagas.reduce((m, v) => (v.profunda && sobra(v) > 1 ? Math.max(m, v.faixa) : m), 0)
+        if (maiorProfunda > 0 && pedeQuarteirao(c.area_m2, maiorProfunda)) {
+          if (tentaBloco(idx)) continue
+          esperandoBloco.push(idx)
+          tomada[idx] = 1
           avanca()
           continue
         }
-        // o quarteirao nao serve (agua, peca): a carteira espera o proximo,
-        // e o bloco segue para as fileiras normais
       }
-
-      for (let f = 0; f < k && cabeca(); f++) {
-        const rf0 = rIn + f * (faixa + TRAVESSA)
-        const rMeio = rf0 + faixa / 2
-        const rf1 = rf0 + faixa
-        usadaAnel[i] += encherFileira(rf0, rMeio, a0, a1, i, j)
-        usadaAnel[i] += encherFileira(rMeio, rf1, a0, a1, i, j)
+      while (primeira < vagas.length && sobra(vagas[primeira]) < FRENTE_MIN) primeira++
+      let alvo = -1
+      for (let v = primeira; v < vagas.length; v++) {
+        const vg = vagas[v]
+        // ⚠️ A VAGA PROFUNDA SO SERVE A QUEM PRECISA DELA. Sem esta linha o
+        // primeiro lote pequeno tomaria a quadra profunda inteira e o modo do
+        // quarteirão seria decidido por quem menos precisava dele.
+        if (vg.profunda && !pedeQuarteirao(c.area_m2, faixaMax)) continue
+        if (!vg.profunda && pedeQuarteirao(c.area_m2, faixaMax)) continue
+        if (frenteDe(c.area_m2, vg.faixa) <= sobra(vg)) { alvo = v; break }
       }
+      if (alvo < 0) break               // o anel se esgotou para esta carteira
+      const v = vagas[alvo]
+      const frente = frenteDe(c.area_m2, v.faixa)
+      const fundo = fundoDe(c.area_m2, v.faixa)
+      const rm = (v.r0 + v.r1) / 2
+      const dAng = frente / rm
+      registrarLote(c, v.r0, v.r0 + fundo, v.cursor, v.cursor + dAng, i, v.j)
+      v.cursor += dAng
+      usadaAnel[i] += frente
+      if (v.profunda) superquadras++
+      // o quarteirao acabou de escolher o modo dele: fecha o outro
+      for (const w of vagas) {
+        if (w.bloco === v.bloco && w.profunda !== v.profunda) w.cursor = w.a1
+      }
+      tomada[idx] = 1
+      avanca()
     }
   }
+
+  // ⚠️ QUEM PEDIU QUARTEIRAO E NUNCA ACHOU fica registrado como fora, e o numero
+  // aparece na saida: e ele que diz se a cidade precisa de quadra maior.
+  const plantadas = new Set(lotes.map((l) => l.posicao))
+  const semBloco = esperandoBloco.filter((k) => !plantadas.has(carteiras[k].posicao)).length
+
 
   // ─────────────────────────────────────────────────────────────────────
   // SAIDA
