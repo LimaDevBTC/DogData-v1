@@ -23,7 +23,7 @@ import * as THREE from 'three'
 import { COR_AGUA, aguaDeVerdade } from './lago'
 import { look2 } from './look'
 import { superficie, quebrarRepeticao } from './materiais'
-import { ALCA_TERRA, ANEIS, N_RAD, anguloDe, naAlcaDeTerra, nasceEm, noArcoDoAnel, passoNoRaio } from './teia'
+import { ALCA_TERRA, ANEIS, AVENIDAS, AV_R_FIM, AV_R_INICIO, N_RAD, anelRaio, anguloDe, naAlcaDeTerra, nasceEm, noArcoDoAnel, passoNoRaio } from './teia'
 import { ALCA_PRAIA_LARGURA, ALCA_R_BAIA, ALCA_R_MAR } from './alca'
 
 const COR_AREIA = '#8E856F'    // a faixa de praia, no mesmo tom do cais dos canais
@@ -891,6 +891,7 @@ export function buildLagos(o: LagosOpts): Lagos {
   // ele é pior aqui: a orla erra o acabamento, a rua erraria a geometria da
   // pista. Uma máquina só para as três coisas.
   const RECUO_ORLA = PRAIA_MAX + 6 + 2
+  let correntesSoltas = 0
   const orlasDesvio: number[][] = []
   {
     for (const c of encadear(segsD)) {
@@ -927,6 +928,10 @@ export function buildLagos(o: LagosOpts): Lagos {
       console.log(`[lagos] via de orla: ${orlasDesvio.length} eixos, ${(mt / 1000).toFixed(2)} km, `
         + `recuados ${RECUO_ORLA} m da linha d'agua`)
     }
+    if (correntesSoltas) {
+      console.log(`[lagos] orla construida: ${correntesSoltas} margens sem rede por perto `
+        + `descartadas (ilha e lago solto nao ganham cais com pista)`)
+    }
   }
 
   // as correntes de praia: as da margem natural mais, em look2, as da baía que o
@@ -940,12 +945,48 @@ export function buildLagos(o: LagosOpts): Lagos {
   // `alca.ts` exporta", e isso só a alça responde diferente.
   const correntesAlca = new Set<number[]>()
 
+  // ⚠️ ORLA CONSTRUIDA SO ONDE A CIDADE CHEGA, e esta e a metade do pedido do
+  // fundador de 18/09 que o conserto de `vias.ts` nao alcancou. A via de orla de
+  // `vias.ts` (a que costura os tocos da teia) ja passa por um teste de contato
+  // com a rede; a PISTA DO CAIS, que nasce aqui, nao passava por nenhum.
+  //
+  // ⚠️ E E ELA QUE PAVIMENTA ILHA. O corte de 300 m de perimetro deixa passar
+  // ilha de 95 m de diametro, e ali o cais de 14 m com passeio e talude cobre a
+  // ilha inteira: medido em 19/09, 9.984 m² de `orla:pista` numa ilha de 200 x
+  // 664 m no meio da baia, a distancia nenhuma de qualquer rua. Foi o que o
+  // fundador viu ("uma ilha pequena que todo espaco dela foi ocupado por
+  // asfalto").
+  //
+  // O teste nao pergunta "isto e ilha", pergunta se a corrente passa perto de
+  // uma via principal. Ilha no meio da agua nao tem nenhuma por perto e cai
+  // sozinha; a orla da baia colada na cidade continua inteira.
+  const ALCANCE_REDE = 60
+  const aneisRede = (o.aneisViarios ?? []).map((a) => a.r)
+  const pertoDaRede = (x: number, z: number): boolean => {
+    const r = Math.hypot(x, z)
+    if (r >= AV_R_INICIO - ALCANCE_REDE && r <= AV_R_FIM + ALCANCE_REDE) {
+      for (const av of AVENIDAS) {
+        const a = (av.rumo * Math.PI) / 180
+        const d = Math.abs(Math.cos(a) * x + Math.sin(a) * z)
+        if (d <= av.largura / 2 + ALCANCE_REDE && Math.sin(a) * x - Math.cos(a) * z > 0) return true
+      }
+    }
+    const ang = Math.atan2(x, -z)
+    for (const ra of aneisRede) if (Math.abs(r - anelRaio(ra, ang)) <= ALCANCE_REDE) return true
+    return false
+  }
+  const correnteNaRede = (pts: number[]): boolean => {
+    for (let k = 0; k < pts.length; k += 2) if (pertoDaRede(pts[k], pts[k + 1])) return true
+    return false
+  }
+
   {
     const w1 = ORLA_PASSEIO
     const w2 = w1 + ORLA_PISTA
     const w3 = w2 + ORLA_TALUDE
     const yD = L + ORLA_ALTURA
     for (const c of encadear(segs)) {
+      if (!correnteNaRede(c.pts)) { correntesSoltas++; continue }
       // ⚠️ O CAIS ERA A ÚNICA MARGEM CONSTRUÍDA SOBRE CONTORNO CRU, e é a
       // primeira margem deformada da baía. A praia já passava por `alisaContorno`
       // desde que a lasca foi consertada; a orla não passava por nada. O contorno

@@ -3069,10 +3069,38 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   // com a margem já alisada em `alisaContorno` fica abaixo do centímetro.
   let orlaTrechos = 0
   let orlaMetros = 0
+  let orlaSoltasFora = 0
   if (o.orlasDesvio) {
     const SEC_ORLA = centrada(SEC_RUA)
     const meia = SEC_ORLA[SEC_ORLA.length - 1].ate
+
+    // ⚠️ VIA DE ORLA QUE NAO ENCOSTA NA REDE NAO EXISTE, e este e o segundo
+    // metade do pedido do fundador de 18/09 ("sem ruas flutuando, e nao quero
+    // ruas nas ilhas"). A primeira metade (o componente conexo da teia) nao
+    // alcanca a orla, porque a orla nao e aresta da teia: ela e uma polilinha
+    // que `lagos.ts` costura na margem.
+    //
+    // ⚠️ E E ELA QUE PRODUZ A RUA EM ILHA. `lagos.ts` ja corta contorno abaixo de
+    // 300 m, mas uma ilha de 95 m de diametro tem 300 m de perimetro: a via
+    // nasce recuada 26 m da agua e o anel de asfalto de 12 m cobre a ilha
+    // inteira. Foi exatamente isso que o fundador viu ("uma ilha pequena que
+    // todo espaco dela foi ocupado por asfalto").
+    //
+    // O teste: o eixo tem de passar a menos de `ALCANCE` de alguma via que JA E
+    // rede (avenida, anel viario ou rotatoria). Ilha no meio da agua nao tem
+    // nenhuma das tres por perto, entao cai sozinha, sem precisar saber o que e
+    // ilha. Quem passa raspando na rede continua vivo, que e o caso da orla que
+    // costura os tocos da teia na margem.
+    const ALCANCE = 40
+    const encostaNaRede = (eixo: number[]): boolean => {
+      for (let k = 0; k < eixo.length; k += 2) {
+        const x = eixo[k], z = eixo[k + 1]
+        if (emCorredorAvenida(x, z, ALCANCE) || emAnelPav(x, z, ALCANCE) || naRotatoriaPav(x, z, ALCANCE)) return true
+      }
+      return false
+    }
     for (const eixo of o.orlasDesvio) {
+      if (!encostaNaRede(eixo)) { orlaSoltasFora++; continue }
       const m = eixo.length / 2
       if (m < 2) continue
       // a face de cada vértice: ponto ± normal em esquadria
@@ -3113,9 +3141,10 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     }
   }
 
-  if (orlaTrechos) {
+  if (orlaTrechos || orlaSoltasFora) {
     console.log(`[vias] via de orla: ${orlaTrechos} trechos, ${(orlaMetros / 1000).toFixed(2)} km `
-      + `costurando a margem dos lagos que empurram a malha`)
+      + `costurando a margem dos lagos que empurram a malha`
+      + (orlaSoltasFora ? `; ${orlaSoltasFora} eixos soltos apagados (ilha ou margem sem rede)` : ''))
   }
   if (teiaSoltas) {
     console.log(`[vias] rede: ${teiaSoltas} arestas soltas apagadas `

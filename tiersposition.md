@@ -103,7 +103,7 @@ Registro completo no `masterplan.md` §10, com o 🔒 no §9. Resumo operacional
 |---|---|---|
 | orientação | praia da baía → casa → pista | pista → casa → praia dos fundos |
 | carteiras | SV (88) + BM (99) = 187 | Rune Master (258) |
-| projeto | 20 (4 blocos de 5) | 45 (9 blocos de 5) |
+| projeto | **18 (6 blocos de 3)** | **47 (15 blocos de 3 + 1 em cada ponta)** |
 | total | 207 lotes | 303 lotes |
 | testada | 74,9 m | 51,6 m |
 | fundo garantido | 214 m | 246 m |
@@ -122,7 +122,28 @@ Registro completo no `masterplan.md` §10, com o 🔒 no §9. Resumo operacional
 3. ⚠️ **Nenhuma rua nova entra na alça** (dono, 07/09). Os dois lados acessam a mesma AN7,
    e é por isso que ela fica no meio (r 6.950). Terceira fileira exigiria rua de fundo e
    está fora enquanto a regra valer.
-4. ⚠️ **Os 20 lotes do projeto na frente existem para a orla ter destino público.** Sem
+4. ⚠️ **O RITMO DOS LOTES DO PROJETO MUDOU EM 2026-09-19** (fundador: *"5 acho que pode
+   criar um bloco muito grande"*). Era 4 blocos de 5 na frente e 9 de 5 atrás; passou a
+   **blocos de 3**, e os 2 que sobravam da frente foram para trás (decisão dele). MEDIDO,
+   e é o número que justifica a mudança, a distância entre um destino público e o
+   seguinte andando pela orla:
+
+   ```
+   FRENTE  207 lotes x 74,9 m = 15,50 km
+     4 blocos de 5   bloco de 375 m, um destino a cada 3,88 km   (era isto)
+     6 blocos de 3   bloco de 225 m, um destino a cada 2,58 km   (e isto)
+   TRAS    303 lotes x 51,6 m = 15,64 km
+     9 blocos de 5   bloco de 258 m, um destino a cada 1,74 km   (era isto)
+    15 blocos de 3   bloco de 155 m, um destino a cada 1,04 km   (e isto)
+   ```
+
+   ⚠️ **OS 2 QUE SOBRARAM VÃO UM EM CADA PONTA DA ALÇA**, não num bloco torto no meio.
+   Três não divide 20, e bloco diferente dos outros quebra a regra da casa de que
+   elemento repetido fica igualmente espaçado. Nas pontas eles ganham razão de ser: é
+   onde a AN7 encontra as radiais de 330 e 120, ou seja a chegada da alça. Um lote de
+   projeto em cada chegada é portal, não sobra.
+
+5. ⚠️ **Os lotes do projeto na frente existem para a orla ter destino público.** Sem
    eles são 15,5 km de lotes privados em fila e os 30 acessos à praia viram passagem sem
    chegada. Programa da frente é horizontal (marina, clube, píer, restaurante); o que for
    alto vai para a fileira de trás.
@@ -806,6 +827,9 @@ Quando for reconstruir, o gerador precisa:
 
 ## 6. Registro de mudanças deste arquivo
 
+- **2026-09-19** — §3.1: o ritmo dos lotes do projeto na Orla Nobre passa de blocos de 5
+  para **blocos de 3**, decisão do fundador, com os 2 excedentes da frente indo para as
+  pontas da alça. Um destino público a cada 2,58 km na frente e 1,04 km atrás.
 - **2026-09-18** — **canais radiais DESCARTADOS** (§3.8). Todas as carteiras passam pelo mesmo
   filtro, o perfil de comportamento já diz onde cada uma mora, e os 18,62 km² não se gastam.
   Entra também a demarcação dos **anéis de expansão 2 e 3** dentro da abóbada (masterplan §14):
