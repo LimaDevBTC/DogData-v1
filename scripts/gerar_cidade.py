@@ -1642,9 +1642,16 @@ VAOS = [[] for _ in range(N_DIST)]
 # Com 40 vãos e teto de 8 pegadas por lote o custo volta para a ordem do laço
 # normal, e o vão bom quase sempre é recente, porque o cursor acabou de passar
 # por ele.
-VAO_JANELA = 40         # quantos vãos recentes olhar
+VAO_JANELA = 60         # quantos vãos recentes olhar
 VAO_TENTA = 8           # quantas pegadas no máximo por lote
-VAO_TETO_FRENTE = 24.0  # acima disto o lote é grande e o vão raramente serve
+# ⚠️ O TETO DE 24 m ERA CEGO. A prateleira queimada entra na lista inteira, e ela
+# tem centenas de metros: recusar lote de 30 m de testada porque "vão é coisa de
+# lote pequeno" jogava fora justamente o vão grande. Agora o que limita é o
+# encaixe, não o tamanho do lote.
+VAO_TETO_FRENTE = 80.0
+# ⚠️ E A BUSCA É POR MELHOR ENCAIXE, não pela primeira que serve. Pegar um vão de
+# 200 m para um lote de 6 m gasta a única sobra grande da vizinhança com o lote
+# que caberia em qualquer canto. Ordena os candidatos pelo desperdício.
 
 def declive_lote(bx, bz, ca, sa, ox, oz, frente, prof):
     """declividade na pegada do lote, em fração (0,12 = 12%), pelos 4 cantos."""
@@ -2646,6 +2653,45 @@ print('medindo o tecido...', file=sys.stderr)
 # pergunta que decide terraplanagem, e que até 20/09 ninguém tinha medido: do
 # terreno que está dentro da faixa de lote, quanto cada máscara come. Amostra em
 # grade de 20 m, classifica na ordem em que `livre()` decide, e sai.
+# ⚠️ A CONTA DA ÁGUA, BACIA POR BACIA: `AUDITA_LAGOS=1`. A água é a maior
+# reserva de terra da faixa loteável (18,92 km²) e a única máscara que só se
+# mexe com decisão de paisagem. Então a decisão não pode ser "drenar" ou "não
+# drenar" no atacado: cada bacia vale um tanto de lote, e o fundador escolhe
+# quais ficam sabendo o preço de cada uma.
+if os.environ.get('AUDITA_LAGOS'):
+    _pa = 20.0
+    _lim = int(PHI_LOTE / _pa) + 2
+    _por_lago = collections.Counter(); _cent = {}
+    _DE_QUEM = {}
+    for _k, _lg in enumerate(LAGOS):
+        for _c0 in _lg['celulas']: _DE_QUEM[tuple(_c0)] = _k
+    for _i in range(-_lim, _lim + 1):
+        _x = _i * _pa
+        for _j in range(-_lim, _lim + 1):
+            _z = _j * _pa
+            if math.hypot(_x, _z) < R_INICIO: continue
+            if phi(_x, _z) > PHI_BORDA: continue
+            _cel = (int(round(_x/cell + half)), int(round(_z/cell + half)))
+            _k = _DE_QUEM.get(_cel)
+            if _k is not None:
+                _por_lago[_k] += 1
+                _c = _cent.setdefault(_k, [0.0, 0.0, 0])
+                _c[0] += _x; _c[1] += _z; _c[2] += 1
+    # o fator bruto->lote entregue, medido: 42,84 km² entregues sobre 65,34 livres
+    _FATOR = 0.6557
+    print('ÁGUA DENTRO DA FAIXA LOTEÁVEL, bacia por bacia (φ %.0f)' % PHI_LOTE, file=sys.stderr)
+    print('  %3s %10s %10s %8s %8s' % ('id', 'na faixa', 'vira lote', 'raio', 'rumo'), file=sys.stderr)
+    _som = 0.0
+    for _k, _n in _por_lago.most_common():
+        _a = _n * _pa * _pa / 1e6
+        _c = _cent[_k]; _cx, _cz = _c[0]/_c[2], _c[1]/_c[2]
+        _som += _a * _FATOR
+        print('  %3d %7.2f km² %7.2f km² %7.0f m %7.0f°'
+              % (_k, _a, _a * _FATOR, math.hypot(_cx, _cz), rumo_de(_cx, _cz)), file=sys.stderr)
+    print('  TOTAL: %.2f km² de água na faixa, que valem %.2f km² de lote entregue'
+          % (sum(_por_lago.values()) * _pa * _pa / 1e6, _som), file=sys.stderr)
+    sys.exit(0)
+
 if os.environ.get('AUDITA_AGUA'):
     _pa = 20.0
     _conta = collections.Counter(); _tot = 0
@@ -3095,12 +3141,13 @@ def coloca(s, dog, addr, escala=1.0):
     if frente <= VAO_TETO_FRENTE and VAOS[s]:
         _lista = VAOS[s]
         _ini = max(0, len(_lista) - VAO_JANELA)
-        _tentou = 0
+        _cand = []
         for _i in range(len(_lista) - 1, _ini - 1, -1):
+            if _lista[_i][2] >= frente:
+                _cand.append((_lista[_i][2] - frente, _i))
+        _cand.sort()
+        for _sobra_vao, _i in _cand[:VAO_TENTA]:
             _pv, _vx, _vl = _lista[_i]
-            if _vl < frente: continue
-            if _tentou >= VAO_TENTA: break
-            _tentou += 1
             _ozv = _pv['borda'] + _pv['sentido'] * prof_real / 2
             if not _cabe(_pv, _vx + frente / 2, _ozv, frente, prof_real): continue
             _wx = _pv['bx'] + (_vx + frente/2)*_pv['ca'] - _ozv*_pv['sa']
@@ -3114,9 +3161,14 @@ def coloca(s, dog, addr, escala=1.0):
                 _lista.pop(_i)
             return (_wx, _wz, frente, min(255.0, prof_real), _pv['q'], _pv['b'])
 
+    # ⚠️ CATORZE SONDAGENS SÃO 168 m, E A PRATELEIRA TEM CENTENAS. Uma prateleira
+    # cuja ponta cai em máscara era QUEIMADA INTEIRA depois de 14 passos, mesmo
+    # com o outro extremo livre: são 307 km de testada na cidade de hoje, 13%.
+    # O teto agora acompanha o comprimento do que resta, com limite para o custo
+    # não explodir: cada sondagem é uma pegada de cinco pontos.
     ox = pr['x0'] + frente / 2
     ok = False
-    for _ in range(14):
+    for _ in range(max(14, min(60, int(pr['livre'] / 12) + 1))):
         ozc = pr['borda'] + pr['sentido'] * prof_real / 2
         cx = pr['bx'] + ox*pr['ca'] - ozc*pr['sa']
         cz = pr['bz'] + ox*pr['sa'] + ozc*pr['ca']
@@ -3220,9 +3272,27 @@ def uma_passada():
         # encolher ELAS é o oposto de privilégio: é a única carteira que paga o
         # próprio aperto. A escala mínima é 0,15; abaixo disso a passada reprova
         # de verdade, porque aí o problema é terra e não empacotamento.
-        for esc in (0.6, 0.35, 0.15):
+        # ⚠️ O CORTE DE CABELO VIROU TOSQUIA, E AGORA A ÁREA É PROMESSA PÚBLICA.
+        # Medido em 20/09 com a escada velha (0,6 / 0,35 / 0,15): 3.175 carteiras
+        # saíram abaixo do prometido e as piores receberam 5% dele. Uma carteira
+        # de 23,4M DOG, com 4.768 m² publicados na landing, saiu com 261 m².
+        # Isso é pior do que o problema que a escada resolvia: ela existia para
+        # uma carteira não derrubar a mediana de todo mundo, e virou um imposto
+        # de 85% sorteado em quem chega no fim da fila do distrito.
+        #
+        # Agora: primeiro TODOS os distritos com a área INTEIRA, e só depois
+        # corte, e raso. Se nem assim couber, a passada reprova e a bisseção
+        # baixa k, que é o mecanismo justo: todo mundo divide o aperto.
+        _ordem_dist = sorted(range(N_DIST),
+                             key=lambda t: -sum(pr['livre'] for pr in PASSO[t][cursor[t]:]))
+        for t in _ordem_dist:
             if r is not None: break
-            for t in (s, max(range(N_DIST), key=lambda t: sum(pr['livre'] for pr in PASSO[t][cursor[t]:]))):
+            if t == s: continue
+            r = coloca(t, elig[c[3]], c[3])
+            if r is not None: s = t
+        for esc in (0.9, 0.8):
+            if r is not None: break
+            for t in _ordem_dist:
                 r = coloca(t, elig[c[3]], c[3], esc)
                 if r is not None:
                     s = t; aparadas.append((c[3], esc)); break
