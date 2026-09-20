@@ -21,7 +21,13 @@ arg = lambda k, d: next((a.split('=', 1)[1] for a in sys.argv[1:] if a.startswit
 RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 BASE = arg('cidade', RAIZ)
 FILA = arg('fila', os.path.join(RAIZ, 'data/snapshots/dog_966670_ordem_residencial.json'))
-TOL = float(arg('tolerancia', '0.10'))        # metros de folga aceitos entre dois lotes
+# ⚠️ A TOLERÂNCIA É A RESOLUÇÃO DO REGISTRO, NÃO UM GOSTO. O registro v2 guarda
+# posição em quartos de metro, então cada centro pode andar 0,125 m e dois lotes
+# que se ENCOSTAM aparecem cruzados em até 0,25 m sem que ninguém tenha errado.
+# Abaixo disso é quadriculado; acima é defeito de colocação. Medido em 20/09:
+# com 0,10 m o teste acusava 15.593 pares e TODOS os inspecionados estavam na
+# faixa de 0,15 m, ou seja o teste estava medindo o arquivo, não a cidade.
+TOL = float(arg('tolerancia', '0.26'))
 
 FMT = '<hhBBHBBBH'; REG = struct.calcsize(FMT)
 byt = open(os.path.join(BASE, 'public/city/cidade-lotes.bin'), 'rb').read()
@@ -61,6 +67,22 @@ def cantos(x, z, w, d, giro):
     ca, sa = math.cos(giro), math.sin(giro)
     return [(x + dx*ca - dz*sa, z + dx*sa + dz*ca)
             for dx, dz in ((-w/2, -d/2), (w/2, -d/2), (w/2, d/2), (-w/2, d/2))]
+def penetracao(A, B):
+    """quanto um lote entra no outro, em metros: 0 ou menos quer dizer que não entram."""
+    pior = 1e9
+    for P, Q in ((A, B), (B, A)):
+        for i in range(4):
+            ex, ez = P[(i+1) % 4][0] - P[i][0], P[(i+1) % 4][1] - P[i][1]
+            n = math.hypot(ex, ez)
+            if n < 1e-9: continue
+            nx, nz = -ez/n, ex/n
+            pa = [p[0]*nx + p[1]*nz for p in P]; pb = [p[0]*nx + p[1]*nz for p in Q]
+            sep = max(min(pb) - max(pa), min(pa) - max(pb))
+            if sep > 0: return 0.0
+            pior = min(pior, -sep)
+    return pior
+
+
 def cruza(A, B, tol):
     """eixo separador com folga: encolhe as duas caixas por tol/2 antes de testar."""
     for P, Q in ((A, B), (B, A)):
@@ -80,14 +102,21 @@ for i, r in enumerate(linhas):
     w = w + ((_fl >> 4) & 3) / 4.0
     d = d + ((_fl >> 6) & 3) / 4.0
     por_quarteirao[r['lot_id'][:14]].append((i, cantos(x, z, max(1.0, w), max(1.0, d), math.radians(giro_c/100))))
-pares, piores = 0, []
+pares, piores, fundos = 0, [], []
 for _q, itens in por_quarteirao.items():
     for a in range(len(itens)):
         for b in range(a + 1, len(itens)):
-            if cruza(itens[a][1], itens[b][1], TOL):
+            pen = penetracao(itens[a][1], itens[b][1])
+            if pen > TOL:
                 pares += 1
-                if len(piores) < 5: piores.append((linhas[itens[a][0]]['lot_id'], linhas[itens[b][0]]['lot_id']))
-item('nenhum lote sobre outro', pares == 0, f'{pares} pares, ex: {piores[:3]}')
+                fundos.append(pen)
+                if pen > (piores[0][0] if piores else 0):
+                    piores = [(pen, linhas[itens[a][0]]['lot_id'], linhas[itens[b][0]]['lot_id'])]
+fundos.sort()
+detalhe = f'{pares} pares acima de {TOL:.2f} m'
+if fundos:
+    detalhe += f', mediana {fundos[len(fundos)//2]:.2f} m, pior {fundos[-1]:.2f} m em {piores[0][1:] if piores else ""}'
+item('nenhum lote sobre outro', pares == 0, detalhe)
 
 # 5. área entregue contra a prometida pelo snapshot
 prom = {r['address']: r['area_m2'] for r in fila if r['area_m2'] > 0}

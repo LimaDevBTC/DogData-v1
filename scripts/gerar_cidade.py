@@ -1698,6 +1698,21 @@ def _vago(pr, x_ini, frente):
     return True
 
 
+def _par_vago(pr, x_ini, frente, prof):
+    """o lote fundo atravessa a faixa: a fileira de trás precisa estar VAZIA ali.
+
+    ⚠️ RESERVAR PARA O FUTURO NÃO BASTA. `_reserva_no_par` protege quem vier
+    depois, e o lote raso da fileira de trás pode já estar plantado: medido em
+    20/09, o pior par da cidade tinha o raso na ordem 165 e o fundo na 1.316,
+    com 24,96 m de invasão. Aqui a conta é a do passado: o que ficou atrás do
+    cursor do par já tem dono."""
+    if prof <= FILA_PROF + 1e-6: return True
+    _par = pr.get('par')
+    if _par is None: return True
+    if x_ini < _par['x0'] - 1e-6: return False
+    return _vago(_par, x_ini, frente)
+
+
 def _reserva_no_par(pr, x_ini, frente, prof):
     """lote mais fundo que a fileira come a de trás: marca lá o mesmo trecho."""
     if prof <= FILA_PROF + 1e-6: return
@@ -3237,6 +3252,7 @@ def coloca(s, dog, addr, escala=1.0):
             _pv, _vx, _vl = _lista[_i]
             _ozv = _pv['borda'] + _pv['sentido'] * prof_real / 2
             if not _vago(_pv, _vx, frente): continue
+            if not _par_vago(_pv, _vx, frente, prof_real): continue
             if not _cabe(_pv, _vx + frente / 2, _ozv, frente, prof_real): continue
             _wx = _pv['bx'] + (_vx + frente/2)*_pv['ca'] - _ozv*_pv['sa']
             _wz = _pv['bz'] + (_vx + frente/2)*_pv['sa'] + _ozv*_pv['ca']
@@ -3261,7 +3277,9 @@ def coloca(s, dog, addr, escala=1.0):
         ozc = pr['borda'] + pr['sentido'] * prof_real / 2
         cx = pr['bx'] + ox*pr['ca'] - ozc*pr['sa']
         cz = pr['bz'] + ox*pr['sa'] + ozc*pr['ca']
-        if _vago(pr, ox - frente / 2, frente) and _cabe(pr, ox, ozc, frente, prof_real):
+        if (_vago(pr, ox - frente / 2, frente)
+                and _par_vago(pr, ox - frente / 2, frente, prof_real)
+                and _cabe(pr, ox, ozc, frente, prof_real)):
             ok = True; break
         # ⚠️ ANDE UM PASSO DE SONDAGEM, NÃO A TESTADA INTEIRA. Queimar `frente` a
         # cada rejeição custou 53 m² no lote mediano (294 caiu para 241): a
