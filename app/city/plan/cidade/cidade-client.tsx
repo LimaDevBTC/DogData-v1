@@ -28,7 +28,7 @@
 // existindo, com as paletas saturadas de sempre. A lente `figura-fundo` é a
 // padrão e é a única que sai em chapa de apresentação.
 //
-// Dados: public/city/cidade.json (meta + as 38 peças), cidade-lotes.bin (11 B
+// Dados: public/city/cidade.json (meta + as 38 peças), cidade-lotes.bin (13 B
 // por lote) e cidade-malha.json (1.182 quarteirões, 226 quartos, 12 bulevares).
 // Gerados por scripts/gerar_cidade.py.
 // ═══════════════════════════════════════════════════════════════════════════
@@ -811,7 +811,14 @@ export default function CidadeClient() {
       // dois bytes novos são a frente e a profundidade em metros: sem eles a
       // prancha desenha ponto, e ponto não mostra que a cidade tem lote de 33 m²
       // e lote de 28 mil.
-      const REG = 11
+      //
+      // ⚠️ E FOI DE 11 PARA 13 EM 29/08, quando o giro do quarteirão entrou como
+      // uint16 no fim do registro (ver tecido.ts). Esta prancha ficou lendo 11 e
+      // ninguém viu, porque o defeito não é erro: é a cidade inteira deslizando
+      // 2 bytes por lote, ou seja lote nenhum no lugar, calada. Os campos de 0 a
+      // 10 continuam nas mesmas posições, e o giro daqui vem de
+      // `cidade-malha.json`, por quarteirão, não do .bin. Conferido 19/09.
+      const REG = 13
       const n = Math.floor(buf.byteLength / REG)
       const x = new Int16Array(n), z = new Int16Array(n)
       const s = new Uint8Array(n), c = new Uint8Array(n)

@@ -241,8 +241,25 @@ bloquear o A.
 3. **Celular tem modo a pé já na primeira versão**, em perfil leve.
 4. **Arte do boneco:** o fundador está desenhando. Até lá o trilho B anda com
    cápsula no lugar do personagem.
-5. **Em aberto:** declividade máxima lotável e quem paga o talude entre lotes
-   vizinhos (§7). Trava o registro final e portanto o mint.
+5. **Declividade máxima lotável: 12%.** Decidido em 16/09 contra medição dos
+   85.804 lotes de teste: 2.513 lotes (2,9%) ficam acima, o que custa 1,1% da
+   área loteada. O limiar quase não muda a terraplanagem (cortar acima de 12%
+   economiza 3% do volume), então ele é escolha de qualidade urbana: 12% é o que
+   se sobe andando e é limite normal de rua. A carteira de um lote reprovado é
+   recolocada pelo gerador, ninguém fica sem lote. Terreno reprovado vira parque
+   ou mirante, o que fecha também a terceira pergunta do §7.
+6. **O desnível entre vizinhos é pago pela cidade, e ninguém perde área.** Cada
+   lote é entregue plano na cota da sua testada. O desnível com o vizinho vira
+   muro de arrimo na divisa, construído pela cidade. A área do deed é sempre a
+   área inteira do lote. Talude dentro do lote está PROIBIDO como solução de
+   divisa: ele tiraria 5,7% da área do lote na mediana e 12,1% no p90, e faria o
+   holder pagar pelo azar do relevo, contra a regra "a localização não se
+   compra". Medido: 77% das divisas ficam abaixo de 0,5 m, 1% passa de 2 m e
+   0,4% passa de 3 m.
+
+Medição em `/tmp` (não versionada), refeita quando o registro real existir: a
+cota do lote usou o CENTRO como proxy da testada, então os números de divisa são
+ordem de grandeza, não valor final.
 
 Ordem do trilho B: B1 controlador 2,5D sobre `superficieAt` com colisão por
 pegada 2D e câmera de ombro (desktop e toque); B2 plano de profundidade, sombra

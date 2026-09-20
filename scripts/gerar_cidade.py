@@ -29,6 +29,17 @@ import heapq
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 def p(*a): return os.path.join(RAIZ, *a)
 
+# ⚠️ ONDE A RODADA GRAVA. Por padrão é a árvore do repositório, e isso é o que o
+# bot de auto-commit varre de hora em hora: uma rodada interrompida no meio
+# publica cidade pela metade sozinha. `SAIDA_DIR=/algum/lugar` desvia as quatro
+# saídas para fora do repositório, e aí a publicação vira uma cópia deliberada.
+SAIDA_DIR = os.environ.get('SAIDA_DIR')
+def ps(*a):
+    if not SAIDA_DIR: return p(*a)
+    destino = os.path.join(SAIDA_DIR, *a)
+    os.makedirs(os.path.dirname(destino), exist_ok=True)
+    return destino
+
 # ── o tabuleiro (plano-diretor.md cap. 6.3) ────────────────────────────────
 # ⚠️ O RAIO É UM NÚMERO SÓ, e ele tem teto de DADO, não de vontade: o heightmap
 # em public/lunar/btc-core-heightmap.json tem 137 células de 59,2 m, ou seja
@@ -173,6 +184,18 @@ QUARTO       = 3
 BULEVAR      = 34.0      # largura do bulevar radial sobre cada costura
 FAIXA        = 50.0      # profundidade da faixa: duas fileiras costas com costas
 DECLIVE_MAX  = 4.0       # correção do júri: o tecido não cabe em 3 graus
+
+# ⚠️ DOIS TETOS DE DECLIVIDADE, E ELES MEDEM COISAS DIFERENTES. `DECLIVE_MAX` é
+# em GRAUS e sai da grade do heightmap, célula de 59,2 m: é a máscara grossa,
+# que diz se aquele PEDAÇO DE MONTE é lotável. `DECL_LOTE_MAX` é a decisão do
+# fundador de 19/09 (masterplan §15) e é medida na PEGADA DO LOTE, que tem 14 m
+# na mediana: é o que o boneco de 1,70 m sobe andando. A grade de 59 m suaviza e
+# deixa passar rampa curta; por isso os 2.513 lotes acima de 12% existiam mesmo
+# com a máscara grossa ligada. Os dois valem juntos: o grosso decide o terreno,
+# o fino decide o lote.
+# `DECL_LOTE=0.20` na linha de comando mede outro limiar sem editar o arquivo, e
+# um valor alto (99) desliga a regra para comparar contra a cidade de antes.
+DECL_LOTE_MAX = float(os.environ.get('DECL_LOTE', 0.12))
 
 # ⚠️ 960/1.300 -> 1.470/1.830 EM 03/09, e o número não é escolha desta frente: é
 # o que `terrain.ts` desenha (`PLATO_R`/`PLATO_FIM`, linha 307). O platô da praça
@@ -1558,14 +1581,80 @@ def livre(x, z):
 # e divisa de banda são faixas, e peça e Coliseu são convexos. Faixa mais
 # estreita que o lote não existe — a menor é a rua de contorno, 12 m, e ela não
 # é máscara de `livre()`.
+#
+# ⚠️ E O QUINTO PONTO É O TETO DE 12% (masterplan §15). A máscara grossa mede a
+# célula de 59,2 m do heightmap e não enxerga a rampa que cabe dentro de um lote
+# de 14 m. Aqui a declividade sai dos QUATRO CANTOS do lote que está sendo
+# gravado, que é a mesma escala em que o holder vai andar. O teste vem por
+# último de propósito: ele custa quatro consultas de altura e só vale a pena
+# depois que as máscaras baratas já aprovaram.
+REJ = {'mascara': 0, 'declive': 0, 'ok': 0}
+
+def declive_lote(bx, bz, ca, sa, ox, oz, frente, prof):
+    """declividade na pegada do lote, em fração (0,12 = 12%), pelos 4 cantos."""
+    h = []
+    for dx, dz in ((-frente/2, -prof/2), (frente/2, -prof/2),
+                   (frente/2, prof/2), (-frente/2, prof/2)):
+        lx, lz = ox + dx, oz + dz
+        h.append(altura(bx + lx*ca - lz*sa, bz + lx*sa + lz*ca))
+    gx = ((h[1] + h[2]) - (h[0] + h[3])) / (2 * max(1e-6, frente))
+    gz = ((h[2] + h[3]) - (h[0] + h[1])) / (2 * max(1e-6, prof))
+    return math.hypot(gx, gz)
+
+
+# ⚠️ AUDITAR UMA CIDADE JÁ GRAVADA, sem replantar: `AUDITA_BIN=caminho.bin`.
+# Existe porque comparar a cidade nova com a publicada exige medir as duas com a
+# MESMA função de altura; reimplementar a medição fora daqui é a doença que o
+# `conferir_terreno.py` foi escrito para pegar. O giro vem do próprio registro.
+_AB = os.environ.get('AUDITA_BIN')
+if _AB:
+    _by = open(_AB if os.path.isabs(_AB) else p(_AB), 'rb').read()
+    _reg = struct.calcsize('<hhBBHBBBH')
+    _v = []
+    for _i in range(len(_by) // _reg):
+        _x, _z, _s, _c, _f, _fl, _w, _d, _g = struct.unpack_from('<hhBBHBBBH', _by, _i*_reg)
+        _gg = math.radians(_g / 100.0)
+        _v.append(declive_lote(_x, _z, math.cos(_gg), math.sin(_gg), 0.0, 0.0, float(_w), float(_d)))
+    _v.sort(); _n = len(_v) or 1
+    print('AUDITA %s: %d lotes | mediana %.1f%% | p90 %.1f%% | p99 %.1f%% | máx %.1f%%'
+          % (_AB, len(_v), _v[_n//2]*100, _v[int(_n*0.9)]*100, _v[int(_n*0.99)]*100, _v[-1]*100),
+          file=sys.stderr)
+    print('  acima de 8%%: %d | de 12%%: %d | de 20%%: %d'
+          % (sum(1 for q in _v if q > 0.08), sum(1 for q in _v if q > 0.12),
+             sum(1 for q in _v if q > 0.20)), file=sys.stderr)
+    sys.exit(0)
+
+
 def _cabe(pr, ox, oz, frente, prof):
     ca, sa = pr['ca'], pr['sa']
+    hs = []
     for dx, dz in ((0.0, 0.0), (-frente/2, -prof/2), (frente/2, -prof/2),
                    (frente/2, prof/2), (-frente/2, prof/2)):
         lx, lz = ox + dx, oz + dz
-        if not livre(pr['bx'] + lx*ca - lz*sa, pr['bz'] + lx*sa + lz*ca):
+        wx, wz = pr['bx'] + lx*ca - lz*sa, pr['bz'] + lx*sa + lz*ca
+        if not livre(wx, wz):
+            REJ['mascara'] += 1
             return False
+        hs.append(altura(wx, wz))
+    # hs[1..4] são os cantos na ordem (-,-), (+,-), (+,+), (-,+)
+    gx = ((hs[2] + hs[3]) - (hs[1] + hs[4])) / (2 * max(1e-6, frente))
+    gz = ((hs[3] + hs[4]) - (hs[1] + hs[2])) / (2 * max(1e-6, prof))
+    if math.hypot(gx, gz) > DECL_LOTE_MAX:
+        REJ['declive'] += 1
+        return False
+    REJ['ok'] += 1
     return True
+
+
+# ⚠️ A COTA DO LOTE É A DA TESTADA, NÃO A DO CENTRO (lei 3 do DOGGAMEMODE, e a
+# regra 2 do masterplan §15: a cidade entrega o lote plano e o desnível com o
+# vizinho vira muro de arrimo na divisa, sem tirar área de ninguém). O centro
+# mente justamente onde importa: num lote de 40 m de fundo em rampa de 10%, o
+# centro está 2 m acima da rua que o serve.
+def cota_testada(pr, ox):
+    lx, lz = ox, pr['borda']
+    return altura(pr['bx'] + lx*pr['ca'] - lz*pr['sa'],
+                  pr['bz'] + lx*pr['sa'] + lz*pr['ca'])
 
 def distrito_de(x, z):
     ru = rumo_de(x, z)
@@ -2829,6 +2918,7 @@ def coloca(s, dog, addr, escala=1.0):
             # nasciam dentro do canal depois de `_cabe` entrar no ramo normal.
             _fq = min(lado_q, area / prof_g)
             if _cabe(pq, 0.0, 0.0, _fq, prof_g):
+                COTA[addr] = cota_testada(pq, 0.0)
                 for k in range(alvo, alvo + nf_alvo):
                     PASSO[s][k]['x0'] += PASSO[s][k]['livre']
                     PASSO[s][k]['livre'] = 0.0
@@ -2894,13 +2984,22 @@ def coloca(s, dog, addr, escala=1.0):
     oz = pr['borda'] + pr['sentido'] * prof_real / 2
     wx = pr['bx'] + ox*pr['ca'] - oz*pr['sa']
     wz = pr['bz'] + ox*pr['sa'] + oz*pr['ca']
+    COTA[addr] = cota_testada(pr, ox)
     return (wx, wz, frente, min(255.0, prof_real), pr['q'], pr['b'])
+
+# ⚠️ A COTA NÃO CABE NO REGISTRO DE 13 BYTES: ele está cheio, e alargá-lo
+# quebraria em silêncio todo mundo que lê o .bin (foi exatamente isso que deixou
+# a prancha do plano diretor lendo 11 bytes por um mês). Então a cota anda por
+# fora, num arquivo irmão na MESMA ORDEM, e quem não souber dela continua
+# funcionando. Chave: endereço, porque cada carteira tem um lote só.
+COTA = {}
 
 def uma_passada():
     global PASSO, cursor, saida
     PASSO = [prateleiras_de(s) for s in range(N_DIST)]
     cursor = [0]*N_DIST
     saida = []
+    COTA.clear()
     sem_lugar.clear()
     aparadas.clear()
     no_bloco.clear()
@@ -2979,6 +3078,12 @@ def uma_passada():
 # k cai pela metade até caber, e se nem assim couber o script morre alto.
 alvo = CAP_AREA * 0.97
 k_bom, saida_boa = None, None
+# ⚠️ A COTA VIAJA JUNTO COM A CÓPIA. `saida_boa = list(saida)` congela a cidade
+# de uma passada, mas `COTA` é um dicionário vivo que a passada SEGUINTE limpa e
+# reescreve: gravar as duas coisas separadas casava o lote de uma cidade com a
+# cota de outra. Medido antes do conserto: muro de arrimo de até 139 m entre
+# vizinhos, que é relevo inexistente neste sítio.
+cota_boa = None
 k_lo, k_hi = K_AREA, None
 for tentativa in range(6):
     obtido = uma_passada()
@@ -2988,7 +3093,7 @@ for tentativa in range(6):
           f'{obtido/1e6:.2f} km² ({obtido/alvo*100:.0f}% do alvo), mediana {med:,.0f} m²'
           f'  {"cabe" if coube else "NAO CABE"}', file=sys.stderr)
     if coube:
-        k_bom, saida_boa, k_lo = K_AREA, list(saida), K_AREA
+        k_bom, saida_boa, k_lo, cota_boa = K_AREA, list(saida), K_AREA, dict(COTA)
         if k_hi is None:
             K_AREA /= max(0.55, obtido/alvo)      # primeiro salto: mira o desperdício medido
             continue
@@ -3008,7 +3113,7 @@ if saida_boa is None:
         uma_passada()
         print(f'  piso: k={K_AREA:.5g} -> {len(saida):,} plantadas', file=sys.stderr)
         if len(saida) >= N:
-            saida_boa, k_bom = list(saida), K_AREA
+            saida_boa, k_bom, cota_boa = list(saida), K_AREA, dict(COTA)
             break
     if saida_boa is not None:
         lo, hi = k_bom, k_falha
@@ -3020,10 +3125,11 @@ if saida_boa is None:
             med = sorted(w*d for _,_,_,_,w,d,_,_,_ in saida)[len(saida)//2] if saida else 0
             print(f'  sobe: k={K_AREA:.5g} -> {len(saida):,} plantadas, mediana {med:,.0f} m²'
                   f'  {"cabe" if coube else "NAO CABE"}', file=sys.stderr)
-            if coube: saida_boa, k_bom, lo = list(saida), K_AREA, K_AREA
+            if coube: saida_boa, k_bom, lo, cota_boa = list(saida), K_AREA, K_AREA, dict(COTA)
             else: hi = K_AREA
 if saida_boa is not None:
     saida, K_AREA = saida_boa, k_bom
+    COTA.clear(); COTA.update(cota_boa or {})
 
 # ⚠️ GUARDA DURA: a regra do fundador é que todo elegível tem endereço. Se a
 # cidade sair incompleta o script MORRE em vez de gravar, porque arquivo gravado
@@ -3086,7 +3192,18 @@ for x, z, s, a, w, d, _q, _b, _n in saida:
                        min(65535, fam), fl,
                        max(1, min(255, int(round(w)))), max(1, min(255, int(round(d)))),
                        giro_c)
-open(p('public/city/cidade-lotes.bin'), 'wb').write(buf)
+open(ps('public/city/cidade-lotes.bin'), 'wb').write(buf)
+
+# ⚠️ A COTA DE CADA LOTE, ARQUIVO IRMÃO, MESMA ORDEM, 2 BYTES POR LOTE. int16 em
+# CENTÍMETROS: o relevo do sítio vai de -182 a +230 m, ou seja 23.000 cm, e
+# int16 vai a 32.767, então cabe com folga e sem perder o centímetro, que é a
+# tolerância de piso que o DOGGAMEMODE exige para o boneco de 1,70 m. Quem lê
+# desenha o lote plano nesta cota; a diferença para o vizinho é a altura do muro
+# de arrimo, e a cidade é que paga esse muro (masterplan §15).
+cot = bytearray()
+for _x, _z, _s, _a, _w, _d, _q, _b, _n in saida:
+    cot += struct.pack('<h', max(-32768, min(32767, int(round(COTA.get(_a, 0.0) * 100)))))
+open(ps('public/city/cidade-cotas.bin'), 'wb').write(cot)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # O REGISTRO: quem é dono de qual lote.
@@ -3104,19 +3221,42 @@ open(p('public/city/cidade-lotes.bin'), 'wb').write(buf)
 # O lot_id é S{setor:02}-Q{quarto:02}-B{quarteirão:03}-L{lote:03} e é ESTÁVEL
 # enquanto a semente (ordem de chegada) e a geometria não mudarem. Ele ainda NÃO
 # é promessa pública: publicar a regra vem antes (plano-diretor, passo 4).
-with open(p('data/dogcity_lotes.csv'), 'w', newline='') as f:
+with open(ps('data/dogcity_lotes.csv'), 'w', newline='') as f:
     w = csv.writer(f)
     w.writerow(['lot_id', 'address', 'ordem', 'setor', 'quarto', 'quarteirao', 'lote',
                 'x_m', 'z_m', 'raio_m', 'frente_m', 'prof_m', 'area_m2',
-                'dog', 'utxo_count', 'forma', 'coorte', 'familia', 'dsc'])
+                'dog', 'utxo_count', 'forma', 'coorte', 'familia', 'dsc', 'cota_m'])
     for x, z, s, a, fr, pf, q_, b_, n_ in saida:
         u = UTX.get(a, 1)
         w.writerow([f'S{s+1:02d}-Q{q_:02d}-B{b_:03d}-L{n_:03d}', a, posto[a], s + 1, q_, b_, n_,
                     round(x), round(z), round(math.hypot(x, z)),
                     round(fr, 1), round(pf, 1), round(fr * pf),
                     round(elig[a]), u, forma_de(u), min(7, posto[a]*8//N),
-                    familia_de.get(a, 0), 1 if a in dsc else 0])
+                    familia_de.get(a, 0), 1 if a in dsc else 0,
+                    round(COTA.get(a, 0.0), 2)])
 print(f'gravado data/dogcity_lotes.csv com {len(saida):,} lotes', file=sys.stderr)
+
+# ⚠️ A CONFERÊNCIA DO TETO DE 12% (masterplan §15). Ela mede a cidade GRAVADA,
+# não a intenção do laço: o lote é reconstruído a partir do que foi para o
+# arquivo e a declividade sai dos quatro cantos dele. Sem isto a regra seria
+# promessa, e promessa não se audita antes do mint.
+_decl = []
+for x, z, s_, a, fr, pf, q_, b_, n_ in saida:
+    gg = math.radians(_GIRO_DE.get((s_, q_, b_), 0.0))
+    _decl.append(declive_lote(x, z, math.cos(gg), math.sin(gg), 0.0, 0.0, fr, pf))
+_decl.sort()
+_nn = len(_decl) or 1
+_acima = lambda t: sum(1 for v in _decl if v > t)
+print('declividade do lote (medida no que foi gravado): mediana %.1f%% | p90 %.1f%% | '
+      'p99 %.1f%% | máx %.1f%%' % (_decl[_nn//2]*100, _decl[int(_nn*0.9)]*100,
+      _decl[int(_nn*0.99)]*100, _decl[-1]*100), file=sys.stderr)
+print('  acima de 8%%: %d | de 12%%: %d | de 20%%: %d  (teto em vigor: %.0f%%)'
+      % (_acima(0.08), _acima(0.12), _acima(0.20), DECL_LOTE_MAX*100), file=sys.stderr)
+print('  sondagem: %d pegadas aprovadas, %d barradas por máscara, %d barradas pelo teto'
+      % (REJ['ok'], REJ['mascara'], REJ['declive']), file=sys.stderr)
+_ct = sorted(COTA.get(a, 0.0) for *_r, a in ((0, 0, 0, r[3]) for r in saida))
+print('  cota de testada: mínima %.1f m | mediana %.1f | máxima %.1f'
+      % (_ct[0], _ct[_nn//2], _ct[-1]), file=sys.stderr)
 json.dump({
     'esquema': 'int16 x, int16 z, uint8 setor, uint8 coorte, uint16 familia, '
                'uint8 flags(bit0=DSC, bits1-3=forma por utxo_count), uint8 frente_m, uint8 prof_m',
@@ -3164,7 +3304,7 @@ json.dump({
     'programaHa': round(sum(q['area'] for q in PROGRAMA_GEO)/1e4, 1),
     'quartos': sum(len(T[s]) for s in range(N_DIST)),
     'quarteiroes': sum(len(q['quarteiroes']) for s in range(N_DIST) for q in T[s]),
-}, open(p('public/city/cidade.json'), 'w'), indent=1)
+}, open(ps('public/city/cidade.json'), 'w'), indent=1)
 print('gravado public/city/cidade.{json} + cidade-lotes.bin', file=sys.stderr)
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -3441,7 +3581,7 @@ for i, rumo in enumerate(sorted(_radiais)):
 def _linhas(lst):
     return '[\n' + ',\n'.join(json.dumps(o, ensure_ascii=False, separators=(',', ':')) for o in lst) + '\n]'
 
-with open(p('public/city/cidade-malha.json'), 'w') as f:
+with open(ps('public/city/cidade-malha.json'), 'w') as f:
     f.write('{\n"esquema":' + json.dumps({
         'quadro': 'mundo = centro + R(giro)·local; wx = x + lx·cos(giro) - lz·sin(giro); '
                   'wz = z + lx·sin(giro) + lz·cos(giro). x local = testada, z local = profundidade. '

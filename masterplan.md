@@ -1096,3 +1096,58 @@ de compensar rápido.
 
 **Na copy, responder direto:** sim, contam separado, pode dividir se quiser, mas cada lote
 precisa da própria licença para virar prédio.
+
+## §15 — O relevo não tira terra de ninguém 🔒 (2026-09-19)
+
+Duas decisões do fundador, medidas antes contra os 85.804 lotes de teste e o terreno real.
+Elas travavam o registro final e portanto o mint. Diagnóstico completo em `DOGGAMEMODE.md` §7.
+
+**1. Declividade máxima lotável: 12% na escala do lote.**
+
+12% é o que uma pessoa sobe andando e é limite normal de rua. Terreno reprovado vira parque
+ou mirante, nunca buraco. A carteira de um lote reprovado não perde nada: a sondagem anda
+12 m na mesma prateleira, e se a prateleira acabar ela tenta a seguinte e depois outro
+distrito, que é o mecanismo que o gerador já tinha para máscara.
+
+⚠️ **E O TETO NÃO COBRA NADA, PORQUE A CIDADE JÁ ESTAVA ABAIXO DELE.** Medido em 19/09 com
+a própria função de altura do gerador, a mesma que a cena desenha, sobre a cidade publicada
+e sobre duas cidades geradas inteiras:
+
+```
+                          mediana   p90    p99    máx    acima de 12%
+cidade publicada (85.804)    3,2%   6,0%   8,0%  11,3%        0
+gerada sem a regra (85.933)  3,2%   6,0%   7,9%  12,4%        2
+gerada com a regra (85.933)  3,2%   6,0%   7,9%  12,0%        0
+```
+
+A máscara grossa de 4° na célula de 59,2 m já segurava quase tudo; a regra nova fecha o
+resíduo que passava por ela. Custo da regra, medido lote a lote entre as duas cidades
+geradas: **678 lotes mudaram de lugar (0,8%), mediana de 18 m de deslocamento, e a área
+somada não mudou**. Ou seja o teto de 12% é GARANTIA, não troca.
+
+⚠️ Uma medição anterior, de 16/09, dizia 2.513 lotes acima de 12% e 1,1% de área perdida.
+Ela foi feita reimplementando o terreno fora do gerador e **não se reproduz**: descartada.
+A conferência boa é a que ficou no próprio gerador (`AUDITA_BIN=...` mede uma cidade já
+gravada, e toda rodada imprime o histograma do que gravou). Falta ainda rodar o
+`conferir_terreno.py` completo contra a cena no ar: hoje a igualdade entre as duas
+superfícies está conferida nas constantes, não por amostragem de malha.
+
+**2. O desnível entre vizinhos é pago pela cidade, e ninguém perde área.**
+
+Cada lote é entregue plano numa cota própria, ancorada na testada. O desnível com o vizinho
+vira **muro de arrimo na divisa, construído pela cidade**. A área do deed é sempre a área
+inteira do lote.
+
+⚠️ **Talude dentro do lote está proibido como solução de divisa.** Medido: ele tiraria 5,7%
+da área do lote na mediana e 12,1% no p90, e faria o holder pagar pelo azar do relevo, contra
+"a localização não se compra" do §0.1. Muro custa obra e custa zero metro quadrado.
+
+```
+desnivel entre vizinhos de divisa   mediana 0,17 m   p90 0,94 m   p99 2,03 m
+acima de 0,5 m   22,7% das divisas
+acima de 2,0 m    1,0%
+acima de 3,0 m    0,4%
+```
+
+A medição usou a cota do CENTRO do lote como proxy da testada, então os números de divisa são
+ordem de grandeza. Os finais saem quando o gerador aplicar a regra sobre o registro real.
