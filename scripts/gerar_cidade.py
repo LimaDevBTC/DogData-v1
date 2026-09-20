@@ -2915,6 +2915,22 @@ def prateleiras_de(s):
     return out
 PASSO = [prateleiras_de(s) for s in range(N_DIST)]
 
+# ⚠️ PRATELEIRA DUPLICADA É LOTE EM CIMA DE LOTE. Se duas entradas de `PASSO`
+# descrevem a MESMA fileira física, as duas se enchem do mesmo x0 e dois donos
+# recebem o mesmo chão, cada um achando que tem o seu. `AUDITA_PRAT=1` conta.
+if os.environ.get('AUDITA_PRAT'):
+    for _s in range(N_DIST):
+        _ch = collections.Counter()
+        for _pr in PASSO[_s]:
+            _ch[(round(_pr['bx'], 2), round(_pr['bz'], 2), round(_pr['borda'], 2),
+                 _pr['sentido'], round(_pr['ca'], 4))] += 1
+        _dup = sum(v - 1 for v in _ch.values() if v > 1)
+        _pior = _ch.most_common(1)[0] if _ch else None
+        print('  setor %d: %d prateleiras, %d chaves, %d duplicadas (pior repete %dx)'
+              % (_s + 1, len(PASSO[_s]), len(_ch), _dup, _pior[1] if _pior else 0),
+              file=sys.stderr)
+    sys.exit(0)
+
 # ── a área de cada carteira (masterplan §9, decisões 1 e 3) ────────────────
 # area = k · saldo^EXPOENTE · (r/R_INICIO)^GRADIENTE, com k calibrado para a
 # soma dar exatamente o tecido alvo. O raio entra depois, quando a carteira já
@@ -3020,7 +3036,16 @@ no_bloco = {}        # (setor, quarto, quarteirão) -> quantos lotes já plantad
 # com a profundidade compensando. A janela é curta de propósito: o lote tem de
 # ficar perto do lugar que a idade lhe deu, senão a regra 1 vira enfeite.
 JANELA = 24
-PROF_MAX = FAIXA             # 50 m: além disso o lote atravessaria a travessa e comeria a rua
+# ⚠️ O TETO ERA A FAIXA INTEIRA, E A FAIXA TEM DUAS FILEIRAS COSTAS COM COSTAS.
+# Com PROF_MAX = 50 o lote afundado atravessava para a fileira de trás e ocupava
+# o chão de quem tem frente para a outra rua. No limite exato os dois centros
+# coincidem e os dois lotes ficam IDÊNTICOS: medido em 20/09 na cidade do
+# snapshot, 80 pares de lotes com a mesma posição e o mesmo tamanho para donos
+# diferentes, e dezenas de milhares de pares com sobreposição parcial, todos com
+# profundidade entre 49 e 50 m. O defeito é antigo, de antes do snapshot.
+# O teto passa a ser a FILEIRA. Quem precisa de mais fundo que isso é
+# superquadra, e superquadra ocupa o bloco inteiro por construção.
+PROF_MAX = FILA_PROF         # 25 m: o lote para na divisa de fundo, nunca na fileira de trás
 
 def coloca(s, dog, addr, escala=1.0):
     """Consome testada e devolve (x, z, frente, prof).
@@ -3031,7 +3056,10 @@ def coloca(s, dog, addr, escala=1.0):
         cursor[s] += 1
     if cursor[s] >= n: return None
     base = cursor[s]
-    area = area_de(dog, max(PASSO[s][base]['r'], R_INICIO)) * escala
+    # ⚠️ O PISO SOBREVIVE AO CORTE. `area_de` já aplica o piso de 24 m², e
+    # multiplicar por 0,8 depois devolvia 19,2 m², ou seja o corte furava o
+    # próprio piso que existe para lote não virar risco no chão.
+    area = max(PISO_LOTE, area_de(dog, max(PASSO[s][base]['r'], R_INICIO)) * escala)
     frente_nat = max(area / PROF, LOTE_MIN_FRENTE)
 
     escolhida, folgada = -1, -1
@@ -3121,6 +3149,12 @@ def coloca(s, dog, addr, escala=1.0):
             # INTEIRO (até 250 m de testada por 227 m de fundo) e este teste
             # olhava só o centro: era o caminho por onde os últimos lotes ainda
             # nasciam dentro do canal depois de `_cabe` entrar no ramo normal.
+            # ⚠️ A PROFUNDIDADE DA SUPERQUADRA NÃO CABE NO REGISTRO. `prof_g` é a
+            # do bloco e vai a 345 m na banda do Horizonte, mas o .bin grava
+            # profundidade em uint8: 255. O `min` estava só na gravação, ou seja
+            # a superquadra perdia até 90 m de fundo, 26% da área, calada. Aqui
+            # o teto entra ANTES e a testada compensa, então a área fica de pé.
+            prof_g = min(prof_g, 255.0)
             _fq = min(lado_q, area / prof_g)
             if _cabe(pq, 0.0, 0.0, _fq, prof_g):
                 COTA[addr] = cota_testada(pq, 0.0)
@@ -3470,11 +3504,20 @@ buf = bytearray()
 for x, z, s, a, w, d, _q, _b, _n in saida:
     coorte = min(7, posto[a]*8//N)
     fam = familia_de.get(a, 0)
-    fl = (1 if a in dsc else 0) | (forma_de(UTX.get(a, 1)) << 1)
+    # ⚠️ OS QUATRO BITS LIVRES DA FLAG VIRARAM O QUARTO DE METRO. `w` e `d` são
+    # uint8 em metros inteiros, e arredondar custa até 0,5 m por lado: num lote
+    # de 5 m de testada isso é 10%, e para o boneco de 1,70 m é meio metro de
+    # divisa no lugar errado. Os bits 4-5 levam o resto da frente e os 6-7 o
+    # resto do fundo, em quartos de metro. Quem lê só a forma (bits 1-3) e o DSC
+    # (bit 0) não vê diferença nenhuma.
+    _qw = int(round((w - math.floor(w)) * 4)) & 3
+    _qd = int(round((d - math.floor(d)) * 4)) & 3
+    fl = ((1 if a in dsc else 0) | (forma_de(UTX.get(a, 1)) << 1)
+          | (_qw << 4) | (_qd << 6))
     giro_c = int(round(_GIRO_DE.get((s, _q, _b), 0.0) * 100)) % 36000
     buf += struct.pack('<hhBBHBBBH', int(round(x)), int(round(z)), s, coorte,
                        min(65535, fam), fl,
-                       max(1, min(255, int(round(w)))), max(1, min(255, int(round(d)))),
+                       max(1, min(255, int(math.floor(w)))), max(1, min(255, int(math.floor(d)))),
                        giro_c)
 open(ps('public/city/cidade-lotes.bin'), 'wb').write(buf)
 
