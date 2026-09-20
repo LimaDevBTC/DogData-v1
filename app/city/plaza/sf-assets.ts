@@ -36,6 +36,14 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 export interface Credit { title: string; author: string; license: string; url: string }
 
 export const SF_CREDITS: readonly Credit[] = [
+  // ── as lunetas dos dois mirantes da Terra (20/09) ─────────────────────────
+  // ⚠️ O CREDITO ENTRA NO MESMO COMMIT QUE O ARQUIVO, que e a regra da casa: o
+  // glb ja esta em public/city/sf/ e sem esta linha a licenca CC-BY fica sendo
+  // descumprida por esquecimento, que e como ela costuma ser descumprida.
+  { title: 'Antique Telescope & Tripod', author: 'Alanna S', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/antique-telescope-tripod-096f3a6f0c11495a944fb7cf523318c1' },
+  { title: 'Brass refracting telescope on a wooden mounting', author: 'Azura_SQ', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/brass-refracting-telescope-on-a-wooden-mounting-c7ae07b0e315429b9a3a29af6354cc48' },
+  { title: 'Comet seeker', author: 'Virtual Museums of Malopolska', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/comet-seeker-51fbdc98be7c4c968c43bcc6a7526f7f' },
+  { title: 'Refracting telescope.', author: 'Virtual Museums of Malopolska', license: 'CC0', url: 'https://sketchfab.com/3d-models/refracting-telescope-4d606254893b418998483e1f38a4c127' },
   // ── o aquário e a floresta das ilhas (29/08) ──────────────────────────────
   { title: 'Soft Coral Set', author: 'Kanna-Nakajima', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/soft-coral-set-256355f15fcb4095af17b75ae572bff0' },
   { title: 'Coral Piece', author: 'Sharon Kunne', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/coral-piece-bd879158d2c9496fa40eb9a8fd8e75f8' },

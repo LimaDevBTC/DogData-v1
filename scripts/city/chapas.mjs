@@ -39,6 +39,7 @@ import { join } from 'node:path'
 // `wiki-dogdata/dogcity/orcamento.md` e é assim que uma chapa de hoje se compara
 // com uma de semana passada. Acrescente, evite mudar os que existem.
 const VISTAS = {
+  luneta: [402, -33.0, -823, 395, -33.9, -809, 36],
   // ⚠️ A TERRA, no azimute e na elevacao em que ela REALMENTE esta (243 e 44
   // graus): a Lua e travada por mare, entao ela nao nasce nem se poe. Esta vista
   // existe porque o fundador so a viu uma vez, por acaso, quando a camera girou.

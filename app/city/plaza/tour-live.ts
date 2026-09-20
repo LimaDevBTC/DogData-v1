@@ -72,6 +72,18 @@ export interface ParadaLive {
  * fica horas no ar isso é a favor, não contra: repetição é o que cansa.
  */
 export const TOUR_LIVE: readonly ParadaLive[] = [
+  // ── 0. a Terra, que e o unico assunto do ceu e nunca esteve no roteiro ────
+  //
+  // ⚠️ ELA ABRE O TOUR DE PROPOSITO. O fundador so a viu uma vez, por acaso,
+  // em meses de cidade: um corpo de 1,9 grau parado no azimute 196 nao se acha
+  // sozinho. Pondo os dois mirantes no comeco, o espectador aprende NA PRIMEIRA
+  // MINUTAGEM que existe uma Terra ali e onde olhar para ve-la; o resto do
+  // roteiro passa a ter ceu, e nao so cidade.
+  //
+  // ⚠️ E E UMA PARADA SO. O roteiro chegou a ter duas (praca e orla nobre) e o
+  // fundador tirou a segunda: a Orla Nobre nao recebe programa nosso.
+  { key: 'luneta', voo: 16.0, parada: 22 },
+
   // ── 1. a batalha, que é onde a live começa ────────────────────────────────
   { key: 'warentry',   voo: 14.0, parada: 26 },
   { key: 'war',        voo: 22.0, parada: 24 },

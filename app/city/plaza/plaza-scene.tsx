@@ -50,6 +50,7 @@ import { encaixaPrograma, desenhaPrograma, type PecaEncaixada,
          type ProgramaDesenho } from './programa'
 import { buildVias, type Vias } from './vias'
 import { buildPracas, type Pracas } from './pracas'
+import { buildLunetaPraca } from './luneta-praca'
 import { buildArborizacao, type Arborizacao, type Cova } from './arborizacao'
 import { buildCanais, type Canais } from './canais'
 import { buildMobiliarioUrbano, type MobiliarioUrbano } from './mobiliario-urbano'
@@ -235,6 +236,12 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
   // guerra) não entram aqui: a água e a cidade fora do anel não desceram.
   const PY = PRACA_Y
   switch (name) {
+    // ⚠️ O MIRANTE DA TERRA (20/09). A câmera fica ATRÁS do deck, no
+    // rumo 16, olhando para o 196: assim o mirante é primeiro plano e a Terra
+    // sobe atrás da cidade. Enquadrar do outro lado poria a Terra sobre o
+    // regolito vazio, que é o contrário do motivo de os mirantes existirem.
+    case 'luneta':
+      return { pos: new THREE.Vector3(402, 2 + PY, -823), target: new THREE.Vector3(395, 1 + PY, -809) }
     case 'castle': case 'south': case 'chalet':
       return { pos: new THREE.Vector3(-560, 300 + PY, 1260), target: new THREE.Vector3(0, 110 + PY, 620) }
     case 'chaletback': // conferência: a água que olha para o spaceport
@@ -3170,6 +3177,15 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             // o pé na arrebentação sem raspar a arborização da orla, que está a
             // 52 m da água (muro 26 + passeio 14 + talude 12).
             if (!lagos) console.warn('[arborização] os lagos ainda não subiram: plantando sem máscara de água')
+            // ⚠️ A LUNETA DA PRAÇA, no rumo 16 (o oposto do azimute da Terra):
+            // é isso que põe a cidade entre quem olha e ela. Sobe aqui porque
+            // precisa das duas coisas que só existem neste ponto,
+            // `terrain.superficieAt` e o `gltf` do instrumento.
+            {
+              const lun = buildLunetaPraca({ superficieAt: terrain.superficieAt, gltf })
+              scene.add(lun.group)
+              console.log(`[luneta] instrumento na praça em r ${Math.round(Math.hypot(lun.x, lun.z))}, rumo 16`)
+            }
             daArborizacao.push(buildArborizacao({
               // ⚠️ AS DUAS FUNÇÕES, SEPARADAS (FASE 1 do DOG GAME MODE, 09/09):
               // `heightAt` real e barata pro declive, `superficieAt` pro pé da
@@ -4987,6 +5003,16 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       const cosAng = ray.ray.direction.dot(EARTH_DIR)
       if (cosAng > Math.cos(THREE.MathUtils.degToRad(2.2))) {
         abreLuneta(!luneta.on)
+        return
+      }
+      // ⚠️ CLICAR NA LUNETA É O MESMO QUE CLICAR NA TERRA, e isso não é atalho: o
+      // instrumento existe justamente para dizer ao visitante que há o que ver
+      // ali. Se ele clica no telescópio e nada acontece, o telescópio vira
+      // enfeite e o gesto certo (clicar num ponto de 1,9 grau no céu) fica
+      // escondido atrás de adivinhação.
+      const mir = scene.getObjectByName('luneta-praca')
+      if (mir && ray.intersectObject(mir, true).length) {
+        abreLuneta(true)
         return
       }
       if (luneta.on) { abreLuneta(false); return }

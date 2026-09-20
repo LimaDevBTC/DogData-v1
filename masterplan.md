@@ -1250,6 +1250,35 @@ fundador a viu uma única vez, por acaso, quando a câmera girou. Precisa de: a 
 mirante desenhado virado para o azimute 243, e uma parada no tour.
 
 
+### §16.6 — O terreno desce até a água 🔒 (2026-09-20), EXECUÇÃO ADIADA
+
+**Fundador:** *"não quero rampas, vamos ajustar o terreno para ter um declive natural até a
+água. Mas não faça agora, tem outro agente gerando os lotes e isso pode atrapalhar ele."*
+
+**O defeito medido, que motivou a decisão:**
+```
+lamina da agua      -40,0    unica para a cidade inteira (regra do fundador)
+passeio do cais     -37,8    1 m acima da agua, altura de conves de lancha
+a cidade ao redor   -28,0
+                    ───────
+                    12 m de diferenca, vencidos hoje por talude de regolito de
+                    40 m a 25%, que e aterro e nao acesso
+```
+Resultado na auditoria de 20/09: **131.004 m² de cais em 56 ilhas de pavimento**, a 12 a 150 m
+da rede. O cais existe e não há como chegar nele a pé.
+
+⚠️ **E ISSO CONTRARIA UMA DECISÃO ANTERIOR DELE**, gravada em `canais.ts`: *"que escada o
+que, a galera tem que poder parar lancha na frente da casa"*. Para a lancha parar na porta, a
+porta tem de estar no cais; hoje a casa está 12 m acima.
+
+**A solução é o TERRENO, não a obra:** a margem passa a descer em declive natural até a
+lâmina, em vez de cair num talude. Rampa foi proposta por mim e **recusada**.
+
+⚠️ **ORDEM DE EXECUÇÃO, e ela é dura:** mexer no relevo muda `superficieAt`, que é a máscara
+de água de todo alocador de lote. Fazer isso enquanto o loteamento roda invalida o que ele
+está produzindo. **Terreno depois do lote, nunca junto.**
+
+
 ## §16 — O gerador passa a nascer do snapshot 🔒 (2026-09-20)
 
 Até 19/09/2026 o `scripts/gerar_cidade.py` montava a fila lendo `data/holders_by_age.csv`
@@ -1304,3 +1333,44 @@ compacte melhor primeiro, otimize tudo que puder". Ou seja, nesta ordem:
 
 Recalibrar a curva para baixo está DESCARTADO: o número já está no ar desde a Dobra 1 da
 landing e 81% das pessoas o viram.
+
+### §16.2 — A régua da área é a que a landing publicou 🔒 (2026-09-20)
+
+O gerador distribuía área com um GRADIENTE radial (borda com 2,7x a área por DOG do centro,
+§9 regra 2). A curva que a landing publica desde a Dobra 1 não tem gradiente nenhum. Os dois
+não podiam continuar valendo ao mesmo tempo, e o fundador escolheu **a régua da landing**.
+
+Medido em 20/09, entregue contra prometido, carteira a carteira:
+
+```
+gradiente 1,0 (como estava)   mediana 1,08   p10 0,58   p90 2,43   38% abaixo
+meio termo 0,5                mediana 0,95   p10 0,70   p90 2,43   66% abaixo
+sem gradiente (a da landing)  mediana 0,82   p10 0,82   p90 2,43   82% abaixo
+```
+
+⚠️ **O QUE DECIDE NÃO É A MEDIANA, É O p10.** Com gradiente a mediana parece melhor e a
+distribuição é injusta de um jeito indefensável: **quem está no centro recebe 58% do que leu
+na tela e quem está na borda recebe 243%**. Sem gradiente todo mundo recebe o MESMO fator, e
+aí a diferença vira um número só, que se explica e se corrige com terra. O p90 de 2,43 é só
+a carteira minúscula, que recebe o piso de 24 m² onde a curva prometia 1 m².
+
+**E a terra fecha a conta.** Com a régua da landing e o tecido de lote indo a φ 6.500:
+
+```
+tecido ate    entregue    mediana    razao (igual para todos)
+5.500         36,47 km2    257 m2       0,82
+6.500         42,84 km2    305 m2       0,98   <-- padrão a partir de 20/09
+7.000         53,64 km2    394 m2       1,26
+```
+
+Sem drenar lago, sem terraplanagem e sem mexer no número publicado. O cinturão produtivo não
+perde programa: as mesmas 705 ha de peças, 8 plantas e 16 campos de extração, num anel que
+ainda tem 2,4 km de largura (φ 6.500 a 8.900). Não vamos a 7.000 porque o pódio da abóbada
+começa em 6.950 e porque entregar 26% a mais gasta terra que vale mais como anel de expansão
+do §14.
+
+Padrões do gerador a partir daqui: `GRADIENTE = 0` e `PHI_LOTE = 6500`. As duas continuam
+reversíveis por variável de ambiente (`GRAD=`, `PHI_LOTE=`).
+
+**Falta 2% para o 1,00, e ele está no empacotamento, não na terra:** a queima de prateleira
+está em 13% com o tecido maior (307 km de testada). É a próxima frente.

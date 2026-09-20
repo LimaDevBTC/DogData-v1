@@ -110,6 +110,20 @@ Registro completo no `masterplan.md` §10, com o 🔒 no §9. Resumo operacional
 | área do lote | 1,60 ha | 1,27 ha |
 | gabarito | **2 pavimentos** | livre |
 
+⚠️ **OS LOTES DO PROJETO NA ORLA SÃO RESERVA DE VALOR, NÃO SOBRA DE DESENHO**
+(fundador, 2026-09-20): *"os lotes na área nobre são uma reserva importante. Se o projeto
+hypar, um mint public pra novos holders pode ser uma bela fonte de renda."*
+
+Isso muda o peso de qualquer pedido futuro de pôr programa nosso ali. Cada bloco do projeto
+na Orla Nobre tem **dois** valores concorrentes: o urbano (destino público na orla, que é o
+motivo de eles existirem, ver invariante 5) e o **financeiro** (estoque para um mint público
+quando a demanda aparecer). Gastar um bloco com peça nossa consome os dois de uma vez.
+
+📌 **Precedente registrado no mesmo dia:** o segundo mirante da Terra chegou a ser realocado
+para um desses blocos, com a justificativa correta de que não tocava lote de carteira, e o
+fundador **tirou assim mesmo**. A regra que sai daí: *a Orla Nobre não recebe programa nosso,
+nem no lote do projeto.*
+
 **Invariantes que qualquer implementação tem de respeitar:**
 
 1. ⚠️ **O gabarito de 2 pavimentos na frente é estrutural**, não estético: ele protege a
@@ -827,6 +841,9 @@ Quando for reconstruir, o gerador precisa:
 
 ## 6. Registro de mudanças deste arquivo
 
+- **2026-09-20** — §3.1: os 65 lotes do projeto na Orla Nobre passam a ser tratados como
+  **reserva de valor** (estoque para um mint público futuro), e não só como destino público.
+  Programa nosso não entra neles: precedente do mirante da Terra, retirado pelo fundador.
 - **2026-09-19** — §3.1: o ritmo dos lotes do projeto na Orla Nobre passa de blocos de 5
   para **blocos de 3**, decisão do fundador, com os 2 excedentes da frente indo para as
   pontas da alça. Um destino público a cada 2,58 km na frente e 1,04 km atrás.

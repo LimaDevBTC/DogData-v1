@@ -154,7 +154,7 @@ BANDAS = [   # (phi inicial, phi final, nome, k faixas)
 # assustou, porque a ocupação sobe junto.
 # `PHI_LOTE=6500` liga a banda. O padrão continua 5.500 até o fundador aprovar,
 # porque isso COME O CINTURÃO PRODUTIVO, que é programa dele, não vazio.
-PHI_LOTE = float(os.environ.get('PHI_LOTE', 5500))
+PHI_LOTE = float(os.environ.get('PHI_LOTE', 6500))   # 🔒 20/09: é o que honra a promessa
 if PHI_LOTE > 5500.0:
     BANDAS.append((5500.0, PHI_LOTE, 'Horizonte', 6))   # 345 m: o grão mais largo
 # ⚠️ O LOTE PARA EM 4.300 E ISSO É CONSERTO DE ERRO MEU. Eu cresci a cidade para
@@ -960,7 +960,15 @@ def em_diagonal(x, z, margem=0.0):
 # existe tirando de alguém. A raiz dá razão de 805x entre o maior e o menor;
 # o proporcional puro daria 648.082x e faria cem latifundiários.
 EXPOENTE = 0.5
-GRADIENTE = 1.0        # borda com 2,7x a área por DOG do centro
+# ⚠️ O GRADIENTE BRIGA COM O NÚMERO QUE A LANDING JÁ PUBLICOU. Ele dá à borda
+# 2,7x a área por DOG do centro, e a curva do snapshot (`area = 0,986·√DOG`, que
+# a consulta por carteira mostra desde a Dobra 1) não tem gradiente nenhum.
+# Medido em 20/09 com gradiente 1,0: a mediana entrega 1,08x o prometido, mas o
+# p10 entrega 0,58 e o p90 entrega 2,43, ou seja quem está no centro recebe
+# METADE do que leu na tela e quem está na borda recebe o dobro.
+# `GRAD=0` iguala a forma da curva à publicada: aí a diferença vira UM fator
+# único para todo mundo, que é o que dá para explicar e para corrigir com terra.
+GRADIENTE = float(os.environ.get('GRAD', 0.0))   # 🔒 20/09: a régua é a da landing
 TECIDO_ALVO = 16.33e6  # m² da metade do holder
 LOTE_MIN_FRENTE = 5.0  # nenhum lote fica mais estreito que isto
 LIMITE_MINT = 20000    # ⚠️ NÃO É MAIS FILTRO DE ENTRADA: é o saldo que
