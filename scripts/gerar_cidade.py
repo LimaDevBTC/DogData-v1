@@ -2596,12 +2596,57 @@ for s in range(N_DIST):
 CAP = sum(cap)
 print(f'CAPACIDADE TOTAL: {CAP:,} lotes', file=sys.stderr)
 
-# ── as carteiras, na ordem de chegada de verdade ───────────────────────────
-elig = {}
-with open(p('data/holders_by_age.csv'), newline='') as f:
+# ══════════════════════════════════════════════════════════════════════════
+# A FONTE DA FILA: O SNAPSHOT DO BLOCO 966.670
+#
+# ⚠️ ATÉ 19/09 O GERADOR ORDENAVA PELA REGRA VELHA, e isso não era detalhe de
+# dado: era outra LEI. Ele lia `holders_by_age.csv` (que o cron move todo dia) e
+# ordenava pelo UTXO mais antigo (masterplan §9, regra 1). A régua em vigor é o
+# DOG-tempo do §12, e ela já está RESOLVIDA dentro do snapshot: cada carteira
+# tem `posicao_residencial`, e não há nada a recalcular aqui. Recalcular seria,
+# aliás, a terceira implementação da mesma regra, que é como esta casa já errou
+# antes (ver o cabeçalho do `conferir_terreno.py`).
+#
+# ⚠️ E A FONTE VIVA NÃO SERVE MAIS, por construção: o snapshot é um bloco, o CSV
+# é hoje. Medido em 19/09: 231 carteiras existem só no snapshot e 369 só no CSV.
+# Plantar pelo CSV seria dar lote a quem comprou depois do bloco e tirar de quem
+# estava lá na hora combinada.
+#
+# As 21 institucionais já saíram da fila: `ordem_residencial` é a lista de
+# 85.797 (85.818 menos 21), e elas vão para o Distrito Financeiro por outro
+# caminho (`dog_966670_tag_institucional.json`).
+#
+# `FONTE=vivo` volta ao comportamento antigo, e existe só para comparar as duas
+# cidades lado a lado. O padrão é o snapshot, que é a lei.
+FONTE = os.environ.get('FONTE', 'snapshot')
+SNAP_ORDEM = p('data/snapshots/dog_966670_ordem_residencial.json')
+
+elig, carteiras, UTX_SNAP = {}, [], {}
+if FONTE == 'snapshot':
+    _o = json.load(open(SNAP_ORDEM))
+    _linhas = sorted(_o['ordem'], key=lambda r: r['posicao_residencial'])
+    for _r in _linhas:
+        _a = _r['address']
+        if _r['dog'] <= 0: continue
+        elig[_a] = _r['dog']
+        UTX_SNAP[_a] = int(_r.get('utxo_count') or 1)
+        # a tupla imita a da fonte viva (a ordem já está resolvida, então o que
+        # entra na chave é a posição, e ela é única por construção)
+        carteiras.append((_r['posicao_residencial'], '', 0, _a))
+    N = len(carteiras)
+    print('fila do snapshot %s: %d carteiras, posição por DOG-tempo (masterplan §12)'
+          % (os.path.basename(SNAP_ORDEM), N), file=sys.stderr)
+    _nel = sum(1 for _r in _linhas if not _r.get('elegivel'))
+    print('  ⚠️ %d delas estão marcadas `elegivel: false` (filtro de custódia do §12.1) '
+          'e MESMO ASSIM recebem lote: a marca não é despejo.' % _nel, file=sys.stderr)
+
+# ── as carteiras, na ordem de chegada de verdade (FONTE=vivo, legado) ──────
+if FONTE == 'vivo':
+  with open(p('data/holders_by_age.csv'), newline='') as f:
     for row in csv.DictReader(f):
         try: dog = float(row['total_dog'])
         except (ValueError, KeyError): continue
+        # (bloco legado: só roda com FONTE=vivo)
         # ⚠️ O CORTE DE 20.000 DOG MUDOU DE SENTIDO (fundador, 29/08). Ele decidia
         # QUEM EXISTE no mapa e passa a decidir QUEM PODE CONSTRUIR. Toda carteira
         # com DOG recebe chão posicionado pela idade; abaixo de 20k o lote fica
@@ -2614,17 +2659,16 @@ with open(p('data/holders_by_age.csv'), newline='') as f:
         # E resolve de graça o buraco do tecido: 52.979 carteiras para 94.003
         # vagas deixavam a cidade esburacada na planta.
         if dog > 0: elig[row['address']] = dog
-U = json.load(open(p('data/dog_utxos_by_address.json')))
-carteiras = []
-for a in elig:
+  U = json.load(open(p('data/dog_utxos_by_address.json')))
+  for a in elig:
     lst = U.get(a) or []
     if not lst: continue
     v = min(lst, key=lambda x: (x['ts'], x['txid'], x['vout']))
     carteiras.append((v['ts'], v['txid'], v['vout'], a))
-carteiras.sort()
-N = len(carteiras)
-print(f'carteiras ordenadas: {N:,} | chaves distintas: {len({c[:3] for c in carteiras}):,}',
-      file=sys.stderr)
+  carteiras.sort()
+  N = len(carteiras)
+  print(f'carteiras ordenadas pela fonte VIVA: {N:,} | chaves distintas: '
+        f'{len({c[:3] for c in carteiras}):,}', file=sys.stderr)
 
 # ── as camadas ─────────────────────────────────────────────────────────────
 # ⚠️ OS DADOS MORAM NO REPO, NÃO NUM SCRATCHPAD. A primeira versão lia de $S
@@ -3159,11 +3203,16 @@ if areas:
 
 # ── grava ──────────────────────────────────────────────────────────────────
 posto = {c[3]: i for i, c in enumerate(carteiras)}
-UTX = {}
-with open(p('data/holders_by_age.csv'), newline='') as f:
-    for row in csv.DictReader(f):
-        try: UTX[row['address']] = int(float(row.get('utxo_count') or 1))
-        except (ValueError, KeyError): pass
+# ⚠️ O utxo_count DECIDE A FORMA DO LOTE (masterplan §9, regra 3) e ele também é
+# do BLOCO, não de hoje: gastar um UTXO depois do snapshot não muda a tipologia.
+# Com a fonte viva ele vinha do CSV que o cron move; com o snapshot vem do
+# próprio registro congelado.
+UTX = dict(UTX_SNAP)
+if not UTX:
+    with open(p('data/holders_by_age.csv'), newline='') as f:
+        for row in csv.DictReader(f):
+            try: UTX[row['address']] = int(float(row.get('utxo_count') or 1))
+            except (ValueError, KeyError): pass
 def forma_de(u):
     if u <= 1: return 0        # massa única: casa no centro, fazenda na borda
     if u <= 3: return 1        # pátio, geminada

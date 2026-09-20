@@ -150,10 +150,15 @@ async function main() {
 
   // ─────────────────────────────────────────────────────────────────────
   // AS CARTEIRAS, NA ORDEM DECIDIDA. Ordenado por posicao por seguranca
-  // (o arquivo ja vem assim), e so as elegiveis.
+  // (o arquivo ja vem assim).
+  //
+  // ⚠️ `elegivel: false` NAO TIRA NINGUEM DA CIDADE (fundador, 20/09/2026:
+  // "se tinham $DOG no snapshot vao receber a terra de direito"). A marca e o
+  // filtro de custodia do masterplan §12.1, `lth_pct >= 50`, e ele e o PRIMEIRO
+  // CRITERIO DE ORDEM da regua: decide quem LIDERA a fila, nunca quem tem terra.
+  // Este filtro descartava 3.058 carteiras que tinham DOG no bloco 966.670.
   // ─────────────────────────────────────────────────────────────────────
   const carteiras = (SNAP.ordem as any[])
-    .filter((c) => c.elegivel !== false)
     .sort((a, b) => a.posicao - b.posicao)
     .map((c) => ({ address: c.address as string, area_m2: c.area_m2 as number, posicao: c.posicao as number }))
   const TOTAL_CARTEIRAS = (SNAP.ordem as any[]).length

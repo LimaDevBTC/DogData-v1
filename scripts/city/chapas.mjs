@@ -39,6 +39,11 @@ import { join } from 'node:path'
 // `wiki-dogdata/dogcity/orcamento.md` e é assim que uma chapa de hoje se compara
 // com uma de semana passada. Acrescente, evite mudar os que existem.
 const VISTAS = {
+  // ⚠️ A TERRA, no azimute e na elevacao em que ela REALMENTE esta (243 e 44
+  // graus): a Lua e travada por mare, entao ela nao nasce nem se poe. Esta vista
+  // existe porque o fundador so a viu uma vez, por acaso, quando a camera girou.
+  terra:    [0, 60, 0, -1282, 1449, 653, 45],
+  terraluneta: [0, 60, 0, -1282, 1449, 653, 8],
   rua:      [980, 46, 240, 500, 6, 120, 45],
   rasante:  [2100, 6, 2100, 1200, 4, 1200, 55],
   perto:    [700, 12, 330, 560, 4, 250, 40],

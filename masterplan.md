@@ -1142,12 +1142,152 @@ inteira do lote.
 da área do lote na mediana e 12,1% no p90, e faria o holder pagar pelo azar do relevo, contra
 "a localização não se compra" do §0.1. Muro custa obra e custa zero metro quadrado.
 
+**A conta do muro, medida em 19/09 sobre a cidade gerada com a regra, com a cota de cada lote
+saindo da própria testada (não mais o centro como proxy):**
+
 ```
-desnivel entre vizinhos de divisa   mediana 0,17 m   p90 0,94 m   p99 2,03 m
-acima de 0,5 m   22,7% das divisas
-acima de 2,0 m    1,0%
-acima de 3,0 m    0,4%
+100.332 divisas (1,17 por lote)
+altura do muro   mediana 0,25 m   p90 1,45 m   p99 2,99 m   máx 6,29 m
+
+acima de 0,15 m (o meio-fio)   63.878 divisas   63,7%
+acima de 1,00 m                17.141           17,1%
+acima de 2,00 m                 4.999            5,0%
+acima de 3,00 m                   969            1,0%
+acima de 5,00 m                     7            0,0%
 ```
 
-A medição usou a cota do CENTRO do lote como proxy da testada, então os números de divisa são
-ordem de grandeza. Os finais saem quando o gerador aplicar a regra sobre o registro real.
+Ou seja: a conta da cidade é de muro BAIXO em massa, não de obra de arte. Dois terços das
+divisas pedem um elemento na altura de um meio-fio a um peitoril, e só 1% passa de 3 m.
+
+⚠️ **PENDÊNCIA QUE SAI DAQUI, e é do fundador:** teto de altura do muro. Acima de uns 3 m o
+muro deixa de ser divisa e vira obra (969 divisas, 1%, com 7 casos passando de 5 m). As
+saídas são três: aceitar o muro alto, quebrar a fileira em socalco naquele ponto, ou
+declarar o trecho não lotável. Isso muda geometria de lote, então decide-se antes do
+registro final.
+
+⚠️ E o primeiro cálculo desta tabela deu muro de até 139 m, que é relevo inexistente neste
+sítio. A causa era defeito do gerador, não do relevo: a bisseção guardava a cópia da cidade
+de uma passada e a cota vinha do dicionário vivo, que a passada seguinte reescrevia.
+Consertado em 19/09; a cota agora viaja junto com a cópia.
+
+## §16 — O mundo em volta da cidade 🔒 (2026-09-19 e 20)
+
+### §16.1 — As cidades polares estão DESCARTADAS 🔒
+**Fundador, 2026-09-19:** *"essa ideia de termos 3 cidades, a que temos, Stacks e Solana em
+polos afastados deve ser descartada por completo, isso não vai mais acontecer. Solana e
+Stacks serão bairros dentro da cidade atual; numa fase 2 vamos expandir isso."*
+
+Morre aqui a geografia de três sítios (BTC em Mare Tranquillitatis, SOL em Shackleton, STX em
+Peary) que vinha de `lib/city/lunar/sites.ts` e do pivô lunar. **SOL e STX são BAIRROS da
+cidade atual.** Qualquer proposta futura que os mande para um polo precisa reabrir esta
+decisão, não a ignorar.
+
+⚠️ E isso mata junto o argumento comercial que eu tinha acabado de propor (polo tem gelo,
+equador tem ilmenita, logo existe rota de comércio entre as três). O argumento era bom e é
+FALSO agora: não há três cidades. Se a troca entre correntes precisar de ficção, ela nasce
+dentro da mesma cidade, entre bairros.
+
+### §16.2 — A mina pode ficar DENTRO da abóbada 🔒
+Fundador, 2026-09-19. Os 16 campos de extração não precisam ficar no arco externo.
+
+⚠️ **E a regra de método que veio junto, que vale para tudo:** *"nós temos certa licença
+poética para manipular elementos. Mina é feia e barulhenta, parece que você está levando
+muito ao pé da letra as exigências do mundo real, relax um pouco."* O mundo real é INSUMO,
+nunca juiz. Usar um fato ("mina faz barulho") para vetar uma decisão do fundador é a mesma
+família de erro de [[feedback_wiki_is_input_not_veto]].
+
+### §16.3 — Trabalho é ATIVO, com item 🔒
+Fundador, 2026-09-19. A cadeia de produção (mina, beneficiamento, forno, eletrólise,
+fundição, fábrica solar, sinterização, fazenda, spaceport) é jogada, não coletada. O retorno
+é **item, status e cidade visível**, nunca número que rende. Passivo com número é rendimento
+com outro nome e está fora.
+
+### §16.4 — Dia e noite no ciclo REAL 🔒 (2026-09-20)
+**Ciclo sinódico de 29,53 dias: 14,8 de sol e 14,8 de noite**, amarrado ao relógio da Lua de
+verdade, sem aceleração.
+
+🔑 **A noite não é um problema, é a segunda cidade.** A fase da Terra vista daqui é o oposto
+exato da fase da Lua vista da Terra, então **quando o sol se põe aqui, a Terra está CHEIA**.
+Terra cheia sobre regolito é da ordem de 40 vezes a luz de uma lua cheia na Terra: dá para
+andar, ver cor e fotografar. A cidade ganha uma versão azul.
+
+⚠️ **A hora fica FIXA na landing, no tour e nas chapas de marketing**, senão metade dos
+visitantes chega de noite sem escolher. O portão de chapas já aceita a hora.
+
+### §16.5 — A Terra é DIREÇÃO, não posição, e a interação é LUNETA 🔒 (2026-09-20)
+O fundador descreveu o defeito antigo: *"era como se a terra fosse um balão na lua, o visual
+tava legal, porém se o user interagisse com ela, percebia o erro de posicionamento"*.
+
+**A causa é conceitual:** Terra com POSIÇÃO tem distância, e qualquer distância finita está
+errada (384.400 km não cabem no mesmo espaço da cidade). Hoje a cena já faz o certo, e isto
+fica registrado para nunca ser desfeito: **a Terra anda junto com a câmera** (`plaza-scene`),
+então a direção no céu é sempre a mesma e o tamanho na tela nunca muda.
+
+```
+posicao no ceu    azimute 243, elevacao 44   (Tranquillitatis norte, 25 N 40 E)
+tamanho aparente  1,98 graus: esfera de 640 m a 37 km, que e o real
+movimento         nenhum. A Lua e travada por mare: a Terra nao nasce nem se poe
+```
+
+**DECIDIDO: a interação é LUNETA, não viagem.** Clicar na Terra estreita o campo de visão,
+como teleobjetiva; a câmera não sai do lugar. ⚠️ O zoom com troca de escala (dar zoom e a Lua
+virar satélite) foi **avaliado e adiado**: no instante em que a câmera navega livre entre duas
+escalas, aparece o meio do caminho, e o meio do caminho é onde o balão se denuncia. Isso é
+projeto de motor, não de cena, e só entra depois da Terra estável de pé.
+
+**O que falta, e é o trabalho de verdade:** a Terra não está EMOLDURADA em lugar nenhum. O
+fundador a viu uma única vez, por acaso, quando a câmera girou. Precisa de: a luneta, um
+mirante desenhado virado para o azimute 243, e uma parada no tour.
+
+
+## §16 — O gerador passa a nascer do snapshot 🔒 (2026-09-20)
+
+Até 19/09/2026 o `scripts/gerar_cidade.py` montava a fila lendo `data/holders_by_age.csv`
+(que o cron move todo dia) e ordenando pelo UTXO mais antigo, que é a regra 1 do §9. Ou seja
+**a régua de DOG-tempo do §12 estava escrita aqui e desmentida pelo código**, e a cidade que
+saía era a de hoje, não a do bloco 966.670.
+
+A partir de 20/09 a fonte é `data/snapshots/dog_966670_ordem_residencial.json`, na ordem de
+`posicao_residencial`: 85.797 carteiras, que são as 85.818 do snapshot menos as 21
+institucionais que vão para o Distrito Financeiro. O `utxo_count`, que decide a forma do lote
+pela regra 3 do §9, também passa a vir do bloco: gastar um UTXO depois do snapshot não muda
+a tipologia de ninguém. `FONTE=vivo` reproduz o comportamento antigo, e existe só para
+comparar as duas cidades lado a lado.
+
+Medido antes da troca: **231 carteiras existem só no snapshot e 369 só no arquivo vivo.**
+Plantar pelo arquivo vivo daria lote a quem chegou depois do bloco e tiraria de quem estava
+lá na hora combinada.
+
+⚠️ **3.058 carteiras da fila estão marcadas `elegivel: false`** (o filtro de custódia do
+§12.1) e **recebem lote assim mesmo**: a marca é sinal, não despejo. Se algum dia ela virar
+exclusão, isso é decisão do fundador e muda a contagem da cidade.
+
+### ⚠️ §16.1 — A ÁREA PROMETIDA NÃO CABE NO TERRENO (aberto, decisão do fundador)
+
+A curva do snapshot (`dog_snapshot_966670.json.curva`) é `area = clamp(0,986443 · √DOG, 1,
+40000)` e mira **46,66 km²**. Essa área já é PÚBLICA: `/api/dogcity/lookup` e a seção de
+consulta da landing dizem a cada holder "YOUR LOT: X m2" a partir dela.
+
+O terreno não tem isso. Medido em 19 e 20/09:
+
+```
+soma das areas prometidas pelo snapshot      46,30 km2
+tecido lotavel que o gerador enxerga         43,55 km2
+area que o empacotamento realmente entrega   25,56 km2   (59% do tecido)
+```
+
+Comparando carteira a carteira, entregue contra prometido: **mediana 0,63, p10 0,33, p90
+2,43, e 81,4% das carteiras receberiam MENOS do que a landing já disse a elas.** Nem com
+empacotamento perfeito a promessa fecha: 43,55 ainda é menos que 46,30.
+
+Três saídas, e a escolha é do fundador:
+
+1. **Mais terra.** Honrar o número publicado pede algo perto de 79 km² de tecido, contra os
+   43,55 de hoje. A terra existe no sítio (a coroa externa sozinha tem 34 km² que o gerador
+   não alcança), e isto conversa com os anéis de expansão do §14.
+2. **Outra curva, anunciada antes do mint.** Recalibrar `k` para o tecido que existe e
+   republicar o lookup. É honesto, mas mexe no número que 81% das pessoas já viram.
+3. **Empacotar melhor.** Sozinho não resolve (teto de 43,55), mas encurta a diferença.
+
+⚠️ O que NÃO pode acontecer é a diferença aparecer no dia da entrega. O número está no ar
+desde a Dobra 1 da landing.
