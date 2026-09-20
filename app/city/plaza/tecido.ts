@@ -160,10 +160,15 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
   // `superficieAt`, e isso é o grosso do tempo de subida da cena.
   for (let i = 0; modo !== 'obra' && i < n; i++) {
     const off = i * REG
-    const x = dv.getInt16(off, true), z = dv.getInt16(off + 2, true)
+    // ⚠️ REGISTRO v2 (20/09): posição em QUARTOS DE METRO e o quarto de metro da
+    // frente e do fundo nos bits 4-7 da flag. Em metros inteiros, dois lotes que
+    // se encostam na divisa de fundo apareciam cruzados em até 1 m, e meio metro
+    // de erro é degrau de calçada para o boneco de 1,70 m.
+    const x = dv.getInt16(off, true) / 4, z = dv.getInt16(off + 2, true) / 4
     const setor = dv.getUint8(off + 4), coorte = dv.getUint8(off + 5)
     const flags = dv.getUint8(off + 8)
-    const frente = dv.getUint8(off + 9), prof = dv.getUint8(off + 10)
+    const frente = dv.getUint8(off + 9) + ((flags >> 4) & 3) / 4
+    const prof = dv.getUint8(off + 10) + ((flags >> 6) & 3) / 4
     const giroLote = (dv.getUint16(off + 11, true) / 100) * Math.PI / 180
     const forma = Math.min(4, (flags >> 1) & 7)
     const r01 = hash01(i)
@@ -289,9 +294,11 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
     const em = new THREE.Vector3(1, 1, 1)
     for (let i = 0; i < n; i++) {
       const off = i * REG
-      const x = dv.getInt16(off, true), z = dv.getInt16(off + 2, true)
+      const x = dv.getInt16(off, true) / 4, z = dv.getInt16(off + 2, true) / 4
       const setor = dv.getUint8(off + 4)
-      const frente = dv.getUint8(off + 9), prof = dv.getUint8(off + 10)
+      const flagsQ = dv.getUint8(off + 8)
+      const frente = dv.getUint8(off + 9) + ((flagsQ >> 4) & 3) / 4
+      const prof = dv.getUint8(off + 10) + ((flagsQ >> 6) & 3) / 4
     const giroLote = (dv.getUint16(off + 11, true) / 100) * Math.PI / 180
       const ang = -giroLote
       const cx = Math.cos(ang), sx = Math.sin(ang)

@@ -1675,9 +1675,12 @@ if _AB:
     _reg = struct.calcsize('<hhBBHBBBH')
     _v = []
     for _i in range(len(_by) // _reg):
-        _x, _z, _s, _c, _f, _fl, _w, _d, _g = struct.unpack_from('<hhBBHBBBH', _by, _i*_reg)
+        _x4, _z4, _s, _c, _f, _fl, _w, _d, _g = struct.unpack_from('<hhBBHBBBH', _by, _i*_reg)
+        _x, _z = _x4 / 4.0, _z4 / 4.0
+        _w = _w + ((_fl >> 4) & 3) / 4.0
+        _d = _d + ((_fl >> 6) & 3) / 4.0
         _gg = math.radians(_g / 100.0)
-        _v.append(declive_lote(_x, _z, math.cos(_gg), math.sin(_gg), 0.0, 0.0, float(_w), float(_d)))
+        _v.append(declive_lote(_x, _z, math.cos(_gg), math.sin(_gg), 0.0, 0.0, _w, _d))
     _v.sort(); _n = len(_v) or 1
     print('AUDITA %s: %d lotes | mediana %.1f%% | p90 %.1f%% | p99 %.1f%% | máx %.1f%%'
           % (_AB, len(_v), _v[_n//2]*100, _v[int(_n*0.9)]*100, _v[int(_n*0.99)]*100, _v[-1]*100),
@@ -1686,6 +1689,25 @@ if _AB:
           % (sum(1 for q in _v if q > 0.08), sum(1 for q in _v if q > 0.12),
              sum(1 for q in _v if q > 0.20)), file=sys.stderr)
     sys.exit(0)
+
+
+def _vago(pr, x_ini, frente):
+    """o trecho [x_ini, x_ini+frente) não foi reservado por lote fundo da outra fileira."""
+    for _b0, _b1 in pr['bloq']:
+        if x_ini < _b1 - 1e-6 and x_ini + frente > _b0 + 1e-6: return False
+    return True
+
+
+def _reserva_no_par(pr, x_ini, frente, prof):
+    """lote mais fundo que a fileira come a de trás: marca lá o mesmo trecho."""
+    if prof <= FILA_PROF + 1e-6: return
+    _par = pr.get('par')
+    if _par is None: return
+    _par['bloq'].append((x_ini, x_ini + frente))
+    # se o trecho está na frente do cursor do par, o cursor pula por cima dele
+    if x_ini <= _par['x0'] + 1e-6 and _par['x0'] < x_ini + frente:
+        _avanco = min(_par['livre'], x_ini + frente - _par['x0'])
+        _par['x0'] += _avanco; _par['livre'] -= _avanco
 
 
 def _cabe(pr, ox, oz, frente, prof):
@@ -2911,7 +2933,19 @@ def prateleiras_de(s):
                             # superquadra não pode mais contar 6 prateleiras fixas
                             # nem supor lado 168: cada prateleira carrega o lado e
                             # o número de fileiras do bloco de onde ela saiu.
-                            'lado': b['lado'], 'prof': b['prof'], 'nf': 2 * b['k']})
+                            'lado': b['lado'], 'prof': b['prof'], 'nf': 2 * b['k'],
+                            # ⚠️ TRECHO BLOQUEADO PELO LOTE FUNDO DA FILEIRA DE
+                            # TRÁS. A faixa tem duas fileiras costas com costas;
+                            # lote mais fundo que a fileira invade a de trás, e
+                            # sem este registro os dois donos recebem o mesmo
+                            # chão (medido: 80 pares idênticos).
+                            'bloq': []})
+    # ⚠️ O PAR É O VIZINHO IMEDIATO. `_z_das_filas` emite as duas fileiras de
+    # cada faixa em sequência, uma de frente para cada rua.
+    for _i in range(0, len(out) - 1, 2):
+        if (out[_i]['bx'] == out[_i+1]['bx'] and out[_i]['bz'] == out[_i+1]['bz']
+                and out[_i]['sentido'] == -out[_i+1]['sentido']):
+            out[_i]['par'] = out[_i+1]; out[_i+1]['par'] = out[_i]
     return out
 PASSO = [prateleiras_de(s) for s in range(N_DIST)]
 
@@ -3045,7 +3079,8 @@ JANELA = 24
 # profundidade entre 49 e 50 m. O defeito é antigo, de antes do snapshot.
 # O teto passa a ser a FILEIRA. Quem precisa de mais fundo que isso é
 # superquadra, e superquadra ocupa o bloco inteiro por construção.
-PROF_MAX = FILA_PROF         # 25 m: o lote para na divisa de fundo, nunca na fileira de trás
+PROF_MAX = FAIXA             # 50 m: o lote pode atravessar a faixa inteira, DESDE QUE
+                             # reserve o trecho correspondente na fileira de trás
 
 def coloca(s, dog, addr, escala=1.0):
     """Consome testada e devolve (x, z, frente, prof).
@@ -3159,6 +3194,9 @@ def coloca(s, dog, addr, escala=1.0):
             if _cabe(pq, 0.0, 0.0, _fq, prof_g):
                 COTA[addr] = cota_testada(pq, 0.0)
                 for k in range(alvo, alvo + nf_alvo):
+                    # ⚠️ a superquadra come o bloco inteiro: nenhuma fileira dele
+                    # pode receber lote depois, nem pelo vão
+                    PASSO[s][k]['bloq'].append((-1e9, 1e9))
                     PASSO[s][k]['x0'] += PASSO[s][k]['livre']
                     PASSO[s][k]['livre'] = 0.0
                 return (_cx, _cz, min(lado_q, area / prof_g), prof_g, pq['q'], pq['b'])
@@ -3198,10 +3236,12 @@ def coloca(s, dog, addr, escala=1.0):
         for _sobra_vao, _i in _cand[:VAO_TENTA]:
             _pv, _vx, _vl = _lista[_i]
             _ozv = _pv['borda'] + _pv['sentido'] * prof_real / 2
+            if not _vago(_pv, _vx, frente): continue
             if not _cabe(_pv, _vx + frente / 2, _ozv, frente, prof_real): continue
             _wx = _pv['bx'] + (_vx + frente/2)*_pv['ca'] - _ozv*_pv['sa']
             _wz = _pv['bz'] + (_vx + frente/2)*_pv['sa'] + _ozv*_pv['ca']
             COTA[addr] = cota_testada(_pv, _vx + frente / 2)
+            _reserva_no_par(_pv, _vx, frente, prof_real)
             ORC['vao_usado'] += frente; ORC['vao_n'] += 1
             # o que sobrar do vão continua valendo para um lote ainda menor
             if _vl - frente >= LOTE_MIN_FRENTE:
@@ -3221,7 +3261,8 @@ def coloca(s, dog, addr, escala=1.0):
         ozc = pr['borda'] + pr['sentido'] * prof_real / 2
         cx = pr['bx'] + ox*pr['ca'] - ozc*pr['sa']
         cz = pr['bz'] + ox*pr['sa'] + ozc*pr['ca']
-        if _cabe(pr, ox, ozc, frente, prof_real): ok = True; break
+        if _vago(pr, ox - frente / 2, frente) and _cabe(pr, ox, ozc, frente, prof_real):
+            ok = True; break
         # ⚠️ ANDE UM PASSO DE SONDAGEM, NÃO A TESTADA INTEIRA. Queimar `frente` a
         # cada rejeição custou 53 m² no lote mediano (294 caiu para 241): a
         # prateleira inteira ia embora por causa de uma ponta ruim. O passo de
@@ -3265,6 +3306,7 @@ def coloca(s, dog, addr, escala=1.0):
     wx = pr['bx'] + ox*pr['ca'] - oz*pr['sa']
     wz = pr['bz'] + ox*pr['sa'] + oz*pr['ca']
     COTA[addr] = cota_testada(pr, ox)
+    _reserva_no_par(pr, ox - frente / 2, frente, prof_real)
     return (wx, wz, frente, min(255.0, prof_real), pr['q'], pr['b'])
 
 # ⚠️ A COTA NÃO CABE NO REGISTRO DE 13 BYTES: ele está cheio, e alargá-lo
@@ -3515,7 +3557,15 @@ for x, z, s, a, w, d, _q, _b, _n in saida:
     fl = ((1 if a in dsc else 0) | (forma_de(UTX.get(a, 1)) << 1)
           | (_qw << 4) | (_qd << 6))
     giro_c = int(round(_GIRO_DE.get((s, _q, _b), 0.0) * 100)) % 36000
-    buf += struct.pack('<hhBBHBBBH', int(round(x)), int(round(z)), s, coorte,
+    # ⚠️ A POSIÇÃO PASSOU A SER EM QUARTOS DE METRO (versão 2 do registro,
+    # 20/09). Em metros inteiros dois lotes que se ENCOSTAM na divisa de fundo
+    # apareciam cruzados em até 1 m, porque cada centro andava meio metro no
+    # arredondamento: a conferência acusava 23 mil pares e não havia defeito de
+    # colocação nenhum, era o registro que não sabia dizer onde o lote estava.
+    # Para a maquete vista de cima 1 m é invisível; para o boneco de 1,70 m é um
+    # degrau na calçada. int16 em quartos de metro alcança 8.191 m e a cidade
+    # chega a 7.430, então cabe. O tamanho do registro não muda.
+    buf += struct.pack('<hhBBHBBBH', int(round(x*4)), int(round(z*4)), s, coorte,
                        min(65535, fam), fl,
                        max(1, min(255, int(math.floor(w)))), max(1, min(255, int(math.floor(d)))),
                        giro_c)
@@ -3595,9 +3645,17 @@ _ct = sorted(COTA.get(a, 0.0) for *_r, a in ((0, 0, 0, r[3]) for r in saida))
 print('  cota de testada: mínima %.1f m | mediana %.1f | máxima %.1f'
       % (_ct[0], _ct[_nn//2], _ct[-1]), file=sys.stderr)
 json.dump({
-    'esquema': 'int16 x, int16 z, uint8 setor, uint8 coorte, uint16 familia, '
-               'uint8 flags(bit0=DSC, bits1-3=forma por utxo_count), uint8 frente_m, uint8 prof_m',
-    'chave': '(ts, txid, vout) do UTXO mais antigo; zero colisoes',
+    # ⚠️ O ESQUEMA JÁ MENTIU ANTES (o giro entrou e ele não contou, e a prancha
+    # do plano diretor ficou um mês lendo 11 bytes). Agora ele leva VERSÃO: quem
+    # ler a v2 com código de v1 desenha a cidade a um quarto do tamanho, e isso
+    # tem de falhar alto, não em silêncio.
+    'registroVersao': 2,
+    'esquema': 'int16 x_quartos_de_metro, int16 z_quartos_de_metro, uint8 setor, '
+               'uint8 coorte, uint16 familia, uint8 flags(bit0=DSC, bits1-3=forma, '
+               'bits4-5=quarto de metro da frente, bits6-7=quarto de metro do fundo), '
+               'uint8 frente_m_piso, uint8 prof_m_piso, uint16 giro_centesimos_de_grau',
+    'registroBytes': 13,
+    'chave': 'posicao_residencial do snapshot 966.670 (DOG-tempo, masterplan §12)',
     'curva': {'expoente': EXPOENTE, 'gradiente': GRADIENTE, 'k': K_AREA,
               'lobos': LOBOS, 'loboAmp': LOBO_AMP,
               'ritmoLobos': RITMO_LOBOS, 'ritmoAmp': RITMO_AMP},

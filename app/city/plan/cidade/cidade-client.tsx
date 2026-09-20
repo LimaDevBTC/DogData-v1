@@ -83,8 +83,8 @@ interface Meta {
 
 interface Lotes {
   n: number
-  x: Int16Array; z: Int16Array; s: Uint8Array; c: Uint8Array
-  f: Uint16Array; g: Uint8Array; fr: Uint8Array; pf: Uint8Array
+  x: Float32Array; z: Float32Array; s: Uint8Array; c: Uint8Array
+  f: Uint16Array; g: Uint8Array; fr: Float32Array; pf: Float32Array
 }
 
 interface Quarteirao {
@@ -820,16 +820,19 @@ export default function CidadeClient() {
       // `cidade-malha.json`, por quarteirão, não do .bin. Conferido 19/09.
       const REG = 13
       const n = Math.floor(buf.byteLength / REG)
-      const x = new Int16Array(n), z = new Int16Array(n)
+      const x = new Float32Array(n), z = new Float32Array(n)
       const s = new Uint8Array(n), c = new Uint8Array(n)
       const f = new Uint16Array(n), g = new Uint8Array(n)
-      const fr = new Uint8Array(n), pf = new Uint8Array(n)
+      const fr = new Float32Array(n), pf = new Float32Array(n)
       for (let i = 0; i < n; i++) {
         const o = i * REG
-        x[i] = dv.getInt16(o, true); z[i] = dv.getInt16(o + 2, true)
+        // ⚠️ REGISTRO v2: posição em quartos de metro, e o quarto de metro da
+        // frente e do fundo vem nos bits 4-7 da flag (ver tecido.ts).
+        x[i] = dv.getInt16(o, true) / 4; z[i] = dv.getInt16(o + 2, true) / 4
         s[i] = dv.getUint8(o + 4); c[i] = dv.getUint8(o + 5)
         f[i] = dv.getUint16(o + 6, true); g[i] = dv.getUint8(o + 8)
-        fr[i] = dv.getUint8(o + 9); pf[i] = dv.getUint8(o + 10)
+        fr[i] = dv.getUint8(o + 9) + ((g[i] >> 4) & 3) / 4
+        pf[i] = dv.getUint8(o + 10) + ((g[i] >> 6) & 3) / 4
       }
       setMeta(m); setMalha(ml); setD({ n, x, z, s, c, f, g, fr, pf })
     })().catch(() => {})

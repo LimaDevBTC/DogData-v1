@@ -1374,3 +1374,44 @@ reversíveis por variável de ambiente (`GRAD=`, `PHI_LOTE=`).
 
 **Falta 2% para o 1,00, e ele está no empacotamento, não na terra:** a queima de prateleira
 está em 13% com o tecido maior (307 km de testada). É a próxima frente.
+
+### §16.3 — Os defeitos que a auditoria de 20/09 achou 🔒
+
+Antes de qualquer merkle root, esta é a lista do que estava errado no gerador e foi
+corrigido. Todos são anteriores ao trabalho desta data: a cidade de teste publicada já os
+tinha.
+
+**1. Lote em cima de lote.** ⚠️ O pior deles. `PROF_MAX` era a FAIXA inteira (50 m) e a
+faixa tem DUAS fileiras costas com costas de 25 m. O lote afundado até o teto atravessava
+para a fileira de trás e ocupava o chão de quem tem frente para a outra rua; no limite exato
+os dois centros coincidem e os lotes ficam idênticos. Medido: **80 pares com posição e
+tamanho iguais para donos diferentes**, e dezenas de milhares de pares com sobreposição
+parcial, todos com profundidade entre 49 e 50 m. O teto agora é a FILEIRA (25 m); quem
+precisa de mais fundo é superquadra, que ocupa o bloco inteiro por construção.
+
+**2. Área truncada em silêncio.** Quando nenhuma prateleira da janela comportava a testada,
+o gerador "afundava o lote" e a profundidade batia no teto: o lote entregava `frente × teto`
+e ninguém contava. Uma carteira com 4.768 m² publicados saiu com 261 m². Agora, antes de
+aceitar, ele procura no distrito inteiro uma prateleira que honre a área.
+
+**3. Superquadra perdia 26% da área.** Ela devolvia a profundidade do bloco (até 345 m na
+banda do Horizonte) para um campo de 1 byte, e o `min(255)` só existia na gravação. O teto
+entra antes e a testada compensa.
+
+**4. O corte de escala furava o piso.** `area_de` aplica piso de 24 m² e o corte multiplicava
+depois: 24 × 0,8 = 19,2 m². Piso agora sobrevive ao corte.
+
+**5. Meio metro por lado no arredondamento.** `frente` e `profundidade` são uint8 em metros;
+arredondar custava até 0,5 m por lado, que num lote de 5 m de testada é 10%, e para o boneco
+de 1,70 m é meio metro de divisa fora do lugar. Os quatro bits livres da flag passam a levar
+o quarto de metro (bits 4-5 frente, 6-7 fundo). O registro continua com 13 bytes e quem lê
+só DSC e forma não vê diferença.
+
+**6. O corte de cabelo virou tosquia.** A escada de 0,6 / 0,35 / 0,15 cortava até 85% da área
+de quem chegava no fim da fila do distrito. Agora o gerador tenta TODOS os distritos com a
+área inteira antes de cortar, e o corte para em 0,8.
+
+Conferência que passou a existir e deve rodar antes de todo registro: bijeção fila/lote,
+mesma ordem em `.bin`/CSV/cotas, `lot_id` único, sobreposição por par dentro do quarteirão,
+área entregue contra prometida, cota dentro da faixa do relevo, e o histograma de
+declividade do que foi gravado.
