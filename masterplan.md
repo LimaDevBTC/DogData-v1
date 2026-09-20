@@ -1159,11 +1159,21 @@ acima de 5,00 m                     7            0,0%
 Ou seja: a conta da cidade é de muro BAIXO em massa, não de obra de arte. Dois terços das
 divisas pedem um elemento na altura de um meio-fio a um peitoril, e só 1% passa de 3 m.
 
-⚠️ **PENDÊNCIA QUE SAI DAQUI, e é do fundador:** teto de altura do muro. Acima de uns 3 m o
-muro deixa de ser divisa e vira obra (969 divisas, 1%, com 7 casos passando de 5 m). As
-saídas são três: aceitar o muro alto, quebrar a fileira em socalco naquele ponto, ou
-declarar o trecho não lotável. Isso muda geometria de lote, então decide-se antes do
-registro final.
+**SOCALCO, COM TETO DE 3 m** 🔒 (fundador, 20/09/2026). Onde o desnível entre dois lotes
+passa de 3 m, a fileira quebra em duas bancadas e a quebra aparece na calçada como degrau ou
+rampa curta. O muro nunca vira paredão: acima de 3 m ele deixaria de ser divisa e viraria
+obra, e um muro cego de 6 m encostado na divisa é o bloco de concreto de novo, agora na
+escala do vizinho e ao lado de um boneco de 1,70 m.
+
+O teto em 3 m pega 1% das divisas. Em 2 m pegaria 5%, e aí o socalco vira regra geral em vez
+de exceção, pica a fileira e briga com a preferência por repetição alinhada.
+
+⚠️ **E A BARRA É DE ACABAMENTO, NÃO SÓ DE REGRA** (fundador: "precisa ser muito bem feito,
+pra não ficar feio"). O socalco só se aprova com: muro em pedra de regolito com topo
+plantado, nunca concreto aparente; o muro é embasamento do prédio de cima, não traseira; a
+quebra acompanha o greide da rua (lei 2 do DOGGAMEMODE), então a calçada degrau a degrau
+continua contínua; e cada bancada mantém a fileira legível de fora, sem serrilhado. Isso se
+julga em chapa na altura do olho, a 1,70 m, nunca de cima.
 
 ⚠️ E o primeiro cálculo desta tabela deu muro de até 139 m, que é relevo inexistente neste
 sítio. A causa era defeito do gerador, não do relevo: a bisseção guardava a cópia da cidade
@@ -1258,9 +1268,12 @@ Medido antes da troca: **231 carteiras existem só no snapshot e 369 só no arqu
 Plantar pelo arquivo vivo daria lote a quem chegou depois do bloco e tiraria de quem estava
 lá na hora combinada.
 
-⚠️ **3.058 carteiras da fila estão marcadas `elegivel: false`** (o filtro de custódia do
-§12.1) e **recebem lote assim mesmo**: a marca é sinal, não despejo. Se algum dia ela virar
-exclusão, isso é decisão do fundador e muda a contagem da cidade.
+⚠️ **`elegivel: false` NUNCA TIRA TERRA DE NINGUÉM.** 🔒 Decisão do fundador, 20/09/2026:
+"se tinham $DOG no snapshot vão receber a terra de direito". A marca é o filtro de custódia
+do §12.1 (`lth_pct >= 50`) e ele é o PRIMEIRO CRITÉRIO DE ORDEM da régua: decide quem LIDERA
+a fila, nunca quem existe no mapa. São 3.058 carteiras, e entre elas as duas maiores da
+cidade. O gerador sempre as plantou; `scripts/city/lotear.ts:156` as descartava e foi
+corrigido em 20/09.
 
 ### ⚠️ §16.1 — A ÁREA PROMETIDA NÃO CABE NO TERRENO (aberto, decisão do fundador)
 
@@ -1280,14 +1293,14 @@ Comparando carteira a carteira, entregue contra prometido: **mediana 0,63, p10 0
 2,43, e 81,4% das carteiras receberiam MENOS do que a landing já disse a elas.** Nem com
 empacotamento perfeito a promessa fecha: 43,55 ainda é menos que 46,30.
 
-Três saídas, e a escolha é do fundador:
+**DECISÃO DO FUNDADOR, 20/09/2026** 🔒: **o número publicado fica, e a cidade se ajusta a
+ele.** Palavras dele: "tem terra pra caralho, o que mais tem é terra. Use o que precisar,
+compacte melhor primeiro, otimize tudo que puder". Ou seja, nesta ordem:
 
-1. **Mais terra.** Honrar o número publicado pede algo perto de 79 km² de tecido, contra os
-   43,55 de hoje. A terra existe no sítio (a coroa externa sozinha tem 34 km² que o gerador
-   não alcança), e isto conversa com os anéis de expansão do §14.
-2. **Outra curva, anunciada antes do mint.** Recalibrar `k` para o tecido que existe e
-   republicar o lookup. É honesto, mas mexe no número que 81% das pessoas já viram.
-3. **Empacotar melhor.** Sozinho não resolve (teto de 43,55), mas encurta a diferença.
+1. **Compactar e otimizar o empacotamento**, que hoje entrega 29,23 dos 43,55 km² de tecido
+   (67%). Cada ponto aqui é terra de graça, sem mexer no desenho.
+2. **Usar mais terra** onde ainda faltar. O sítio tem 248 km² e o gerador enxerga 43,55; só
+   a coroa externa tem 34 km² fora do alcance dele hoje.
 
-⚠️ O que NÃO pode acontecer é a diferença aparecer no dia da entrega. O número está no ar
-desde a Dobra 1 da landing.
+Recalibrar a curva para baixo está DESCARTADO: o número já está no ar desde a Dobra 1 da
+landing e 81% das pessoas o viram.

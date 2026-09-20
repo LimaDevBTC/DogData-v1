@@ -216,6 +216,24 @@ async function main() {
         estado: 'demarcado, vazio', poligono: null,
       },
       forma: { phiBorda: PHI_BORDA, k: +K_FORMA.toFixed(5), area_km2: +(areaContorno / 1e6).toFixed(3) },
+      // ⚠️ O EIXO DA TERRA, e ele é a única direção da cidade que não sai da
+      // geometria: sai do CÉU. A Terra está em azimute 196 e não se move, porque
+      // a Lua é travada por maré. Os dois mirantes ficam no rumo OPOSTO (16), e
+      // é isso que põe a cidade inteira entre quem olha e a Terra; um mirante no
+      // rumo 196 olharia a Terra por cima do regolito vazio.
+      //
+      // ⚠️ DOIS MIRANTES NO MESMO EIXO, A DUAS ESCALAS (fundador, 20/09): o da
+      // Praça, onde todo mundo passa, com a praça e o lago no quadro; o do
+      // Pódio, a 7.050, com os 11 km da cidade no quadro. Mesmo alinhamento, duas
+      // leituras.
+      mirantesDaTerra: {
+        azimuteDaTerra: 196,
+        elevacaoDaTerra: 16,
+        rumo: 16,
+        praca: { rumo: 16, r: 900, x: 248.1, z: -865.1 },
+        podio: { rumo: 16, r: 7050, x: 1943.2, z: -6776.9 },
+        nota: 'a Terra nao nasce nem se poe: um mirante fixo funciona para sempre',
+      },
       // ⚠️ A ILHA DO CLUBE ENTRA COMO TERRA, e por isso mora no mapa e não numa
       // lista de peças à parte: ela é terra NOVA criada dentro da água, e o
       // gerador de lotes precisa saber que aquele pedaço de baía deixou de ser

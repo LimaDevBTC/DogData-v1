@@ -42,6 +42,10 @@ const VISTAS = {
   // ⚠️ A TERRA, no azimute e na elevacao em que ela REALMENTE esta (243 e 44
   // graus): a Lua e travada por mare, entao ela nao nasce nem se poe. Esta vista
   // existe porque o fundador so a viu uma vez, por acaso, quando a camera girou.
+  terra16: [560, 640, -1480, -265, 431, 1397, 45],
+  terracidade: [560, 640, -1480, -265, 849, 1397, 45],
+  terracidade2: [560, 640, -1480, -266, 535, 1402, 50],
+  terraheroi: [560, 640, -1480, -195, 1860, 1154, 45],
   terra:    [0, 60, 0, -1282, 1449, 653, 45],
   terraluneta: [0, 60, 0, -1282, 1449, 653, 8],
   rua:      [980, 46, 240, 500, 6, 120, 45],

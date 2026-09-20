@@ -145,6 +145,18 @@ BANDAS = [   # (phi inicial, phi final, nome, k faixas)
     # achavam frente no distrito delas. Uma banda a mais dá para onde elas irem.
     (4300.0, 5500.0, 'Borda',  5),      # 286 m: grão largo de periferia
 ]
+# ⚠️ A BANDA DO HORIZONTE, E POR QUE A OBJEÇÃO DE 30/08 SE INVERTEU. O tecido
+# parou em 5.500 porque com lote pequeno um tecido maior lia como ruína: 32% de
+# ocupação, quarteirão pela metade. Agora a área por lote é PROMESSA PÚBLICA
+# (§16.1: 46,30 km², e a landing já disse a cada holder o número dele), e ela
+# não cabe nem no tecido inteiro de hoje, que tem 43,55 km². Com o lote 53%
+# maior, esticar o tecido não esvazia a cidade: ela fica mais densa do que a que
+# assustou, porque a ocupação sobe junto.
+# `PHI_LOTE=6500` liga a banda. O padrão continua 5.500 até o fundador aprovar,
+# porque isso COME O CINTURÃO PRODUTIVO, que é programa dele, não vazio.
+PHI_LOTE = float(os.environ.get('PHI_LOTE', 5500))
+if PHI_LOTE > 5500.0:
+    BANDAS.append((5500.0, PHI_LOTE, 'Horizonte', 6))   # 345 m: o grão mais largo
 # ⚠️ O LOTE PARA EM 4.300 E ISSO É CONSERTO DE ERRO MEU. Eu cresci a cidade para
 # 6.900 para levantar a mediana, e a mediana subiu (113 -> 293), mas a conta que eu
 # não fiz foi a de OCUPAÇÃO: sobraram 161.172 vagas para 85.838 carteiras, ou seja
@@ -164,7 +176,7 @@ BANDAS = [   # (phi inicial, phi final, nome, k faixas)
 # E o fim da mistura da superelipse em `phi()`: se ficar atrás da última banda, a
 # forma é aplicada pela metade onde a cidade acaba e o tecido volta a sair
 # circular sob uma abóbada que não é.
-PHI_PRODUTIVO = 5500.0
+PHI_PRODUTIVO = PHI_LOTE   # acompanha a última banda, sempre
 # ⚠️ A CINTA POLAR DEIXOU DE EXISTIR E ISSO NÃO É PERDA. Ela era a faixa externa
 # em quadra tangencial, criada para consertar a borda serrilhada que a malha
 # CARTESIANA deixava ao ser recortada numa forma. Na teia o tecido INTEIRO já é
@@ -174,7 +186,7 @@ PHI_PRODUTIVO = 5500.0
 # ⚠️ E A ÚLTIMA BANDA TEM DE IR ATÉ A BORDA. Ela parava em 4.040, que era onde a
 # Cinta começava: sem a Cinta, os últimos 360 m de cidade ficavam SEM TECIDO, e
 # foi isso que derrubou a capacidade de 94.003 para 67.720 vagas.
-PHI_CINTA = 5500.0
+PHI_CINTA = PHI_LOTE
 CINTA_FAIXAS = []
 
 LOTE_W, LOTE_D = 12.0, 25.0       # 300 m² nominais; a testada vira variável ao plantar
@@ -183,7 +195,18 @@ QUARTEIRAO   = 168.0     # ⚠️ LEGADO: idem, e a peça já não depende mais 
 QUARTO       = 3
 BULEVAR      = 34.0      # largura do bulevar radial sobre cada costura
 FAIXA        = 50.0      # profundidade da faixa: duas fileiras costas com costas
-DECLIVE_MAX  = 4.0       # correção do júri: o tecido não cabe em 3 graus
+# `DECL_LOTE=0.20` na linha de comando mede outro limiar sem editar o arquivo, e
+# um valor alto (99) desliga a regra para comparar contra a cidade de antes.
+DECL_LOTE_MAX = float(os.environ.get('DECL_LOTE', 0.12))
+
+# ⚠️ A MÁSCARA GROSSA PASSOU A OBEDECER A LEI (20/09). Ela cortava em 4° (7%),
+# herança de quando não existia teto por lote, e o fundador decidiu em 19/09 que
+# lotável vai até 12% na escala do lote (masterplan §15). Os dois números não
+# são intercambiáveis, porque medem escalas diferentes, mas a máscara grossa não
+# pode ser MAIS DURA que a lei: ela recusava 11,03 km² brutos da faixa loteável
+# em terreno que a lei permite, e isso é 9,5% da faixa. Quem garante o teto é o
+# teste de pegada em `_cabe`, que mede os quatro cantos do lote de verdade.
+DECLIVE_MAX  = math.degrees(math.atan(DECL_LOTE_MAX))   # 6,84° = 12%
 
 # ⚠️ DOIS TETOS DE DECLIVIDADE, E ELES MEDEM COISAS DIFERENTES. `DECLIVE_MAX` é
 # em GRAUS e sai da grade do heightmap, célula de 59,2 m: é a máscara grossa,
@@ -193,9 +216,7 @@ DECLIVE_MAX  = 4.0       # correção do júri: o tecido não cabe em 3 graus
 # deixa passar rampa curta; por isso os 2.513 lotes acima de 12% existiam mesmo
 # com a máscara grossa ligada. Os dois valem juntos: o grosso decide o terreno,
 # o fino decide o lote.
-# `DECL_LOTE=0.20` na linha de comando mede outro limiar sem editar o arquivo, e
-# um valor alto (99) desliga a regra para comparar contra a cidade de antes.
-DECL_LOTE_MAX = float(os.environ.get('DECL_LOTE', 0.12))
+
 
 # ⚠️ 960/1.300 -> 1.470/1.830 EM 03/09, e o número não é escolha desta frente: é
 # o que `terrain.ts` desenha (`PLATO_R`/`PLATO_FIM`, linha 307). O platô da praça
@@ -1589,6 +1610,33 @@ def livre(x, z):
 # último de propósito: ele custa quatro consultas de altura e só vale a pena
 # depois que as máscaras baratas já aprovaram.
 REJ = {'mascara': 0, 'declive': 0, 'ok': 0}
+# ⚠️ O ORÇAMENTO DE TESTADA. A cidade entrega 67% do tecido que tem, e "67%" não
+# diz onde os outros 33% foram. Três destinos possíveis e excludentes: testada
+# USADA por lote, testada QUEIMADA (prateleira zerada porque a pegada caiu em
+# máscara) e testada que SOBRA na frente do cursor quando a fila acaba. Sem
+# separar os três, otimizar empacotamento é chute.
+ORC = {'queimada': 0.0, 'queimada_n': 0, 'vao_usado': 0.0, 'vao_n': 0}
+
+# ⚠️ O VÃO: A MAIOR PERDA DO EMPACOTAMENTO, E ELA ERA INVISÍVEL. A sondagem anda
+# 12 m quando a pegada cai em máscara e ABANDONA aquele pedaço de testada para
+# sempre, porque o cursor só anda para a frente. Medido em 20/09 na cidade do
+# snapshot: 317 km de testada andados sem virar lote, ou 7,9 km² de tecido, que
+# é mais do que a banda inteira do Horizonte rende (7,05 km²).
+#
+# O pedaço abandonado não é necessariamente ruim: ele foi reprovado para AQUELE
+# lote, com AQUELA largura. Um lote de 5 m de testada cabe em muito canto onde
+# um de 40 m não cabe, e 37% da cidade tem menos de 125 m². Então o vão vai para
+# uma lista e os lotes seguintes tentam nele antes de ir para o cursor.
+VAOS = [[] for _ in range(N_DIST)]
+# ⚠️ A JANELA É CUSTO, NÃO GOSTO. Cada candidato custa uma pegada de cinco
+# pontos com quatro consultas de altura, e a fila tem 85.797 lotes vezes até 12
+# passadas: com janela de 400 a primeira passada não terminou em 20 minutos.
+# Com 40 vãos e teto de 8 pegadas por lote o custo volta para a ordem do laço
+# normal, e o vão bom quase sempre é recente, porque o cursor acabou de passar
+# por ele.
+VAO_JANELA = 40         # quantos vãos recentes olhar
+VAO_TENTA = 8           # quantas pegadas no máximo por lote
+VAO_TETO_FRENTE = 24.0  # acima disto o lote é grande e o vão raramente serve
 
 def declive_lote(bx, bz, ca, sa, ox, oz, frente, prof):
     """declividade na pegada do lote, em fração (0,12 = 12%), pelos 4 cantos."""
@@ -2586,6 +2634,50 @@ def tecido():
     return por_dist
 
 print('medindo o tecido...', file=sys.stderr)
+# ⚠️ O ORÇAMENTO DE MÁSCARA DA FAIXA LOTEÁVEL: `AUDITA_AGUA=1`. Ele responde a
+# pergunta que decide terraplanagem, e que até 20/09 ninguém tinha medido: do
+# terreno que está dentro da faixa de lote, quanto cada máscara come. Amostra em
+# grade de 20 m, classifica na ordem em que `livre()` decide, e sai.
+if os.environ.get('AUDITA_AGUA'):
+    _pa = 20.0
+    _conta = collections.Counter(); _tot = 0
+    _lim = int(PHI_LOTE / _pa) + 2
+    for _i in range(-_lim, _lim + 1):
+        _x = _i * _pa
+        for _j in range(-_lim, _lim + 1):
+            _z = _j * _pa
+            _r = math.hypot(_x, _z)
+            if _r < R_INICIO: continue
+            if phi(_x, _z) > PHI_BORDA: continue
+            _tot += 1
+            if em_lago(_x, _z, 30.0): _conta['lago'] += 1; continue
+            if em_baia(_x, _z, ORLA_RESERVA): _conta['baía'] += 1; continue
+            if em_canal(_x, _z, CANAL_TALUDE + 2.0): _conta['canal'] += 1; continue
+            if math.hypot(_x-PCX, _z-PCZ) < parque_alcance(_x, _z) + 2: _conta['parque'] += 1; continue
+            if dentro_do_coliseu(_x, _z, 2.0): _conta['coliseu'] += 1; continue
+            if em_guerra(_x, _z, 2.0): _conta['cratera da guerra'] += 1; continue
+            if em_programa(_x, _z) is not None: _conta['programa'] += 1; continue
+            if num_anel(_x, _z) is not None: _conta['anel viário'] += 1; continue
+            if em_diagonal(_x, _z, 2.0): _conta['diagonal'] += 1; continue
+            _dg = declive(_x, _z)
+            if _dg > DECLIVE_MAX:
+                # ⚠️ SEPARA O QUE A LEI JÁ PERMITE DO QUE PRECISA DE OBRA. A
+                # máscara grossa corta em 4° (7%), mas o fundador decidiu que
+                # lotável vai até 12% (6,84°) na escala do lote, masterplan §15.
+                # A faixa entre os dois é terra que a lei permite e o código
+                # recusa; acima de 6,84° é terra que só volta com terraplanagem.
+                _conta['declive 4° a 6,84° (a lei já permite)' if _dg <= 6.84
+                       else ('declive 6,84° a 12° (obra leve)' if _dg <= 12.0
+                             else 'declive acima de 12° (obra pesada)')] += 1
+                continue
+            _conta['livre'] += 1
+    _km2 = lambda n: n * _pa * _pa / 1e6
+    print('ORÇAMENTO DA FAIXA LOTEÁVEL (φ %.0f a %.0f): %.2f km² brutos' % (R_INICIO, PHI_LOTE, _km2(_tot)),
+          file=sys.stderr)
+    for _k, _v in _conta.most_common():
+        print('  %-18s %7.2f km²  %5.1f%%' % (_k, _km2(_v), 100.0*_v/max(1,_tot)), file=sys.stderr)
+    sys.exit(0)
+
 T = tecido()
 cap = [sum(len(b['lotes']) for q in T[s] for b in q['quarteiroes']) for s in range(N_DIST)]
 for s in range(N_DIST):
@@ -2969,6 +3061,9 @@ def coloca(s, dog, addr, escala=1.0):
                 return (_cx, _cz, min(lado_q, area / prof_g), prof_g, pq['q'], pq['b'])
             # quarteirão em terra proibida: queima e tenta o próximo
             for k in range(alvo, alvo + nf_alvo):
+                if PASSO[s][k]['livre'] >= LOTE_MIN_FRENTE:
+                    VAOS[s].append((PASSO[s][k], PASSO[s][k]['x0'], PASSO[s][k]['livre']))
+                ORC['queimada'] += PASSO[s][k]['livre']; ORC['queimada_n'] += 1
                 PASSO[s][k]['livre'] = 0.0
             return coloca(s, dog, addr)
         # sem quarteirão virgem à frente: segue no ramo normal, com o lote preso
@@ -2987,6 +3082,30 @@ def coloca(s, dog, addr, escala=1.0):
     # 126 DENTRO do Coliseu congelado (que o fundador mandou guardar vazio), 123
     # fora do contorno lobado e 360 dentro do platô. Aqui o ponto é conferido um
     # a um e a testada ruim é queimada em vez de virar endereço.
+    # ⚠️ PRIMEIRO O VÃO, DEPOIS O CURSOR. Terra já aberta antes de terra nova: é a
+    # ordem que o fundador pediu em 20/09 ("compacte melhor primeiro").
+    if frente <= VAO_TETO_FRENTE and VAOS[s]:
+        _lista = VAOS[s]
+        _ini = max(0, len(_lista) - VAO_JANELA)
+        _tentou = 0
+        for _i in range(len(_lista) - 1, _ini - 1, -1):
+            _pv, _vx, _vl = _lista[_i]
+            if _vl < frente: continue
+            if _tentou >= VAO_TENTA: break
+            _tentou += 1
+            _ozv = _pv['borda'] + _pv['sentido'] * prof_real / 2
+            if not _cabe(_pv, _vx + frente / 2, _ozv, frente, prof_real): continue
+            _wx = _pv['bx'] + (_vx + frente/2)*_pv['ca'] - _ozv*_pv['sa']
+            _wz = _pv['bz'] + (_vx + frente/2)*_pv['sa'] + _ozv*_pv['ca']
+            COTA[addr] = cota_testada(_pv, _vx + frente / 2)
+            ORC['vao_usado'] += frente; ORC['vao_n'] += 1
+            # o que sobrar do vão continua valendo para um lote ainda menor
+            if _vl - frente >= LOTE_MIN_FRENTE:
+                _lista[_i] = (_pv, _vx + frente, _vl - frente)
+            else:
+                _lista.pop(_i)
+            return (_wx, _wz, frente, min(255.0, prof_real), _pv['q'], _pv['b'])
+
     ox = pr['x0'] + frente / 2
     ok = False
     for _ in range(14):
@@ -3000,6 +3119,7 @@ def coloca(s, dog, addr, escala=1.0):
         # 12 m é a largura da vaga antiga, ou seja a resolução em que a máscara
         # foi sondada; abaixo disso não há informação nova.
         passo = min(frente, 12.0)
+        VAOS[s].append((pr, pr['x0'], passo))
         pr['x0'] += passo; pr['livre'] -= passo
         if pr['livre'] < max(frente, LOTE_MIN_FRENTE): break
         ox = pr['x0'] + frente / 2
@@ -3010,6 +3130,13 @@ def coloca(s, dog, addr, escala=1.0):
         # ⚠️ E ZERE SÓ ESTA PRATELEIRA. Empurrar o cursor para escolhida+1
         # descartava também todas as prateleiras entre a atual e ela, até 24 de
         # uma vez: custou 24 pontos de aproveitamento e 26 m² no lote mediano.
+        # ⚠️ A PRATELEIRA QUEIMADA TAMBÉM VIRA VÃO. Ela é abandonada porque ESTE
+        # lote não achou lugar nela em 14 sondagens, não porque a terra seja
+        # ruim: é o mesmo raciocínio do vão, na escala da prateleira inteira.
+        # São 144 km de testada na cidade do snapshot, 3,6 km² de tecido.
+        if pr['livre'] >= LOTE_MIN_FRENTE:
+            VAOS[s].append((pr, pr['x0'], pr['livre']))
+        ORC['queimada'] += pr['livre']; ORC['queimada_n'] += 1
         pr['livre'] = 0.0
         return coloca(s, dog, addr)
     pr['x0'] += frente; pr['livre'] -= frente
@@ -3044,6 +3171,9 @@ def uma_passada():
     cursor = [0]*N_DIST
     saida = []
     COTA.clear()
+    ORC['queimada'] = 0.0; ORC['queimada_n'] = 0
+    ORC['vao_usado'] = 0.0; ORC['vao_n'] = 0
+    for _l in VAOS: _l.clear()
     sem_lugar.clear()
     aparadas.clear()
     no_bloco.clear()
@@ -3109,6 +3239,13 @@ def uma_passada():
             print('    S%02d cursor %4d/%4d  testada livre restante %8.0f m  prateleiras zeradas %4d'
                   % (t+1, cursor[t], len(PASSO[t]), resto, usadas), file=sys.stderr)
         falhou_em.clear()
+    # ⚠️ o orçamento fecha em testada (metros lineares), não em área: é assim que
+    # a prateleira é consumida, e converter para área aqui esconderia o PROF_MAX.
+    _tot = sum(pr['util0'] for t in range(N_DIST) for pr in PASSO[t])
+    _sobra = sum(pr['livre'] for t in range(N_DIST) for pr in PASSO[t])
+    ORC['total'] = _tot
+    ORC['sobra'] = _sobra
+    ORC['usada'] = _tot - _sobra - ORC['queimada']
     return sum(w*d for _,_,_,_,w,d,_,_,_ in saida)
 
 # ⚠️ BISSEÇÃO, e a razão é que as duas coisas brigam: k maior dá lote maior e
@@ -3127,9 +3264,13 @@ k_bom, saida_boa = None, None
 # reescreve: gravar as duas coisas separadas casava o lote de uma cidade com a
 # cota de outra. Medido antes do conserto: muro de arrimo de até 139 m entre
 # vizinhos, que é relevo inexistente neste sítio.
-cota_boa = None
+cota_boa, orc_boa = None, None
 k_lo, k_hi = K_AREA, None
-for tentativa in range(6):
+# ⚠️ SEIS TENTATIVAS DEIXAVAM TERRA NA MESA. A rodada do snapshot parou com
+# k_lo=0,2805 e k_hi=0,29148, ou seja 3,9% de área ainda em disputa, porque
+# acabou a contagem e não porque convergiu. Terra é o recurso que o fundador
+# mandou não desperdiçar (20/09), e cada passada custa cerca de um minuto.
+for tentativa in range(12):
     obtido = uma_passada()
     coube = len(saida) >= N
     med = sorted(w*d for _,_,_,_,w,d,_,_,_ in saida)[len(saida)//2] if saida else 0
@@ -3137,14 +3278,14 @@ for tentativa in range(6):
           f'{obtido/1e6:.2f} km² ({obtido/alvo*100:.0f}% do alvo), mediana {med:,.0f} m²'
           f'  {"cabe" if coube else "NAO CABE"}', file=sys.stderr)
     if coube:
-        k_bom, saida_boa, k_lo, cota_boa = K_AREA, list(saida), K_AREA, dict(COTA)
+        k_bom, saida_boa, k_lo, cota_boa, orc_boa = K_AREA, list(saida), K_AREA, dict(COTA), dict(ORC)
         if k_hi is None:
             K_AREA /= max(0.55, obtido/alvo)      # primeiro salto: mira o desperdício medido
             continue
     else:
         k_hi = K_AREA
     if k_hi is None: break
-    if (k_hi - k_lo) / k_lo < 0.02: break
+    if (k_hi - k_lo) / k_lo < 0.004: break
     K_AREA = (k_lo + k_hi) / 2
 if saida_boa is None:
     # nenhuma passada coube: desce k até provar um piso, e DEPOIS volta a subir.
@@ -3157,7 +3298,7 @@ if saida_boa is None:
         uma_passada()
         print(f'  piso: k={K_AREA:.5g} -> {len(saida):,} plantadas', file=sys.stderr)
         if len(saida) >= N:
-            saida_boa, k_bom, cota_boa = list(saida), K_AREA, dict(COTA)
+            saida_boa, k_bom, cota_boa, orc_boa = list(saida), K_AREA, dict(COTA), dict(ORC)
             break
     if saida_boa is not None:
         lo, hi = k_bom, k_falha
@@ -3169,11 +3310,12 @@ if saida_boa is None:
             med = sorted(w*d for _,_,_,_,w,d,_,_,_ in saida)[len(saida)//2] if saida else 0
             print(f'  sobe: k={K_AREA:.5g} -> {len(saida):,} plantadas, mediana {med:,.0f} m²'
                   f'  {"cabe" if coube else "NAO CABE"}', file=sys.stderr)
-            if coube: saida_boa, k_bom, lo, cota_boa = list(saida), K_AREA, K_AREA, dict(COTA)
+            if coube: saida_boa, k_bom, lo, cota_boa, orc_boa = list(saida), K_AREA, K_AREA, dict(COTA), dict(ORC)
             else: hi = K_AREA
 if saida_boa is not None:
     saida, K_AREA = saida_boa, k_bom
     COTA.clear(); COTA.update(cota_boa or {})
+    ORC.clear(); ORC.update(orc_boa or {})
 
 # ⚠️ GUARDA DURA: a regra do fundador é que todo elegível tem endereço. Se a
 # cidade sair incompleta o script MORRE em vez de gravar, porque arquivo gravado
@@ -3301,6 +3443,16 @@ print('declividade do lote (medida no que foi gravado): mediana %.1f%% | p90 %.1
       _decl[int(_nn*0.99)]*100, _decl[-1]*100), file=sys.stderr)
 print('  acima de 8%%: %d | de 12%%: %d | de 20%%: %d  (teto em vigor: %.0f%%)'
       % (_acima(0.08), _acima(0.12), _acima(0.20), DECL_LOTE_MAX*100), file=sys.stderr)
+print('  testada: %.1f km no total | %.1f km usada (%.0f%%) | %.1f km queimada em %d '
+      'prateleiras (%.0f%%) | %.1f km sobrando (%.0f%%)'
+      % (ORC.get('total',0)/1000, ORC.get('usada',0)/1000,
+         100*ORC.get('usada',0)/max(1,ORC.get('total',1)),
+         ORC.get('queimada',0)/1000, ORC.get('queimada_n',0),
+         100*ORC.get('queimada',0)/max(1,ORC.get('total',1)),
+         ORC.get('sobra',0)/1000, 100*ORC.get('sobra',0)/max(1,ORC.get('total',1))),
+      file=sys.stderr)
+print('  vãos reaproveitados: %d lotes, %.1f km de testada que antes se perdia'
+      % (ORC.get('vao_n',0), ORC.get('vao_usado',0)/1000), file=sys.stderr)
 print('  sondagem: %d pegadas aprovadas, %d barradas por máscara, %d barradas pelo teto'
       % (REJ['ok'], REJ['mascara'], REJ['declive']), file=sys.stderr)
 _ct = sorted(COTA.get(a, 0.0) for *_r, a in ((0, 0, 0, r[3]) for r in saida))

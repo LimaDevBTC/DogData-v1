@@ -77,6 +77,7 @@ import { buildOrla, type Orla } from './orla'
 import { buildCaverna, type Caverna } from './caverna'
 import { PROPS, SP_DECK_TOP } from './props-table'
 import { look2 } from './look'
+import { dadosTerra, dur, SITIO, type DadosTerra } from './terra-dados'
 import { instalarAtmosfera } from './atmosfera'
 import { setAnisotropia } from './materiais'
 import { montarPos, type Pos } from './pos'
@@ -1071,6 +1072,8 @@ interface HudState {
   orbit: number
   parked: number
   picked: DogTx | null
+  /** a luneta apontada na Terra: campo fechado e painel de dados aberto */
+  luneta: boolean
   followed: DogTx | null
   followNote: string | null
   stats?: string
@@ -1137,10 +1140,22 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     startTour: () => void
     stopTour: () => void
   } | null>(null)
+  // ⚠️ O PAINEL DA TERRA SÓ CONTA TEMPO ENQUANTO ESTÁ ABERTO. Um `setInterval`
+  // de 1 s rodando a visita inteira para um painel que ninguém abriu é o tipo de
+  // custo que não aparece em chapa nenhuma e aparece na bateria.
+  const [terra, setTerra] = useState<DadosTerra | null>(null)
   const [hud, setHud] = useState<HudState>({
+    luneta: false,
     loading: 'Loading DogCity…', error: null, snapshot: null, stale: null,
     orbit: 0, parked: 0, picked: null, followed: null, followNote: null,
   })
+  useEffect(() => {
+    if (!hud.luneta) { setTerra(null); return }
+    setTerra(dadosTerra())
+    const id = setInterval(() => setTerra(dadosTerra()), 1000)
+    return () => clearInterval(id)
+  }, [hud.luneta])
+
   const [followInput, setFollowInput] = useState('')
   // ⚠️ no celular o formulário de follow NÃO mora na tela: vira um botão que
   // abre sob demanda, senão ele cobre o HUD da guerra e tudo que estiver
@@ -1989,13 +2004,60 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     // Mare Tranquillitatis (o mar vai até uns 30° N), e o azimute sai da mesma
     // conta: 243°, a sudoeste, na direção do ponto sub-terrestre.
     const earth = buildEarth(profile.cortaTextura)
-    const EARTH_AZ = 243, EARTH_EL = 44
+    // ⚠️ AZIMUTE E ELEVAÇÃO SAEM DO ENQUADRAMENTO, NÃO DO SÍTIO, e isso é decisão
+    // do fundador em 20/09/2026 ("dá pra posicionar a Terra de boa, só preciso
+    // que você posicione ela ali de maneira eficiente"), com a licença poética
+    // que ele travou no mesmo dia: o mundo real é insumo, não juiz.
+    //
+    // ⚠️ O DEFEITO QUE ISTO CONSERTA, medido: a câmera do herói fica em
+    // (560, 640, -1480) olhando para a praça, ou seja azimute 196 e 15 graus
+    // PARA BAIXO. Com a Terra em 243/44 ela ficava 47 graus à direita e 59 graus
+    // acima do eixo: para achá-la era preciso GIRAR e olhar para cima, dois
+    // movimentos, e ninguém faz os dois por acaso. Foi por isso que o fundador
+    // só a viu uma vez, quando a câmera girou sozinha.
+    //
+    // Agora ela fica na MESMA direção em que a câmera já olha: subir o olhar
+    // basta, e o que aparece é a Terra sobre a Praça, que é a imagem que a
+    // cidade quer ter.
+    //
+    // ⚠️ O PREÇO, declarado: derivar 196/24 de um sítio real pediria uns 51° N,
+    // que não é Mare Tranquillitatis. O sítio continua sendo o mar da Apollo 11
+    // na narrativa; a Terra é posta por composição. Quem for recalcular a
+    // geometria do sítio por causa da Terra vai achar divergência, e ela está
+    // aqui, escrita, de propósito.
+    //
+    // ⚠️ E 24 GRAUS NÃO É "LUAR NASCENDO". Abaixo de uns 12 a leitura vira lua
+    // no horizonte; 24 mantém a Terra alta e livre da silhueta, e ainda assim
+    // perto do que se olha.
+    const EARTH_AZ = 196, EARTH_EL = 16
     const EARTH_DIR = new THREE.Vector3(
       Math.sin(THREE.MathUtils.degToRad(EARTH_AZ)) * Math.cos(THREE.MathUtils.degToRad(EARTH_EL)),
       Math.sin(THREE.MathUtils.degToRad(EARTH_EL)),
       -Math.cos(THREE.MathUtils.degToRad(EARTH_AZ)) * Math.cos(THREE.MathUtils.degToRad(EARTH_EL)),
     ).normalize()
     const EARTH_DIST = 37000
+    // ⚠️ O MAPA GRANDE ENTRA SÓ QUANDO A LUNETA ABRE. `buildEarth` já escolhe
+    // 1024 no celular (o censo de texturas mostrou 33,6 MB em três mapas de
+    // 2048, para um globo que ali ocupa poucos por cento da tela). Na luneta ele
+    // ocupa a tela inteira e aí o 2048 se paga. Uma vez só: a segunda abertura
+    // não recarrega nada.
+    let terraGrande = false
+    const trocaTexturaTerra = () => {
+      if (terraGrande) return
+      terraGrande = true
+      const globo = earth.children.find(
+        (c) => (c as THREE.Mesh).isMesh && ((c as THREE.Mesh).material as THREE.MeshPhongMaterial)?.map,
+      ) as THREE.Mesh | undefined
+      if (!globo) return
+      const mat = globo.material as THREE.MeshPhongMaterial
+      new THREE.TextureLoader().load('/city/earth/earth_atmos_2048.jpg', (t) => {
+        t.colorSpace = THREE.SRGBColorSpace
+        const velha = mat.map
+        mat.map = t
+        mat.needsUpdate = true
+        velha?.dispose()
+      })
+    }
     earth.position.copy(EARTH_DIR).multiplyScalar(EARTH_DIST)
     scene.add(earth)
     earthshine.position.copy(EARTH_DIR).multiplyScalar(6000)
@@ -4917,11 +4979,70 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         if (hits.length) focusAt(hits[0].point)
         return
       }
+      // ⚠️ O CLIQUE NA TERRA É POR ÂNGULO, NÃO POR RAYCAST. Ela é um objeto que
+      // anda junto com a câmera e mede 1,9 grau: intersecar a esfera funciona,
+      // mas depende de ela estar na mesma pilha de objetos testados e de a ordem
+      // de profundidade não ser furada por estrela, névoa ou casca. O ângulo
+      // entre o raio do dedo e a direção da Terra não depende de nada disso.
+      const cosAng = ray.ray.direction.dot(EARTH_DIR)
+      if (cosAng > Math.cos(THREE.MathUtils.degToRad(2.2))) {
+        abreLuneta(!luneta.on)
+        return
+      }
+      if (luneta.on) { abreLuneta(false); return }
       const tx = orbit.pick(ray)
       setHud((h) => ({ ...h, picked: tx }))
     }
     renderer.domElement.addEventListener('pointerdown', onDown)
     renderer.domElement.addEventListener('pointerup', onUp)
+
+    // ── A LUNETA ─────────────────────────────────────────────────────────
+    //
+    // ⚠️ ELA FECHA O CAMPO, NÃO VIAJA, e a diferença é o projeto inteiro. O
+    // fundador descreveu o defeito da versão antiga ("era como se a Terra fosse
+    // um balão na lua; se o user interagisse, percebia o erro de posicionamento"):
+    // no instante em que a câmera pode navegar entre duas escalas, aparece o meio
+    // do caminho, e o meio do caminho denuncia qualquer distância que a gente
+    // escolha. Aqui a câmera NÃO SAI DO LUGAR: só o campo de visão fecha, como
+    // teleobjetiva, e a Terra cresce na tela sem nunca ter uma distância.
+    //
+    // ⚠️ E O ALVO DA MIRA É A DIREÇÃO, não um ponto: a Terra anda junto com a
+    // câmera, então mirar num ponto fixo do mundo erraria assim que o usuário se
+    // movesse um metro.
+    const LUNETA_FOV = 8
+    const FOV_ABERTO = camera.fov
+    const luneta = { on: false, t0: 0, de: FOV_ABERTO, para: FOV_ABERTO }
+    const miraTerra = () => {
+      // o alvo fica na direção da Terra, à distância que o orbit control já usa
+      const dist = camera.position.distanceTo(controls.target)
+      controls.target.copy(camera.position).addScaledVector(EARTH_DIR, Math.max(200, dist))
+      controls.update()
+    }
+    const abreLuneta = (liga: boolean) => {
+      if (luneta.on === liga) return
+      luneta.on = liga
+      luneta.de = camera.fov
+      luneta.para = liga ? LUNETA_FOV : FOV_ABERTO
+      luneta.t0 = performance.now()
+      if (liga) {
+        miraTerra()
+        // ⚠️ A TEXTURA GRANDE SÓ AGORA, e é aqui que o lazy loading mora: no céu
+        // a Terra ocupa poucos por cento da tela e o mapa de 1024 basta; na
+        // luneta ela ocupa a tela inteira. Carregar antes seria pagar o pico de
+        // memória que já derrubou o contexto WebGL no celular uma vez.
+        trocaTexturaTerra()
+      }
+      controls.enableRotate = !liga
+      setHud((h) => ({ ...h, luneta: liga }))
+    }
+    ;(window as unknown as { __plazaLuneta?: (v: boolean) => void }).__plazaLuneta = abreLuneta
+    // ⚠️ `?luneta=1` ABRE A LUNETA NO BOOT, e existe para a chapa: o portão de
+    // conferência (`scripts/city/chapas.mjs`) carrega uma URL e enquadra, ele
+    // não clica. Sem este interruptor não há como fotografar a luneta aberta, e
+    // o que não se fotografa não se confere.
+    if (new URLSearchParams(window.location.search).get('luneta') === '1') {
+      setTimeout(() => abreLuneta(true), 1200)
+    }
 
     // ── voar: um tween curto de (câmera, alvo) para (câmera, alvo) ─────────
     const fly = { on: false, t0: 0, dur: 1.2, p0: new THREE.Vector3(), t0v: new THREE.Vector3(), p1: new THREE.Vector3(), t1: new THREE.Vector3() }
@@ -5097,6 +5218,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     renderer.domElement.addEventListener('pointerdown', cancelTourOnInput)
     renderer.domElement.addEventListener('wheel', cancelTourOnInput, { passive: true })
     window.addEventListener('keydown', cancelTourOnInput)
+    // ⚠️ ESC FECHA A LUNETA, e ela e a unica coisa na cena que prende o olhar do
+    // usuario num lugar so: sem uma saida de teclado, quem abre sem querer no
+    // desktop fica preso ate descobrir que clicar fora resolve.
+    const escFechaLuneta = (e: KeyboardEvent) => { if (e.key === 'Escape') abreLuneta(false) }
+    window.addEventListener('keydown', escFechaLuneta)
 
     const vistaDaCidade = (name: string | null) => {
       const v = viewFor(name, camera.aspect, chaoGuerra)
@@ -5723,6 +5849,16 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       // ⚠️ SEM PARALAXE: a Terra anda junto com a câmera, então a direção dela no
       // céu é sempre a mesma e o tamanho na tela nunca muda.
       earth.position.copy(camera.position).addScaledVector(EARTH_DIR, EARTH_DIST)
+      // ⚠️ O CAMPO FECHA EM 700 ms E A MIRA ACOMPANHA A CADA QUADRO. Sem a mira
+      // no laço, arrastar de leve durante a transição deixaria a Terra fora do
+      // quadro justamente no fim dela, que é quando o usuário está olhando.
+      if (camera.fov !== luneta.para) {
+        const u = Math.min(1, (performance.now() - luneta.t0) / 700)
+        const e = u < 0.5 ? 2 * u * u : 1 - 2 * (1 - u) * (1 - u)
+        camera.fov = luneta.de + (luneta.para - luneta.de) * e
+        camera.updateProjectionMatrix()
+      }
+      if (luneta.on) miraTerra()
       // ⚠️ E ELA PARA DE RODAR NA CARA DE QUEM OLHA. Estava dando uma volta a cada
       // 26 minutos: dá para VER girando, e o que gira à vista é coisa perto. A
       // Terra leva 24 horas. Isto aqui é uma volta a cada 12 horas de relógio,
@@ -6444,6 +6580,49 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       </div>
 
       {/* ── picked ship ───────────────────────────────────────────────────── */}
+      {/* ⚠️ PAINEL DE NAVE COM NÚMERO DE VERDADE. Toda linha aqui é efeméride
+          calculada em `terra-dados.ts` e conferida contra valor conhecido
+          (`scripts/city/conferir-terra.ts`): a distância bate a faixa real de
+          356.500 a 406.700 km e a meia-fase do sítio dá 14,75 dias contra os
+          14,77 do mês sinódico. Painel de nave com número inventado é adereço;
+          com efeméride real ele é a mesma coisa que o resto do DogData faz com
+          a cadeia, mostrar o que está lá. */}
+      {hud.luneta && terra && (
+        <div className="pointer-events-none absolute left-4 right-4 top-24 sm:left-auto sm:right-6 sm:top-28 sm:w-[20rem]">
+          <div className="border border-white/10 bg-black/85 p-3 font-mono text-[11px] text-white/80">
+            <div className="flex items-baseline justify-between">
+              <p className="text-[10px] uppercase tracking-[0.25em] text-white/50">Earth</p>
+              <p className="text-[10px] tracking-[0.18em] text-white/35">{terra.utc} UTC</p>
+            </div>
+            <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+              <dt className="text-white/40">range</dt>
+              <dd className="text-right text-white">{Math.round(terra.distancia_km).toLocaleString('en-US')} km</dd>
+              <dt className="text-white/40">light delay</dt>
+              <dd className="text-right text-white">{terra.atraso_s.toFixed(3)} s</dd>
+              <dt className="text-white/40">angular size</dt>
+              <dd className="text-right text-white">{terra.diametro_grau.toFixed(2)}&deg;</dd>
+              <dt className="text-white/40">phase</dt>
+              <dd className="text-right text-white">
+                {Math.round(terra.fase_terra * 100)}% {terra.crescente ? 'waxing' : 'waning'}
+              </dd>
+            </dl>
+            <p className="mt-3 text-[10px] uppercase tracking-[0.25em] text-white/50">Site</p>
+            <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+              <dt className="text-white/40">position</dt>
+              <dd className="text-right text-white">{SITIO.lat.toFixed(1)}&deg;N {SITIO.lon.toFixed(1)}&deg;E</dd>
+              <dt className="text-white/40">sun</dt>
+              <dd className="text-right text-white">
+                {terra.sol_elevacao > 0 ? '+' : ''}{terra.sol_elevacao.toFixed(1)}&deg; {terra.dia ? 'day' : 'night'}
+              </dd>
+              <dt className="text-white/40">{terra.cruzamento_nascendo ? 'sunrise in' : 'sunset in'}</dt>
+              <dd className="text-right text-white">{dur(terra.cruzamento_dias)}</dd>
+            </dl>
+            <p className="mt-3 text-[10px] leading-relaxed text-white/35">
+              Tidally locked: Earth never rises and never sets. It hangs here, and turns once a day.
+            </p>
+          </div>
+        </div>
+      )}
       {hud.picked && (
         <div className="absolute left-4 right-4 sm:left-auto sm:right-6 sm:w-[22rem]" style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
           <div className="border border-white/10 bg-black/85 p-3 font-mono text-[11px]">
