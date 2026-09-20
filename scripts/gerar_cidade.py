@@ -3041,8 +3041,23 @@ def coloca(s, dog, addr, escala=1.0):
             escolhida = k; break
         if sobra > folgada: folgada, escolhida_alt = sobra, k
     if escolhida < 0:
-        # ninguém comporta a testada natural: usa a de maior sobra e afunda o lote
-        escolhida = escolhida_alt if folgada >= LOTE_MIN_FRENTE else -1
+        # ⚠️ "AFUNDAR O LOTE" TRUNCA A ÁREA EM SILÊNCIO, e agora a área é promessa
+        # pública. O lote afundado tem profundidade limitada a PROF_MAX, então
+        # `frente x 50` vira o teto do que ele entrega: quem pede 4.768 m² numa
+        # sobra de 5 m recebe 250 e ninguém conta. Medido em 20/09: 3.175
+        # carteiras abaixo do prometido por este caminho, e o defeito NÃO é o
+        # corte de cabelo da passada, que nem chega a rodar.
+        #
+        # Antes de aceitar isso, procura no distrito INTEIRO uma prateleira que
+        # honre a área com profundidade legal. A janela é pequena de propósito
+        # (empacotamento local), mas ela não pode virar teto de justiça.
+        _frente_min = area / PROF_MAX
+        for k in range(min(n, base + JANELA), n):
+            if PASSO[s][k]['livre'] + 1e-9 >= _frente_min:
+                escolhida = k
+                break
+        else:
+            escolhida = escolhida_alt if folgada >= LOTE_MIN_FRENTE else -1
         if escolhida < 0:
             for k in range(base, min(n, base + JANELA)): PASSO[s][k]['livre'] = 0.0
             cursor[s] = base
