@@ -1821,6 +1821,70 @@ if _AB:
     sys.exit(0)
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# O ALCANCE: A PRATELEIRA MAIS INTERNA QUE AINDA COMPORTA O LOTE
+#
+# ⚠️ A PERDA DE EMPACOTAMENTO ERA DE ALCANCE, NÃO DE ORDEM, e isso foi medido
+# em 21/09 por simulação e por censo da cidade gravada:
+#
+#   oferta 2.482 km de testada | usada por lote 1.677 km (67,6%) | VAZIA 724 km
+#   dos 724 km vazios, 506 km (70%) são FILEIRAS INTEIRAS que nunca receberam
+#   um lote, em 6.047 prateleiras
+#   simulação 1-D: janela 24 dá 88,1%, distrito inteiro dá 92,6%, primeira que
+#   cabe sem janela dá 96,6%; reordenar a fila NÃO muda nada (as três políticas
+#   de ordem empatam, e ordenar por tamanho PIORA para 92,6%)
+#
+# E o que travava a área não era o empacotamento global: era um distrito SECAR
+# antes de a fila acabar, com 506 km parados em outro. O `k` da bisseção só
+# sobe se todo mundo couber, então 2.400 carteiras sem lugar seguravam a cidade
+# inteira num degrau abaixo.
+#
+# A árvore abaixo responde em tempo logarítmico "qual a primeira prateleira,
+# do centro para fora, que ainda tem testada suficiente". Isso é melhor que
+# alargar a janela por dois motivos: acha SEMPRE (não em 24 tentativas) e
+# preserva a lei de posição, porque a primeira prateleira é a mais interna e
+# centro para fora é justamente a lei.
+class ArvoreLivre:
+    """máximo de testada livre por faixa de prateleiras, para busca do menor índice."""
+
+    def __init__(self, livres):
+        self.n = 1
+        while self.n < max(1, len(livres)): self.n *= 2
+        self.t = [0.0] * (2 * self.n)
+        for i, v in enumerate(livres): self.t[self.n + i] = v
+        for i in range(self.n - 1, 0, -1): self.t[i] = max(self.t[2*i], self.t[2*i+1])
+
+    def poe(self, i, v):
+        i += self.n
+        self.t[i] = v
+        i //= 2
+        while i:
+            novo = max(self.t[2*i], self.t[2*i+1])
+            if self.t[i] == novo: break
+            self.t[i] = novo; i //= 2
+
+    def primeiro(self, precisa, de=0):
+        """menor índice >= `de` cuja testada livre comporta `precisa`, ou -1."""
+        if self.t[1] + 1e-9 < precisa: return -1
+        i, ini, fim = 1, 0, self.n - 1
+        pilha = [(1, 0, self.n - 1)]
+        while pilha:
+            i, ini, fim = pilha.pop()
+            if fim < de or self.t[i] + 1e-9 < precisa: continue
+            if ini == fim: return ini
+            meio = (ini + fim) // 2
+            pilha.append((2*i + 1, meio + 1, fim))   # direita depois
+            pilha.append((2*i, ini, meio))           # esquerda primeiro
+        return -1
+
+
+ARV = []          # uma árvore por distrito, reconstruída a cada passada
+
+
+def _arv_atualiza(s, k):
+    if ARV and ARV[s] is not None: ARV[s].poe(k, PASSO[s][k]['livre'])
+
+
 def _guarda_vao(s, pr, x_ini, comp):
     if comp >= LOTE_MIN_FRENTE:
         VAOS[s][int(comp // VAO_BALDE)].append((pr, x_ini, comp))
@@ -1901,6 +1965,10 @@ def _reserva_no_par(pr, x_ini, frente, prof):
     if x_ini <= _par['x0'] + 1e-6 and _par['x0'] < x_ini + frente:
         _avanco = min(_par['livre'], x_ini + frente - _par['x0'])
         _par['x0'] += _avanco; _par['livre'] -= _avanco
+        if 'i' in _par:
+            for _s2 in range(len(ARV)):
+                if ARV[_s2] is not None and _par['i'] < len(PASSO[_s2]) and PASSO[_s2][_par['i']] is _par:
+                    ARV[_s2].poe(_par['i'], _par['livre']); break
 
 
 def _cabe(pr, ox, oz, frente, prof):
@@ -3547,12 +3615,17 @@ def coloca(s, dog, addr, escala=1.0):
     area = max(PISO_LOTE, area_de(dog, max(PASSO[s][base]['r'], R_INICIO)) * escala)
     frente_nat = max(area / PROF, LOTE_MIN_FRENTE)
 
-    escolhida, folgada = -1, -1
-    for k in range(base, min(n, base + JANELA)):
-        sobra = PASSO[s][k]['livre']        # ⚠️ não chame isto de `livre`: sombreia a função da máscara
-        if sobra + 1e-9 >= frente_nat:
-            escolhida = k; break
-        if sobra > folgada: folgada, escolhida_alt = sobra, k
+    # ⚠️ A JANELA DE 24 VIROU A ÁRVORE. Antes: varria 24 prateleiras à frente e
+    # desistia, deixando 506 km de fileira intacta para trás. Agora: a árvore
+    # devolve a PRIMEIRA prateleira do distrito que comporta a testada, que é
+    # também a mais interna, ou seja a lei de posição sai de graça.
+    escolhida, folgada, escolhida_alt = -1, -1, -1
+    if ARV and ARV[s] is not None:
+        escolhida = ARV[s].primeiro(frente_nat, base)
+    if escolhida < 0:
+        for k in range(base, min(n, base + JANELA)):
+            sobra = PASSO[s][k]['livre']
+            if sobra > folgada: folgada, escolhida_alt = sobra, k
     if escolhida < 0:
         # ⚠️ "AFUNDAR O LOTE" TRUNCA A ÁREA EM SILÊNCIO, e agora a área é promessa
         # pública. O lote afundado tem profundidade limitada a PROF_MAX, então
@@ -3572,7 +3645,8 @@ def coloca(s, dog, addr, escala=1.0):
         else:
             escolhida = escolhida_alt if folgada >= LOTE_MIN_FRENTE else -1
         if escolhida < 0:
-            for k in range(base, min(n, base + JANELA)): PASSO[s][k]['livre'] = 0.0
+            for k in range(base, min(n, base + JANELA)):
+                PASSO[s][k]['livre'] = 0.0; _arv_atualiza(s, k)
             cursor[s] = base
             return coloca(s, dog, addr, escala) if base + JANELA < n else None
 
@@ -3649,14 +3723,14 @@ def coloca(s, dog, addr, escala=1.0):
                     PASSO[s][k]['bloq'].append((-1e9, 1e9))
                     PASSO[s][k]['ocup'].append((-1e9, 1e9))
                     PASSO[s][k]['x0'] += PASSO[s][k]['livre']
-                    PASSO[s][k]['livre'] = 0.0
+                    PASSO[s][k]['livre'] = 0.0; _arv_atualiza(s, k)
                 return (_cx, _cz, min(lado_q, area / prof_g), prof_g, pq['q'], pq['b'])
             # quarteirão em terra proibida: queima e tenta o próximo
             for k in range(alvo, alvo + nf_alvo):
                 if PASSO[s][k]['livre'] >= LOTE_MIN_FRENTE:
                     _guarda_vao(s, PASSO[s][k], PASSO[s][k]['x0'], PASSO[s][k]['livre'])
                 ORC['queimada'] += PASSO[s][k]['livre']; ORC['queimada_n'] += 1
-                PASSO[s][k]['livre'] = 0.0
+                PASSO[s][k]['livre'] = 0.0; _arv_atualiza(s, k)
             return coloca(s, dog, addr)
         # sem quarteirão virgem à frente: segue no ramo normal, com o lote preso
         # à faixa. A bisseção enxerga a área menor e se ajusta.
@@ -3704,7 +3778,7 @@ def coloca(s, dog, addr, escala=1.0):
         # foi sondada; abaixo disso não há informação nova.
         passo = min(frente, 12.0)
         _guarda_vao(s, pr, pr['x0'], passo)
-        pr['x0'] += passo; pr['livre'] -= passo
+        pr['x0'] += passo; pr['livre'] -= passo; _arv_atualiza(s, pr['i'])
         if pr['livre'] < max(frente, LOTE_MIN_FRENTE): break
         ox = pr['x0'] + frente / 2
     if not ok:
@@ -3729,9 +3803,9 @@ def coloca(s, dog, addr, escala=1.0):
         elif not _par_vago(pr, pr['x0'], frente, prof_real): ORC['q_par'] += pr['livre']
         else: ORC['q_mascara'] += pr['livre']
         ORC['queimada'] += pr['livre']; ORC['queimada_n'] += 1
-        pr['livre'] = 0.0
+        pr['livre'] = 0.0; _arv_atualiza(s, pr['i'])
         return coloca(s, dog, addr)
-    pr['x0'] += frente; pr['livre'] -= frente
+    pr['x0'] += frente; pr['livre'] -= frente; _arv_atualiza(s, pr['i'])
     # ⚠️ ROTACIONE O DESLOCAMENTO, NUNCA O CENTRO DO QUARTEIRÃO. `bx/bz` já vêm
     # em MUNDO (saem de bwx/bwz dentro de tecido()); girar a soma dos dois girava
     # a cidade uma segunda vez. O estrago era invisível na contagem e enorme no
@@ -3772,6 +3846,12 @@ def _lotes_de_carteira(lista):
 def uma_passada():
     global PASSO, cursor, saida
     PASSO = [prateleiras_de(s) for s in range(N_DIST)]
+    # ⚠️ a árvore precisa saber o índice de cada prateleira para atualizar em
+    # tempo logarítmico quando a testada é consumida
+    for _s in range(N_DIST):
+        for _k, _pr in enumerate(PASSO[_s]): _pr['i'] = _k
+    ARV.clear()
+    ARV.extend(ArvoreLivre([pr['livre'] for pr in PASSO[_s]]) for _s in range(N_DIST))
     cursor = [0]*N_DIST
     saida = []
     COTA.clear()
