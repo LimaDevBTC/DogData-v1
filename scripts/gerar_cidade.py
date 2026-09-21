@@ -1692,10 +1692,17 @@ if _AB:
 
 
 def _vago(pr, x_ini, frente):
-    """o trecho [x_ini, x_ini+frente) não foi reservado por lote fundo da outra fileira."""
+    """o trecho [x_ini, x_ini+frente) está livre: sem lote plantado e sem reserva."""
+    _f = x_ini + frente
     for _b0, _b1 in pr['bloq']:
-        if x_ini < _b1 - 1e-6 and x_ini + frente > _b0 + 1e-6: return False
+        if x_ini < _b1 - 1e-6 and _f > _b0 + 1e-6: return False
+    for _o0, _o1 in pr['ocup']:
+        if x_ini < _o1 - 1e-6 and _f > _o0 + 1e-6: return False
     return True
+
+
+def _ocupa(pr, x_ini, frente):
+    pr['ocup'].append((x_ini, x_ini + frente))
 
 
 def _par_vago(pr, x_ini, frente, prof):
@@ -1709,7 +1716,6 @@ def _par_vago(pr, x_ini, frente, prof):
     if prof <= FILA_PROF + 1e-6: return True
     _par = pr.get('par')
     if _par is None: return True
-    if x_ini < _par['x0'] - 1e-6: return False
     return _vago(_par, x_ini, frente)
 
 
@@ -2954,7 +2960,13 @@ def prateleiras_de(s):
                             # lote mais fundo que a fileira invade a de trás, e
                             # sem este registro os dois donos recebem o mesmo
                             # chão (medido: 80 pares idênticos).
-                            'bloq': []})
+                            'bloq': [],
+                            # ⚠️ O CURSOR NÃO DIZ O QUE ESTÁ OCUPADO. Com vão
+                            # reaproveitado e prateleira queimada, `x0` deixa de
+                            # ser a fronteira entre cheio e vazio, e inferir
+                            # ocupação dele deixou passar 265 pares de lotes
+                            # sobrepostos. Aqui fica o que foi REALMENTE plantado.
+                            'ocup': []})
     # ⚠️ O PAR É O VIZINHO IMEDIATO. `_z_das_filas` emite as duas fileiras de
     # cada faixa em sequência, uma de frente para cada rua.
     for _i in range(0, len(out) - 1, 2):
@@ -2974,6 +2986,8 @@ if os.environ.get('AUDITA_PRAT'):
             _ch[(round(_pr['bx'], 2), round(_pr['bz'], 2), round(_pr['borda'], 2),
                  _pr['sentido'], round(_pr['ca'], 4))] += 1
         _dup = sum(v - 1 for v in _ch.values() if v > 1)
+        _sem = sum(1 for _pr in PASSO[_s] if 'par' not in _pr)
+        print('    sem par: %d de %d' % (_sem, len(PASSO[_s])), file=sys.stderr)
         _pior = _ch.most_common(1)[0] if _ch else None
         print('  setor %d: %d prateleiras, %d chaves, %d duplicadas (pior repete %dx)'
               % (_s + 1, len(PASSO[_s]), len(_ch), _dup, _pior[1] if _pior else 0),
@@ -3212,6 +3226,7 @@ def coloca(s, dog, addr, escala=1.0):
                     # ⚠️ a superquadra come o bloco inteiro: nenhuma fileira dele
                     # pode receber lote depois, nem pelo vão
                     PASSO[s][k]['bloq'].append((-1e9, 1e9))
+                    PASSO[s][k]['ocup'].append((-1e9, 1e9))
                     PASSO[s][k]['x0'] += PASSO[s][k]['livre']
                     PASSO[s][k]['livre'] = 0.0
                 return (_cx, _cz, min(lado_q, area / prof_g), prof_g, pq['q'], pq['b'])
@@ -3257,6 +3272,7 @@ def coloca(s, dog, addr, escala=1.0):
             _wx = _pv['bx'] + (_vx + frente/2)*_pv['ca'] - _ozv*_pv['sa']
             _wz = _pv['bz'] + (_vx + frente/2)*_pv['sa'] + _ozv*_pv['ca']
             COTA[addr] = cota_testada(_pv, _vx + frente / 2)
+            _ocupa(_pv, _vx, frente)
             _reserva_no_par(_pv, _vx, frente, prof_real)
             ORC['vao_usado'] += frente; ORC['vao_n'] += 1
             # o que sobrar do vão continua valendo para um lote ainda menor
@@ -3324,6 +3340,7 @@ def coloca(s, dog, addr, escala=1.0):
     wx = pr['bx'] + ox*pr['ca'] - oz*pr['sa']
     wz = pr['bz'] + ox*pr['sa'] + oz*pr['ca']
     COTA[addr] = cota_testada(pr, ox)
+    _ocupa(pr, ox - frente / 2, frente)
     _reserva_no_par(pr, ox - frente / 2, frente, prof_real)
     return (wx, wz, frente, min(255.0, prof_real), pr['q'], pr['b'])
 
