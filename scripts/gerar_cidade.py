@@ -3917,6 +3917,65 @@ def socalca():
                     fecha(grupo); grupo = []; quebras += 1
             grupo.append((x_, a))
         fecha(grupo)
+    # ⚠️ NIVELAR CADA FILEIRA SOZINHA EMPURRA O DESNÍVEL PARA A DIVISA DE FUNDO.
+    # Medido no primeiro passe: a mediana do muro caiu de 0,54 m para zero, que
+    # é o que a bancada promete, mas a cauda ENGORDOU (acima de 3 m subiu de
+    # 6,1% para 8,6%), porque o que sumia entre vizinhos de frente reapareceu
+    # entre bancadas e entre as duas fileiras costas com costas, cada uma
+    # nivelada por conta própria.
+    #
+    # A segunda metade da regra é relaxamento: enquanto duas bancadas VIZINHAS
+    # (na mesma fileira, ou na fileira de trás, sobre o mesmo trecho) passarem
+    # do teto, as duas andam meio a meio na direção uma da outra. Converge, e
+    # o custo é a cota se afastar mais do terreno natural, que é terraplanagem
+    # medida e não surpresa.
+    grupoDe, cotaBanc, vizinhos = {}, {}, {}
+    for (s_, i_), lotes in porFila.items():
+        lotes.sort()
+        atual, base = None, None
+        for x_, a in lotes:
+            c = COTA.get(a, 0.0)
+            if atual is None or abs(c - base) > 1e-9:
+                atual = (s_, i_, len(cotaBanc)); base = c
+                cotaBanc[atual] = c; vizinhos.setdefault(atual, set())
+                if lotes.index((x_, a)) > 0:
+                    pass
+            grupoDe[a] = atual
+    # vizinhança: bancadas consecutivas na mesma fileira e o par de trás
+    porFilaBanc = {}
+    for a, g in grupoDe.items():
+        porFilaBanc.setdefault((g[0], g[1]), []).append((PRAT[a][2], g))
+    for _k, lst in porFilaBanc.items():
+        lst.sort()
+        seq = []
+        for _x, g in lst:
+            if not seq or seq[-1] != g: seq.append(g)
+        for u, v in zip(seq, seq[1:]):
+            vizinhos.setdefault(u, set()).add(v); vizinhos.setdefault(v, set()).add(u)
+    for (s_, i_), lst in porFilaBanc.items():
+        _pr = PASSO[s_][i_] if i_ < len(PASSO[s_]) else None
+        _par = _pr.get('par') if _pr else None
+        if _par is None: continue
+        alvo = porFilaBanc.get((s_, _par['i']))
+        if not alvo: continue
+        for _x, g in lst:
+            for _x2, g2 in alvo:
+                if abs(_x - _x2) < 40:
+                    vizinhos.setdefault(g, set()).add(g2); vizinhos.setdefault(g2, set()).add(g)
+    for _volta in range(40):
+        pior = 0.0
+        for u, vs in vizinhos.items():
+            for v in vs:
+                d = cotaBanc[u] - cotaBanc[v]
+                if abs(d) > SOCALCO_TETO:
+                    passo = (abs(d) - SOCALCO_TETO) / 2.0 * (1 if d > 0 else -1)
+                    cotaBanc[u] -= passo; cotaBanc[v] += passo
+                    pior = max(pior, abs(d))
+        if pior <= SOCALCO_TETO + 0.01: break
+    for a, g in grupoDe.items():
+        desloc.append(abs(COTA.get(a, 0.0) - cotaBanc[g]))
+        COTA[a] = cotaBanc[g]
+
     desloc.sort()
     if desloc:
         print('  socalco: %d bancadas em %d fileiras, %d quebras; a cota do lote se move '
