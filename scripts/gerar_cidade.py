@@ -1759,19 +1759,25 @@ ORC = {'queimada': 0.0, 'queimada_n': 0, 'vao_usado': 0.0, 'vao_n': 0,
 # lote, com AQUELA largura. Um lote de 5 m de testada cabe em muito canto onde
 # um de 40 m não cabe, e 37% da cidade tem menos de 125 m². Então o vão vai para
 # uma lista e os lotes seguintes tentam nele antes de ir para o cursor.
-VAOS = [[] for _ in range(N_DIST)]
+VAOS = [collections.defaultdict(list) for _ in range(N_DIST)]
 # ⚠️ A JANELA É CUSTO, NÃO GOSTO. Cada candidato custa uma pegada de cinco
 # pontos com quatro consultas de altura, e a fila tem 85.797 lotes vezes até 12
 # passadas: com janela de 400 a primeira passada não terminou em 20 minutos.
 # Com 40 vãos e teto de 8 pegadas por lote o custo volta para a ordem do laço
 # normal, e o vão bom quase sempre é recente, porque o cursor acabou de passar
 # por ele.
-VAO_JANELA = 60         # quantos vãos recentes olhar
-VAO_TENTA = 8           # quantas pegadas no máximo por lote
-# ⚠️ O TETO DE 24 m ERA CEGO. A prateleira queimada entra na lista inteira, e ela
-# tem centenas de metros: recusar lote de 30 m de testada porque "vão é coisa de
-# lote pequeno" jogava fora justamente o vão grande. Agora o que limita é o
-# encaixe, não o tamanho do lote.
+# ⚠️ ÍNDICE POR TAMANHO, NÃO JANELA POR TEMPO. A janela dos vãos recentes
+# reciclava só 6,5% do que queimava, e o motivo é a ordem da fila: ela vem do
+# lote maior para o menor, então o lote pequeno que caberia numa sobra antiga
+# chega milhares de posições depois, quando a janela já passou. Medido em
+# 21/09: dos 263 km de testada queimada, 257 km (98%) são "sobra estreita para
+# o lote da vez", ou seja ENCAIXE DE TAMANHO, não terreno.
+#
+# O vão agora entra num balde por comprimento e a busca começa no menor balde
+# que serve, subindo: isso é melhor encaixe, custa uma pegada por candidato e
+# não perde vão nenhum por idade.
+VAO_BALDE = 5.0         # metros por balde
+VAO_TENTA = 10          # pegadas no máximo por lote
 VAO_TETO_FRENTE = 80.0
 # ⚠️ E A BUSCA É POR MELHOR ENCAIXE, não pela primeira que serve. Pegar um vão de
 # 200 m para um lote de 6 m gasta a única sobra grande da vizinhança com o lote
@@ -1812,6 +1818,38 @@ if _AB:
           % (sum(1 for q in _v if q > 0.08), sum(1 for q in _v if q > 0.12),
              sum(1 for q in _v if q > 0.20)), file=sys.stderr)
     sys.exit(0)
+
+
+def _guarda_vao(s, pr, x_ini, comp):
+    if comp >= LOTE_MIN_FRENTE:
+        VAOS[s][int(comp // VAO_BALDE)].append((pr, x_ini, comp))
+
+
+def _busca_vao(s, frente, prof_real):
+    """o MENOR vão que cabe o lote, do balde certo para cima."""
+    baldes = VAOS[s]
+    if not baldes: return None
+    b0 = int(frente // VAO_BALDE)
+    _tentou = 0
+    _maior = max(baldes.keys()) if baldes else b0
+    for b in range(b0, _maior + 1):
+        lista = baldes.get(b)
+        if not lista: continue
+        for _i in range(len(lista) - 1, -1, -1):
+            _pv, _vx, _vl = lista[_i]
+            if _vl < frente: continue
+            if _tentou >= VAO_TENTA: return None
+            _tentou += 1
+            _ozv = _pv['borda'] + _pv['sentido'] * prof_real / 2
+            if not _vago(_pv, _vx, frente): continue
+            if not _par_vago(_pv, _vx, frente, prof_real): continue
+            if not _cabe(_pv, _vx + frente / 2, _ozv, frente, prof_real): continue
+            lista.pop(_i)
+            resto = _vl - frente
+            if resto >= LOTE_MIN_FRENTE:
+                _guarda_vao(s, _pv, _vx + frente, resto)
+            return (_pv, _vx, _ozv)
+    return None
 
 
 def _vago(pr, x_ini, frente):
@@ -3605,7 +3643,7 @@ def coloca(s, dog, addr, escala=1.0):
             # quarteirão em terra proibida: queima e tenta o próximo
             for k in range(alvo, alvo + nf_alvo):
                 if PASSO[s][k]['livre'] >= LOTE_MIN_FRENTE:
-                    VAOS[s].append((PASSO[s][k], PASSO[s][k]['x0'], PASSO[s][k]['livre']))
+                    _guarda_vao(s, PASSO[s][k], PASSO[s][k]['x0'], PASSO[s][k]['livre'])
                 ORC['queimada'] += PASSO[s][k]['livre']; ORC['queimada_n'] += 1
                 PASSO[s][k]['livre'] = 0.0
             return coloca(s, dog, addr)
@@ -3627,38 +3665,17 @@ def coloca(s, dog, addr, escala=1.0):
     # a um e a testada ruim é queimada em vez de virar endereço.
     # ⚠️ PRIMEIRO O VÃO, DEPOIS O CURSOR. Terra já aberta antes de terra nova: é a
     # ordem que o fundador pediu em 20/09 ("compacte melhor primeiro").
-    if frente <= VAO_TETO_FRENTE and VAOS[s]:
-        _lista = VAOS[s]
-        _ini = max(0, len(_lista) - VAO_JANELA)
-        _cand = []
-        for _i in range(len(_lista) - 1, _ini - 1, -1):
-            if _lista[_i][2] >= frente:
-                _cand.append((_lista[_i][2] - frente, _i))
-        _cand.sort()
-        for _sobra_vao, _i in _cand[:VAO_TENTA]:
-            _pv, _vx, _vl = _lista[_i]
-            _ozv = _pv['borda'] + _pv['sentido'] * prof_real / 2
-            if not _vago(_pv, _vx, frente): continue
-            if not _par_vago(_pv, _vx, frente, prof_real): continue
-            if not _cabe(_pv, _vx + frente / 2, _ozv, frente, prof_real): continue
-            _wx = _pv['bx'] + (_vx + frente/2)*_pv['ca'] - _ozv*_pv['sa']
-            _wz = _pv['bz'] + (_vx + frente/2)*_pv['sa'] + _ozv*_pv['ca']
-            COTA[addr] = cota_testada(_pv, _vx + frente / 2)
-            _ocupa(_pv, _vx, frente)
-            _reserva_no_par(_pv, _vx, frente, prof_real)
-            ORC['vao_usado'] += frente; ORC['vao_n'] += 1
-            # o que sobrar do vão continua valendo para um lote ainda menor
-            if _vl - frente >= LOTE_MIN_FRENTE:
-                _lista[_i] = (_pv, _vx + frente, _vl - frente)
-            else:
-                _lista.pop(_i)
-            return (_wx, _wz, frente, min(255.0, prof_real), _pv['q'], _pv['b'])
+    _achou = _busca_vao(s, frente, prof_real)
+    if _achou is not None:
+        _pv, _vx, _ozv = _achou
+        _wx = _pv['bx'] + (_vx + frente/2)*_pv['ca'] - _ozv*_pv['sa']
+        _wz = _pv['bz'] + (_vx + frente/2)*_pv['sa'] + _ozv*_pv['ca']
+        COTA[addr] = cota_testada(_pv, _vx + frente / 2)
+        _ocupa(_pv, _vx, frente)
+        _reserva_no_par(_pv, _vx, frente, prof_real)
+        ORC['vao_usado'] += frente; ORC['vao_n'] += 1
+        return (_wx, _wz, frente, min(255.0, prof_real), _pv['q'], _pv['b'])
 
-    # ⚠️ CATORZE SONDAGENS SÃO 168 m, E A PRATELEIRA TEM CENTENAS. Uma prateleira
-    # cuja ponta cai em máscara era QUEIMADA INTEIRA depois de 14 passos, mesmo
-    # com o outro extremo livre: são 307 km de testada na cidade de hoje, 13%.
-    # O teto agora acompanha o comprimento do que resta, com limite para o custo
-    # não explodir: cada sondagem é uma pegada de cinco pontos.
     ox = pr['x0'] + frente / 2
     ok = False
     for _ in range(max(14, min(60, int(pr['livre'] / 12) + 1))):
@@ -3675,7 +3692,7 @@ def coloca(s, dog, addr, escala=1.0):
         # 12 m é a largura da vaga antiga, ou seja a resolução em que a máscara
         # foi sondada; abaixo disso não há informação nova.
         passo = min(frente, 12.0)
-        VAOS[s].append((pr, pr['x0'], passo))
+        _guarda_vao(s, pr, pr['x0'], passo)
         pr['x0'] += passo; pr['livre'] -= passo
         if pr['livre'] < max(frente, LOTE_MIN_FRENTE): break
         ox = pr['x0'] + frente / 2
@@ -3691,7 +3708,7 @@ def coloca(s, dog, addr, escala=1.0):
         # ruim: é o mesmo raciocínio do vão, na escala da prateleira inteira.
         # São 144 km de testada na cidade do snapshot, 3,6 km² de tecido.
         if pr['livre'] >= LOTE_MIN_FRENTE:
-            VAOS[s].append((pr, pr['x0'], pr['livre']))
+            _guarda_vao(s, pr, pr['x0'], pr['livre'])
         # ⚠️ QUEIMAR É CARO, ENTÃO A CAUSA TEM DE APARECER. Três motivos possíveis
         # e excludentes, e cada um tem conserto diferente: a testada que sobrou é
         # menor que o lote que veio tentar (só serviria um lote menor), a pegada
