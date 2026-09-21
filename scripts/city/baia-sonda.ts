@@ -3,6 +3,12 @@
 //
 // Uso:  npx tsx scripts/city/baia-sonda.ts [--cel=20]
 //
+// ⚠️ ESTE ARQUIVO JÁ DERRUBOU A PRODUÇÃO UMA VEZ (18 a 21/09/2026). Script em
+// `scripts/` NÃO é código solto: o `next build` da Vercel type-checa o projeto
+// inteiro, então um erro de tipo aqui quebra o site em produção, ainda que o
+// script rode sem reclamar no `tsx`. Rodar `npx tsc --noEmit` INTEIRO, sem
+// filtrar a saída por nome de arquivo, é a conferência mínima antes de commitar.
+//
 // ⚠️ MEDE A ÁGUA DESENHADA, não o número publicado. `cidade-malha.json` publica
 // só o centro e a área da baía; a FORMA dela nasce do relevo cortado pela cota,
 // e é a forma que decide onde uma ilha cabe sem estrangular o espelho d'água.
@@ -15,7 +21,12 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { AVENIDA_ALCA, ALCA_TERRA } from '../../app/city/plaza/teia'
 
-const arg = (k: string, d: string) =>
+// ⚠️ `d` ACEITA NÚMERO, e a falta disso derrubou a PRODUÇÃO por três dias.
+// `arg('cel', 20)` compila no `tsx` (que não checa tipo) e explode no `next
+// build`, que checa: de 18/09 a 21/09 todo deploy da Vercel falhou em
+// "Failed to compile" e o site continuou servindo o arquivo de 18/09, com os
+// holders congelados. Ver a nota no topo deste arquivo.
+const arg = (k: string, d: string | number) =>
   (process.argv.find((a) => a.startsWith(`--${k}=`)) || `--${k}=${d}`).split('=')[1]
 const CEL = +arg('cel', 20)
 
