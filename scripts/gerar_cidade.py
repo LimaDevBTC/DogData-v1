@@ -1796,13 +1796,12 @@ def declive_lote(bx, bz, ca, sa, ox, oz, frente, prof):
 _AB = os.environ.get('AUDITA_BIN')
 if _AB:
     _by = open(_AB if os.path.isabs(_AB) else p(_AB), 'rb').read()
-    _reg = struct.calcsize('<hhBBHBBBH')
+    _reg = struct.calcsize('<hhBBHBHHH')
     _v = []
     for _i in range(len(_by) // _reg):
-        _x4, _z4, _s, _c, _f, _fl, _w, _d, _g = struct.unpack_from('<hhBBHBBBH', _by, _i*_reg)
+        _x4, _z4, _s, _c, _f, _fl, _w10, _d10, _g = struct.unpack_from('<hhBBHBHHH', _by, _i*_reg)
         _x, _z = _x4 / 4.0, _z4 / 4.0
-        _w = _w + ((_fl >> 4) & 3) / 4.0
-        _d = _d + ((_fl >> 6) & 3) / 4.0
+        _w, _d = _w10 / 10.0, _d10 / 10.0
         _gg = math.radians(_g / 100.0)
         _v.append(declive_lote(_x, _z, math.cos(_gg), math.sin(_gg), 0.0, 0.0, _w, _d))
     _v.sort(); _n = len(_v) or 1
@@ -3422,6 +3421,7 @@ ORLA_DONOS = {l[5] for l in ORLA_LOTES if l[5]}
 # em cada registro, e tirar 446 carteiras dele mudava a coorte de todo mundo
 # que vem depois, além de matar a gravação com KeyError na primeira delas.
 CARTEIRAS_TODAS = list(carteiras)
+posto_fila = {c[3] for c in CARTEIRAS_TODAS}     # quem é carteira da fila, para contar direito
 carteiras = [c for c in carteiras if c[3] not in ORLA_DONOS]
 N = len(carteiras)
 if ORLA_DONOS:
@@ -3731,6 +3731,16 @@ def coloca(s, dog, addr, escala=1.0):
 # funcionando. Chave: endereço, porque cada carteira tem um lote só.
 COTA = {}
 
+def _lotes_de_carteira(lista):
+    """⚠️ CONTAR A SAÍDA INTEIRA MENTE. Desde 21/09 a saída tem quatro naturezas
+    misturadas: lote de carteira, lote do projeto (reserva e orla), lote
+    institucional e o que mais vier. O teste de "coube todo mundo" comparava
+    `len(saida)` com o tamanho da fila e passou a dar positivo com a cidade
+    faltando gente: medido, 9.239 carteiras ficaram sem lote e a bisseção
+    declarou sucesso, porque 12.266 lotes de reserva tinham entrado na conta."""
+    return sum(1 for r in lista if not str(r[3]).startswith('__projeto') and r[3] in posto_fila)
+
+
 def uma_passada():
     global PASSO, cursor, saida
     PASSO = [prateleiras_de(s) for s in range(N_DIST)]
@@ -3895,7 +3905,7 @@ k_lo, k_hi = K_AREA, None
 # mandou não desperdiçar (20/09), e cada passada custa cerca de um minuto.
 for tentativa in range(12):
     obtido = uma_passada()
-    coube = len(saida) >= N
+    coube = _lotes_de_carteira(saida) >= N
     med = sorted(w*d for _,_,_,_,w,d,_,_,_ in saida)[len(saida)//2] if saida else 0
     print(f'  passada {tentativa+1}: k={K_AREA:.5g}  {len(saida):,} plantadas, '
           f'{obtido/1e6:.2f} km² ({obtido/alvo*100:.0f}% do alvo), mediana {med:,.0f} m²'
@@ -3929,7 +3939,7 @@ if saida_boa is None:
             if (hi - lo) / lo < 0.02: break
             K_AREA = (lo + hi) / 2
             uma_passada()
-            coube = len(saida) >= N
+            coube = _lotes_de_carteira(saida) >= N
             med = sorted(w*d for _,_,_,_,w,d,_,_,_ in saida)[len(saida)//2] if saida else 0
             print(f'  sobe: k={K_AREA:.5g} -> {len(saida):,} plantadas, mediana {med:,.0f} m²'
                   f'  {"cabe" if coube else "NAO CABE"}', file=sys.stderr)
@@ -4018,9 +4028,15 @@ for x, z, s, a, w, d, _q, _b, _n in saida:
     # ⚠️ UM ARREDONDAMENTO SÓ, E DEPOIS SEPARA. Fazer `floor` na parte inteira e
     # `round` na fração estoura quando a fração passa de 0,875: os quatro quartos
     # viram zero no `& 3` e o lote encolhe quase um metro em silêncio.
-    _w4, _d4 = int(round(w * 4)), int(round(d * 4))
-    fl = ((0 if _proj else ((1 if a in dsc else 0) | (forma_de(UTX.get(a, 1)) << 1)))
-          | ((_w4 & 3) << 4) | ((_d4 & 3) << 6))
+    # ⚠️ REGISTRO v3: TESTADA E FUNDO EM DECÍMETROS, uint16. Em um byte o teto
+    # era 255 m, e o maior lote institucional tem 388 m de testada: o .bin saía
+    # 133 m menor que o registro de direito, e o portão pegou. Dois bytes em
+    # decímetro alcançam 6.553 m com 10 cm de resolução, que é mais fina que os
+    # 25 cm da posição. Os quatro bits de quarto de metro na flag saem junto:
+    # eram remendo para o mesmo problema.
+    _w10 = max(1, min(65535, int(round(w * 10))))
+    _d10 = max(1, min(65535, int(round(d * 10))))
+    fl = (0 if _proj else ((1 if a in dsc else 0) | (forma_de(UTX.get(a, 1)) << 1)))
     giro_c = int(round(_GIRO_DE.get((s, _q, _b), 0.0) * 100)) % 36000
     # ⚠️ A POSIÇÃO PASSOU A SER EM QUARTOS DE METRO (versão 2 do registro,
     # 20/09). Em metros inteiros dois lotes que se ENCOSTAM na divisa de fundo
@@ -4030,10 +4046,8 @@ for x, z, s, a, w, d, _q, _b, _n in saida:
     # Para a maquete vista de cima 1 m é invisível; para o boneco de 1,70 m é um
     # degrau na calçada. int16 em quartos de metro alcança 8.191 m e a cidade
     # chega a 7.430, então cabe. O tamanho do registro não muda.
-    buf += struct.pack('<hhBBHBBBH', int(round(x*4)), int(round(z*4)), s, coorte,
-                       min(65535, fam), fl,
-                       max(1, min(255, _w4 // 4)), max(1, min(255, _d4 // 4)),
-                       giro_c)
+    buf += struct.pack('<hhBBHBHHH', int(round(x*4)), int(round(z*4)), s, coorte,
+                       min(65535, fam), fl, _w10, _d10, giro_c)
 open(ps('public/city/cidade-lotes.bin'), 'wb').write(buf)
 
 # ⚠️ A COTA DE CADA LOTE, ARQUIVO IRMÃO, MESMA ORDEM, 2 BYTES POR LOTE. int16 em
@@ -4143,17 +4157,17 @@ json.dump({
     # do plano diretor ficou um mês lendo 11 bytes). Agora ele leva VERSÃO: quem
     # ler a v2 com código de v1 desenha a cidade a um quarto do tamanho, e isso
     # tem de falhar alto, não em silêncio.
-    'registroVersao': 2,
+    'registroVersao': 3,
     'cemiterio': {'lapides': len(COLUMBARIO), 'corteDog': round(DOG_MIN_LOTE, 2),
                    'pisoLote_m2': PISO_LOTE,
                    'regra': 'abaixo do saldo que paga o menor lote, o endereço recebe nicho. '
                             'O nicho é direito de MINTAR, não lote: volta a ter saldo, compra '
                             'licença e minta o deed, e o lote nasce no anel de expansão'},
     'esquema': 'int16 x_quartos_de_metro, int16 z_quartos_de_metro, uint8 setor, '
-               'uint8 coorte, uint16 familia, uint8 flags(bit0=DSC, bits1-3=forma, '
-               'bits4-5=quarto de metro da frente, bits6-7=quarto de metro do fundo), '
-               'uint8 frente_m_piso, uint8 prof_m_piso, uint16 giro_centesimos_de_grau',
-    'registroBytes': 13,
+               'uint8 coorte, uint16 familia, uint8 flags(bit0=DSC, bits1-3=forma), '
+               'uint16 frente_decimetros, uint16 prof_decimetros, '
+               'uint16 giro_centesimos_de_grau',
+    'registroBytes': 15,
     'chave': 'posicao_residencial do snapshot 966.670 (DOG-tempo, masterplan §12)',
     'curva': {'expoente': EXPOENTE, 'gradiente': GRADIENTE, 'k': K_AREA,
               'lobos': LOBOS, 'loboAmp': LOBO_AMP,
@@ -4168,7 +4182,11 @@ json.dump({
     'loteMediana_m2': round(areas[len(areas)//2]) if areas else 0,
     'loteMenor_m2': round(areas[0]) if areas else 0,
     'loteMaior_m2': round(areas[-1]) if areas else 0,
-    'carteiras': N, 'plantadas': len(saida),
+    'carteiras': N, 'plantadas': _lotes_de_carteira(saida),
+    'lotes': {'carteira': _lotes_de_carteira(saida),
+              'projeto': sum(1 for r in saida if str(r[3]).startswith('__projeto')),
+              'institucional': len(FIN_LOTES),
+              'total': len(saida)},
     'enclaves': len(familias_grandes), 'carteirasEmEnclave': len(familia_de),
     'dsc': len(dsc), 'setorDSC': S_DSC+1,
     'programa': [{'id': q['id'], 'nome': q['nome'], 'tipo': q['tipo'],

@@ -122,11 +122,13 @@ def altura(x, z):
     return b*(1.0-w) + PY_*w
 
 # ── a amostra: onde o lote de fato nasce ──────────────────────────────────
-FMT = '<hhBBHBBBH'; REG = struct.calcsize(FMT)
+FMT = '<hhBBHBHHH'; REG = struct.calcsize(FMT)   # registro v3: 15 B, frente/fundo em dm
 buf = open(p('public/city/cidade-lotes.bin'), 'rb').read()
 difs = []
 for k in range(0, len(buf)//REG, 3):
-    x, z, *_ = struct.unpack_from(FMT, buf, k*REG)
+    x4, z4, *_ = struct.unpack_from(FMT, buf, k*REG)
+    # ⚠️ registro v3: a posição é em QUARTOS DE METRO (ver tecido.ts)
+    x, z = x4 / 4.0, z4 / 4.0
     c = cena(x, z)
     if c is None: continue
     difs.append(abs(c - altura(x, z)))

@@ -29,7 +29,7 @@ FILA = arg('fila', os.path.join(RAIZ, 'data/snapshots/dog_966670_ordem_residenci
 # faixa de 0,15 m, ou seja o teste estava medindo o arquivo, não a cidade.
 TOL = float(arg('tolerancia', '0.02'))
 
-FMT = '<hhBBHBBBH'; REG = struct.calcsize(FMT)
+FMT = '<hhBBHBHHH'; REG = struct.calcsize(FMT)  # registro v3, 15 bytes
 byt = open(os.path.join(BASE, 'public/city/cidade-lotes.bin'), 'rb').read()
 lotes = [struct.unpack_from(FMT, byt, i * REG) for i in range(len(byt) // REG)]
 linhas = list(csv.DictReader(open(os.path.join(BASE, 'data/dogcity_lotes.csv'))))
@@ -161,11 +161,11 @@ item('cota dentro da faixa do relevo', not fora, f'{len(fora)} fora')
 # 6b. o .bin é cópia fiel do registro, dentro da resolução dele (um quarto de metro)
 pior_bin = 0.0
 for i, r in enumerate(linhas):
-    x4, z4, _s, _c, _f, _fl, w8, d8, _g = lotes[i]
+    x4, z4, _s, _c, _f, _fl, w10, d10, _g = lotes[i]
     pior_bin = max(pior_bin,
                    abs(x4/4.0 - float(r['x_m'])), abs(z4/4.0 - float(r['z_m'])),
-                   abs(w8 + ((_fl >> 4) & 3)/4.0 - float(r['frente_m'])),
-                   abs(d8 + ((_fl >> 6) & 3)/4.0 - float(r['prof_m'])))
+                   abs(w10/10.0 - float(r['frente_m'])),
+                   abs(d10/10.0 - float(r['prof_m'])))
 item('.bin fiel ao registro (1/4 m)', pior_bin <= 0.13, f'pior desvio {pior_bin:.3f} m')
 
 # 7. o que a cidade.json declara bate com o que existe

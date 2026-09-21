@@ -818,7 +818,7 @@ export default function CidadeClient() {
       // 2 bytes por lote, ou seja lote nenhum no lugar, calada. Os campos de 0 a
       // 10 continuam nas mesmas posições, e o giro daqui vem de
       // `cidade-malha.json`, por quarteirão, não do .bin. Conferido 19/09.
-      const REG = 13
+      const REG = 15   // registro v3: frente e fundo em decímetros, uint16 (ver tecido.ts)
       const n = Math.floor(buf.byteLength / REG)
       const x = new Float32Array(n), z = new Float32Array(n)
       const s = new Uint8Array(n), c = new Uint8Array(n)
@@ -831,8 +831,8 @@ export default function CidadeClient() {
         x[i] = dv.getInt16(o, true) / 4; z[i] = dv.getInt16(o + 2, true) / 4
         s[i] = dv.getUint8(o + 4); c[i] = dv.getUint8(o + 5)
         f[i] = dv.getUint16(o + 6, true); g[i] = dv.getUint8(o + 8)
-        fr[i] = dv.getUint8(o + 9) + ((g[i] >> 4) & 3) / 4
-        pf[i] = dv.getUint8(o + 10) + ((g[i] >> 6) & 3) / 4
+        fr[i] = dv.getUint16(o + 9, true) / 10
+        pf[i] = dv.getUint16(o + 11, true) / 10
       }
       setMeta(m); setMalha(ml); setD({ n, x, z, s, c, f, g, fr, pf })
     })().catch(() => {})

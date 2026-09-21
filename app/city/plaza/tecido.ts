@@ -102,7 +102,12 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
   // giro é do QUARTEIRÃO e, na Cinta, é a tangente local, diferente em cada
   // bloco. Derivar do setor giraria a Cinta inteira errado, em silêncio.
   const dv = new DataView(buf)
-  const REG = 13
+  // ⚠️ REGISTRO v3 (21/09): 15 bytes. Testada e fundo passaram a uint16 em
+  // DECÍMETROS porque o maior lote institucional tem 388 m de testada e o
+  // campo de 1 byte parava em 255: o desenho saía 133 m menor que o registro.
+  // Os quatro bits de quarto de metro na flag sumiram junto, eram remendo do
+  // mesmo problema. Posição segue em quartos de metro.
+  const REG = 15
   const n = Math.floor(buf.byteLength / REG)
   const group = new THREE.Group()
   group.name = 'tecido'
@@ -167,9 +172,9 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
     const x = dv.getInt16(off, true) / 4, z = dv.getInt16(off + 2, true) / 4
     const setor = dv.getUint8(off + 4), coorte = dv.getUint8(off + 5)
     const flags = dv.getUint8(off + 8)
-    const frente = dv.getUint8(off + 9) + ((flags >> 4) & 3) / 4
-    const prof = dv.getUint8(off + 10) + ((flags >> 6) & 3) / 4
-    const giroLote = (dv.getUint16(off + 11, true) / 100) * Math.PI / 180
+    const frente = dv.getUint16(off + 9, true) / 10
+    const prof = dv.getUint16(off + 11, true) / 10
+    const giroLote = (dv.getUint16(off + 13, true) / 100) * Math.PI / 180
     const forma = Math.min(4, (flags >> 1) & 7)
     const r01 = hash01(i)
 
@@ -296,10 +301,9 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
       const off = i * REG
       const x = dv.getInt16(off, true) / 4, z = dv.getInt16(off + 2, true) / 4
       const setor = dv.getUint8(off + 4)
-      const flagsQ = dv.getUint8(off + 8)
-      const frente = dv.getUint8(off + 9) + ((flagsQ >> 4) & 3) / 4
-      const prof = dv.getUint8(off + 10) + ((flagsQ >> 6) & 3) / 4
-    const giroLote = (dv.getUint16(off + 11, true) / 100) * Math.PI / 180
+      const frente = dv.getUint16(off + 9, true) / 10
+      const prof = dv.getUint16(off + 11, true) / 10
+    const giroLote = (dv.getUint16(off + 13, true) / 100) * Math.PI / 180
       const ang = -giroLote
       const cx = Math.cos(ang), sx = Math.sin(ang)
       // esquina da frente, no canto esquerdo de quem olha da rua
