@@ -1638,6 +1638,16 @@ def parque_alcance(x, z):
     k = t*t*(3 - 2*t)
     return PARQUE_DISCO + (PARQUE_FRENTE - PARQUE_DISCO) * k
 
+def _na_orla_nobre(x, z):
+    """a faixa das duas fileiras da alça, com a avenida no meio."""
+    r = math.hypot(x, z)
+    if not (ALCA_R - ALCA_LARG/2 - 214.0 - 5 <= r <= ALCA_R + ALCA_LARG/2 + 246.0 + 5):
+        return False
+    a0, a1 = ALCA_TERRA_ARCO
+    ang = rumo_de(x, z)
+    return ((ang - a0) % 360.0) <= ((a1 - a0) % 360.0)
+
+
 def livre(x, z):
     r = math.hypot(x, z)
     if r < R_INICIO: return False
@@ -1654,6 +1664,11 @@ def livre(x, z):
     if em_canal(x, z, CANAL_TALUDE + 2.0): return False
     if em_guerra(x, z, 2.0): return False
     if em_baia(x, z, ORLA_RESERVA): return False
+    # ⚠️ A ORLA NOBRE É TERRA RESERVADA PARA O TECIDO COMUM. As duas fileiras
+    # da alça ocupam de 6.714 a 7.218 no arco de 346 a 116,5, e o tecido agora
+    # vai até φ 6.900: sem esta máscara o lote comum nasce em cima do lote de
+    # tier 1, que é o pior defeito possível no endereço mais valioso da cidade.
+    if _na_orla_nobre(x, z): return False
     if em_lago(x, z, 30.0): return False
     # ⚠️ AS QUATRO PONTES DESEMBOCAM AQUI. Antes eram as costuras de setor; agora
     # as costuras de distrito estão em 0/62/108/186/240/308 e só o rumo 0
@@ -3162,6 +3177,164 @@ def area_nominal(dog, s):
     return max(PISO_LOTE,
                K_AREA * (dog ** EXPOENTE) * ((max(r_medio[s], R_INICIO) / R_INICIO) ** GRADIENTE))
 
+# ═══════════════════════════════════════════════════════════════════════════
+# A ORLA NOBRE: OS TIERS 1 A 3 NA ALÇA DA BAÍA
+#
+# Especificação em `tiersposition.md` §3.1 e §3.2, geometria lida da cena
+# (`AVENIDA_ALCA` em teia.ts). Duas fileiras com testada na avenida circular de
+# r 6.950: a da frente cresce para DENTRO, rumo à praia da baía, a de trás
+# cresce para fora, rumo à praia dos fundos. As duas olham para dentro, decisão
+# do fundador: "a face externa não olha mar aberto".
+#
+# ⚠️ ÁREA AQUI TEM REGRA PRÓPRIA, E ISSO É DECISÃO DO FUNDADOR (20/09). A curva
+# publicada daria 122,81 ha às 446 carteiras e o desenho da fileira daria 627,80,
+# cinco vezes mais. A saída escolhida espelha o precedente que JÁ ESTÁ PUBLICADO
+# no Distrito Financeiro, onde o teto sobe de 40.000 para 150.000 m²: aqui a
+# curva continua valendo e o anel tem PISO próprio. Testada fixa, que é o que dá
+# ritmo à fileira, fundo pela curva, e piso de 60 m de fundo para nenhum lote
+# virar fatia rasa na frente d'água. Medido: 388 dos 446 ficam no piso e 58
+# mostram a curva por cima dele.
+def elig_area(addr):
+    """a área que a LANDING promete a esta carteira: clamp(0,986443·√DOG, 1, 40.000)."""
+    return max(1.0, min(40000.0, K_PUBLICADA * math.sqrt(max(0.0, elig.get(addr, 0.0)))))
+
+ORLA_PISO_FUNDO = 60.0
+ORLA_PROJETO_FRENTE, ORLA_PROJETO_TRAS = 18, 47   # land bank do §6, §3.2
+ORLA_FUNDO_MAX_FRENTE, ORLA_FUNDO_MAX_TRAS = 214.0, 246.0
+
+def _tier_de():
+    """tier e change_pct por endereço, do snapshot (a escada do airdrop)."""
+    try:
+        _sn = json.load(open(p('data/snapshots/dog_snapshot_966670.json')))['holders']
+    except FileNotFoundError:
+        return {}, {}
+    return ({r['address']: r.get('tier') for r in _sn},
+            {r['address']: (r.get('change_pct') if r.get('change_pct') is not None else -1e9)
+             for r in _sn})
+
+TIER_DE, CHANGE_DE = _tier_de()
+ORLA_LOTES = []          # (x, z, frente, prof, giro_graus, addr ou None)
+S_ORLA = 6                # setor 7 no endereço (S07-Q01-B{lote}-L001)
+_GIRO_ORLA = {}           # o giro de cada lote da orla, tangente ao círculo
+
+def planta_orla_nobre():
+    """devolve a lista de lotes da alça, já com dono, na ordem do caderno."""
+    if not TIER_DE: return []
+    a0, a1 = ALCA_TERRA_ARCO                      # 346 -> 116,5, passando por 0
+    span = (a1 - a0) % 360.0
+    centro = (a0 + span / 2) % 360.0              # 51,25°, o centro do arco
+    L = math.radians(span) * ALCA_R
+
+    def fila(tiers, n_projeto, fundo_max, sentido):
+        """sentido +1 cresce para fora, -1 cresce para dentro (rumo à baía)."""
+        donos = []
+        for t in tiers:
+            g = [x for x in elig if TIER_DE.get(x) == t]
+            g.sort(key=lambda x: -CHANGE_DE.get(x, -1e9))     # melhor comportamento primeiro
+            donos += g
+        total = len(donos) + n_projeto
+        testada = L / total
+        # ⚠️ O MELHOR FICA NO CENTRO DO ARCO E OS OUTROS ABREM PARA OS DOIS
+        # LADOS. É a regra do §3.2: o Satoshi Visionary ocupa o centro, o BTC
+        # Maximalist os dois flancos. Alternar esquerda e direita a partir do
+        # meio produz isso sem lista de exceção.
+        # ⚠️ GERE ATÉ COBRIR A FILEIRA INTEIRA. A alternância em volta do meio
+        # sai da faixa antes de completar: com `range(total)` sobravam slots nas
+        # duas pontas e a fileira nascia com lote a menos (medido: 445 de 446
+        # carteiras e 63 de 65 lotes do projeto).
+        def _abre_do_meio(total_):
+            _o, _v, _m, _i = [], set(), total_ // 2, 0
+            while len(_o) < total_ and _i < 4 * total_ + 8:
+                _k = _m + (_i + 1) // 2 * (1 if _i % 2 else -1)
+                if 0 <= _k < total_ and _k not in _v:
+                    _v.add(_k); _o.append(_k)
+                _i += 1
+            return _o
+        ordem_slots, vistos, meio, i = [], set(), total // 2, 0
+        while len(ordem_slots) < total and i < 4 * total + 8:
+            k = meio + (i + 1) // 2 * (1 if i % 2 else -1)
+            if 0 <= k < total and k not in vistos:
+                vistos.add(k); ordem_slots.append(k)
+            i += 1
+        # o projeto fica em blocos de 3, espalhados, nunca em bloco único (§3.2)
+        passo_proj = max(1, total // max(1, n_projeto // 3 or 1))
+        do_projeto = set()
+        k = passo_proj // 2
+        while len(do_projeto) < n_projeto and k < total:
+            for j in range(3):
+                if len(do_projeto) < n_projeto and k + j < total: do_projeto.add(k + j)
+            k += passo_proj
+        # ⚠️ O QUE SOBRA VAI PARA AS PONTAS, e isso é o caderno ao pé da letra:
+        # a fileira de trás são "15 blocos de 3 mais 1 em cada ponta", ou seja
+        # 45 mais 2. Sem esta linha a rodada nascia com 63 dos 65 lotes do
+        # projeto e ninguém contava.
+        for ponta in (0, total - 1, 1, total - 2):
+            if len(do_projeto) >= n_projeto: break
+            do_projeto.add(ponta)
+        # ⚠️ A FILEIRA ABRE PASSAGEM ONDE A CIDADE JÁ TEM COISA. O Portão do
+        # Parque Runestone sai da cidade no rumo 43° e ATRAVESSA a alça: 22
+        # lotes da orla nasciam dentro dele e o gerador se recusou a gravar, com
+        # razão. Em vez de empurrar a peça, a fileira pula aquele trecho, o que
+        # é melhor desenho: vira acesso público à praia e ao parque em vez de
+        # lote privado tapando a passagem. Os slots bloqueados são medidos antes
+        # e a testada se ajusta para caber todo mundo.
+        def _slot_livre(slot, total_, testada_):
+            ang_ = math.radians((a0 + span * (slot + 0.5) / total_) % 360.0)
+            r_b = ALCA_R + sentido * ALCA_LARG / 2
+            for _t in (0.15, 0.5, 0.85):
+                r_ = r_b + sentido * ORLA_PISO_FUNDO * _t
+                for _d in (-testada_ / 2.2, 0.0, testada_ / 2.2):
+                    _a2 = ang_ + _d / max(1.0, r_)
+                    if em_programa(math.sin(_a2) * r_, -math.cos(_a2) * r_) is not None:
+                        return False
+            return True
+
+        for _tent in range(6):
+            testada = L / total
+            bloq = [k for k in range(total) if not _slot_livre(k, total, testada)]
+            if not bloq: break
+            total += len(bloq)
+        ordem_slots = [k for k in _abre_do_meio(total) if k not in set(bloq)]
+        if bloq:
+            print('  a fileira pula %d vagas ocupadas por peça de programa '
+                  '(acesso público), testada final %.1f m' % (len(bloq), testada), file=sys.stderr)
+
+        out, iw = [], 0
+        for slot in ordem_slots:
+            if slot in do_projeto:
+                dono, area = None, testada * ORLA_PISO_FUNDO
+            else:
+                if iw >= len(donos): continue
+                dono = donos[iw]; iw += 1
+                area = elig_area(dono)
+            prof = max(ORLA_PISO_FUNDO, min(fundo_max, area / testada))
+            ang = math.radians((a0 + span * (slot + 0.5) / total) % 360.0)
+            r_borda = ALCA_R + sentido * ALCA_LARG / 2
+            r_centro = r_borda + sentido * prof / 2
+            x, z = math.sin(ang) * r_centro, -math.cos(ang) * r_centro
+            out.append((x, z, testada, prof, math.degrees(ang) % 360.0, dono))
+        return out
+
+    frente = fila(['satoshi_visionary', 'btc_maximalist'], ORLA_PROJETO_FRENTE,
+                  ORLA_FUNDO_MAX_FRENTE, -1)
+    tras = fila(['rune_master'], ORLA_PROJETO_TRAS, ORLA_FUNDO_MAX_TRAS, +1)
+    print('Orla Nobre: %d lotes na frente e %d atrás (%d de carteira, %d do projeto), '
+          'testada %.1f e %.1f m' % (len(frente), len(tras),
+          sum(1 for l in frente + tras if l[5]), sum(1 for l in frente + tras if not l[5]),
+          frente[0][2] if frente else 0, tras[0][2] if tras else 0), file=sys.stderr)
+    return frente + tras
+
+# ⚠️ A ORLA SAI DA FILA NORMAL. Quem tem endereço na alça não disputa tecido:
+# plantar duas vezes daria dois lotes ao mesmo dono, que é o defeito mais grave
+# que um loteamento pode ter.
+ORLA_LOTES = planta_orla_nobre()
+ORLA_DONOS = {l[5] for l in ORLA_LOTES if l[5]}
+carteiras = [c for c in carteiras if c[3] not in ORLA_DONOS]
+N = len(carteiras)
+if ORLA_DONOS:
+    print('  a fila do tecido fica com %d carteiras (as %d da orla saíram)'
+          % (N, len(ORLA_DONOS)), file=sys.stderr)
+
 gerais = [c for c in carteiras if c[3] not in dsc]
 capg = list(cap_area)
 usado = [0.0]*N_DIST
@@ -3188,6 +3361,8 @@ for c in gerais:
 # passada 2 corrige o k por ele.
 cursor = [0]*N_DIST
 saida = []
+
+
 sem_lugar = []       # carteiras que não acharam lugar na passada corrente
 aparadas = []        # carteiras que couberam só com corte de cabelo (addr, escala)
 falhou_em = []       # diagnóstico: setor onde a carteira ficou sem lugar
@@ -3476,6 +3651,15 @@ def uma_passada():
     sem_lugar.clear()
     aparadas.clear()
     no_bloco.clear()
+    # ⚠️ A ORLA ENTRA PRIMEIRO E NÃO DEPENDE DE k: a geometria dela é fixa, o
+    # dono é decidido pelo tier e a área tem regra própria. Ela é setor 7 no
+    # endereço, um quarteirão por lote, porque cada lote tem o seu próprio giro
+    # tangente ao círculo da avenida.
+    for _i, (_x, _z, _fr, _pf, _gi, _dono) in enumerate(ORLA_LOTES, 1):
+        _GIRO_ORLA[(S_ORLA, 1, _i)] = _gi
+        COTA[_dono or f'__orla{_i}'] = altura(_x, _z)
+        saida.append((_x, _z, S_ORLA, _dono or f'__projeto_orla_{_i:03d}',
+                      _fr, _pf, 1, _i, 1))
     # ⚠️ O DSC PLANTA PRIMEIRO, E ISSO CONSERTA DOIS DEFEITOS DE UMA VEZ.
     # (1) Ele plantava DEPOIS de todas as 52.953 gerais, quando o setor 3 já
     #     tinha acabado, e (2) o laço dele descartava calado: `if r:` sem else,
@@ -3690,6 +3874,7 @@ for _s in range(N_DIST):
     for _q in T[_s]:
         for _ib, _b in enumerate(sorted(_q['quarteiroes'], key=lambda b: b['r'])):
             _GIRO_DE[(_s, _q['banda'], _ib + 1)] = math.degrees(_b['giro']) % 360.0
+_GIRO_DE.update(_GIRO_ORLA)
 buf = bytearray()
 for x, z, s, a, w, d, _q, _b, _n in saida:
     coorte = min(7, posto[a]*8//N)

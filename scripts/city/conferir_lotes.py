@@ -53,14 +53,24 @@ colum = []
 cam_col = os.path.join(BASE, 'data/dogcity_cemiterio.csv')
 if os.path.exists(cam_col):
     colum = [r['address'] for r in csv.DictReader(open(cam_col))]
+# ⚠️ TRÊS DESTINOS, NÃO DOIS. Além de lote de carteira e lápide existe o LOTE
+# DO PROJETO: a Orla Nobre tem 65 e a reserva de apelo terá 15% dos lotes de
+# cada bairro (contrato público §5). Eles aparecem no registro com endereço
+# sintético `__projeto_*` e NÃO são carteira: contá-los como dono faria o
+# portão reprovar a cidade certa, e ignorá-los faria ele perder um lote
+# atribuído a dois donos.
 quero = {r['address'] for r in fila if r['dog'] > 0}
-tenho = [r['address'] for r in linhas]
+tenho = [r['address'] for r in linhas if not r['address'].startswith('__projeto')]
+projeto = [r['address'] for r in linhas if r['address'].startswith('__projeto')]
 destinos = tenho + colum
 dobrados = set(tenho) & set(colum)
 item('cada carteira tem um destino, lote ou lápide',
      len(destinos) == len(set(destinos)) == len(quero) and set(destinos) == quero and not dobrados,
      f'{len(tenho)} lotes + {len(colum)} lápides = {len(destinos)} de {len(quero)} carteiras, '
-     f'{len(dobrados)} em dois lugares')
+     f'{len(projeto)} lotes do projeto à parte, {len(dobrados)} em dois lugares')
+item('lote do projeto não tem dono de carteira',
+     all(a not in quero for a in projeto) and len(set(projeto)) == len(projeto),
+     f'{len(projeto)} lotes do projeto, todos com endereço próprio')
 
 # 2. os três arquivos na mesma ordem
 mesma = (len(lotes) == len(linhas) == len(cotas)) and all(
@@ -135,7 +145,11 @@ item('nenhum lote sobre outro', pares == 0, detalhe)
 # 5. área entregue contra a prometida pelo snapshot
 # ⚠️ só quem recebeu lote entra nesta conta: o nicho não promete metro quadrado
 prom = {r['address']: r['area_m2'] for r in fila if r['area_m2'] > 0}
-raz = sorted(float(r['area_m2']) / prom[r['address']] for r in linhas if r['address'] in prom)
+# ⚠️ a orla tem regra de área própria (piso de 60 m de fundo, masterplan §16.2 e
+# o caderno §3.2), então ela não entra na conta da curva: ali entregar MAIS que
+# o prometido é a regra, não desvio.
+raz = sorted(float(r['area_m2']) / prom[r['address']] for r in linhas
+             if r['address'] in prom and not r['lot_id'].startswith('S07'))
 n = len(raz) or 1
 item('área entregue honra a prometida', raz[int(n*0.10)] >= 0.95,
      f'mediana {raz[n//2]:.2f}, p1 {raz[int(n*0.01)]:.2f}, p10 {raz[int(n*0.10)]:.2f}')
