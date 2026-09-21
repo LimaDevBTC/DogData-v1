@@ -3226,23 +3226,21 @@ def planta_orla_nobre():
     L = math.radians(span) * ALCA_R
 
     def fila(tiers, n_projeto, fundo_max, sentido):
-        """sentido +1 cresce para fora, -1 cresce para dentro (rumo à baía)."""
+        """uma fileira da alça: quem entra, em que ordem e com que tamanho.
+
+        `sentido` +1 cresce para fora (praia dos fundos), -1 cresce para dentro
+        (praia da baía). As duas fileiras têm testada na avenida circular.
+        """
         donos = []
         for t in tiers:
             g = [x for x in elig if TIER_DE.get(x) == t]
             g.sort(key=lambda x: -CHANGE_DE.get(x, -1e9))     # melhor comportamento primeiro
             donos += g
-        total = len(donos) + n_projeto
-        testada = L / total
-        # ⚠️ O MELHOR FICA NO CENTRO DO ARCO E OS OUTROS ABREM PARA OS DOIS
-        # LADOS. É a regra do §3.2: o Satoshi Visionary ocupa o centro, o BTC
-        # Maximalist os dois flancos. Alternar esquerda e direita a partir do
-        # meio produz isso sem lista de exceção.
-        # ⚠️ GERE ATÉ COBRIR A FILEIRA INTEIRA. A alternância em volta do meio
-        # sai da faixa antes de completar: com `range(total)` sobravam slots nas
-        # duas pontas e a fileira nascia com lote a menos (medido: 445 de 446
-        # carteiras e 63 de 65 lotes do projeto).
+
         def _abre_do_meio(total_):
+            """a ordem em que as vagas são ocupadas: do centro do arco para as
+            duas pontas, alternando. É o §3.2 sem lista de exceção: o Satoshi
+            Visionary fica no centro e o BTC Maximalist abre nos dois flancos."""
             _o, _v, _m, _i = [], set(), total_ // 2, 0
             while len(_o) < total_ and _i < 4 * total_ + 8:
                 _k = _m + (_i + 1) // 2 * (1 if _i % 2 else -1)
@@ -3250,35 +3248,11 @@ def planta_orla_nobre():
                     _v.add(_k); _o.append(_k)
                 _i += 1
             return _o
-        ordem_slots, vistos, meio, i = [], set(), total // 2, 0
-        while len(ordem_slots) < total and i < 4 * total + 8:
-            k = meio + (i + 1) // 2 * (1 if i % 2 else -1)
-            if 0 <= k < total and k not in vistos:
-                vistos.add(k); ordem_slots.append(k)
-            i += 1
-        # o projeto fica em blocos de 3, espalhados, nunca em bloco único (§3.2)
-        passo_proj = max(1, total // max(1, n_projeto // 3 or 1))
-        do_projeto = set()
-        k = passo_proj // 2
-        while len(do_projeto) < n_projeto and k < total:
-            for j in range(3):
-                if len(do_projeto) < n_projeto and k + j < total: do_projeto.add(k + j)
-            k += passo_proj
-        # ⚠️ O QUE SOBRA VAI PARA AS PONTAS, e isso é o caderno ao pé da letra:
-        # a fileira de trás são "15 blocos de 3 mais 1 em cada ponta", ou seja
-        # 45 mais 2. Sem esta linha a rodada nascia com 63 dos 65 lotes do
-        # projeto e ninguém contava.
-        for ponta in (0, total - 1, 1, total - 2):
-            if len(do_projeto) >= n_projeto: break
-            do_projeto.add(ponta)
-        # ⚠️ A FILEIRA ABRE PASSAGEM ONDE A CIDADE JÁ TEM COISA. O Portão do
-        # Parque Runestone sai da cidade no rumo 43° e ATRAVESSA a alça: 22
-        # lotes da orla nasciam dentro dele e o gerador se recusou a gravar, com
-        # razão. Em vez de empurrar a peça, a fileira pula aquele trecho, o que
-        # é melhor desenho: vira acesso público à praia e ao parque em vez de
-        # lote privado tapando a passagem. Os slots bloqueados são medidos antes
-        # e a testada se ajusta para caber todo mundo.
+
         def _slot_livre(slot, total_, testada_):
+            """a vaga está livre de peça de programa? O Portão do Parque
+            Runestone sai no rumo 43° e ATRAVESSA a alça: ali a fileira abre
+            passagem pública em vez de plantar lote privado."""
             ang_ = math.radians((a0 + span * (slot + 0.5) / total_) % 360.0)
             r_b = ALCA_R + sentido * ALCA_LARG / 2
             for _t in (0.15, 0.5, 0.85):
@@ -3289,15 +3263,41 @@ def planta_orla_nobre():
                         return False
             return True
 
-        for _tent in range(6):
+        # ⚠️ RECALCULE, NÃO ACUMULE. `total += bloqueados` a cada volta soma o
+        # mesmo trecho várias vezes: a testada da frente caía de 74 para 61,4 m.
+        # O certo é total = base + bloqueados DESTA volta, que converge para
+        # testada = comprimento útil dividido pelos lotes que existem.
+        total = len(donos) + n_projeto
+        base_total, bloq, testada = total, [], L / total
+        for _tent in range(8):
             testada = L / total
             bloq = [k for k in range(total) if not _slot_livre(k, total, testada)]
-            if not bloq: break
-            total += len(bloq)
-        ordem_slots = [k for k in _abre_do_meio(total) if k not in set(bloq)]
+            novo_total = base_total + len(bloq)
+            if novo_total == total: break
+            total = novo_total
         if bloq:
             print('  a fileira pula %d vagas ocupadas por peça de programa '
-                  '(acesso público), testada final %.1f m' % (len(bloq), testada), file=sys.stderr)
+                  '(acesso público), testada final %.1f m' % (len(bloq), testada),
+                  file=sys.stderr)
+
+        ordem_slots = [k for k in _abre_do_meio(total) if k not in set(bloq)]
+
+        # ⚠️ O PROJETO SE ESCOLHE DEPOIS DO BLOQUEIO. Escolhendo antes, as vagas
+        # do projeto que caem na passagem do parque somem junto e a reserva
+        # nasce com 62 de 65 lotes, calada. Blocos de 3, espalhados, nunca em
+        # bloco único (§3.2), e o que sobrar vai para as pontas.
+        _validos = [k for k in range(total) if k not in set(bloq)]
+        passo_proj = max(1, len(_validos) // max(1, n_projeto // 3 or 1))
+        do_projeto, k = set(), passo_proj // 2
+        while len(do_projeto) < n_projeto and k < len(_validos):
+            for j in range(3):
+                if len(do_projeto) < n_projeto and k + j < len(_validos):
+                    do_projeto.add(_validos[k + j])
+            k += passo_proj
+        for ponta in ([_validos[0], _validos[-1], _validos[1], _validos[-2]]
+                      if len(_validos) > 3 else []):
+            if len(do_projeto) >= n_projeto: break
+            do_projeto.add(ponta)
 
         out, iw = [], 0
         for slot in ordem_slots:
@@ -3329,6 +3329,11 @@ def planta_orla_nobre():
 # que um loteamento pode ter.
 ORLA_LOTES = planta_orla_nobre()
 ORLA_DONOS = {l[5] for l in ORLA_LOTES if l[5]}
+# ⚠️ A FILA INTEIRA CONTINUA SENDO A RÉGUA DE POSTO. Quem foi para a orla sai
+# do plantio do tecido mas NÃO sai da fila: `posto` alimenta a coorte gravada
+# em cada registro, e tirar 446 carteiras dele mudava a coorte de todo mundo
+# que vem depois, além de matar a gravação com KeyError na primeira delas.
+CARTEIRAS_TODAS = list(carteiras)
 carteiras = [c for c in carteiras if c[3] not in ORLA_DONOS]
 N = len(carteiras)
 if ORLA_DONOS:
@@ -3679,7 +3684,29 @@ def uma_passada():
         no_bloco[chave] = no_bloco.get(chave, 0) + 1
         saida.append((r[0], r[1], S_DSC, a, r[2], r[3], r[4], r[5], no_bloco[chave]))
 
+    # ⚠️ A RESERVA DE 15% É PROMESSA PÚBLICA (contrato §5, docs §5): 15% dos
+    # LOTES de cada bairro, espalhados, nunca em bloco único. Ela existe para
+    # bancar a troca de quem for marcado institucional por engano e tiver o
+    # apelo aceito, e é o land bank do projeto.
+    #
+    # O jeito mais simples de espalhar é intercalar: a cada 5,67 lotes de
+    # carteira nasce um lote de reserva com a MESMA área do lote da vez, na
+    # mesma prateleira, no mesmo bairro. Sai 15% do total, distribuído por
+    # construção, sem sorteio e sem grumo. 15 de 85 é a conta do contrato:
+    # 15.141 reservados ao lado de 85.797 de carteira.
+    _reserva_passo = 15.0 / 85.0
+    _reserva_conta, _reserva_n = 0.0, 0
     for c, s in zip(gerais, destino):
+        _reserva_conta += _reserva_passo
+        if _reserva_conta >= 1.0:
+            _reserva_conta -= 1.0
+            _reserva_n += 1
+            _rr = coloca(s, elig[c[3]], f'__projeto_reserva_{_reserva_n:05d}')
+            if _rr is not None:
+                _ch = (s, _rr[4], _rr[5])
+                no_bloco[_ch] = no_bloco.get(_ch, 0) + 1
+                saida.append((_rr[0], _rr[1], s, f'__projeto_reserva_{_reserva_n:05d}',
+                              _rr[2], _rr[3], _rr[4], _rr[5], no_bloco[_ch]))
         r = coloca(s, elig[c[3]], c[3])
         if r is None:
             alt = max(range(N_DIST), key=lambda t: sum(pr['livre'] for pr in PASSO[t][cursor[t]:]))
@@ -3730,6 +3757,8 @@ def uma_passada():
         chave = (s, r[4], r[5])
         no_bloco[chave] = no_bloco.get(chave, 0) + 1
         saida.append((r[0], r[1], s, c[3], r[2], r[3], r[4], r[5], no_bloco[chave]))
+    print('  reserva do projeto: %d lotes intercalados (%.1f%% do total)'
+          % (_reserva_n, 100.0 * _reserva_n / max(1, len(saida))), file=sys.stderr)
     if os.environ.get('DIAG') and sem_lugar:
         import collections
         print('  DIAG %d sem lugar; por setor: %s' % (len(sem_lugar),
@@ -3845,7 +3874,7 @@ if areas:
     print(f'área somada dos lotes: {sum(areas)/1e6:.2f} km²', file=sys.stderr)
 
 # ── grava ──────────────────────────────────────────────────────────────────
-posto = {c[3]: i for i, c in enumerate(carteiras)}
+posto = {c[3]: i for i, c in enumerate(CARTEIRAS_TODAS)}
 # ⚠️ O utxo_count DECIDE A FORMA DO LOTE (masterplan §9, regra 3) e ele também é
 # do BLOCO, não de hoje: gastar um UTXO depois do snapshot não muda a tipologia.
 # Com a fonte viva ele vinha do CSV que o cron move; com o snapshot vem do
@@ -3877,8 +3906,12 @@ for _s in range(N_DIST):
 _GIRO_DE.update(_GIRO_ORLA)
 buf = bytearray()
 for x, z, s, a, w, d, _q, _b, _n in saida:
-    coorte = min(7, posto[a]*8//N)
-    fam = familia_de.get(a, 0)
+    # ⚠️ LOTE DO PROJETO NÃO TEM CARTEIRA. Ele entra no registro com coorte,
+    # forma e família neutras: procurar dado de dono para ele quebrava a
+    # gravação inteira na primeira linha.
+    _proj = a.startswith('__projeto')
+    coorte = 0 if _proj else min(7, posto[a]*8//N)
+    fam = 0 if _proj else familia_de.get(a, 0)
     # ⚠️ OS QUATRO BITS LIVRES DA FLAG VIRARAM O QUARTO DE METRO. `w` e `d` são
     # uint8 em metros inteiros, e arredondar custa até 0,5 m por lado: num lote
     # de 5 m de testada isso é 10%, e para o boneco de 1,70 m é meio metro de
@@ -3889,7 +3922,7 @@ for x, z, s, a, w, d, _q, _b, _n in saida:
     # `round` na fração estoura quando a fração passa de 0,875: os quatro quartos
     # viram zero no `& 3` e o lote encolhe quase um metro em silêncio.
     _w4, _d4 = int(round(w * 4)), int(round(d * 4))
-    fl = ((1 if a in dsc else 0) | (forma_de(UTX.get(a, 1)) << 1)
+    fl = ((0 if _proj else ((1 if a in dsc else 0) | (forma_de(UTX.get(a, 1)) << 1)))
           | ((_w4 & 3) << 4) | ((_d4 & 3) << 6))
     giro_c = int(round(_GIRO_DE.get((s, _q, _b), 0.0) * 100)) % 36000
     # ⚠️ A POSIÇÃO PASSOU A SER EM QUARTOS DE METRO (versão 2 do registro,
