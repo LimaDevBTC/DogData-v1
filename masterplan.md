@@ -1740,3 +1740,35 @@ mundo.
 fileiras o tier 4 sai com 12,1 m de testada por 126 m de fundo (1:10,3) e o tier 5 com 6,4
 por 175 (1:27,4), proporções que não são lote. Em cinco fileiras dá 24,3 por 63 m (1:2,6),
 que é gêmeo do precedente da Orla Nobre.
+
+## §20 — O socalco implementado 🔒 (21/09/2026)
+
+A regra do §15 virou código: dentro da fileira, lotes consecutivos entram na mesma BANCADA
+enquanto o terreno não se afasta mais que o teto de 3 m, e todos os lotes de uma bancada
+recebem a MESMA cota. Onde o terreno pede mais, a bancada quebra e nasce o degrau, que
+aparece na calçada como degrau ou rampa curta, nunca como paredão.
+
+⚠️ **NIVELAR CADA FILEIRA SOZINHA NÃO BASTA, e isso foi medido no primeiro passe.** A
+mediana do muro caiu de 0,54 m para zero, que é o que a bancada promete, mas a cauda
+ENGORDOU: acima de 3 m subiu de 6,1% para 8,6%. O desnível que sumia entre vizinhos de
+frente reaparecia entre bancadas e entre as duas fileiras costas com costas, cada uma
+nivelada por conta. A segunda metade da regra é relaxamento: enquanto duas bancadas
+vizinhas, na mesma fileira ou na fileira de trás sobre o mesmo trecho, passarem do teto,
+as duas andam meio a meio.
+
+```
+                        sem socalco   com socalco
+muro mediano                0,54 m       0,00 m
+p90                         2,44 m       2,38 m
+p99                         4,64 m       3,00 m
+divisas acima de 3 m     5.978 (6,1%)   324 (0,3%)
+divisas acima de 5 m     1.228           25
+cota do lote se move          n/a       0,10 m mediana, 1,25 m p90
+bancadas                      n/a       17.400 em 13.227 fileiras, 4.173 quebras
+```
+
+A cidade continua APROVADA nos dez testes, com os mesmos 46,96 km².
+
+⚠️ **As 324 divisas que sobram (0,3%) não são muro, são degrau de terreno entre bancadas**,
+com pior caso de 14,64 m. O tratamento é caso a caso, virando escadaria pública ou trecho
+não lotável, e não mudança da regra: mexer no teto para acomodar 0,3% pioraria os 99,7%.
