@@ -995,6 +995,8 @@ LOTE_MIN_FRENTE = 5.0  # nenhum lote fica mais estreito que isto
 # não lote: medido na rodada sem piso, 2.176 lotes com área ZERO e p25 em 18 m².
 # 24 m² é 5 x 4,8, a banca da tipologia Galeria.
 PISO_LOTE = 24.0
+# ⚠️ o teto do muro de divisa: acima disto a fileira quebra em bancada (§15)
+SOCALCO_TETO = 3.0
 LIMITE_MINT = 20000    # ⚠️ NÃO É MAIS FILTRO DE ENTRADA: é o saldo que
                        # destrava CONSTRUIR. Abaixo dele o lote existe,
                        # é do dono e aparece vazio.
@@ -3075,7 +3077,33 @@ COLUMBARIO = []
 elig, carteiras, UTX_SNAP = {}, [], {}
 if FONTE == 'snapshot':
     _o = json.load(open(SNAP_ORDEM))
+    # ⚠️ `PESO_TIER` É VÁLVULA, NÃO PADRÃO (masterplan §19, 21/09). O caderno de
+    # tiers manda o tier decidir o ANEL; o §12, travado DOIS DIAS DEPOIS, manda
+    # o tier virar emblema e o DOG-tempo decidir a posição. A medição deu razão
+    # ao §12: a banda do tier 6 não comporta o tier 6 (faltam 4,35 km² no melhor
+    # caso), o começo em r 960 é terra que não existe, e aplicar banda moveria
+    # 47% do tecido para entregar ao holder nada que ele consiga medir.
+    #
+    # Com peso 0 a fila é a do §12, que é a lei. Com peso 1 a fila vira a do
+    # caderno, por bloco de emblema. Existe para a decisão ser escrita e
+    # reproduzível, não para ser usada no escuro.
+    PESO_TIER = float(os.environ.get('PESO_TIER', '0'))
     _linhas = sorted(_o['ordem'], key=lambda r: r['posicao_residencial'])
+    if PESO_TIER > 0:
+        _ORDEM_BLOCO = {'satoshi_visionary': 0, 'btc_maximalist': 1, 'rune_master': 2,
+                        'ordinal_believer': 3, 'dog_legend': 4, 'diamond_paws': 5}
+        def _bloco_de(_r):
+            _t = TIER_DE.get(_r['address']) if 'TIER_DE' in dir() else None
+            if _t in _ORDEM_BLOCO: return _ORDEM_BLOCO[_t]
+            _d = _r.get('dog') or 0
+            return 6 if _d >= 20000 else (7 if _d >= 10000 else 8)
+        _n = len(_linhas)
+        _por_bloco = sorted(range(_n), key=lambda i: (_bloco_de(_linhas[i]), i))
+        _posto_bloco = {id(_linhas[i]): k for k, i in enumerate(_por_bloco)}
+        _linhas.sort(key=lambda r: (1 - PESO_TIER) * r['posicao_residencial']
+                                   + PESO_TIER * _posto_bloco[id(r)])
+        print('  ⚠️ PESO_TIER=%.2f: a fila deixou de ser a do §12 e virou a do caderno'
+              % PESO_TIER, file=sys.stderr)
     for _r in _linhas:
         _a = _r['address']
         if _r['dog'] <= 0: continue
@@ -3756,6 +3784,7 @@ def coloca(s, dog, addr, escala=1.0):
         _wx = _pv['bx'] + (_vx + frente/2)*_pv['ca'] - _ozv*_pv['sa']
         _wz = _pv['bz'] + (_vx + frente/2)*_pv['sa'] + _ozv*_pv['ca']
         COTA[addr] = cota_testada(_pv, _vx + frente / 2)
+        PRAT[addr] = (s, _pv['i'], _vx + frente / 2)
         _ocupa(_pv, _vx, frente)
         _reserva_no_par(_pv, _vx, frente, prof_real)
         ORC['vao_usado'] += frente; ORC['vao_n'] += 1
@@ -3822,6 +3851,7 @@ def coloca(s, dog, addr, escala=1.0):
     wx = pr['bx'] + ox*pr['ca'] - oz*pr['sa']
     wz = pr['bz'] + ox*pr['sa'] + oz*pr['ca']
     COTA[addr] = cota_testada(pr, ox)
+    PRAT[addr] = (s, pr['i'], ox)
     _ocupa(pr, ox - frente / 2, frente)
     _reserva_no_par(pr, ox - frente / 2, frente, prof_real)
     return (wx, wz, frente, min(255.0, prof_real), pr['q'], pr['b'])
@@ -3832,6 +3862,7 @@ def coloca(s, dog, addr, escala=1.0):
 # fora, num arquivo irmão na MESMA ORDEM, e quem não souber dela continua
 # funcionando. Chave: endereço, porque cada carteira tem um lote só.
 COTA = {}
+PRAT = {}     # endereço -> (distrito, índice da prateleira, x ao longo dela)
 
 def _lotes_de_carteira(lista):
     """⚠️ CONTAR A SAÍDA INTEIRA MENTE. Desde 21/09 a saída tem quatro naturezas
@@ -3841,6 +3872,57 @@ def _lotes_de_carteira(lista):
     faltando gente: medido, 9.239 carteiras ficaram sem lote e a bisseção
     declarou sucesso, porque 12.266 lotes de reserva tinham entrado na conta."""
     return sum(1 for r in lista if not str(r[3]).startswith('__projeto') and r[3] in posto_fila)
+
+
+def socalca():
+    """Agrupa os lotes de cada fileira em BANCADAS de cota única.
+
+    ⚠️ DECISÃO DO FUNDADOR, 20/09: socalco com teto de 3 m. Sem isto, 6,1% das
+    divisas passam de 3 m e 0,6% passam de 5 m, com pior caso medido de 8,81 m,
+    e muro cego dessa altura encostado na divisa é o bloco de concreto de novo,
+    agora na escala do vizinho e ao lado de um boneco de 1,70 m.
+
+    A regra: dentro da fileira, lotes consecutivos entram na mesma bancada
+    enquanto o terreno deles não se afastar mais que o teto. Todos os lotes de
+    uma bancada recebem a MESMA cota, então o muro entre vizinhos ali dentro é
+    ZERO. Onde o terreno pede mais, a bancada quebra e nasce o degrau, que é o
+    socalco: ele aparece na calçada como degrau ou rampa curta, nunca como
+    paredão, porque a quebra é do conjunto e não de um lote sozinho.
+
+    A cota da bancada é a MEDIANA das cotas naturais dela, não a média: mediana
+    não é puxada pelo lote de ponta que pegou uma reentrância do relevo.
+    """
+    porFila = {}
+    for a, (s_, i_, x_) in PRAT.items():
+        porFila.setdefault((s_, i_), []).append((x_, a))
+    bancadas = quebras = 0
+    desloc = []
+    for _k, lotes in porFila.items():
+        lotes.sort()
+        grupo = []
+        def fecha(g):
+            nonlocal bancadas
+            if not g: return
+            bancadas += 1
+            cs = sorted(COTA.get(a, 0.0) for _x, a in g)
+            alvo = cs[len(cs) // 2]
+            for _x, a in g:
+                desloc.append(abs(COTA.get(a, 0.0) - alvo))
+                COTA[a] = alvo
+        for x_, a in lotes:
+            c = COTA.get(a, 0.0)
+            if grupo:
+                base = COTA.get(grupo[0][1], 0.0)
+                if abs(c - base) > SOCALCO_TETO:
+                    fecha(grupo); grupo = []; quebras += 1
+            grupo.append((x_, a))
+        fecha(grupo)
+    desloc.sort()
+    if desloc:
+        print('  socalco: %d bancadas em %d fileiras, %d quebras; a cota do lote se move '
+              '%.2f m na mediana e %.2f m no p90'
+              % (bancadas, len(porFila), quebras, desloc[len(desloc)//2], desloc[int(len(desloc)*0.9)]),
+              file=sys.stderr)
 
 
 def uma_passada():
@@ -3854,7 +3936,7 @@ def uma_passada():
     ARV.extend(ArvoreLivre([pr['livre'] for pr in PASSO[_s]]) for _s in range(N_DIST))
     cursor = [0]*N_DIST
     saida = []
-    COTA.clear()
+    COTA.clear(); PRAT.clear()
     ORC['queimada'] = 0.0; ORC['queimada_n'] = 0
     ORC['vao_usado'] = 0.0; ORC['vao_n'] = 0
     ORC['q_estreita'] = ORC['q_mascara'] = ORC['q_par'] = 0.0
@@ -3981,6 +4063,7 @@ def uma_passada():
         chave = (s, r[4], r[5])
         no_bloco[chave] = no_bloco.get(chave, 0) + 1
         saida.append((r[0], r[1], s, c[3], r[2], r[3], r[4], r[5], no_bloco[chave]))
+    socalca()
     print('  reserva do projeto: %d lotes intercalados (%.1f%% do total)'
           % (_reserva_n, 100.0 * _reserva_n / max(1, len(saida))), file=sys.stderr)
     if os.environ.get('DIAG') and sem_lugar:
@@ -4122,6 +4205,22 @@ def forma_de(u):
 # Derivar do setor giraria a Cinta inteira errado e não haveria como perceber
 # olhando o número. Vai um uint16 em centésimos de grau (0 a 36.000): 0,01° em
 # 227 m de quarteirão dá 4 cm, folgado.
+def _banda_por_emblema():
+    """o raio que cada emblema de fato ocupou, medido no que foi gravado."""
+    _por = {}
+    for _x, _z, _s2, _a, _w, _d, _q, _b, _n in saida:
+        if str(_a).startswith('__projeto'): continue
+        _t = TIER_DE.get(_a) or ('grupo' if _a in posto_fila else 'institucional')
+        _por.setdefault(_t, []).append(math.hypot(_x, _z))
+    _out = {}
+    for _t, _rs in _por.items():
+        _rs.sort(); _m = len(_rs)
+        _out[_t] = {'lotes': _m, 'r_min': round(_rs[0]), 'r_p5': round(_rs[int(_m*0.05)]),
+                    'r_p50': round(_rs[_m//2]), 'r_p95': round(_rs[int(_m*0.95)]),
+                    'r_max': round(_rs[-1])}
+    return _out
+
+
 _GIRO_DE = {}
 for _s in range(N_DIST):
     for _q in T[_s]:
@@ -4284,6 +4383,11 @@ json.dump({
                    'regra': 'abaixo do saldo que paga o menor lote, o endereço recebe nicho. '
                             'O nicho é direito de MINTAR, não lote: volta a ter saldo, compra '
                             'licença e minta o deed, e o lote nasce no anel de expansão'},
+    # ⚠️ A BANDA POR EMBLEMA É SAÍDA, NÃO CONSTANTE (§19). O caderno escrevia
+    # r 960 / 3.300 / 5.300 / 6.900 à mão e três dos quatro números estavam
+    # errados por 490 a 901 m. Aqui ela é MEDIDA na cidade que acabou de ser
+    # gravada, então nunca mais diverge do que existe.
+    'bandaPorEmblema': _banda_por_emblema(),
     'esquema': 'int16 x_quartos_de_metro, int16 z_quartos_de_metro, uint8 setor, '
                'uint8 coorte, uint16 familia, uint8 flags(bit0=DSC, bits1-3=forma), '
                'uint16 frente_decimetros, uint16 prof_decimetros, '

@@ -1692,3 +1692,51 @@ endereço central a quem chegou depois na fila. Medido contra a cidade anterior:
 raio por posição de fila, mediana 312 m contra 300, p90 1.486 contra 1.360, e blocos que
 recuam 361 contra 380. A razão é estrutural: a árvore escolhe sempre a prateleira MAIS
 INTERNA que cabe, e mais interna é a própria ordem da fila.
+
+## §19 — Banda rígida por tier: NÃO 🔒 (medido 21/09/2026)
+
+O caderno de tiers (§3.4 a §3.8, de 10/09) manda o tier decidir o ANEL onde a carteira mora.
+Três medições independentes dizem que isso não cabe, e a própria constituição já tinha
+decidido contra: **o §12, travado em 12/09, dois dias depois, escreve que o tier deixa de
+decidir onde a carteira mora e vira emblema.**
+
+```
+tier 6 Diamond Paws            19.279 carteiras pedindo 18,656 km2
+banda do caderno r 960 a 3.300 entrega 14,309 km2 com empacotamento PERFEITO
+                               entrega 10,90 km2 com o empacotamento real (0,767)
+falta                          4,35 km2 no melhor caso, 7,75 km2 no caso real
+fronteira que caberia          r 4.011, ou seja o caderno errou 711 m
+```
+
+**Três defeitos de base que a medição pegou no caderno:**
+1. O tier 6 começa em **r 960 e essa terra não existe**: o Lago da Praça vai até 1.420 e o
+   primeiro quarteirão do tecido está em 1.510.
+2. O teto de 6.900 **já vaza**: 1.986 lotes estão além dele, e a Orla Nobre inteira mora em
+   r 7.002.
+3. A banda de 1 a 10k perde **14.179 das 26.818 carteiras para o cemitério**: ela é metade
+   do que está escrito, e a periferia ficou superdimensionada em 11 vezes.
+
+**O que a banda entregaria ao holder: nada que ele consiga medir.** A área não muda (a razão
+entregue já está uniforme em 0,975 nos quatro blocos), a curva não muda, o cemitério não
+muda e o endereço nunca foi dito a ninguém. Em troca, cobraria 620 a 880 m de deslocamento
+mediano e 47,1% do tecido trocando de vizinho.
+
+**O mérito do §3.4 não se perde:** a intensidade de uso que ele pede já está no gerador com
+outro nome. O desempate do §12 é transação assinada, e ele ordena 18.707 dos 19.279 Diamond
+Paws (97,0%) dentro dos 32 blocos de empate exato de DOG-tempo. Morre o anel, não o critério.
+
+**O que fica:** `PESO_TIER` como válvula no gerador (padrão 0, e 1 reproduz o caderno inteiro),
+para que isto seja decisão escrita e não acidente; `DUST_MAX` sai, porque as 1.623 abaixo de
+1 DOG já estão dentro do corte de 591,95; e a banda por emblema passa a ser SAÍDA do gerador,
+medida e gravada no manifesto a cada rodada, em vez de constante.
+
+⚠️ **PENDENTE, E É DO FUNDADOR:** `app/dogcity/sections/city-map.tsx` e a arte
+`public/landing/citymap-1600-v2.webp` pintam os anéis do caderno em inglês desde 13/09.
+Com a lei atual não existe anel, então a carta precisa ser repintada de qualquer jeito. E a
+legenda diz "no ranking" para quem tem menos de 20k, o que é falso: o DOG-tempo ordena todo
+mundo.
+
+⚠️ **A ORLA DA BAÍA CONTINUA VALENDO, mas com CINCO fileiras e não duas.** Medido: em duas
+fileiras o tier 4 sai com 12,1 m de testada por 126 m de fundo (1:10,3) e o tier 5 com 6,4
+por 175 (1:27,4), proporções que não são lote. Em cinco fileiras dá 24,3 por 63 m (1:2,6),
+que é gêmeo do precedente da Orla Nobre.
