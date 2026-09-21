@@ -1223,7 +1223,38 @@ for _L in LAGOS: _LAGO_MASC |= _L['celulas']
 # a partir da linha d'água (26 de passeio + 14 de pista + 12 de talude), então a
 # reserva ali é 60, não 30 — senão nasce lote DEBAIXO do cais. As outras 19
 # crateras continuam com margem natural de praia, e 30 basta.
-_BAIA_MASC = set(LAGOS[0]['celulas']) if LAGOS else set()
+# ⚠️ A BAÍA NÃO É O MAIOR CORPO D'ÁGUA, E ISSO ESTAVA ERRADO DESDE SEMPRE.
+# `LAGOS` vem ordenado por área e o primeiro é uma FAIXA colada no corte da
+# casca, entre r 7.300 e 8.990, com 34,3 km²: ela nasce do exagero vertical de
+# 2x além de r 7.000 sem correção de pódio além de 8.300, ou seja é artefato de
+# relevo, não paisagem. A baía de verdade tem 20,7 km² e centro em r 4.791,
+# rumo 48°, e bate com os 20,5 km² que o projeto já tinha medido.
+#
+# O preço do engano: a reserva de orla de 60 m, que existe para guardar a
+# frente d'água mais valiosa da cidade, estava sendo aplicada na faixa externa,
+# e a baía ficava só com a margem genérica de lago, de 30 m.
+#
+# A escolha agora é por CENTRO DENTRO DA CIDADE, não por tamanho: água de
+# artefato mora na borda, baía mora no tecido.
+def _acha_baia():
+    # ⚠️ O CENTRO NÃO SEPARA OS DOIS, O RAIO DAS CÉLULAS SEPARA. A faixa da
+    # casca envolve a cidade, então o centro dela cai no meio do mapa e passa
+    # por baía se o teste for por centroide. O que ela não consegue fingir é
+    # onde a água dela ESTÁ: mediana de raio 7.800 contra 4.800 da baía.
+    def _raio_mediano(L):
+        rs = sorted(math.hypot((i - half) * cell, (j - half) * cell) for i, j in L['celulas'])
+        return rs[len(rs) // 2] if rs else 1e9
+    dentro = [L for L in LAGOS if _raio_mediano(L) < 6500]
+    if not dentro: return LAGOS[0] if LAGOS else None
+    return max(dentro, key=lambda L: L['area'])
+
+_BAIA = _acha_baia()
+if _BAIA is not None and LAGOS:
+    print('baía: %.2f km² em r %.0f rumo %.0f° (o maior corpo, %.2f km², é a faixa da casca)'
+          % (_BAIA['area'] / 1e6, math.hypot(_BAIA['x'], _BAIA['z']),
+             math.degrees(math.atan2(_BAIA['x'], -_BAIA['z'])) % 360,
+             LAGOS[0]['area'] / 1e6), file=sys.stderr)
+_BAIA_MASC = set(_BAIA['celulas']) if _BAIA else set()
 ORLA_RESERVA = 60.0
 
 # ⚠️ A DILATAÇÃO SE PRÉ-CALCULA, senão a máscara custa o alocador inteiro. A
@@ -3324,6 +3355,63 @@ def planta_orla_nobre():
           frente[0][2] if frente else 0, tras[0][2] if tras else 0), file=sys.stderr)
     return frente + tras
 
+# ═══════════════════════════════════════════════════════════════════════════
+# O DISTRITO FINANCEIRO: AS 21 INSTITUCIONAIS DENTRO DA SATOSHI PLAZA
+#
+# Publicado em `/dogcity/docs` §5 e em `custodia-e-distrito-financeiro.md`:
+# endereço próprio para corretora, ponte e mesa de operação, dimensionado pelo
+# que detêm, com a MESMA curva e teto elevado de 40.000 para 150.000 m². Elas
+# saíram da fila residencial no próprio snapshot (por isso a fila tem 85.797 e
+# não 85.818); o que faltava era o chão.
+#
+# ⚠️ O NÚMERO PUBLICADO É RESERVA, NÃO OCUPAÇÃO, e isso precisa ficar claro: a
+# página fala em 1,89 km² para o distrito, e dentro de r 1.420 não existe essa
+# terra seca, porque o Lago da Praça ocupa 2,63 dos 3,79 km² do anel. Medido em
+# 21/09: sobra 1,2 km² de terra seca, e as 21 carteiras somam 403.911 m², ou
+# seja 0,404 km². Cabe com folga de três vezes, sem tocar no lago. A maior
+# delas, a Gate.io, chega a 54.300 m², 36% do teto elevado.
+#
+# Elas ficam na faixa seca entre a muralha do precinto (r 900) e a margem
+# interna do lago, de frente para a água, e a faixa pula os quatro bulevares
+# cardeais, que são as pontes.
+FIN_R0, FIN_R1 = 915.0, 1055.0        # faixa seca medida entre muralha e lago
+FIN_PULO = 3.5                        # graus de folga em cada bulevar cardeal
+FIN_TETO = 150000.0                   # o teto elevado que a página publica
+S_FIN = 7                             # setor 8 no endereço
+
+def planta_distrito_financeiro():
+    cam = p('data/snapshots/dog_966670_tag_institucional.json')
+    if not os.path.exists(cam): return []
+    linhas = json.load(open(cam))
+    if isinstance(linhas, dict): linhas = linhas.get('institucionais') or linhas.get('linhas') or []
+    prof = FIN_R1 - FIN_R0
+    r_med = (FIN_R0 + FIN_R1) / 2
+    itens = sorted(linhas, key=lambda r: -float(r.get('dog') or 0))
+    out, ang = [], 0.0
+    for it in itens:
+        dog = float(it.get('dog') or 0)
+        area = max(1.0, min(FIN_TETO, K_PUBLICADA * math.sqrt(max(0.0, dog))))
+        frente = max(20.0, area / prof)
+        passo = math.degrees(frente / r_med)
+        # ⚠️ PULA A PONTE. Os quatro bulevares cardeais atravessam esta faixa e
+        # viram ponte sobre o lago: lote em cima deles fecharia a travessia.
+        for _ in range(64):
+            meio = (ang + passo / 2) % 360.0
+            if min(abs(((meio - c + 180) % 360) - 180) for c in (0, 90, 180, 270)) > FIN_PULO + passo / 2:
+                break
+            ang = (ang + FIN_PULO) % 360.0
+        a_meio = math.radians((ang + passo / 2) % 360.0)
+        x, z = math.sin(a_meio) * r_med, -math.cos(a_meio) * r_med
+        out.append((x, z, frente, prof, math.degrees(a_meio) % 360.0,
+                    it.get('address'), it.get('motivos') or it.get('rotulo')))
+        ang = (ang + passo + 8.0 * 180.0 / math.pi / r_med) % 360.0   # 8 m de rua entre lotes
+    print('Distrito Financeiro: %d lotes institucionais, %.0f m² somados, maior %.0f m²'
+          % (len(out), sum(l[2] * l[3] for l in out), max((l[2] * l[3] for l in out), default=0)),
+          file=sys.stderr)
+    return out
+
+FIN_LOTES = planta_distrito_financeiro()
+
 # ⚠️ A ORLA SAI DA FILA NORMAL. Quem tem endereço na alça não disputa tecido:
 # plantar duas vezes daria dois lotes ao mesmo dono, que é o defeito mais grave
 # que um loteamento pode ter.
@@ -3660,6 +3748,11 @@ def uma_passada():
     # dono é decidido pelo tier e a área tem regra própria. Ela é setor 7 no
     # endereço, um quarteirão por lote, porque cada lote tem o seu próprio giro
     # tangente ao círculo da avenida.
+    for _i, (_x, _z, _fr, _pf, _gi, _end, _rot) in enumerate(FIN_LOTES, 1):
+        _GIRO_ORLA[(S_FIN, 1, _i)] = _gi
+        _a = _end or f'__projeto_financeiro_{_i:03d}'
+        COTA[_a] = altura(_x, _z)
+        saida.append((_x, _z, S_FIN, _a, _fr, _pf, 1, _i, 1))
     for _i, (_x, _z, _fr, _pf, _gi, _dono) in enumerate(ORLA_LOTES, 1):
         _GIRO_ORLA[(S_ORLA, 1, _i)] = _gi
         COTA[_dono or f'__orla{_i}'] = altura(_x, _z)
@@ -3909,7 +4002,11 @@ for x, z, s, a, w, d, _q, _b, _n in saida:
     # ⚠️ LOTE DO PROJETO NÃO TEM CARTEIRA. Ele entra no registro com coorte,
     # forma e família neutras: procurar dado de dono para ele quebrava a
     # gravação inteira na primeira linha.
-    _proj = a.startswith('__projeto')
+    # ⚠️ NEM TODO DONO ESTÁ NA FILA. Além do lote do projeto, as 21
+    # institucionais têm endereço de carteira de verdade e NÃO estão na fila
+    # residencial: elas saíram dela no próprio snapshot, que é por isso que a
+    # fila tem 85.797 e não 85.818.
+    _proj = a.startswith('__projeto') or a not in posto
     coorte = 0 if _proj else min(7, posto[a]*8//N)
     fam = 0 if _proj else familia_de.get(a, 0)
     # ⚠️ OS QUATRO BITS LIVRES DA FLAG VIRARAM O QUARTO DE METRO. `w` e `d` são
@@ -3972,16 +4069,22 @@ with open(ps('data/dogcity_lotes.csv'), 'w', newline='') as f:
                 'x_m', 'z_m', 'raio_m', 'frente_m', 'prof_m', 'area_m2',
                 'dog', 'utxo_count', 'forma', 'coorte', 'familia', 'dsc', 'cota_m'])
     for x, z, s, a, fr, pf, q_, b_, n_ in saida:
+        # lote sem fila: projeto ou institucional (ver a nota na gravação do .bin)
+        _proj = a.startswith('__projeto') or a not in posto
         u = UTX.get(a, 1)
-        w.writerow([f'S{s+1:02d}-Q{q_:02d}-B{b_:03d}-L{n_:03d}', a, posto[a], s + 1, q_, b_, n_,
+        w.writerow([f'S{s+1:02d}-Q{q_:02d}-B{b_:03d}-L{n_:03d}', a,
+                    -1 if _proj else posto[a], s + 1, q_, b_, n_,
                     # ⚠️ O CSV É O REGISTRO DE DIREITO e o .bin é a cópia que a
                     # cena desenha. Gravar posição em metro inteiro aqui fazia o
                     # documento do dono ter menos precisão que o desenho: dois
                     # lotes que se encostam apareciam cruzados em meio metro.
                     round(x, 2), round(z, 2), round(math.hypot(x, z), 1),
                     round(fr, 2), round(pf, 2), round(fr * pf),
-                    round(elig[a]), u, forma_de(u), min(7, posto[a]*8//N),
-                    familia_de.get(a, 0), 1 if a in dsc else 0,
+                    round(elig.get(a, 0)), 0 if _proj else u,
+                    0 if _proj else forma_de(u),
+                    0 if _proj else min(7, posto[a]*8//N),
+                    0 if _proj else familia_de.get(a, 0),
+                    0 if _proj else (1 if a in dsc else 0),
                     round(COTA.get(a, 0.0), 2)])
 print(f'gravado data/dogcity_lotes.csv com {len(saida):,} lotes', file=sys.stderr)
 
@@ -4455,7 +4558,7 @@ with open(ps('public/city/cidade-malha.json'), 'w') as f:
          # preenchimento, e este bloco é o que permite conferir se as duas pontas
          # concordam — foi assim que se achou que o segundo corpo tem 0,53 km²
          # contra 20,48 do primeiro, ou seja não há empate possível.
-         'baia': ({'x': LAGOS[0]['x'], 'z': LAGOS[0]['z'], 'area': LAGOS[0]['area'],
+         'baia': ({'x': _BAIA['x'], 'z': _BAIA['z'], 'area': _BAIA['area'],
                    'reserva': ORLA_RESERVA} if LAGOS else None),
          'nota': 'lamina unica: tudo abaixo de cota dentro da casca e agua; '
                  'o maior corpo e a baia e leva orla construida'},

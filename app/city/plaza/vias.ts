@@ -1151,20 +1151,35 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
    *  é construída aqui, só a lista de cortes. */
   const subdividirPorFlecha = (comp: number, amostra: (t: number) => readonly [number, number]): number[] => {
     const bordas: number[] = [0]
+    // ⚠️ O FILHO NUNCA ERA MEDIDO, E É DAÍ QUE VEM A RUA FLUTUANDO. A guarda
+    // `compSub / 2 >= CORDA_MINIMA` decidia se valia a pena DIVIDIR e, no
+    // mesmo `if`, se valia a pena MEDIR: um filho de 12 m nascido de um pai de
+    // 24 entrava na malha sem nenhum teste de flecha, porque metade dele (6 m)
+    // já encostava no piso. Medido em 21/09 sobre 14.011 folhas reais: 1.733
+    // delas (12,37%) acima da tolerância de 4,5 cm, TODAS entre 6 e 12 m de
+    // corda, com pior caso de 3,76 m de flecha no BUL03, vinte e cinco vezes o
+    // meio-fio. Não era terreno difícil, era o algoritmo aceitando sem olhar.
+    //
+    // Agora a medição é SEMPRE feita, e o piso decide só se ainda dá para
+    // dividir. Quando não dá, o ponto do meio entra como vértice assim mesmo:
+    // é barato (um vértice), mantém a corda curta colada no chão e não estoura
+    // o teto de triângulo, porque só acontece onde o relevo pede.
     const refinar = (t0: number, t1: number, duplicacoes: number) => {
       const compSub = comp * (t1 - t0)
-      const podeDuplicar = duplicacoes < MAX_DUPLICACOES && compSub / 2 >= CORDA_MINIMA
-      if (podeDuplicar) {
-        const [x0, z0] = amostra(t0)
-        const [x1, z1] = amostra(t1)
-        const tm = (t0 + t1) / 2
-        const [xm, zm] = amostra(tm)
-        const corda = (o.superficieAt(x0, z0) + o.superficieAt(x1, z1)) / 2
-        const flecha = Math.abs(corda - o.superficieAt(xm, zm))
-        if (flecha > FLECHA_TOLERANCIA) {
+      const [x0, z0] = amostra(t0)
+      const [x1, z1] = amostra(t1)
+      const tm = (t0 + t1) / 2
+      const [xm, zm] = amostra(tm)
+      const corda = (o.superficieAt(x0, z0) + o.superficieAt(x1, z1)) / 2
+      const flecha = Math.abs(corda - o.superficieAt(xm, zm))
+      if (flecha > FLECHA_TOLERANCIA) {
+        if (duplicacoes < MAX_DUPLICACOES && compSub / 2 >= CORDA_MINIMA) {
           refinar(t0, tm, duplicacoes + 1)
           refinar(tm, t1, duplicacoes + 1)
           return
+        }
+        if (compSub / 2 >= 2.5) {        // o piso da corda, mas com o meio dentro
+          bordas.push(tm)
         }
       }
       bordas.push(t1)

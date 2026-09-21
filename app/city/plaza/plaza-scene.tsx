@@ -4663,14 +4663,20 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // `viewFor()` nos enquadramentos do tour, então qualquer vista ancorada
         // nele muda junto: use só deslocamento POSITIVO lá, ver a nota em
         // `padtour`.
-        PAD_MAIN.y = heightAt(PAD_MAIN.x, PAD_MAIN.z) + SP_DECK_TOP
+        // ⚠️ LEI 1 DO DOG GAME MODE: o que pousa no chão usa `superficieAt`, a
+        // mesma cota que o desenho usa, nunca o relevo cru. Medido em 21/09:
+        // aqui a diferença é 4,1 cm no pad e 15,1 cm no foguete, pequena
+        // porque o spaceport fica na saia suave além do sítio. É a mesma
+        // classe de erro que já custou 42 m neste mesmo lugar (ver a nota de
+        // `alpino`), e com o boneco de 1,70 m andando 15 cm é um degrau.
+        PAD_MAIN.y = terrain.superficieAt(PAD_MAIN.x, PAD_MAIN.z) + SP_DECK_TOP
         // um foguete aposentado no pad de trás do spaceport (V2 Rocket, Diccbudd,
         // CC-BY-4.0): a silhueta que faltava no pátio; sem placa, é cenário
         void loadSf(gltf, SF.rocket).then((r) => {
           if (!r || disposed) return
           dressSf(r, { envMapIntensity: 1.2, roughness: 0.55 })
           const x = -380 + SPACEPORT_SHIFT.x, z = 3300 + SPACEPORT_SHIFT.z // SP_Pad0, já deslocado
-          r.position.set(x, heightAt(x, z) + 0.4, z)
+          r.position.set(x, terrain.superficieAt(x, z) + 0.4, z)
           r.rotation.y = Math.PI * 0.15
           // ⚠️ 100 m TAMBÉM AQUI, MAS COM LARGURA JUNTO. Ele estava com 32 m
           // (escala 1,6 sobre um modelo de 20 m). Foram medidas as três saídas:
@@ -4770,7 +4776,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // canvas, 40 geometrias e 35 materiais sem devolver a thread uma vez.
         // O módulo também corrigiu quatro `await` que eram SERIAIS, quatro idas
         // ao servidor em fila.
-        const emObra = monumentosEmObra({ heightAt, gltf, profile, culler })
+        // ⚠️ superficieAt, não heightAt: monumento pousa no chão desenhado
+        const emObra = monumentosEmObra({ heightAt: terrain.superficieAt, gltf, profile, culler })
         monuments = emObra
         emObra.group.visible = false
         scene.add(emObra.group)
@@ -4801,7 +4808,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         }))
         const allProps = [...PROPS, ...sectorSpecs, ...specsDoAquario]
         const pProps = allProps.length
-          ? buildProps({ specs: allProps, heightAt, gltf, profile, culler })
+          ? buildProps({ specs: allProps, heightAt: terrain.superficieAt, gltf, profile, culler })
             .then((p) => { if (disposed) { p.dispose(); return } props = p; scene.add(p.group) })
             .catch((err) => console.warn('[plaza] props', err))
             .finally(() => stepDone('props'))

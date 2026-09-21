@@ -1506,3 +1506,85 @@ fileira de trás ocupada.
 tier do `tiersposition.md` (Orla Nobre, orla da baía, canais), a reserva de 15% dos lotes por
 bairro, o cemitério como peça de programa desenhada, e o socalco do §15. Hoje ela planta pela
 fila de DOG-tempo do centro para fora, que é a lei do §12 mas não é a do caderno de tiers.
+
+## §18 — O que a cidade passou a ter em 21/09/2026
+
+**Quatro destinos, e todo endereço do snapshot cai em um deles:**
+
+| Destino | O que é | Contagem |
+|---|---|---|
+| Lote no tecido | a cidade comum, plantada pela fila de DOG-tempo | ~57 mil |
+| Lote na Orla Nobre | tiers 1 a 3 na alça, duas fileiras | 446 carteiras |
+| Lote institucional | as 21 da régua de custódia, na Satoshi Plaza | 21 |
+| Lápide no cemitério | quem não alcança o menor lote (591,9 DOG) | 15.802 |
+
+Mais os lotes do PROJETO, que não são de carteira: 65 na Orla Nobre e ~12.266 de
+reserva intercalada, que é o land bank de 15% do contrato público §5.
+
+### §18.1 — Orla Nobre, como ficou
+
+Geometria LIDA da cena (`AVENIDA_ALCA` em `teia.ts`), nunca copiada: via em r 6.950 com
+44 m, arco de terra de 346° a 116,5°. Duas fileiras com testada na avenida, a da frente
+crescendo para a baía e a de trás para a praia dos fundos. Testada final medida: **74,0 m na
+frente e 49,2 m atrás**, contra 74,9 e 51,6 do caderno; a diferença é a passagem pública que
+a fileira abre onde o Portão do Parque Runestone atravessa a alça (10 vagas na frente, 15
+atrás). Dentro de cada fileira a ordem é por comportamento e as vagas são ocupadas do centro
+do arco para os dois lados, o que produz sozinho a regra do §3.2: Satoshi Visionary no
+centro, BTC Maximalist nos flancos, Rune Master atrás.
+
+**Área na orla tem regra própria** (decisão do fundador, 20/09): testada fixa, fundo pela
+curva publicada e piso de 60 m de fundo. Espelha o precedente já publicado do Distrito
+Financeiro, onde o teto sobe para 150.000 m². Sem isso, ou a orla perdia o ritmo (lotes de
+testada desigual na mesma fileira) ou quebrava a fórmula única (lote fixo de 1,60 ha, cinco
+vezes o que a curva promete às 446).
+
+### §18.2 — Distrito Financeiro, como ficou
+
+As 21 institucionais na faixa seca entre a muralha do precinto (r 915) e a margem interna do
+Lago da Praça (r 1.055), de frente para a água, ordenadas por saldo, com a curva publicada e
+o teto elevado de 150.000 m². A faixa pula 3,5° em cada bulevar cardeal, que são as pontes.
+
+⚠️ **RESERVA PUBLICADA NÃO É OCUPAÇÃO, e a diferença é grande aqui.** A página fala em
+1,89 km² de distrito dentro da praça. Essa terra seca não existe: o Lago da Praça ocupa 2,63
+dos 3,79 km² do anel e sobram 1,2 km² secos. Mas as 21 somam **403.911 m², 0,404 km²**, que
+cabe três vezes no que sobra, sem tocar no lago. A maior, Gate.io, fica em 54.300 m², 36% do
+teto elevado.
+
+### §18.3 — O que a escala do detalhe ganhou
+
+- **Pivô de árvore**: o conversor centrava pela caixa inteira do modelo, e copa assimétrica
+  puxava o tronco para fora do eixo. Medido: `palm.glb` com 1,25 m de desvio (a palmeira
+  plantada no asfalto que o fundador viu), `tree-pine` com 1,78 m, mais 11 espécies acima de
+  20 cm. Corrigido nos dois acervos (`sf/` e o espelho `sf-ktx2/` que o celular carrega) por
+  `scripts/city/recentrar_pivo.py`, e na raiz: os dois conversores passam a centrar pela
+  fatia de baixo da peça, que é o pé dela.
+- **Rua flutuando**: a subdivisão por flecha nunca media o filho. Um trecho de 12 m nascido
+  de um pai de 24 entrava na malha sem teste, e 12,37% das folhas ficavam acima da tolerância
+  de 4,5 cm, com pior caso de 3,76 m no BUL03. Agora a flecha é sempre medida e o piso decide
+  só se ainda dá para dividir.
+- **Lei da superfície única**: spaceport, foguete, monumentos e props ainda pousavam em
+  `heightAt`. Passaram para `superficieAt`.
+
+### §18.4 — A baía não era a baía 🔒 (medido 21/09/2026)
+
+O gerador chamava de baía o MAIOR corpo d'água, e o maior não é a baía: é uma **faixa colada
+no corte da casca**, entre r 7.300 e 8.990, com 34,30 km², que nasce do exagero vertical de
+2x além de r 7.000 sem correção de pódio além de 8.300. Artefato de relevo, não paisagem.
+
+A baía de verdade tem **21,04 km², centro em r 4.791, rumo 48°**, e bate com os 20,5 km² que
+o projeto já tinha medido em outra frente.
+
+⚠️ **O preço do engano:** a reserva de orla de 60 m, que existe para guardar a frente d'água
+mais valiosa da cidade, estava sendo aplicada na faixa externa, e a baía ficava com a margem
+genérica de lago, de 30 m. Tudo que se apoiou em `em_baia()` até aqui olhou para o lugar
+errado.
+
+**A regra que separa os dois não é tamanho nem centro, é o RAIO DAS CÉLULAS.** A faixa
+envolve a cidade, então o centroide dela cai no meio do mapa e ela passa por baía em qualquer
+teste de centro. O que ela não consegue fingir é onde a água dela está: mediana de raio 7.800
+contra 4.800 da baía.
+
+⚠️ **E fica uma pergunta de paisagem para o fundador:** existe hoje um anel de água de
+34,30 km² na borda do sítio que ninguém desenhou, e ele é 63% maior que a baía. Ou ele vira
+paisagem de propósito, com nome e desenho, ou o exagero vertical precisa de correção de
+pódio além de r 8.300 para ele não existir.
