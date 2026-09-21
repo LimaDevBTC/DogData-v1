@@ -22,8 +22,25 @@ estritamente crescente (a regra é ser maior que a mediana dos 11 anteriores).
 Então um punhado de carteiras em blocos adjacentes pode sair fora da ordem real
 da cadeia. Trocar `ts` por altura de bloco é refinamento posterior e mexe em
 pouca posição.
+
+⚠️ ANTES DE MEXER AQUI, LEIA O QUE JÁ FOI PROMETIDO AO HOLDER. A cidade tem
+contrato público, e ele manda neste arquivo:
+
+  /dogcity/docs               a página pública, 960 linhas de afirmação
+                              verificável: snapshot, área, régua de custódia,
+                              Distrito Financeiro, escada de Founder
+  DogData-v1/masterplan.md    a constituição do mint
+  DogData-v1/tiersposition.md qual tier mora onde
+  wiki-dogdata/dogcity/contrato-publico.md   o índice de tudo isso
+
+Regra que custou uma sessão inteira em 20/09/2026: quando o código discorda de
+um número que o holder já leu na tela, o errado é o CÓDIGO. Três vezes no mesmo
+dia este arquivo estava implementando uma lei diferente da publicada: ordenava
+pelo UTXO mais antigo enquanto a régua em vigor era DOG-tempo, usava outra curva
+de área enquanto a landing publicava a dela, e mascarava a avenida da alça em
+r 7.600 enquanto a cena desenha em 6.950.
 """
-import csv, json, math, struct, sys, os, collections
+import csv, json, math, re, struct, sys, os, collections
 import heapq
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -1436,6 +1453,59 @@ ANEIS = [
   ('AN7', 'Pista de Serviço', 7600.0, 30.0),
 ]
 
+# ═══════════════════════════════════════════════════════════════════════════
+# A CENA É A FONTE DA ALÇA, E O GERADOR PASSA A LER EM VEZ DE COPIAR
+#
+# ⚠️ AS DUAS PONTAS DISCORDAVAM SOBRE UMA AVENIDA DE 44 m. A tabela acima diz
+# que a AN7 é pista de serviço em r 7.600 com 30 m de largura; a cena substitui
+# esse registro em tempo de execução pela AVENIDA DA ALÇA, círculo puro em
+# r 6.950 com 44 m (`AVENIDA_ALCA` em teia.ts). O gerador então mascarava terra
+# em 7.600 e deixava livre a faixa de 6.950, que é por onde passa a via. Dentro
+# do tecido antigo, que parava em 5.500, isso não aparecia; com o tecido em
+# 6.900 a divergência encosta na borda, e é justamente ali que mora a Orla
+# Nobre, o endereço mais valioso da cidade.
+#
+# A regra da casa para isto já existe e está no cabeçalho do
+# `scripts/city/conferir_terreno.py`: constante copiada diverge em silêncio, e
+# o remédio não é disciplina, é medição. Aqui vai além: o gerador não copia, ele
+# LÊ o arquivo da cena.
+def _ts_const(caminho, chave):
+    """lê `chave: valor` ou `chave = valor` de um .ts, número ou par [a, b]."""
+    txt = open(p_ts(caminho), encoding='utf-8').read()
+    # ⚠️ O TIPO ENTRA NO MEIO. `export const ALCA_TERRA: [number, number] = [346,
+    # 116.5]` tem anotação entre o nome e o valor, e um regex que exige `=` logo
+    # depois do nome lê o tipo como se fosse o valor, ou não lê nada. O `[^=]*`
+    # abaixo pula a anotação sem atravessar o sinal de igual.
+    m = re.search(rf'\b{chave}\s*(?::[^=\n]*)?[:=]\s*\[\s*(-?[0-9.]+)\s*,\s*(-?[0-9.]+)', txt)
+    if m: return (float(m.group(1)), float(m.group(2)))
+    m = re.search(rf'\b{chave}\s*(?::[^=\n]*)?[:=]\s*(?:[A-Za-z_][A-Za-z0-9_.]*\()?\s*(-?[0-9.]+)', txt)
+    if m: return float(m.group(1))
+    raise SystemExit(f'gerar_cidade: nao achei {chave} em {caminho}. '
+                     'A cena mudou e o gerador tem de acompanhar, nunca adivinhar.')
+
+p_ts = lambda nome: p('app/city/plaza', nome)
+_ALCA_TXT   = open(p_ts('teia.ts'), encoding='utf-8').read()
+_m = re.search(r'AVENIDA_ALCA\s*=\s*\{(.*?)\}', _ALCA_TXT, re.S)
+if not _m: raise SystemExit('gerar_cidade: AVENIDA_ALCA sumiu de teia.ts')
+_bloco = _m.group(1)
+ALCA_R    = float(re.search(r'\br\s*:\s*([0-9.]+)', _bloco).group(1))
+ALCA_LARG = float(re.search(r'\blarg\s*:\s*([0-9.]+)', _bloco).group(1))
+_arco = re.search(r'arco\s*:\s*\[\s*([0-9.]+)\s*,\s*([0-9.]+)', _bloco)
+ALCA_ARCO = (float(_arco.group(1)), float(_arco.group(2)))
+ALCA_TERRA_ARCO = _ts_const('teia.ts', 'ALCA_TERRA')
+ALCA_R_BAIA = _ts_const('alca.ts', 'ALCA_R_BAIA')
+ALCA_R_MAR  = _ts_const('alca.ts', 'ALCA_R_MAR')
+ALCA_PRAIA  = _ts_const('alca.ts', 'ALCA_PRAIA_LARGURA')
+print('alça lida da cena: via r %.0f larg %.0f, arco %.0f a %.0f, terra %.0f a %.0f, '
+      'água de %.0f a %.0f, praia %.0f m'
+      % (ALCA_R, ALCA_LARG, ALCA_ARCO[0], ALCA_ARCO[1], ALCA_TERRA_ARCO[0],
+         ALCA_TERRA_ARCO[1], ALCA_R_BAIA, ALCA_R_MAR, ALCA_PRAIA), file=sys.stderr)
+
+# a tabela acima fica com o registro certo, para a máscara e para `cidade-malha.json`
+ANEIS = [(i, ('Avenida da Alça' if i == 'AN7' else n),
+          (ALCA_R if i == 'AN7' else r), (ALCA_LARG if i == 'AN7' else w))
+         for i, n, r, w in ANEIS]
+
 # medição: SEM_ANEIS=1 mede quanto do estrago é do anel e quanto é da peça
 if os.environ.get('SEM_ANEIS'):
     ANEIS = []
@@ -1630,7 +1700,8 @@ REJ = {'mascara': 0, 'declive': 0, 'ok': 0}
 # USADA por lote, testada QUEIMADA (prateleira zerada porque a pegada caiu em
 # máscara) e testada que SOBRA na frente do cursor quando a fila acaba. Sem
 # separar os três, otimizar empacotamento é chute.
-ORC = {'queimada': 0.0, 'queimada_n': 0, 'vao_usado': 0.0, 'vao_n': 0}
+ORC = {'queimada': 0.0, 'queimada_n': 0, 'vao_usado': 0.0, 'vao_n': 0,
+       'q_estreita': 0.0, 'q_mascara': 0.0, 'q_par': 0.0}
 
 # ⚠️ O VÃO: A MAIOR PERDA DO EMPACOTAMENTO, E ELA ERA INVISÍVEL. A sondagem anda
 # 12 m quando a pegada cai em máscara e ABANDONA aquele pedaço de testada para
@@ -3353,6 +3424,14 @@ def coloca(s, dog, addr, escala=1.0):
         # São 144 km de testada na cidade do snapshot, 3,6 km² de tecido.
         if pr['livre'] >= LOTE_MIN_FRENTE:
             VAOS[s].append((pr, pr['x0'], pr['livre']))
+        # ⚠️ QUEIMAR É CARO, ENTÃO A CAUSA TEM DE APARECER. Três motivos possíveis
+        # e excludentes, e cada um tem conserto diferente: a testada que sobrou é
+        # menor que o lote que veio tentar (só serviria um lote menor), a pegada
+        # bate em máscara (terra proibida de verdade), ou a fileira de trás já
+        # está ocupada por lote fundo (conflito de par).
+        if pr['livre'] < frente - 0.01: ORC['q_estreita'] += pr['livre']
+        elif not _par_vago(pr, pr['x0'], frente, prof_real): ORC['q_par'] += pr['livre']
+        else: ORC['q_mascara'] += pr['livre']
         ORC['queimada'] += pr['livre']; ORC['queimada_n'] += 1
         pr['livre'] = 0.0
         return coloca(s, dog, addr)
@@ -3392,6 +3471,7 @@ def uma_passada():
     COTA.clear()
     ORC['queimada'] = 0.0; ORC['queimada_n'] = 0
     ORC['vao_usado'] = 0.0; ORC['vao_n'] = 0
+    ORC['q_estreita'] = ORC['q_mascara'] = ORC['q_par'] = 0.0
     for _l in VAOS: _l.clear()
     sem_lugar.clear()
     aparadas.clear()
@@ -3692,15 +3772,15 @@ print(f'gravado data/dogcity_lotes.csv com {len(saida):,} lotes', file=sys.stder
 # menor lote, e tem direito a um lote no anel de expansão quando voltar a ter
 # saldo E comprar a licença.
 if COLUMBARIO:
-    with open(ps('data/dogcity_columbario.csv'), 'w', newline='') as f:
+    with open(ps('data/dogcity_cemiterio.csv'), 'w', newline='') as f:
         _w = csv.writer(f)
-        _w.writerow(['nicho', 'address', 'dog', 'utxo_count', 'posicao_residencial',
+        _w.writerow(['lapide', 'address', 'dog', 'utxo_count', 'posicao_residencial',
                      'airdrop', 'assinou', 'direito'])
         for _i, _r in enumerate(sorted(COLUMBARIO, key=lambda r: -r['dog']), 1):
-            _w.writerow([f'N{_i:05d}', _r['address'], _r['dog'], _r.get('utxo_count', 0),
+            _w.writerow([f'L{_i:05d}', _r['address'], _r['dog'], _r.get('utxo_count', 0),
                          _r['posicao_residencial'], 1 if _r.get('airdrop') else 0,
                          _r.get('assinou', 0), 'licença paga + mint do deed = lote no anel de expansão'])
-    print(f'gravado data/dogcity_columbario.csv com {len(COLUMBARIO):,} nichos', file=sys.stderr)
+    print(f'gravado data/dogcity_cemiterio.csv com {len(COLUMBARIO):,} lápides', file=sys.stderr)
 
 # ⚠️ A CONFERÊNCIA DO TETO DE 12% (masterplan §15). Ela mede a cidade GRAVADA,
 # não a intenção do laço: o lote é reconstruído a partir do que foi para o
@@ -3726,6 +3806,10 @@ print('  testada: %.1f km no total | %.1f km usada (%.0f%%) | %.1f km queimada e
          100*ORC.get('queimada',0)/max(1,ORC.get('total',1)),
          ORC.get('sobra',0)/1000, 100*ORC.get('sobra',0)/max(1,ORC.get('total',1))),
       file=sys.stderr)
+print('  a queima, por motivo: %.0f km testada estreita demais para o lote da vez | '
+      '%.0f km máscara | %.0f km fileira de trás ocupada'
+      % (ORC.get('q_estreita',0)/1000, ORC.get('q_mascara',0)/1000, ORC.get('q_par',0)/1000),
+      file=sys.stderr)
 print('  vãos reaproveitados: %d lotes, %.1f km de testada que antes se perdia'
       % (ORC.get('vao_n',0), ORC.get('vao_usado',0)/1000), file=sys.stderr)
 print('  sondagem: %d pegadas aprovadas, %d barradas por máscara, %d barradas pelo teto'
@@ -3739,7 +3823,7 @@ json.dump({
     # ler a v2 com código de v1 desenha a cidade a um quarto do tamanho, e isso
     # tem de falhar alto, não em silêncio.
     'registroVersao': 2,
-    'columbario': {'nichos': len(COLUMBARIO), 'corteDog': round(DOG_MIN_LOTE, 2),
+    'cemiterio': {'lapides': len(COLUMBARIO), 'corteDog': round(DOG_MIN_LOTE, 2),
                    'pisoLote_m2': PISO_LOTE,
                    'regra': 'abaixo do saldo que paga o menor lote, o endereço recebe nicho. '
                             'O nicho é direito de MINTAR, não lote: volta a ter saldo, compra '

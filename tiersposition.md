@@ -39,6 +39,16 @@ change_pct = (saldo_hoje − airdrop) / airdrop * 100   → decide os 6 primeiro
 retention  =  saldo_hoje / airdrop * 100              → decide os 6 últimos
 ```
 
+⚠️ **DUAS RÉGUAS MEDEM COMPORTAMENTO NESTE PROJETO, E ELAS NÃO SÃO A MESMA.** Esta aqui, a
+escada de 12 tiers, é do AIRDROP: as duas contas acima dividem pelo valor recebido no drop,
+então quem comprou no mercado não tem denominador e fica sem tier. A outra é a RÉGUA DE
+CUSTÓDIA (ritmo circadiano por teste de Rayleigh, sobreposição de contrapartes, volume, taxa
+de marketplace), que foi rodada sobre a CIDADE INTEIRA, está publicada em `/dogcity/docs`
+seção 4 e documentada em `wiki-dogdata/dogcity/custodia-e-distrito-financeiro.md`, e é ela
+que separa pessoa de serviço e manda 21 carteiras institucionais para o Distrito Financeiro.
+Ler "o tier cobre 31%" como "só 31% da cidade foi analisada" é erro, e custou uma sessão
+inteira em 20/09/2026.
+
 ⚠️ **O tier cobre um terço da cidade, não a cidade.** Medido em 10/09/2026 cruzando com
 `data/holders_by_age.csv`:
 

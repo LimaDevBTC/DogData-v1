@@ -1416,9 +1416,9 @@ mesma ordem em `.bin`/CSV/cotas, `lot_id` único, sobreposição por par dentro 
 área entregue contra prometida, cota dentro da faixa do relevo, e o histograma de
 declividade do que foi gravado.
 
-## §17 — O Columbário 🔒 (2026-09-20)
+## §17 — O Cemitério 🔒 (2026-09-20)
 
-**A regra.** Quem não alcança o MENOR LOTE DA CIDADE não recebe terra: recebe um nicho com o
+**A regra.** Quem não alcança o MENOR LOTE DA CIDADE não recebe terra: recebe uma LÁPIDE com o
 endereço gravado. O corte não é escolhido a dedo, é derivado: é o saldo que paga o piso de
 24 m² na curva publicada (`area = 0,986443·√DOG`), ou seja **591,9 DOG**.
 
@@ -1448,6 +1448,61 @@ columbário uma função urbana: ele é a porta de entrada do Anel 2.
 é artefato de registro e entra no merkle root com estado próprio. Apagar 15.802 endereços em
 silêncio quebraria a auditoria pública, que é o que faz o mapa valer alguma coisa.
 
-**Na interface:** quando a carteira conectar, a página avisa que o endereço tem nicho e diz o
-caminho da volta. O aviso é o gancho, e o caminho passa pela licença, então a volta alimenta
-o fundo em vez de custar terra de graça.
+**Na interface:** quando a carteira conectar, a página avisa que o endereço tem lápide e diz
+o caminho da volta. O aviso é o gancho, e o caminho passa pela licença, então a volta
+alimenta o fundo em vez de custar terra de graça.
+
+### §17.1 — A forma: cemitério americano, lápide de mármore padronizada 🔒 (fundador, 20/09)
+
+Não é parede de nichos nem cripta: é **campo aberto com lápides iguais**, mármore, no padrão
+dos cemitérios americanos. Fileiras alinhadas, espaçamento constante, gramado, alameda
+arborizada. É a mesma lei estética que rege o resto da cidade: repetição igualmente espaçada,
+e o efeito vem da quantidade, não do gesto.
+
+```
+15.802 lápides
+1,5 x 3,0 m por sepultura (padrão americano)      7,11 ha de campo
+mais 35% de alameda e bosque                      9,60 ha
+ou seja um quadrado de 310 x 310 m, a escala de uma parcela cívica
+```
+
+⚠️ **Isto é peça de programa e tem de ser reservada ANTES do lote** (regra de ouro do §5).
+Entra no `PROGRAMA` do gerador como as outras 52.
+
+**Três coisas que o desenho tem de respeitar, e elas são técnicas:**
+1. **Uma malha só, instanciada.** 15.802 lápides iguais são uma instância e um desenho; 15.802
+   modelos diferentes derrubam o celular. A variação vem da luz e do terreno, nunca da peça.
+2. **O nome só aparece de perto.** Gravar 15.802 textos em textura é impossível; o nome é
+   escrito por demanda, quando o boneco chega perto, e de longe a lápide é lisa.
+3. **Mármore branco sob luz lunar é o teto de brilho da cidade.** Precisa de valor medido,
+   senão o campo inteiro estoura na exposição e vira uma mancha branca vista do alto.
+
+O lugar ainda não está escolhido. A recomendação continua sendo **junto ao anel de expansão**,
+porque conta a história certa: a lápide é a porta de entrada do Anel 2, não o fim da linha.
+
+### §17.2 — A primeira cidade aprovada 🔒 (2026-09-20)
+
+```
+lotes                    69.995
+lápides no cemitério     15.802
+carteiras do snapshot    85.797, todas com destino
+área entregue            44,21 km2
+razão contra o prometido 0,96, IGUAL para todos (p1 0,95, p10 0,96)
+mediana do lote          564 m2
+sobreposição             zero
+lote acima de 12%        zero
+```
+
+Receita: `PHI_LOTE=6900 SAIDA_DIR=<fora do repo> python3 scripts/gerar_cidade.py`, cerca de
+20 minutos, e depois `python3 scripts/city/conferir_lotes.py --cidade=<saida>`, que devolve
+APROVADO ou REPROVADO com código de saída. Nada vira merkle root sem os nove testes verdes.
+
+⚠️ **0,96 é o teto do tecido de hoje**, não uma escolha: o pódio da abóbada começa em 6.950 e
+o tecido de lote para em 6.900. Os 4% que faltam estão na queima de prateleira (15%, 392 km
+de testada), agora instrumentada por motivo: testada estreita para o lote da vez, máscara, ou
+fileira de trás ocupada.
+
+⚠️ **O que esta cidade AINDA NÃO TEM, e não pode virar registro sem:** o posicionamento por
+tier do `tiersposition.md` (Orla Nobre, orla da baía, canais), a reserva de 15% dos lotes por
+bairro, o cemitério como peça de programa desenhada, e o socalco do §15. Hoje ela planta pela
+fila de DOG-tempo do centro para fora, que é a lei do §12 mas não é a do caderno de tiers.

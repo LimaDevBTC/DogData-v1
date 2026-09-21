@@ -44,22 +44,22 @@ def item(nome, ok, detalhe=''):
 
 print(f'CONFERÊNCIA DO LOTEAMENTO em {BASE}')
 
-# 1. cada carteira da fila tem UM destino: lote ou nicho. Nenhuma tem os dois,
+# 1. cada carteira da fila tem UM destino: lote ou lápide. Nenhuma tem os dois,
 #    nenhuma fica sem.
 # ⚠️ O COLUMBÁRIO É DESTINO LEGÍTIMO (masterplan §17), então o portão tem de
 # lê-lo. Sem isto ele acusaria 15.802 carteiras "faltando" e passaria a mentir
 # na direção oposta: reprovaria a cidade certa.
 colum = []
-cam_col = os.path.join(BASE, 'data/dogcity_columbario.csv')
+cam_col = os.path.join(BASE, 'data/dogcity_cemiterio.csv')
 if os.path.exists(cam_col):
     colum = [r['address'] for r in csv.DictReader(open(cam_col))]
 quero = {r['address'] for r in fila if r['dog'] > 0}
 tenho = [r['address'] for r in linhas]
 destinos = tenho + colum
 dobrados = set(tenho) & set(colum)
-item('cada carteira tem um destino, lote ou nicho',
+item('cada carteira tem um destino, lote ou lápide',
      len(destinos) == len(set(destinos)) == len(quero) and set(destinos) == quero and not dobrados,
-     f'{len(tenho)} lotes + {len(colum)} nichos = {len(destinos)} de {len(quero)} carteiras, '
+     f'{len(tenho)} lotes + {len(colum)} lápides = {len(destinos)} de {len(quero)} carteiras, '
      f'{len(dobrados)} em dois lugares')
 
 # 2. os três arquivos na mesma ordem
@@ -162,8 +162,8 @@ item('cidade.json bate com os arquivos',
 
 # 8. o columbário declarado é o columbário gravado
 if colum:
-    dec = (meta.get('columbario') or {}).get('nichos')
-    item('columbário declarado bate com o gravado', dec == len(colum),
+    dec = (meta.get('cemiterio') or {}).get('lapides')
+    item('cemitério declarado bate com o gravado', dec == len(colum),
          f'declara {dec}, gravados {len(colum)}')
 
 print(('REPROVADO: ' + ', '.join(falhas)) if falhas else 'APROVADO')
