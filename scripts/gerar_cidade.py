@@ -3779,7 +3779,11 @@ def uma_passada():
     #     ocupa os lotes MAIS INTERNOS do setor dele ignorando a idade. Plantando
     #     por último ele pegava a sobra da periferia, ou seja a regra estava
     #     escrita na documentação e desmentida pelo código.
-    for a in sorted(dsc):
+    # ⚠️ QUEM JÁ TEM ENDEREÇO NA ORLA NÃO ENTRA AQUI. Quatro carteiras do Dog
+    # Social Club também são tier 1 a 3: o laço do DSC plantava e a orla
+    # plantava de novo, e o portão pegou 85.801 destinos para 85.797 carteiras.
+    # Dois lotes para o mesmo dono é o pior defeito que um registro pode ter.
+    for a in sorted(x for x in dsc if x not in ORLA_DONOS):
         r = coloca(S_DSC, elig[a], a)
         if r is None:
             sem_lugar.append(a); continue
@@ -3797,7 +3801,16 @@ def uma_passada():
     # mesma prateleira, no mesmo bairro. Sai 15% do total, distribuído por
     # construção, sem sorteio e sem grumo. 15 de 85 é a conta do contrato:
     # 15.141 reservados ao lado de 85.797 de carteira.
-    _reserva_passo = 15.0 / 85.0
+    # ⚠️ 15% ERA NÚMERO DE QUANDO PARECIA SOBRAR TERRA (fundador, 21/09:
+    # "podemos adaptar"). Medido: com 15% a razão contra a área publicada cai
+    # de 0,96 para 0,81, ou seja cada ponto de reserva custa um ponto no lote
+    # de TODO MUNDO. E a reserva tem duas funções de tamanhos muito diferentes:
+    # o direito de apelo, que precisa de dezenas de lotes (são 21 marcados, 13
+    # deles chamadas frágeis), e o land bank do projeto, que é produto.
+    # Dentro do bairro fica só o que serve ao apelo, com folga de cem vezes;
+    # o land bank grande sai da coroa externa, onde não tira metro de ninguém.
+    _pct = float(os.environ.get('RESERVA_PCT', '2')) / 100.0
+    _reserva_passo = _pct / max(1e-9, 1.0 - _pct)
     _reserva_conta, _reserva_n = 0.0, 0
     for c, s in zip(gerais, destino):
         _reserva_conta += _reserva_passo
@@ -4182,7 +4195,7 @@ json.dump({
     'loteMediana_m2': round(areas[len(areas)//2]) if areas else 0,
     'loteMenor_m2': round(areas[0]) if areas else 0,
     'loteMaior_m2': round(areas[-1]) if areas else 0,
-    'carteiras': N, 'plantadas': _lotes_de_carteira(saida),
+    'carteiras': len(CARTEIRAS_TODAS), 'plantadas': _lotes_de_carteira(saida),
     'lotes': {'carteira': _lotes_de_carteira(saida),
               'projeto': sum(1 for r in saida if str(r[3]).startswith('__projeto')),
               'institucional': len(FIN_LOTES),

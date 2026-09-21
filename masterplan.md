@@ -1588,3 +1588,36 @@ contra 4.800 da baía.
 34,30 km² na borda do sítio que ninguém desenhou, e ele é 63% maior que a baía. Ou ele vira
 paisagem de propósito, com nome e desenho, ou o exagero vertical precisa de correção de
 pódio além de r 8.300 para ele não existir.
+
+### §18.5 — Estado em 21/09, manhã: nove de dez 🔒
+
+```
+carteiras do snapshot        85.797, TODAS com exatamente um destino
+  lote no tecido e na orla   69.995
+  lápide no cemitério        15.802
+lotes do projeto (reserva)    1.350
+lotes institucionais             21
+linhas no registro           71.366
+área entregue                44,66 km2   razão 0,93 contra a publicada
+sobreposição                 zero
+registro                     v3, 15 bytes, fiel ao CSV em 12 cm
+```
+
+⚠️ **A reserva caiu de 15% para 2%** (fundador, 21/09: "15% foi um número que surgiu quando
+parecíamos ter terra sobrando"). A conta que fundamenta: cada ponto de reserva custa um ponto
+na área de TODO MUNDO, e a reserva tem duas funções de tamanhos muito diferentes. O direito
+de apelo precisa de dezenas de lotes (21 marcados, 13 deles chamadas frágeis) e agora tem
+1.350, folga de 64 vezes. O land bank grande é produto e sai da coroa externa.
+
+**Dois defeitos que o portão pegou nesta rodada, os dois de dono duplicado ou perdido:**
+1. **9.239 carteiras ficaram sem lote e o gerador declarou sucesso.** O teste de "coube todo
+   mundo" contava `len(saida)`, e a saída passou a ter quatro naturezas: 12.266 lotes de
+   reserva entraram na conta como se fossem gente.
+2. **Quatro carteiras receberam DOIS lotes.** Elas são do Dog Social Club e também tier 1 a
+   3: o laço do DSC plantava e a Orla Nobre plantava de novo. Dois lotes para o mesmo dono
+   não aparece no mapa e só apareceria no dia do mint.
+
+**O único teste que ainda reprova é a ÁREA, e é problema de terra, não de código.** Com tudo
+dentro (orla, distrito, reserva de 2%) a cidade entrega 0,93 do publicado. As alavancas que
+restam: coroa externa como anel novo (+0,10 a +0,15), empacotamento (+0,02 a +0,04) e zerar
+a reserva (+0,02, e aí o apelo publicado fica sem lastro).

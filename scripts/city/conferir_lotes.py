@@ -59,15 +59,23 @@ if os.path.exists(cam_col):
 # sintético `__projeto_*` e NÃO são carteira: contá-los como dono faria o
 # portão reprovar a cidade certa, e ignorá-los faria ele perder um lote
 # atribuído a dois donos.
+# ⚠️ QUATRO NATUREZAS, NÃO TRÊS. As 21 institucionais têm endereço de carteira
+# de verdade e NÃO estão na fila residencial: elas saíram dela no snapshot e
+# ganharam lote no Distrito Financeiro. Contá-las como carteira da fila fazia o
+# portão acusar 85.822 de 85.797, ou seja reprovar por excesso de gente.
 quero = {r['address'] for r in fila if r['dog'] > 0}
-tenho = [r['address'] for r in linhas if not r['address'].startswith('__projeto')]
 projeto = [r['address'] for r in linhas if r['address'].startswith('__projeto')]
+institucional = [r['address'] for r in linhas
+                 if not r['address'].startswith('__projeto') and r['address'] not in quero]
+tenho = [r['address'] for r in linhas
+         if not r['address'].startswith('__projeto') and r['address'] in quero]
 destinos = tenho + colum
 dobrados = set(tenho) & set(colum)
 item('cada carteira tem um destino, lote ou lápide',
      len(destinos) == len(set(destinos)) == len(quero) and set(destinos) == quero and not dobrados,
      f'{len(tenho)} lotes + {len(colum)} lápides = {len(destinos)} de {len(quero)} carteiras, '
-     f'{len(projeto)} lotes do projeto à parte, {len(dobrados)} em dois lugares')
+     f'{len(projeto)} do projeto e {len(institucional)} institucionais à parte, '
+     f'{len(dobrados)} em dois lugares')
 item('lote do projeto não tem dono de carteira',
      all(a not in quero for a in projeto) and len(set(projeto)) == len(projeto),
      f'{len(projeto)} lotes do projeto, todos com endereço próprio')
@@ -170,9 +178,15 @@ item('.bin fiel ao registro (1/4 m)', pior_bin <= 0.13, f'pior desvio {pior_bin:
 
 # 7. o que a cidade.json declara bate com o que existe
 meta = json.load(open(os.path.join(BASE, 'public/city/cidade.json')))
+# ⚠️ O META DECLARA POR NATUREZA, e o portão tem de ler assim: `plantadas` e
+# `carteiras` falam de LOTE DE CARTEIRA, enquanto o arquivo tem também projeto
+# e institucional. Comparar com o total de linhas reprovava a cidade certa.
+_lot = (meta.get('lotes') or {})
 item('cidade.json bate com os arquivos',
-     meta.get('plantadas') == len(lotes) and meta.get('carteiras') == len(lotes),
-     f"declara {meta.get('plantadas')} de {meta.get('carteiras')}")
+     meta.get('plantadas') == len(tenho) and meta.get('carteiras') == len(tenho)
+     and (_lot.get('total') is None or _lot.get('total') == len(lotes)),
+     f"declara {meta.get('plantadas')} de {meta.get('carteiras')} carteiras, "
+     f"{_lot.get('total')} linhas no total, arquivo tem {len(lotes)}")
 
 # 8. o columbário declarado é o columbário gravado
 if colum:
