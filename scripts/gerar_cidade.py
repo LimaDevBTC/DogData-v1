@@ -1777,6 +1777,7 @@ VAOS = [collections.defaultdict(list) for _ in range(N_DIST)]
 # que serve, subindo: isso é melhor encaixe, custa uma pegada por candidato e
 # não perde vão nenhum por idade.
 VAO_BALDE = 5.0         # metros por balde
+VAOD = collections.Counter()   # diagnóstico da busca de vão: onde ela desiste
 VAO_TENTA = 10          # pegadas no máximo por lote
 VAO_TETO_FRENTE = 80.0
 # ⚠️ E A BUSCA É POR MELHOR ENCAIXE, não pela primeira que serve. Pegar um vão de
@@ -1828,7 +1829,10 @@ def _guarda_vao(s, pr, x_ini, comp):
 def _busca_vao(s, frente, prof_real):
     """o MENOR vão que cabe o lote, do balde certo para cima."""
     baldes = VAOS[s]
-    if not baldes: return None
+    VAOD['chamada'] += 1
+    if not baldes:
+        VAOD['sem_balde'] += 1
+        return None
     b0 = int(frente // VAO_BALDE)
     _tentou = 0
     _maior = max(baldes.keys()) if baldes else b0
@@ -1838,17 +1842,24 @@ def _busca_vao(s, frente, prof_real):
         for _i in range(len(lista) - 1, -1, -1):
             _pv, _vx, _vl = lista[_i]
             if _vl < frente: continue
-            if _tentou >= VAO_TENTA: return None
+            if _tentou >= VAO_TENTA:
+                VAOD['esgotou'] += 1
+                return None
             _tentou += 1
             _ozv = _pv['borda'] + _pv['sentido'] * prof_real / 2
-            if not _vago(_pv, _vx, frente): continue
-            if not _par_vago(_pv, _vx, frente, prof_real): continue
-            if not _cabe(_pv, _vx + frente / 2, _ozv, frente, prof_real): continue
+            if not _vago(_pv, _vx, frente):
+                VAOD['ocupado'] += 1; continue
+            if not _par_vago(_pv, _vx, frente, prof_real):
+                VAOD['par'] += 1; continue
+            if not _cabe(_pv, _vx + frente / 2, _ozv, frente, prof_real):
+                VAOD['mascara'] += 1; continue
             lista.pop(_i)
             resto = _vl - frente
             if resto >= LOTE_MIN_FRENTE:
                 _guarda_vao(s, _pv, _vx + frente, resto)
+            VAOD['achou'] += 1
             return (_pv, _vx, _ozv)
+    VAOD['nao_serve'] += 1
     return None
 
 
