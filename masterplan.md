@@ -1621,3 +1621,74 @@ de apelo precisa de dezenas de lotes (21 marcados, 13 deles chamadas frágeis) e
 dentro (orla, distrito, reserva de 2%) a cidade entrega 0,93 do publicado. As alavancas que
 restam: coroa externa como anel novo (+0,10 a +0,15), empacotamento (+0,02 a +0,04) e zerar
 a reserva (+0,02, e aí o apelo publicado fica sem lastro).
+
+### §18.6 — O empacotamento: a perda era ALCANCE 🔒 (medido 21/09/2026)
+
+Quatro medições independentes, rodadas em paralelo, convergiram para a mesma causa. Vale
+guardar porque três hipóteses plausíveis morreram aqui, e cada uma teria custado rodadas.
+
+**1. O vazio é maior do que o gerador admitia, e é fileira inteira, não sobra de ponta.**
+
+```
+oferta de testada        2.482,0 km
+usada por lote           1.677,2 km   67,6%
+comida por superquadra      80,7 km    3,2%
+VAZIA                      724,0 km   29,2%
+  fileira INTEIRA vazia    506,1 km   70% do vazio, em 6.047 prateleiras
+  rabo de prateleira       174,3 km   24%
+  ponta inicial             38,3 km    5%
+```
+
+O orçamento interno dizia 86% porque só conta a testada que ele ZERA de propósito: o passo
+de sondagem de 12 m e a prateleira nunca alcançada não entravam na conta.
+
+**2. Reordenar a fila não vale nada.** Simulação 1-D com a distribuição real: primeira que
+cabe, melhor encaixe e pool dos 20% menores empatam em 96,6%; ordenar por tamanho
+decrescente dentro da banda PIORA para 92,6%. A fila já vem quase decrescente sozinha
+(correlação posição x testada = -0,46).
+
+**3. O que separa 88,1% de 96,6% é ALCANCE.** Janela de 24 dá 88,1%, 96 dá 88,8%, distrito
+inteiro dá 92,6%, e os 4 pontos finais só saem indo ATRÁS do cursor. Causa em duas linhas:
+`JANELA = 24` e o cursor que só anda para a frente.
+
+**4. Fusão de vão não paga.** Existem 30.756 pares de vãos adjacentes, mas fundir recupera
+14,8 km contra um degrau de bisseção de 1,7%: o que trava a área não é testada agregada, é
+UM DISTRITO SECAR antes de a fila acabar, com 506 km parados em outro. O `k` só sobe se
+todo mundo couber, então 2.400 carteiras sem lugar seguram a cidade inteira um degrau abaixo.
+
+**O conserto:** uma árvore de máximos por distrito responde em tempo logarítmico "qual a
+primeira prateleira que ainda comporta este lote". Primeira é a mais interna, então a lei de
+posição sai de graça. Primeira passada medida: 32.512 lotes e 47,17 km² onde antes eram
+27.842 e 42,76 no mesmo k, ou seja 17% mais lotes plantados com a mesma curva.
+
+### §18.7 — A PRIMEIRA CIDADE APROVADA NOS DEZ TESTES 🔒 (21/09/2026)
+
+```
+carteiras do snapshot      85.797, todas com um destino e só um
+  lote de carteira         69.995
+  lápide no cemitério      15.802
+lotes do projeto            1.389    (reserva de 2%)
+lotes institucionais           21    (Distrito Financeiro)
+linhas no registro         71.405
+
+área entregue              46,96 km2
+razão contra a publicada   0,98   p1 0,96, p10 0,97
+mediana do lote            584 m2
+sobreposição               zero
+declive                    nenhum lote acima de 12%
+registro                   v3, fiel ao CSV em 12 cm
+```
+
+Receita: `PHI_LOTE=6900 RESERVA_PCT=2 SAIDA_DIR=<fora do repo> python3 scripts/gerar_cidade.py`
+e depois `python3 scripts/city/conferir_lotes.py --cidade=<saida>`.
+
+⚠️ **A PROMESSA FECHOU SEM AMPLIAR A CIDADE.** Em 20/09 a conclusão era que só a coroa
+externa fecharia a conta. Estava errada: a cidade tinha 724 km de testada parada dentro
+dela, e o alcance (§18.6) trouxe a razão de 0,93 para 0,98 sem um metro quadrado novo. A
+coroa volta a ser o que deve ser, anel de expansão do §14 e casa do land bank, não remendo.
+
+⚠️ **E A JUSTIÇA NÃO PIOROU, o que não era garantido.** Preencher buraco interno pode dar
+endereço central a quem chegou depois na fila. Medido contra a cidade anterior: desvio de
+raio por posição de fila, mediana 312 m contra 300, p90 1.486 contra 1.360, e blocos que
+recuam 361 contra 380. A razão é estrutural: a árvore escolhe sempre a prateleira MAIS
+INTERNA que cabe, e mais interna é a própria ordem da fila.

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { isValidAddress } from '@/app/api/holders/tree/_shared'
 import { resolveIdentity } from '@/lib/dog/identity'
+import { CORTE_CEMITERIO_DOG, CORTE_CEMITERIO_PUBLICADO, LAPIDES } from '@/app/dogcity/dogcity-data'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // A ROTA DA DOBRA 1 (marketing/LANDING-V3-DESENHO.md). Devolve o que a carteira
@@ -14,14 +15,19 @@ import { resolveIdentity } from '@/lib/dog/identity'
 // colunas públicas de `dog_snapshot_lookup`: dog, area_m2, genesis,
 // runestones, utxo_count, bloco. Nada de posição sai daqui, nunca.
 //
-// TRÊS RESPOSTAS, e a ordem de checagem importa:
+// QUATRO RESPOSTAS, e a ordem de checagem importa:
 //   1. exchange   — o endereço bate com `dog_labels` (o que a casa deduziu da
 //                   cadeia) ou com `verified_addresses.json` (o que a própria
 //                   entidade confirmou). Checada PRIMEIRO: uma corretora que
 //                   por acaso também está no snapshot (custódia agregada tem
 //                   saldo) deve ouvir o aviso de custódia, não "you own this".
-//   2. in_snapshot — a carteira está em `dog_snapshot_lookup`.
-//   3. not_in_snapshot — nenhuma das duas.
+//   2. memorial: a carteira estava no bloco e o saldo dela não alcança o MENOR
+//                LOTE da cidade (24 m², masterplan §17). Ela recebe lápide no
+//                cemitério, não lote, e a tela não pode anunciar metro quadrado
+//                para ela. Checada antes de `in_snapshot` porque as duas leem a
+//                mesma linha da tabela.
+//   3. in_snapshot: a carteira está em `dog_snapshot_lookup` e alcança o lote.
+//   4. not_in_snapshot: nenhuma das anteriores.
 //
 // ⚠️ A MENSAGEM NÃO DIZ SÓ "exchange". `dog_labels` também classifica bridge,
 // marketplace, swap_pool, desk e treasury (lib/dog/taxonomy.ts) — chamar uma
@@ -96,7 +102,26 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    // checagem 2: a carteira já tem lote
+    // checagem 2: a carteira está no bloco mas abaixo do menor lote da cidade
+    // ⚠️ SEM ESTA CHECAGEM A PÁGINA MENTE PARA 15.802 CARTEIRAS. Elas estão no
+    // snapshot, então caíam em `in_snapshot` e a tela imprimia "YOUR LOT: X m2"
+    // para quem recebe lápide e não lote (masterplan §17). O corte é derivado:
+    // o saldo que paga o piso de 24 m² na curva publicada.
+    if (row && Number(row.dog) < CORTE_CEMITERIO_DOG) {
+      return NextResponse.json({
+        status: 'memorial',
+        address,
+        dog: row.dog,
+        corte_dog: CORTE_CEMITERIO_PUBLICADO,
+        lapides: LAPIDES,
+        genesis: row.genesis,
+        runestones: row.runestones,
+        utxo_count: row.utxo_count,
+        block: row.bloco,
+      })
+    }
+
+    // checagem 3: a carteira já tem lote
     if (row) {
       return NextResponse.json({
         status: 'in_snapshot',
@@ -110,7 +135,7 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    // checagem 3: chegou depois do bloco 966.670
+    // checagem 4: chegou depois do bloco 966.670
     return NextResponse.json({ status: 'not_in_snapshot', address })
   } catch {
     return NextResponse.json({ error: 'data backend busy, retry shortly' }, { status: 503 })

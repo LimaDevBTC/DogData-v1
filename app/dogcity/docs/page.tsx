@@ -287,9 +287,11 @@ export default function DogCityDocsPage() {
                 NASA data rather than a procedural landscape invented for the game.
               </P>
               <P>
-                Every wallet that holds $DOG receives a lot on that terrain. Not a lot you buy, not a
-                lot you pick: a lot decided by that wallet&apos;s own history on the Bitcoin
-                blockchain. The city is not a real-estate product. It is a permanent record of
+                Every wallet that holds $DOG receives a place on that terrain. Not a place you
+                buy, not a place you pick: a place decided by that wallet&apos;s own history on the
+                Bitcoin blockchain. For 69,995 wallets that place is a lot. For the 15,802 that hold
+                less than the smallest lot the city can draw, it is a marble headstone in the city
+                cemetery, and the headstone carries the right to mint a lot later (section 3). The city is not a real-estate product. It is a permanent record of
                 on-chain activity, rendered as a place you can walk through.
               </P>
               <P>Three ideas carry the whole design:</P>
@@ -455,8 +457,8 @@ export default function DogCityDocsPage() {
             <Section id="how-land-follows-the-coins" n="3" title="How land follows the coins">
               <P className="mt-0">Lot area grows with the square root of a wallet&apos;s $DOG balance, between a floor and a cap:</P>
               <DataBlock>
-                <Row label="area" value="clamp( 0.986443 x sqrt(DOG), 1 m2, 40,000 m2 )" />
-                <Row label="total allocated" value="46.66 km2" />
+                <Row label="area" value="clamp( 0.986443 x sqrt(DOG), 24 m2, 40,000 m2 )" />
+                <Row label="curve target" value="46.17 km2" note="(the sum over every wallet that receives a lot)" />
               </DataBlock>
               <P>
                 Square root is the whole point. Doubling a balance does not double the land, it
@@ -484,6 +486,42 @@ export default function DogCityDocsPage() {
                 The largest wallet on the chain holds 56 times more $DOG than the twentieth largest,
                 and receives 2.7 times the land. That is the square root curve at work: it rewards
                 size without letting size erase everyone smaller.
+              </P>
+
+              <Sub>Below the smallest lot: the cemetery</Sub>
+              <P className="mt-3">
+                The floor of that curve is not decoration. At 24 m2 a lot is still ground a person
+                can stand on. Below it the curve hands out tiles, not land, and the smallest of them
+                would not fit the 1.70 m figure the city is drawn around. So the floor sets a cut,
+                and the cut is derived, never chosen: 591.95 $DOG is the balance a lot that size
+                takes on the published curve.
+              </P>
+              <DataBlock>
+                <Row label="smallest lot the city builds" value="24 m2" />
+                <Row label="balance a lot that size takes" value="591.95 $DOG" note="(0.986443 x sqrt(591.95) = 24)" indent />
+                <Row label="wallets below the line" value="15,802" note="(18.4% of the 85,818)" />
+                <Row label="their combined share of supply" value="0.0019%" indent />
+                <Row label="wallets that receive a lot" value="69,995" />
+              </DataBlock>
+              <P>
+                A wallet below the line receives a marble headstone with its address engraved, in an
+                open field cemetery: identical stones, aligned rows, constant spacing, in the
+                American pattern. It is a field, not a wall of niches and not a crypt. Where in the
+                city it sits has not been chosen yet.
+              </P>
+              <P>
+                The headstone is a right to mint a lot later, not a closed door. A wallet that holds
+                above the line again, takes the same 10,000 $DOG building licence any other wallet
+                takes in order to build, and mints the deed, receives land in the expansion ring, at
+                a future block that has not been announced yet. Ring 1 froze at the snapshot and
+                nobody moves into it afterward.
+              </P>
+              <P>
+                Those 15,802 addresses do not leave the record. They leave the map, not the proof:
+                the cemetery is a registry artifact with a state of its own, and it will go into the
+                registry&apos;s merkle root next to the lots, under the same single fingerprint that
+                seals the final list. Deleting 15,802 addresses in silence would break the public
+                audit, and the audit is what makes the map worth anything.
               </P>
             </Section>
 
@@ -750,10 +788,18 @@ export default function DogCityDocsPage() {
               </P>
               <DataBlock>
                 <Row label="Satoshi Plaza" value="6.33 km2" />
-                <Row label="Financial District (institutional wallets)" value="1.89 km2" note="(30%)" indent />
-                <Row label="project reserve, 15% of the plaza" value="0.95 km2" note="(15%)" indent />
-                <Row label="civic core and existing landmark buildings" value="3.49 km2" note="(55%)" indent />
+                <Row label="Plaza Lake" value="2.63 km2" indent />
+                <Row label="dry land in the ring, outside the precinct wall" value="1.2 km2" indent />
+                <Row label="Financial District, as generated (21 lots)" value="0.40 km2" note="(403,911 m2)" indent />
               </DataBlock>
+              <P>
+                An earlier version of this page split the plaza into 30% district, 15% project
+                reserve and 55% civic core. That split counted dry land the plaza does not have:
+                the Plaza Lake takes 2.63 of the 3.79 km2 of the ring. The measured need turned out
+                far smaller than the estimate and fits three times over in the dry land that
+                remains, without touching the water. The largest institutional lot, Gate.io at
+                54,300 m2, reaches 36% of the raised cap.
+              </P>
 
               <Sub>How land is sized inside the district</Sub>
               <P className="mt-3">
@@ -797,12 +843,15 @@ export default function DogCityDocsPage() {
               </P>
               <P>
                 That right only works because the project holds a standing reserve everywhere it
-                might be needed. The project keeps 15% of the lots in every neighborhood in the
-                city, scattered throughout each one rather than gathered into a single block,
-                specifically so that a lot of comparable standing is always available near wherever
-                an appeal happens to land. Across the whole city that reserve totals 15,141 lots,
-                alongside 85,797 wallet lots, using 51.05 km2 of the 66.767 km2 of urban fabric
-                available, with 15.71 km2 to spare.
+                might be needed. The project keeps 2% of the lots in every neighborhood in the city,
+                scattered throughout each one rather than gathered into a single block, so that a
+                lot of comparable standing is always available near wherever an appeal happens to
+                land. Across the whole city that reserve totals 1,389 lots, alongside 69,995 wallet
+                lots and 15,802 headstones. The measurement in section 4 flagged 21 wallets, so the
+                reserve covers every possible appeal 64 times over. It was 15% while the project
+                still thought it had land to spare: every point of reserve costs a point of area for
+                everyone else, and the large land bank the project wants for itself belongs in the
+                expansion ring, not in the middle of Ring 1.
               </P>
             </Section>
 

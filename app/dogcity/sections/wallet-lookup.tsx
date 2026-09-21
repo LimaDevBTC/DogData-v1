@@ -15,19 +15,24 @@
 // mata conversão e é desnecessário: o dado (dog_snapshot_lookup) é público.
 // Isto é uma consulta, não uma transação.
 //
-// TRÊS RESPOSTAS, servidas por /api/dogcity/lookup (ver o comentário daquela
+// QUATRO RESPOSTAS, servidas por /api/dogcity/lookup (ver o comentário daquela
 // rota para a ordem de checagem e por que "exchange" não é sempre a palavra
 // certa):
-//   1. in_snapshot     — a escritura: área, saldo no bloco, Genesis Badge,
-//                         Runestones, o bloco e o hash. CTA para a licença.
-//   2. not_in_snapshot — os anéis de expansão: o que fecha agora é a ORDEM,
-//                         não a terra. CTA para travar o Founder number.
-//   3. exchange        — a resposta mais valiosa das três: pega a pessoa no
-//                         momento exato do erro (moeda em corretora) e dá a
-//                         ação certa (sacar).
+//   1. in_snapshot:     a escritura: área, saldo no bloco, Genesis Badge,
+//                       Runestones, o bloco e o hash. CTA para a licença.
+//   2. memorial:        a carteira estava no bloco e não alcança o menor lote
+//                       da cidade (24 m²). Recebe lápide no cemitério, não
+//                       lote, e a tela não anuncia metro quadrado para ela.
+//                       Sem este ramo a página dizia "YOUR LOT: 10 m2" a
+//                       15.802 carteiras (masterplan §17).
+//   3. not_in_snapshot: os anéis de expansão: o que fecha agora é a ORDEM,
+//                       não a terra. CTA para travar o Founder number.
+//   4. exchange:        a resposta mais valiosa das quatro: pega a pessoa no
+//                       momento exato do erro (moeda em corretora) e dá a
+//                       ação certa (sacar).
 //
 // ⚠️ NUNCA POSIÇÃO. A tabela não tem bairro, distrito, vizinho nem tag
-// institucional — só as seis colunas públicas. Este componente não pode
+// institucional, só as seis colunas públicas. Este componente não pode
 // inventar nenhuma delas.
 //
 // DOIS USOS DO MESMO MOTOR: `variant="hero"` é a dobra 1 inteira (mapa de
@@ -40,7 +45,7 @@
 
 import { useState, type FormEvent } from "react"
 import { HAIR, HAIR_SOFT } from "../motion"
-import { SNAPSHOT_PROOF } from "../dogcity-data"
+import { SNAPSHOT_PROOF, PISO_LOTE_M2 } from "../dogcity-data"
 
 // ── formatação exata, nunca arredondada para "K"/"M" ────────────────────────
 // formatDog() de ../dogcity-data.ts abrevia ("889.8K"), o que é exatamente o
@@ -61,6 +66,7 @@ function dataDoBloco(iso: string): string {
 // ── o contrato da rota ───────────────────────────────────────────────────────
 type Resultado =
   | { status: "in_snapshot"; address: string; dog: number; area_m2: number; genesis: boolean; runestones: number; utxo_count: number; block: number }
+  | { status: "memorial"; address: string; dog: number; corte_dog: number; lapides: number; genesis: boolean; runestones: number; utxo_count: number; block: number }
   | { status: "not_in_snapshot"; address: string }
   | { status: "exchange"; address: string; identity_name: string; identity_kind: string | null }
 
@@ -233,6 +239,40 @@ function Documento({ r }: { r: Resultado }) {
         >
           LOCK YOUR FOUNDER NUMBER
         </a>
+      </div>
+    )
+  }
+
+  // ⚠️ MEMORIAL: A CARTEIRA ESTAVA NO BLOCO E NAO ALCANCA O MENOR LOTE.
+  // Sem este ramo a tela imprimia "YOUR LOT: 10 m2" para 15.802 carteiras que
+  // recebem lapide e nao lote (masterplan §17). O tom aqui e de REGISTRO, nao
+  // de julgamento: quem tem pouco nao pode ser humilhado pela propria pagina
+  // do projeto, e o caminho de volta e dito sem promessa de data, porque o
+  // anel de expansao abre num bloco que ainda nao foi anunciado.
+  if (r.status === "memorial") {
+    return (
+      <div className={`border ${HAIR} bg-[#08080A] px-5 py-6 md:px-7 md:py-7`}>
+        <p className="font-mono text-[10px] tracking-[0.2em] text-dusty">DECIDED AT THE FOUNDING</p>
+        <div className="mt-3">
+          {linhaDoc("YOUR PLACE", "a headstone in the city cemetery")}
+          {linhaDoc(`$DOG AT BLOCK ${r.block.toLocaleString("en-US")}`, dogExato(r.dog))}
+          {linhaDoc("SMALLEST LOT THE CITY BUILDS", `${PISO_LOTE_M2} m2`)}
+          {linhaDoc("BALANCE A LOT THAT SIZE TAKES", `${r.corte_dog.toLocaleString("en-US", { minimumFractionDigits: 2 })} $DOG`)}
+          {linhaDoc("HEADSTONES AT THE FOUNDING", r.lapides.toLocaleString("en-US"))}
+          {linhaDoc("DECIDED AT", `block ${r.block.toLocaleString("en-US")}, ${dataDoBloco(SNAPSHOT_PROOF.timeUtc)}`)}
+        </div>
+
+        <p className="text-[13px] md:text-sm text-mist mt-5 leading-relaxed">
+          Below the smallest lot the city can draw, the ground would be a tile, not land. This
+          address keeps its own marble headstone instead, engraved and standing in the record,
+          and it stays in the registry under the same fingerprint as every lot.
+        </p>
+        <p className="text-[13px] md:text-sm text-mist mt-3 leading-relaxed">
+          The headstone is a right to mint a lot later, not a closed door. A wallet that holds
+          above that balance again, takes a building licence and mints the deed receives land in
+          the expansion ring, at a future block that has not been announced yet. Ring 1 froze at
+          the snapshot and nobody moves into it afterward.
+        </p>
       </div>
     )
   }

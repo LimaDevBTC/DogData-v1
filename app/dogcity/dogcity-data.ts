@@ -350,3 +350,22 @@ export function shortAddr(addr: string): string {
   if (!addr || addr === "anonymous") return "Anonymous"
   return addr.length > 14 ? `${addr.slice(0, 7)}…${addr.slice(-5)}` : addr
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// O CORTE DO CEMITÉRIO, UMA FONTE SÓ
+//
+// ⚠️ ESTE NÚMERO VIVE EM TRÊS LUGARES E TEM DE MUDAR NOS TRÊS JUNTOS: aqui (a
+// página e a rota), em `scripts/city/sobe_lookup.py` (a tabela que a consulta
+// lê) e em `scripts/gerar_cidade.py` (`K_PUBLICADA` e `DOG_MIN_LOTE`, que é
+// quem corta de verdade). Divergir não quebra build nenhum: a página anuncia
+// um corte e a cidade aplica outro, e ninguém vê.
+//
+// ⚠️ O NÚMERO PUBLICADO ARREDONDA PARA CIMA. O corte exato é 591,9410967, e
+// 591,94 pagam 23,999978 m², ou seja AINDA abaixo do piso de 24: quem
+// obedecesse "traga o saldo de volta acima de 591,94" continuaria com lápide.
+export const CURVA_K = 0.986443
+export const PISO_LOTE_M2 = 24
+export const CORTE_CEMITERIO_DOG = (PISO_LOTE_M2 / CURVA_K) ** 2          // 591,9410967
+export const CORTE_CEMITERIO_PUBLICADO = Math.ceil(CORTE_CEMITERIO_DOG * 100) / 100   // 591,95
+export const LAPIDES = 15802
+export const LOTES_DE_CARTEIRA = 69995
