@@ -27,7 +27,7 @@ FILA = arg('fila', os.path.join(RAIZ, 'data/snapshots/dog_966670_ordem_residenci
 # Abaixo disso é quadriculado; acima é defeito de colocação. Medido em 20/09:
 # com 0,10 m o teste acusava 15.593 pares e TODOS os inspecionados estavam na
 # faixa de 0,15 m, ou seja o teste estava medindo o arquivo, não a cidade.
-TOL = float(arg('tolerancia', '0.26'))
+TOL = float(arg('tolerancia', '0.02'))
 
 FMT = '<hhBBHBBBH'; REG = struct.calcsize(FMT)
 byt = open(os.path.join(BASE, 'public/city/cidade-lotes.bin'), 'rb').read()
@@ -44,11 +44,23 @@ def item(nome, ok, detalhe=''):
 
 print(f'CONFERÊNCIA DO LOTEAMENTO em {BASE}')
 
-# 1. um lote por carteira, nenhum lote órfão
+# 1. cada carteira da fila tem UM destino: lote ou nicho. Nenhuma tem os dois,
+#    nenhuma fica sem.
+# ⚠️ O COLUMBÁRIO É DESTINO LEGÍTIMO (masterplan §17), então o portão tem de
+# lê-lo. Sem isto ele acusaria 15.802 carteiras "faltando" e passaria a mentir
+# na direção oposta: reprovaria a cidade certa.
+colum = []
+cam_col = os.path.join(BASE, 'data/dogcity_columbario.csv')
+if os.path.exists(cam_col):
+    colum = [r['address'] for r in csv.DictReader(open(cam_col))]
 quero = {r['address'] for r in fila if r['dog'] > 0}
 tenho = [r['address'] for r in linhas]
-item('bijeção fila/lote', len(tenho) == len(set(tenho)) == len(quero) and set(tenho) == quero,
-     f'{len(tenho)} lotes, {len(quero)} carteiras, {len(set(tenho) ^ quero)} em falta ou sobrando')
+destinos = tenho + colum
+dobrados = set(tenho) & set(colum)
+item('cada carteira tem um destino, lote ou nicho',
+     len(destinos) == len(set(destinos)) == len(quero) and set(destinos) == quero and not dobrados,
+     f'{len(tenho)} lotes + {len(colum)} nichos = {len(destinos)} de {len(quero)} carteiras, '
+     f'{len(dobrados)} em dois lugares')
 
 # 2. os três arquivos na mesma ordem
 mesma = (len(lotes) == len(linhas) == len(cotas)) and all(
@@ -95,12 +107,14 @@ def cruza(A, B, tol):
             if min(pb) > max(pa) - tol or max(pb) < min(pa) + tol: return False
     return True
 por_quarteirao = collections.defaultdict(list)
+# ⚠️ A SOBREPOSIÇÃO SE MEDE NO REGISTRO DE DIREITO, QUE É O CSV. O `.bin` é a
+# cópia quantizada em quartos de metro para a cena, e medir nela confunde o
+# quadriculado do arquivo com defeito de cidade: media 0,39 m de "invasão" onde
+# a geometria real encosta exata. O `.bin` se confere logo abaixo, contra o CSV.
 for i, r in enumerate(linhas):
-    x4, z4, _s, _c, _f, _fl, w, d, giro_c = lotes[i]
-    # registro v2: posição em quartos de metro, quarto de metro do tamanho na flag
-    x, z = x4 / 4.0, z4 / 4.0
-    w = w + ((_fl >> 4) & 3) / 4.0
-    d = d + ((_fl >> 6) & 3) / 4.0
+    _, _, _s, _c, _f, _fl, _w, _d, giro_c = lotes[i]
+    x, z = float(r['x_m']), float(r['z_m'])
+    w, d = float(r['frente_m']), float(r['prof_m'])
     por_quarteirao[r['lot_id'][:14]].append((i, cantos(x, z, max(1.0, w), max(1.0, d), math.radians(giro_c/100))))
 pares, piores, fundos = 0, [], []
 for _q, itens in por_quarteirao.items():
@@ -119,6 +133,7 @@ if fundos:
 item('nenhum lote sobre outro', pares == 0, detalhe)
 
 # 5. área entregue contra a prometida pelo snapshot
+# ⚠️ só quem recebeu lote entra nesta conta: o nicho não promete metro quadrado
 prom = {r['address']: r['area_m2'] for r in fila if r['area_m2'] > 0}
 raz = sorted(float(r['area_m2']) / prom[r['address']] for r in linhas if r['address'] in prom)
 n = len(raz) or 1
@@ -129,11 +144,27 @@ item('área entregue honra a prometida', raz[int(n*0.10)] >= 0.95,
 fora = [c for c in cotas if not (-200 <= c <= 300)]
 item('cota dentro da faixa do relevo', not fora, f'{len(fora)} fora')
 
+# 6b. o .bin é cópia fiel do registro, dentro da resolução dele (um quarto de metro)
+pior_bin = 0.0
+for i, r in enumerate(linhas):
+    x4, z4, _s, _c, _f, _fl, w8, d8, _g = lotes[i]
+    pior_bin = max(pior_bin,
+                   abs(x4/4.0 - float(r['x_m'])), abs(z4/4.0 - float(r['z_m'])),
+                   abs(w8 + ((_fl >> 4) & 3)/4.0 - float(r['frente_m'])),
+                   abs(d8 + ((_fl >> 6) & 3)/4.0 - float(r['prof_m'])))
+item('.bin fiel ao registro (1/4 m)', pior_bin <= 0.13, f'pior desvio {pior_bin:.3f} m')
+
 # 7. o que a cidade.json declara bate com o que existe
 meta = json.load(open(os.path.join(BASE, 'public/city/cidade.json')))
 item('cidade.json bate com os arquivos',
      meta.get('plantadas') == len(lotes) and meta.get('carteiras') == len(lotes),
      f"declara {meta.get('plantadas')} de {meta.get('carteiras')}")
+
+# 8. o columbário declarado é o columbário gravado
+if colum:
+    dec = (meta.get('columbario') or {}).get('nichos')
+    item('columbário declarado bate com o gravado', dec == len(colum),
+         f'declara {dec}, gravados {len(colum)}')
 
 print(('REPROVADO: ' + ', '.join(falhas)) if falhas else 'APROVADO')
 sys.exit(1 if falhas else 0)

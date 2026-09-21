@@ -1415,3 +1415,39 @@ Conferência que passou a existir e deve rodar antes de todo registro: bijeção
 mesma ordem em `.bin`/CSV/cotas, `lot_id` único, sobreposição por par dentro do quarteirão,
 área entregue contra prometida, cota dentro da faixa do relevo, e o histograma de
 declividade do que foi gravado.
+
+## §17 — O Columbário 🔒 (2026-09-20)
+
+**A regra.** Quem não alcança o MENOR LOTE DA CIDADE não recebe terra: recebe um nicho com o
+endereço gravado. O corte não é escolhido a dedo, é derivado: é o saldo que paga o piso de
+24 m² na curva publicada (`area = 0,986443·√DOG`), ou seja **591,9 DOG**.
+
+```
+columbário            15.802 carteiras   18,4% da cidade   0,0019% do supply
+cidade com lote       69.995 lotes
+área prometida        46,17 km2 (era 46,30: quem sai quase não pedia área)
+testada liberada      79 km, o maior desperdício do empacotamento
+mediana do lote       593 m2 (era 313)
+```
+
+⚠️ **Por que o corte é no menor lote e não em 1 DOG.** A curva entrega 3 m² de mediana para
+quem tem entre 1 e 100 DOG. Um lote de 3 m² não é lote, é um azulejo: com o boneco de 1,70 m
+andando pela cidade, o dono não cabe em pé no próprio terreno. O corte em 1 DOG resolveria
+1.623 carteiras e deixaria o absurdo de pé para outras 14 mil.
+
+**O nicho é direito de MINTAR, não lote adormecido** (fundador, 20/09): "o cara já teria que
+mintar o terreno e pagar alguma das licenças para restaurar uma carteira". A conversão pede
+as três coisas juntas: voltar a ter saldo, comprar a licença e mintar o deed. Sem isso o
+nicho continua sendo o registro de que aquele endereço existiu no bloco 966.670.
+
+**O lote de volta nasce no ANEL DE EXPANSÃO (§14), nunca no Anel 1.** A posição do Anel 1
+congelou no bloco; quem estava com poeira lá não reaparece no centro depois. Isso dá ao
+columbário uma função urbana: ele é a porta de entrada do Anel 2.
+
+⚠️ **ELES NÃO SAEM DO REGISTRO.** Somem do mapa, não somem da prova: `data/dogcity_columbario.csv`
+é artefato de registro e entra no merkle root com estado próprio. Apagar 15.802 endereços em
+silêncio quebraria a auditoria pública, que é o que faz o mapa valer alguma coisa.
+
+**Na interface:** quando a carteira conectar, a página avisa que o endereço tem nicho e diz o
+caminho da volta. O aviso é o gancho, e o caminho passa pela licença, então a volta alimenta
+o fundo em vez de custar terra de graça.

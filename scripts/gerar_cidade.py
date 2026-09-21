@@ -971,6 +971,13 @@ EXPOENTE = 0.5
 GRADIENTE = float(os.environ.get('GRAD', 0.0))   # 🔒 20/09: a régua é a da landing
 TECIDO_ALVO = 16.33e6  # m² da metade do holder
 LOTE_MIN_FRENTE = 5.0  # nenhum lote fica mais estreito que isto
+# ⚠️ O PISO É O MENOR LOTE DA CIDADE, e desde 20/09 ele decide QUEM TEM LOTE:
+# quem não alcança o piso na curva publicada vai para o columbário (§17). Por
+# isso ele mora aqui em cima, junto dos parâmetros, e não lá embaixo junto da
+# curva: a fila é montada antes da curva existir. Sem piso a raiz produz risco e
+# não lote: medido na rodada sem piso, 2.176 lotes com área ZERO e p25 em 18 m².
+# 24 m² é 5 x 4,8, a banca da tipologia Galeria.
+PISO_LOTE = 24.0
 LIMITE_MINT = 20000    # ⚠️ NÃO É MAIS FILTRO DE ENTRADA: é o saldo que
                        # destrava CONSTRUIR. Abaixo dele o lote existe,
                        # é do dono e aparece vazio.
@@ -2810,6 +2817,28 @@ print(f'CAPACIDADE TOTAL: {CAP:,} lotes', file=sys.stderr)
 FONTE = os.environ.get('FONTE', 'snapshot')
 SNAP_ORDEM = p('data/snapshots/dog_966670_ordem_residencial.json')
 
+# ⚠️ O COLUMBÁRIO (fundador, 20/09/2026). Quem não alcança o MENOR LOTE DA
+# CIDADE não recebe terra: recebe um nicho com o endereço gravado, e o nicho é
+# bilhete de reivindicação, não lápide. Se a carteira voltar a ter saldo e o
+# dono comprar a licença E MINTAR O DEED, ela troca o nicho por lote NOVO, no
+# anel de expansão do §14, nunca no Anel 1, que congelou no bloco 966.670. O
+# nicho é direito de mintar, não lote adormecido: sem licença e sem mint ele
+# continua sendo só o registro de que aquele endereço existiu no bloco.
+#
+# O corte não é um número escolhido a dedo: é o saldo que paga o piso de 24 m²
+# na curva publicada, `area = 0,986443·√DOG`. Medido: 15.802 carteiras (18,4%
+# da cidade) segurando 0,0019% do supply, e a área prometida da cidade cai só
+# de 46,30 para 46,17 km². Em troca libera 79 km de testada mínima, que é o
+# desperdício que mais pesava no empacotamento: lote de 3 m² gastava 5 m de
+# frente de rua igual a um de 120 m².
+#
+# ⚠️ ELES NÃO SAEM DO REGISTRO. Some do mapa, não some da prova: o columbário é
+# gravado e entra no merkle root com estado próprio. Apagar 15.802 endereços em
+# silêncio quebraria a auditoria pública, que é o que faz o mapa valer.
+K_PUBLICADA = 0.986443       # a curva que a landing publica (masterplan §16.2)
+DOG_MIN_LOTE = (PISO_LOTE / K_PUBLICADA) ** 2     # 591,9 DOG
+COLUMBARIO = []
+
 elig, carteiras, UTX_SNAP = {}, [], {}
 if FONTE == 'snapshot':
     _o = json.load(open(SNAP_ORDEM))
@@ -2817,6 +2846,8 @@ if FONTE == 'snapshot':
     for _r in _linhas:
         _a = _r['address']
         if _r['dog'] <= 0: continue
+        if _r['dog'] < DOG_MIN_LOTE:
+            COLUMBARIO.append(_r); continue
         elig[_a] = _r['dog']
         UTX_SNAP[_a] = int(_r.get('utxo_count') or 1)
         # a tupla imita a da fonte viva (a ordem já está resolvida, então o que
@@ -2825,6 +2856,9 @@ if FONTE == 'snapshot':
     N = len(carteiras)
     print('fila do snapshot %s: %d carteiras, posição por DOG-tempo (masterplan §12)'
           % (os.path.basename(SNAP_ORDEM), N), file=sys.stderr)
+    print('  columbário: %d carteiras abaixo de %.0f DOG (o saldo que paga o piso de %.0f m²), '
+          'com %.0f DOG somados' % (len(COLUMBARIO), DOG_MIN_LOTE, PISO_LOTE,
+                                    sum(_r['dog'] for _r in COLUMBARIO)), file=sys.stderr)
     _nel = sum(1 for _r in _linhas if not _r.get('elegivel'))
     print('  ⚠️ %d delas estão marcadas `elegivel: false` (filtro de custódia do §12.1) '
           'e MESMO ASSIM recebem lote: a marca não é despejo.' % _nel, file=sys.stderr)
@@ -3006,7 +3040,6 @@ soma_raiz = sum(elig[a] ** EXPOENTE for _, _, _, a in carteiras)
 # PROFUNDIDADE ia a centímetros: 5,00 x 0,04 m não é lote, é uma linha no chão.
 # Piso de 24 m² (5 x 4,8 m) é a banca da tipologia Galeria, e custa 0,384 km²,
 # ou 2,0% da área, para virar 23.323 riscos em parcela de verdade.
-PISO_LOTE = 24.0
 def area_de(dog, r):
     return max(PISO_LOTE, K_AREA * (dog ** EXPOENTE) * ((r / R_INICIO) ** GRADIENTE))
 def _mg():
@@ -3587,10 +3620,12 @@ for x, z, s, a, w, d, _q, _b, _n in saida:
     # divisa no lugar errado. Os bits 4-5 levam o resto da frente e os 6-7 o
     # resto do fundo, em quartos de metro. Quem lê só a forma (bits 1-3) e o DSC
     # (bit 0) não vê diferença nenhuma.
-    _qw = int(round((w - math.floor(w)) * 4)) & 3
-    _qd = int(round((d - math.floor(d)) * 4)) & 3
+    # ⚠️ UM ARREDONDAMENTO SÓ, E DEPOIS SEPARA. Fazer `floor` na parte inteira e
+    # `round` na fração estoura quando a fração passa de 0,875: os quatro quartos
+    # viram zero no `& 3` e o lote encolhe quase um metro em silêncio.
+    _w4, _d4 = int(round(w * 4)), int(round(d * 4))
     fl = ((1 if a in dsc else 0) | (forma_de(UTX.get(a, 1)) << 1)
-          | (_qw << 4) | (_qd << 6))
+          | ((_w4 & 3) << 4) | ((_d4 & 3) << 6))
     giro_c = int(round(_GIRO_DE.get((s, _q, _b), 0.0) * 100)) % 36000
     # ⚠️ A POSIÇÃO PASSOU A SER EM QUARTOS DE METRO (versão 2 do registro,
     # 20/09). Em metros inteiros dois lotes que se ENCOSTAM na divisa de fundo
@@ -3602,7 +3637,7 @@ for x, z, s, a, w, d, _q, _b, _n in saida:
     # chega a 7.430, então cabe. O tamanho do registro não muda.
     buf += struct.pack('<hhBBHBBBH', int(round(x*4)), int(round(z*4)), s, coorte,
                        min(65535, fam), fl,
-                       max(1, min(255, int(math.floor(w)))), max(1, min(255, int(math.floor(d)))),
+                       max(1, min(255, _w4 // 4)), max(1, min(255, _d4 // 4)),
                        giro_c)
 open(ps('public/city/cidade-lotes.bin'), 'wb').write(buf)
 
@@ -3641,12 +3676,31 @@ with open(ps('data/dogcity_lotes.csv'), 'w', newline='') as f:
     for x, z, s, a, fr, pf, q_, b_, n_ in saida:
         u = UTX.get(a, 1)
         w.writerow([f'S{s+1:02d}-Q{q_:02d}-B{b_:03d}-L{n_:03d}', a, posto[a], s + 1, q_, b_, n_,
-                    round(x), round(z), round(math.hypot(x, z)),
-                    round(fr, 1), round(pf, 1), round(fr * pf),
+                    # ⚠️ O CSV É O REGISTRO DE DIREITO e o .bin é a cópia que a
+                    # cena desenha. Gravar posição em metro inteiro aqui fazia o
+                    # documento do dono ter menos precisão que o desenho: dois
+                    # lotes que se encostam apareciam cruzados em meio metro.
+                    round(x, 2), round(z, 2), round(math.hypot(x, z), 1),
+                    round(fr, 2), round(pf, 2), round(fr * pf),
                     round(elig[a]), u, forma_de(u), min(7, posto[a]*8//N),
                     familia_de.get(a, 0), 1 if a in dsc else 0,
                     round(COTA.get(a, 0.0), 2)])
 print(f'gravado data/dogcity_lotes.csv com {len(saida):,} lotes', file=sys.stderr)
+
+# ⚠️ O COLUMBÁRIO É ARTEFATO DE REGISTRO, não sobra de filtro. Ele entra no
+# merkle root junto com os lotes: o endereço existiu no bloco, não alcançou o
+# menor lote, e tem direito a um lote no anel de expansão quando voltar a ter
+# saldo E comprar a licença.
+if COLUMBARIO:
+    with open(ps('data/dogcity_columbario.csv'), 'w', newline='') as f:
+        _w = csv.writer(f)
+        _w.writerow(['nicho', 'address', 'dog', 'utxo_count', 'posicao_residencial',
+                     'airdrop', 'assinou', 'direito'])
+        for _i, _r in enumerate(sorted(COLUMBARIO, key=lambda r: -r['dog']), 1):
+            _w.writerow([f'N{_i:05d}', _r['address'], _r['dog'], _r.get('utxo_count', 0),
+                         _r['posicao_residencial'], 1 if _r.get('airdrop') else 0,
+                         _r.get('assinou', 0), 'licença paga + mint do deed = lote no anel de expansão'])
+    print(f'gravado data/dogcity_columbario.csv com {len(COLUMBARIO):,} nichos', file=sys.stderr)
 
 # ⚠️ A CONFERÊNCIA DO TETO DE 12% (masterplan §15). Ela mede a cidade GRAVADA,
 # não a intenção do laço: o lote é reconstruído a partir do que foi para o
@@ -3685,6 +3739,11 @@ json.dump({
     # ler a v2 com código de v1 desenha a cidade a um quarto do tamanho, e isso
     # tem de falhar alto, não em silêncio.
     'registroVersao': 2,
+    'columbario': {'nichos': len(COLUMBARIO), 'corteDog': round(DOG_MIN_LOTE, 2),
+                   'pisoLote_m2': PISO_LOTE,
+                   'regra': 'abaixo do saldo que paga o menor lote, o endereço recebe nicho. '
+                            'O nicho é direito de MINTAR, não lote: volta a ter saldo, compra '
+                            'licença e minta o deed, e o lote nasce no anel de expansão'},
     'esquema': 'int16 x_quartos_de_metro, int16 z_quartos_de_metro, uint8 setor, '
                'uint8 coorte, uint16 familia, uint8 flags(bit0=DSC, bits1-3=forma, '
                'bits4-5=quarto de metro da frente, bits6-7=quarto de metro do fundo), '
