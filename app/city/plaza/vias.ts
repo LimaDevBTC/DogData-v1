@@ -50,7 +50,7 @@ import * as THREE from 'three'
 import { corCurta, normalCurta } from './atributos'
 import { LIMIAR_PRACA } from './pracas'
 import type { DistanceCuller } from './perf'
-import { ANEIS, AVENIDAS, HR, N_RAD, aneisDaCidade, anguloDe, avenidasGeom, naAlcaDeTerra, nasceEm, noArcoDoAnel, raioDodeca } from './teia'
+import { ANEIS, AVENIDAS, HR, N_RAD, aneisDaCidade, anguloDe, avenidasGeom, naAlcaDeTerra, nasceEm, noArcoDoAnel, passoNoRaio, raioDodeca } from './teia'
 import {
   ORLA_BAIA_ARCO, ORLA_BAIA_VIAS, ORLA_BAIA_DEDO_RUMOS, ORLA_BAIA_DEDO_ESPINHA_LARG,
   ORLA_BAIA_R_FRENTE, ORLA_BAIA_RUA, ORLA_BAIA_DEDO_PONTA, naOrlaDaBaia,
@@ -1974,20 +1974,42 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
         const esc = larg / SEC_TRAVESSA[SEC_TRAVESSA.length - 1].ate
         const secao = esc === 1 ? SEC_TRAVESSA
           : SEC_TRAVESSA.map((bb) => ({ ...bb, de: bb.de * esc, ate: bb.ate * esc }))
-        // ⚠️ A TRAVESSA PASSA DA DIVISA DO QUARTEIRÃO, E ISSO É CONECTIVIDADE,
-        // NÃO DESCUIDO. Desenhadas exatamente do início ao fim do `lado`, elas
-        // encadeiam umas nas outras e formam uma rede TANGENCIAL paralela aos
-        // anéis, que nunca cruza uma arterial: medido com
-        // `vias-varredura.mjs --dilata=1`, o pavimento dobrou para 9,89 km² mas
-        // 41% dele virou ilha, com vão de 12 a 48 m até a rede. O quarteirão
-        // não encosta na célula da teia, sobra folga entre os dois, e é nessa
-        // folga que mora o radial. `SOBRA` atravessa a folga; onde não houver
-        // o que encontrar, as máscaras de `faixa` (água, bulevar, alça, orla)
-        // param o traçado sozinhas.
-        const SOBRA = 34
+        // ⚠️ A TRAVESSA TERMINA NO RADIAL DA TEIA, NÃO NUMA SOBRA CHUTADA.
+        //
+        // Desenhadas exatamente do início ao fim do `lado`, elas encadeiam umas
+        // nas outras e formam uma rede TANGENCIAL paralela aos anéis, que nunca
+        // cruza uma arterial: medido com `vias-varredura.mjs --dilata=1`, 41%
+        // do pavimento virou ilha. A causa é que o quarteirão NÃO encosta na
+        // célula da teia, e é na folga entre os dois que mora o radial.
+        //
+        // Uma sobra fixa (tentei 34 m) fecha onde a folga é pequena e falha no
+        // resto, e pior: sobra cega pode atravessar o lote do quarteirão
+        // vizinho, que ninguém mede hoje. Aqui a ponta é CALCULADA: acha o
+        // radial ATIVO da teia (`NIVEIS` manda: passo 2 abaixo de ANEIS[13],
+        // passo 1 acima) imediatamente além da divisa, e encosta nele. Se o
+        // radial estiver longe demais, o teto de `SOBRA_MAX` corta — melhor
+        // travessa curta do que asfalto em cima de lote.
         const bx = q.x + perpX * z0, bz = q.z + perpZ * z0
-        faixa(bx - dirX * (meiaL + SOBRA), bz - dirZ * (meiaL + SOBRA),
-              bx + dirX * (meiaL + SOBRA), bz + dirZ * (meiaL + SOBRA),
+        const SOBRA_MAX = 90
+        const passoR = passoNoRaio(Math.hypot(q.x, q.z))
+        const ateORadial = (sgn: number) => {
+          const ex = bx + dirX * sgn * meiaL, ez = bz + dirZ * sgn * meiaL
+          let ang = Math.atan2(ex, -ez)
+          if (ang < 0) ang += Math.PI * 2
+          const idx = (ang / (Math.PI * 2)) * N_RAD
+          // o próximo índice ATIVO no sentido em que a ponta anda
+          const passa = sgn > 0 ? Math.ceil(idx / passoR) : Math.floor(idx / passoR)
+          const alvo = anguloDe(((passa * passoR) % N_RAD + N_RAD) % N_RAD)
+          // interseção da reta da travessa com a reta do radial
+          const ux = Math.sin(alvo), uz = -Math.cos(alvo)
+          const cruz = (ax: number, az: number, bx2: number, bz2: number) => ax * bz2 - az * bx2
+          const den = cruz(dirX * sgn, dirZ * sgn, ux, uz)
+          if (Math.abs(den) < 1e-9) return meiaL
+          const t = -cruz(ex, ez, ux, uz) / den
+          return meiaL + Math.min(SOBRA_MAX, Math.max(0, t))
+        }
+        faixa(bx - dirX * ateORadial(-1), bz - dirZ * ateORadial(-1),
+              bx + dirX * ateORadial(+1), bz + dirZ * ateORadial(+1),
               perpX, perpZ, secao)
         n++
       }

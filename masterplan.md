@@ -2012,6 +2012,39 @@ loteamento abrir um vão para via, alguém tem de responder QUEM desenha aquele 
 resposta não pode ser "a teia", que é outra escala. E a medição que prova isso é a
 pergunta feita à própria máscara de pavimento, lote a lote, não a inspeção de chapa.
 
+### §25.1 — E desenhar rua não é ligar rua (medido na mesma noite)
+
+Desenhar as travessas resolveu a frente do lote e abriu um problema novo, que só apareceu
+porque a medição continuou. Elas encadeiam umas nas outras e formam uma **rede TANGENCIAL
+paralela aos anéis, que nunca cruza uma arterial**. O quarteirão não encosta na célula da
+teia: sobra folga entre os dois, e é na folga que mora o radial.
+
+**MEDIDO com `vias-varredura.mjs --cel=6 --dilata=1`** (e a primeira leitura foi feita SEM
+`--dilata=1`, contra a regra que o próprio projeto já tinha registrado: sem ela dois
+pavimentos a 1 m viram componentes separados na grade de 6 m):
+
+```
+                              pavimento   componentes   ilhas
+antes das travessas            5,28 km²         839      9,0%
+travessas até a divisa         ~22 km²        2.363     41,4%
++ sobra fixa de 34 m           25,75 km²         828     23,5%
++ ponta no radial da teia      30,06 km²         409     14,0%
+```
+
+**A ponta calculada é melhor que a sobra fixa por dois motivos, não um.** Ela fecha mais
+ilhas, e sobretudo ela não pode atravessar o lote do quarteirão vizinho: o radial ativo é
+a divisa entre células, então encostar nele é o limite natural. Sobra cega não tem limite
+natural e ninguém mede hoje se uma via passou por cima de lote.
+
+⚠️ **O QUE FICA ABERTO, E É ESTRUTURAL.** Cada volta destas fecha metade das ilhas e
+acrescenta asfalto: 5,3 → 30,1 km². Isso é sintoma de estar consertando geometria com
+pavimento. O conserto de verdade é o inverso e mora no GERADOR: fazer a divisa do
+quarteirão **coincidir** com a rua da teia. Aí a fileira externa ganha frente sem nada
+novo, a travessa termina numa rua de verdade e o asfalto para de crescer. Hoje as duas
+famílias estão em módulos diferentes: os anéis da teia andam de cerca de 239 m e a
+profundidade do quarteirão é 109/168/227/286/345 por banda. Enquanto isso não for
+reconciliado, as ilhas voltam a cada rodada.
+
 ---
 
 ## §26 — Lote é marcação no chão, não volume 🔒 (22/09/2026)

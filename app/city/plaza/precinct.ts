@@ -154,6 +154,26 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   const cull = (o: THREE.Object3D, d = SMALL) => opts.culler?.add(o, d)
   const group = new THREE.Group()
   group.name = 'Precinct'
+
+  // ⚠️ O JARDIM CLÁSSICO SAIU EM 22/09/2026, POR DECISÃO DO FUNDADOR, e o
+  // motivo não é gosto: ele estava competindo com a cidade. Palavras dele:
+  // "a Satoshi Plaza tá uma zona, com aquele monte de fontes, jardins... com
+  // esse monte de planta aí não dá nem para ver onde estão os terrenos dos
+  // caras na parte central".
+  //
+  // Ficam TRÊS peças, e elas se mudam para cima do deck, debaixo da torre:
+  // a Pata de Diamante com a estátua do Leônidas, o Jardim do White Paper e o
+  // painel do Dog Social Club. O chão continua CÍVICO (o §3.1 do caderno de
+  // tiers segue de pé, o centro não recebe lote de carteira); o que era
+  // parterre passa a ser chão livre para prédio do projeto, como a BitFlow, a
+  // Kray, o Chalé e a Sphere já são.
+  //
+  // ⚠️ O QUE ESTA BANDEIRA FAZ E O QUE ELA NÃO FAZ. Ela zera a CONTAGEM de
+  // cada camada de jardim (sebe, palmeira, árvore, topiaria, espelho d'água),
+  // que é o que tira da tela. A construção ainda roda e é custo morto: tirar o
+  // código é o passo seguinte, e está anotado aqui em voz alta para não virar
+  // a armadilha do `PISTAS` vazio, que escondeu um módulo inteiro por tempo.
+  const JARDIM = false
   const rnd = mulberry(840000)
   const disposables: { dispose: () => void }[] = []
   const track = <T extends { dispose: () => void }>(o: T): T => { disposables.push(o); return o }
@@ -474,7 +494,7 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   const poolRimMat = track(new THREE.MeshBasicMaterial({ color: ICE, toneMapped: false, transparent: true, opacity: 0.7 }))
   const jets: THREE.Points[] = []
   const jetTex = makeDotTexture()
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; JARDIM && i < 4; i++) {
     const a = Math.PI / 4 + (i * Math.PI) / 2
     const cx = Math.cos(a) * 560, cz = Math.sin(a) * 560
     const y = yAt(cx, cz)
@@ -636,7 +656,7 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
       }
     }
   }
-  const hedgeMesh = new THREE.InstancedMesh(hedgeGeo, hedgeMat, hedges.length)
+  const hedgeMesh = new THREE.InstancedMesh(hedgeGeo, hedgeMat, JARDIM ? hedges.length : 0)
   hedges.forEach((m, i) => hedgeMesh.setMatrixAt(i, m))
   hedgeMesh.instanceMatrix.needsUpdate = true
   hedgeMesh.receiveShadow = true // não projeta: milhares de caixinhas no mapa de sombra por nada
@@ -681,8 +701,8 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   const frondGeo = track(makeFrondGeometry())
   const frondMat = track(new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.8, metalness: 0 }))
   const FRONDS = 9
-  const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, palms.length)
-  const fronds = new THREE.InstancedMesh(frondGeo, frondMat, palms.length * FRONDS)
+  const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, JARDIM ? palms.length : 0)
+  const fronds = new THREE.InstancedMesh(frondGeo, frondMat, JARDIM ? palms.length * FRONDS : 0)
   palms.forEach(([x, z], i) => {
     const h = 11 + rnd() * 9
     const y = yAt(x, z)
@@ -734,8 +754,16 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
       else if (x < 0 && z > 0) put(u < 0.5 ? 'tree-olive' : 'tree-medit', [x, z])    // SW, o jardim antigo
       else put(u < 0.4 ? 'tree-blossom' : 'tree-maple', [x, z])                      // SE, o que floresce
     }
-    for (const [file, at] of Object.entries(byFile)) treeSpots.push({ file, at })
-    if (farPalms.length) treeSpots.push({ file: 'palm-date', at: farPalms })
+    // ⚠️ A ÁRVORE DE VERDADE VEM POR OUTRO CAMINHO, e por isso quase escapou
+    // da limpeza: `treeSpots` não desenha nada aqui, ele é a LISTA que
+    // `plaza-scene.tsx` usa para instanciar os modelos do acervo. Zerar só as
+    // contagens procedurais tirou sebe, topiaria e palmeira de polígono e
+    // deixou a tamareira de verdade em pé, enfileirada no anel. Quem tira
+    // árvore da praça tem de tirar nos DOIS caminhos.
+    if (JARDIM) {
+      for (const [file, at] of Object.entries(byFile)) treeSpots.push({ file, at })
+      if (farPalms.length) treeSpots.push({ file: 'palm-date', at: farPalms })
+    }
   }
   if (!REAL) {
     for (const [x, z] of WHITEPAPER_CYPRESSES) planted.push({ kind: 'cypress', x, z })
@@ -788,7 +816,7 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
       }
       canopies.setMatrixAt(i, o.matrix)
     })
-    canopies.count = list.length
+    canopies.count = JARDIM ? list.length : 0
     canopies.castShadow = canopies.receiveShadow = true
     canopies.instanceMatrix.needsUpdate = true
     canopies.name = `Trees_${k}`
@@ -803,13 +831,13 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
       o.position.set(p.x, yAt(p.x, p.z) + 0.6, p.z); o.rotation.set(0, rnd() * 6.28, (rnd() - 0.5) * 0.03); o.scale.set(r, h, r); o.updateMatrix()
       cyp.setMatrixAt(i, o.matrix)
     })
-    cyp.count = list.length
+    cyp.count = JARDIM ? list.length : 0
     cyp.castShadow = cyp.receiveShadow = true
     cyp.instanceMatrix.needsUpdate = true
     cyp.name = 'Trees_cypress'
     group.add(cyp)
   }
-  tTrunks.count = ti
+  tTrunks.count = JARDIM ? ti : 0
   tTrunks.castShadow = true
   tTrunks.instanceMatrix.needsUpdate = true
   group.add(tTrunks)
@@ -821,7 +849,7 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
     if (Math.abs(Math.sin(2 * a)) < 0.16) continue
     topi.push([Math.cos(a) * (R_GARDEN_IN + 38), Math.sin(a) * (R_GARDEN_IN + 38)])
   }
-  const topiMesh = new THREE.InstancedMesh(canopyGeo, track(new THREE.MeshStandardMaterial({ color: HEDGE, roughness: 0.9 })), topi.length)
+  const topiMesh = new THREE.InstancedMesh(canopyGeo, track(new THREE.MeshStandardMaterial({ color: HEDGE, roughness: 0.9 })), JARDIM ? topi.length : 0)
   topi.forEach(([x, z], i) => {
     const r = 1.6 + rnd() * 0.6
     o.position.set(x, yAt(x, z) + r, z); o.rotation.set(0, 0, 0); o.scale.setScalar(r); o.updateMatrix()
