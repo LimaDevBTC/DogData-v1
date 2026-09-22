@@ -115,7 +115,7 @@ wallets.
 | 101,779 $DOG (the median holder) | 315 m² |
 | 889,806 $DOG (one airdrop) | 931 m² |
 | 10,000,000 $DOG | 3,119 m² |
-| 1,644,000,000 $DOG and above | 40,000 m² (the cap) |
+| 1,644,000,000 $DOG and above | 40,000 m² (the residential cap) |
 
 **The number that answers the whale question before it is asked:**
 
@@ -124,8 +124,17 @@ Top 20 wallets, share of supply     33.02%
 Top 20 wallets, share of land        1.14%
 ```
 
-Six wallets reach the cap. The largest wallet on the chain holds **56 times** more $DOG
-than the twentieth largest, and receives **2.7 times** the land.
+Six wallets reach that ceiling. Four of them were measured as institutional and sit in the
+Financial District, where the ceiling is raised to 150,000 m². The largest wallet on the
+chain holds **56 times** more $DOG than the twentieth largest, and receives **2.7 times**
+the land.
+
+> ⚠️ Corrigido em 22/09/2026 contra o registro selado. "Six wallets reach the cap" dizia,
+> sem querer, que seis lotes de 40.000 m² existem na cidade. Nao existem: **nenhum lote
+> residencial chega aos 40.000 m²** (o maior tem 31.035 m²), porque quatro das seis foram
+> para o Distrito Financeiro e as duas que ficaram no tecido receberam 30.201 e 31.035 m².
+> A curva e o ALVO; o que a escritura afirma e a area gravada no registro. A pagina no ar,
+> `/dogcity/docs` secao 3, publica a razao entregue/prometida.
 
 ## 7. Who the snapshot found
 

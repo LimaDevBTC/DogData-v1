@@ -32,6 +32,11 @@
 "use client"
 
 import { Layout } from "@/components/layout"
+// ⚠️ A RAZÃO ENTREGUE/PROMETIDA VEM DE UMA FONTE SÓ. Todo número da subseção
+// "What the ground actually delivers" é saída do gerador e morre na próxima
+// rodada, então ele não pode ser digitado aqui: vive em `ENTREGA`, em
+// ../dogcity-data.ts, com a data da medição e o comando que remede.
+import { ENTREGA } from "../dogcity-data"
 
 // ── mesmas constantes de hairline de ../motion.tsx, copiadas localmente ────
 // (aquele arquivo é "use client"; esta página é Server Component de propósito
@@ -503,6 +508,33 @@ export default function DogCityDocsPage() {
                 size without letting size erase everyone smaller.
               </P>
 
+              <Sub>What the ground actually delivers</Sub>
+              <P className="mt-3">
+                The curve is the target, and the city is measured against it. The curve was
+                published before the city existed, and ground is finite: streets, water, slope and
+                the geometry of a block all take area the curve never accounted for, so most lots
+                land a little under their target. Below is what the curve asks for against what
+                the registry hands over, measured across every wallet lot in the city.
+              </P>
+              <DataBlock>
+                <Row label="typical lot, delivered against target" value={ENTREGA.mediana} note="(the median)" />
+                <Row label="smallest ratio anywhere in the city" value={ENTREGA.minimo} />
+                <Row label="lots under 0.95 of target" value={ENTREGA.abaixoDe095} />
+                <Row label="lots under 0.90" value={ENTREGA.abaixoDe090} indent />
+                <Row label="lots under 0.50" value={ENTREGA.abaixoDe050} indent />
+                <Row label="measured on" value={ENTREGA.medidaEm} note="(the sealed registry of that day)" />
+              </DataBlock>
+              <P>
+                A lot under its target is missing fabric, never a decision about a wallet.
+                Nothing was taken from one address and handed to another: where a block ran out of
+                depth, every lot in that block came up short together, which is why the tail is
+                not scattered across the city. Every lot under half its target sits in one sector,
+                and so do {ENTREGA.abaixoDe090NoPiorSetor} of the {ENTREGA.abaixoDe090} under
+                0.90. The deed a wallet receives states the area the
+                registry holds, and that area, not the target, is what the fingerprint seals and
+                what this site answers when you look your wallet up.
+              </P>
+
               <Sub>Below the smallest lot: the cemetery</Sub>
               <P className="mt-3">
                 The floor of that curve is not decoration. At 24 m2 a lot is still ground a person
@@ -829,11 +861,13 @@ export default function DogCityDocsPage() {
               <Sub>How land is sized inside the district</Sub>
               <P className="mt-3">
                 The district uses the same square-root curve as the rest of the city, with its
-                ceiling raised from 40,000 m2 to 150,000 m2. The residential cap would tie the
-                largest institutions at the same maximum size, which erases exactly the size
-                difference a financial district is supposed to show. Under the raised cap the curve
-                still holds: a wallet with four times the balance of another receives only twice the
-                land. Measured against the closed snapshot, the 21 institutional wallets
+                ceiling raised from 40,000 m2 to 150,000 m2. The residential cap of 40,000 m2 would
+                tie the four largest institutions at the same maximum size, which erases exactly the
+                size difference a financial district is supposed to show. Under the raised cap the
+                curve still holds, and the district is its own proof: its largest wallet holds 284
+                times the balance of its smallest, 3,030,049,556 $DOG against 10,659,069, and
+                receives 16.9 times the land, 54,300 m2 against 3,221. Measured against the closed
+                snapshot, the 21 institutional wallets
                 hold 13.66% of the supply and take 403,911 m2 in total, or 0.40 km2, with the
                 largest reaching 54,300 m2, roughly a third of the raised ceiling. The district is
                 built and the whole of it fits with room to spare in the dry ring between the

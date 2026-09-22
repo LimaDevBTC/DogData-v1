@@ -433,15 +433,21 @@ Satoshi Plaza                                6.33 km2
 ### How land is sized inside the district
 
 The district uses the same square-root curve as the rest of the city, with its ceiling
-raised from 40,000 m2 to 150,000 m2. The residential cap would tie every large institution
-at the same maximum size, which erases exactly the size difference a financial district is
-supposed to show. Under the raised cap, the largest wallet identified so far reaches roughly
-112,000 m2, well under the new ceiling, and the curve still holds: a wallet with 4.3 times
-the balance of another receives only 2.1 times the land. Twenty-two already-identified
-institutional wallets today account for 28.85% of the supply and would occupy under 0.6 km2
-even at the higher cap; a broader projection across every exchange currently listing $DOG
-and their bridges puts the total closer to 1.9 km2, comfortably inside the 13.5 km2 available
-in the surrounding ring should the district ever need to grow into it.
+raised from 40,000 m2 to 150,000 m2. The residential cap of 40,000 m2 would tie the four
+largest institutions at the same maximum size, which erases exactly the size difference a
+financial district is supposed to show. Under the raised cap the curve still holds, and the
+district is its own proof: its largest wallet holds 284 times the balance of its smallest,
+3,030,049,556 $DOG against 10,659,069, and receives 16.9 times the land, 54,300 m2 against
+3,221. The 21 institutional wallets hold 13.66% of the supply and take 403,911 m2 in total,
+or 0.40 km2, which fits with room to spare in the dry ring between the precinct wall and the
+Plaza Lake.
+
+> ⚠️ Corrigido em 22/09/2026 contra o registro selado. O que estava aqui: "the largest
+> wallet identified so far reaches roughly 112,000 m2" e o par generico "4.3 times the
+> balance / 2.1 times the land", mais "twenty-two already-identified institutional wallets
+> ... 28.85% of the supply". Os 112.000 m2 sao a curva de uma carteira de 12,9B DOG que NAO
+> esta no distrito: ela ficou no tecido residencial com 30.201 m2. Sao 21 carteiras, nao 22,
+> e 13,66% do supply.
 
 $DOG is listed on 20 exchanges today (source: CoinGecko, 13 September 2026), 14 custodial
 and 6 on-chain. The project has confirmed the deposit address of 5 of the 14 custodial
@@ -466,11 +472,18 @@ trade it for a lot of the same standing drawn from the project's own reserve, no
 in size or quality from the one it gave up.
 
 That right only works because the project holds a standing reserve everywhere it might be
-needed. The project keeps 15% of the lots in every neighborhood in the city, scattered
-throughout each one rather than gathered into a single block, specifically so that a lot of
-comparable standing is always available near wherever an appeal happens to land. Across the
-whole city that reserve totals 15,141 lots, alongside 85,797 wallet lots, using 51.05 km2 of
-the 66.767 km2 of urban fabric available, with 15.71 km2 to spare.
+needed. The project keeps 1% of the lots in every neighborhood of the residential fabric,
+scattered throughout each one rather than gathered into a single block, specifically so that
+a lot of comparable standing is always available near wherever an appeal happens to land.
+The measurement in section 4 flagged 21 wallets, and the reserve covers every possible
+appeal many times over.
+
+> ⚠️ Corrigido em 22/09/2026. O que estava aqui: reserva de "15% of the lots in every
+> neighborhood", "15,141 lots", "85,797 wallet lots", "51.05 km2 of the 66.767 km2". A
+> reserva caiu para 2% em 21/09 e para 1% em 22/09, por decisao do fundador: cada ponto de
+> reserva custa um ponto de area de todo mundo. Os 15.141 lotes e os 51,05 km2 nunca
+> existiram na cidade. O split 30/15/55 logo acima fica como historico, e a propria pagina
+> ja o descreve como erro de medicao.
 
 ---
 

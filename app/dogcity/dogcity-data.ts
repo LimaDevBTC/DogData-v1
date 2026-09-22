@@ -373,3 +373,63 @@ export const CORTE_CEMITERIO_DOG = (PISO_LOTE_M2 / CURVA_K) ** 2          // 591
 export const CORTE_CEMITERIO_PUBLICADO = Math.ceil(CORTE_CEMITERIO_DOG * 100) / 100   // 591,95
 export const LAPIDES = 15802
 export const LOTES_DE_CARTEIRA = 69995
+
+// ── OS DOIS TETOS DA CURVA ─────────────────────────────────────────────────
+// O teto residencial é publicado na §3 da página; o elevado, na §5, e vale só
+// dentro do Distrito Financeiro.
+export const TETO_RESIDENCIAL_M2 = 40000
+export const TETO_DISTRITO_M2 = 150000
+
+// ⚠️ O BAIRRO NÃO SAI DA ROTA, E NÃO PODE SAIR. `dog_snapshot_lookup` não tem
+// posição, distrito nem tag institucional, de propósito. Então qual teto vale
+// para uma carteira é DEDUZIDO da própria área que ela já recebeu: só um lote
+// do Distrito Financeiro passa dos 40.000 m² (o maior lote residencial do
+// registro selado tem 31.035 m²). Nada de posição é inventado aqui: a área
+// entregue já estava na resposta.
+export function alvoDaCurva(dog: number, areaEntregue: number): number {
+  const teto = areaEntregue > TETO_RESIDENCIAL_M2 ? TETO_DISTRITO_M2 : TETO_RESIDENCIAL_M2
+  return Math.min(teto, Math.max(PISO_LOTE_M2, CURVA_K * Math.sqrt(Math.max(dog, 0))))
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// O QUE O CHÃO ENTREGA CONTRA O QUE A CURVA PROMETE, UMA FONTE SÓ
+//
+// 🔒 DECISÃO DO FUNDADOR, 22/09/2026: a razão entregue/prometida VAI AO AR
+// antes do merkle root, com mediana e mínimo, e com o motivo. A curva foi
+// publicada antes de a cidade existir e o sítio não tem tecido para honrar
+// 100% dela em todo lote: rua, água, talude e geometria de quadra comem área
+// que a curva nunca previu. Não é escolha sobre carteira nenhuma.
+//
+// ⚠️ TODO NÚMERO DESTE BLOCO É SAÍDA DO GERADOR E MORRE NA PRÓXIMA RODADA.
+// Medido em 22/09/2026 sobre `data/dogcity_lotes.csv` (o registro selado),
+// 70.016 lotes de carteira, cada um contra `clamp(0,986443 × √DOG, 24 m²,
+// 40.000 m²)`, com o teto de 150.000 m² para as 21 do Distrito Financeiro.
+// Quem regerar a cidade REFAZ ESTE BLOCO. `python3 scripts/city/sobe_lookup.py
+// --dry-run` imprime a medição nova sem tocar em produção.
+//
+// ⚠️ E ESTE BLOCO NÃO É A FONTE ÚNICA, POR MAIS QUE ELE DEVESSE SER. A §5 da
+// página de docs ainda tem número de gerador DIGITADO no JSX (o total do
+// Distrito Financeiro, o par medido da maior contra a menor, o teto). Quem
+// regerar tem de caçar esses também, e a lista deles está no §31 do masterplan.
+// Registro a dívida aqui em vez de afirmar que ela não existe: a frase anterior
+// nesta nota dizia "a página não tem número solto", e isso era falso na mesma
+// entrega que a escreveu.
+//
+// ⚠️ O PORTÃO NÃO VÊ ESTA CAUDA. `conferir_lotes.py` mede o percentil 10, e
+// por isso dizia APROVADO com um lote em 0,284: 21 lotes são 0,03% da cidade e
+// somem antes do primeiro percentil. Se algum dia esta constante for apagada
+// "porque o portão aprova", a cauda volta a ser invisível.
+export const ENTREGA = {
+  medidaEm: "22 September 2026",
+  mediana: "0.963",
+  minimo: "0.284",
+  abaixoDe095: "271",
+  abaixoDe090: "85",
+  abaixoDe050: "21",
+  // ⚠️ A CAUDA NÃO É ESPALHADA, e dizer isso é o que separa "falta de tecido"
+  // de "escolha sobre carteira". Medido em 22/09: os 21 lotes abaixo de 0,50
+  // estão TODOS no setor 4, e 82 dos 85 abaixo de 0,90 também. Se numa rodada
+  // futura a cauda espalhar por vários setores, esta frase morre junto com os
+  // números e a §3 tem de perder a afirmação, não só trocar o dígito.
+  abaixoDe090NoPiorSetor: "82",
+}

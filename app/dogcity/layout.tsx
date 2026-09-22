@@ -29,7 +29,13 @@ const OG = OG_URL
 export const metadata: Metadata = {
   title: 'DogCity: a virtual city for DOG holders, on real lunar terrain | dogdata.xyz',
   description:
-    "DogCity is a virtual city for DOG holders, built over real mapped lunar terrain. Bitcoin block 966,670 decided the address of every self-custody DOG wallet. 85,818 wallets hold a lot.",
+    // ⚠️ DUAS FRASES FALSAS SAIRAM DAQUI EM 22/09. "every self-custody DOG
+    // wallet" nao sobrevive a quatro enderecos provadamente ingastaveis que
+    // receberam lote (o endereco de queima do Bitcoin entre eles, e o fundador
+    // decidiu que eles FICAM: a regua e a cadeia). E "85,818 wallets hold a
+    // lot" conta as 15.802 lapides como lote. O que a cadeia fez e o que esta
+    // escrito agora: leu todo endereco com $DOG e deu a cada um lote ou lapide.
+    "DogCity is a virtual city for DOG holders, built over real mapped lunar terrain. Bitcoin block 966,670 read every $DOG address on chain: 85,818 of them, each given a lot or a headstone in the city cemetery.",
   openGraph: {
     title: 'DogCity: block 966,670 decided your address on the Moon',
     description:

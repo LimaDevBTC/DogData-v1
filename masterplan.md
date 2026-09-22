@@ -2431,3 +2431,71 @@ centro de cada lote, e é ele que fecha o circuito.
 coisa com o vizinho dela não pega erro sistemático; teste que julga pela mediana não pega
 defeito de feição; e coluna que ninguém lê é coluna que pode mentir. Quando um portão
 aprova uma cidade que se sabe errada, o defeito é do portão, não da cidade.
+
+---
+
+## §31 — A receita da rodada final 🔒 (22/09/2026)
+
+**Por que esta seção existe.** As duas receitas de regeração publicadas neste caderno
+(§17.2 e §18.7) mandam `PHI_LOTE=6900 RESERVA_PCT=2`, e o artefato selado usou **6.500 e
+1%**. Quem copiasse a receita do caderno geraria OUTRA cidade e outro merkle root, sem erro
+nenhum na tela. Esta seção é a receita certa, e ela inclui o que reapertar DEPOIS.
+
+### A ordem, e ela não é negociável
+
+```
+1.  node scripts/city/assar_superficie.mjs            # dev server no ar
+2.  python3 scripts/gerar_cidade.py                   # PHI_LOTE=6500 RESERVA_PCT=1 (o padrão)
+3.  node scripts/city/vias-varredura.mjs --cel=6 --dilata=1
+4.  node scripts/city/assar_superficie.mjs --pontos=data/dogcity_lotes.csv
+5.  python3 scripts/city/conferir_lotes.py            # tem de dar APROVADO nos 20
+6.  python3 scripts/city/merkle.py
+7.  python3 scripts/city/sobe_lookup.py --dry-run     # copiar os 7 números para ENTREGA
+8.  python3 scripts/city/sobe_lookup.py               # ESCRITA EM PRODUÇÃO, só o fundador
+```
+
+⚠️ **O PASSO 1 VEM ANTES DO 2 E O CADEADO OBRIGA.** O gerador lê `data/superficie.f32` e
+compara o sha256 dos 26 módulos de chão; se um mudou depois da assadura, ele ABORTA. Não
+existe ordem alternativa.
+
+⚠️ **O PASSO 3 VEM ANTES DO 5**, porque o teste de conectividade viária lê
+`/tmp/vias/conexao.json`. Sem ele o portão diz INDISPONÍVEL, que **reprova**: silêncio
+deixou de ser aprovação.
+
+⚠️ **O PASSO 4 VEM ANTES DO 5** pelo mesmo motivo: é ele que produz
+`data/superficie_lotes.csv`, a sonda exata da cena que impede o teste da cota de ser
+circular.
+
+⚠️ **O `--dilata=1` DO PASSO 3 NÃO É OPCIONAL.** Sem ele a varredura já devolveu 5.387
+componentes onde havia 409: número enganoso, e a regra está gravada desde então.
+
+### O que a regeração INVALIDA e tem de ser reapertado à mão
+
+Todo número abaixo é saída do gerador, está publicado, e morre na rodada. Reapertar não é
+higiene: é a diferença entre a página dizer a verdade e a página desmentir o merkle root
+que a própria página anuncia.
+
+| arquivo | onde | o que é |
+|---|---|---|
+| `app/dogcity/dogcity-data.ts` | a constante `ENTREGA` | mediana, mínimo e as três contagens de cauda da razão |
+| `app/dogcity/dogcity-data.ts` | `LOTES_DE_CARTEIRA` | hoje 69.995; o registro tem **70.016** (ver a nota abaixo) |
+| `app/dogcity/docs/page.tsx` | §5, o par medido do Distrito Financeiro | a maior contra a menor, em saldo e em terra |
+| `app/dogcity/docs/page.tsx` | §5, o total do distrito, em dois lugares | área somada e fração do supply |
+| `marketing/DOGCITY-DOCS-V1.md` | o espelho do mesmo par | o `page.tsx` jura que todo número dele vem daqui |
+| `marketing/SNAPSHOT-REPORT.md` | a nota do teto | maior lote residencial e as duas que ficaram no tecido |
+| `scripts/city/sobe_lookup.py` | o docstring da decisão A | a medição que justifica servir o registro |
+| `app/dogcity/sections/wallet-lookup.tsx` | o cabeçalho | idem |
+| `wiki-dogdata/dogcity/contrato-publico.md` | §2 e o bloco da decisão B | idem |
+
+⚠️ **A CONTA DA PÁGINA ESTÁ VISIVELMENTE ABERTA POR 21.** Ela publica 69.995 como
+"carteiras que recebem lote" e 85.818 como o total do snapshot; 69.995 + 15.802 lápides dá
+85.797. Faltam exatamente **as 21 institucionais**, que recebem lote e não são contadas.
+Não é erro de arredondamento, é uma soma que não fecha na cara de quem ler, e ela vive em
+`LOTES_DE_CARTEIRA`, que outras seções também leem.
+
+### A trava que impede a receita errada de voltar
+
+`PHI_LOTE` e `RESERVA_PCT` continuam vindo de variável de ambiente, porque experimento tem
+valor. Mas o gerador passou a **avisar alto em stderr** quando o valor diverge do que foi
+selado. Três linhas, e elas matam a categoria inteira de "alguém copiou a receita errada do
+caderno", que é a categoria que esta seção existe para fechar.

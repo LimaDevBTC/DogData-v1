@@ -389,7 +389,13 @@ export default function Section({}) {
           </h2>
           <Reveal delay={0.3} y={14}>
             <p className="text-sm text-mist mt-3 leading-relaxed">
-              Every self-custody DOG wallet gets one demarcated lot. Paste your address to see your
+              {/* ⚠️ A FRASE ANTIGA AQUI ERA FALSA E ESTA SEÇÃO ESTÁ DESLIGADA DESDE 04/09.
+                  Ela dizia "Every self-custody DOG wallet gets one demarcated lot", e duas coisas
+                  a desmentem: 15.802 carteiras recebem LÁPIDE e não lote, e quatro endereços
+                  provadamente ingastáveis (o burn do Bitcoin entre eles) ficaram com lote por
+                  decisão do fundador em 22/09. Consertada aqui, e não só na seção servida, porque
+                  texto errado GUARDADO volta inteiro no dia em que alguém descomentar o import. */}
+              Every address holding $DOG at block 966,670 received either a lot or a headstone. Paste your address to see your
               district; placement is derived from your on-chain history, live.
             </p>
           </Reveal>

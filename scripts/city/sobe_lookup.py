@@ -1,103 +1,262 @@
 #!/usr/bin/env python3
-"""Sobe o recorte PUBLICO do snapshot 966.670 para `dog_snapshot_lookup` no Supabase.
+"""Sobe o recorte PUBLICO do REGISTRO DA CIDADE para `dog_snapshot_lookup` no Supabase.
 
-⚠️ POR QUE ESTA TABELA EXISTE: `data/snapshots/` esta no .gitignore, a Vercel builda do clone
-do GitHub, entao a busca da landing NAO tem como ler arquivo. E `/api/plot` hoje le arquivo
-local com `fs` e serve numero diferente do snapshot.
+⚠️ POR QUE ESTA TABELA EXISTE: `data/` esta no .gitignore para os artefatos pesados e a
+Vercel builda do clone do GitHub, entao a busca da landing NAO tem como ler arquivo. E
+`/api/plot` hoje le arquivo local com `fs` e serve numero diferente do registro.
 
-⚠️ SO ENTRA O QUE PODE SER PUBLICO. Posicao e bairro ficam de fora de proposito. Area vem da
-curva publica e depende so do saldo. A tag institucional e LIDA para escolher o teto (o
-Distrito Financeiro tem teto proprio, publicado), mas NAO sobe: nenhuma coluna diz quem e
-institucional.
+🔒 DECISAO DO FUNDADOR, 22/09/2026: A TABELA SERVE A ESCRITURA, NAO A CURVA.
+Ate 22/09 este script saia do snapshot mais a curva publicada,
+`clamp(0,986443 * raiz(DOG), 24 m2, 40.000 m2)`, e a landing anunciava aquilo como posse.
+MEDIDO contra `data/dogcity_lotes.csv` selado em 22/09: a cidade entrega 0,963 da curva na
+mediana, e 68.511 carteiras recebem MENOS do que o alvo, 1.621.504 m2 a menos somados (ou
+1.233.021 m2 liquidos, depois dos 388.483 m2 que as duas orlas entregam acima). O pior lote
+entrega 0,2843: 917,91 m2 de alvo contra 261 m2 gravados, S04-Q23-B011-L006.
+Servir a curva fazia sentido enquanto nao havia cidade. Depois que ela existe, e depois que a folha do merkle afirma `area_m2` em
+texto claro, servir a curva e a nossa propria API desmentindo o nosso proprio registro.
+A curva continua PUBLICADA, como ALVO (docs secao 3), e quem calcula o alvo e a tela, a
+partir de `dog` e da propria `area_m2` (`alvoDaCurva` em app/dogcity/dogcity-data.ts).
+
+⚠️ SO ENTRA O QUE PODE SER PUBLICO, e a regra nao mudou por a fonte ter mudado. As duas
+fontes novas sao arquivos de MAPA: `dogcity_lotes.csv` tem `lot_id`, `setor`, `quarto`,
+`quarteirao`, `x_m`, `z_m`, `raio_m`, `giro_graus` e `cota_m`, e `dogcity_cemiterio.csv`
+tem `posicao_residencial`. NENHUMA dessas colunas sobe. O que sobe e area, destino e os
+quatro campos de carteira do snapshot. A tag institucional e LIDA, para conferir o teto
+elevado do Distrito Financeiro, mas NAO sobe: nenhuma coluna diz quem e institucional.
+Posicao e bairro ficam de fora porque o contrato publico promete isso (docs secao 7), e
+porque area e destino sao o que a pessoa precisa saber sobre si mesma: onde ela mora e o
+que permite mapear a cidade inteira a partir de fora.
+
+⚠️ ESTE SCRIPT NAO RODA SOZINHO E NAO RODA POR AGENTE. Escrita em producao e do fundador.
+`--dry-run` mede tudo, imprime as primeiras linhas e NAO abre conexao nenhuma.
+
+ORDEM CERTA DEPOIS DA REGERACAO:
+  1. scripts/gerar_cidade.py            (reescreve lotes, cemiterio e o .bin)
+  2. python3 scripts/city/conferir_lotes.py   (o portao; tem de dar APROVADO)
+  3. python3 scripts/city/merkle.py     (sela o root)
+  4. python3 scripts/city/sobe_lookup.py --dry-run
+  5. python3 scripts/city/sobe_lookup.py
+Rodar o 5 antes do 1 publica a cidade velha; rodar o 5 sem o 2 publica cidade reprovada.
 """
-import json, io, os, math, time, urllib.request
+import json, io, os, csv, sys, math, time, statistics, urllib.request
 
-RAIZ='/home/bitmax/Projects/bitcoin-fullstack/DogData-v1'
-SNAP=os.path.join(RAIZ,'data','snapshots')
-# ⚠️ O PISO DA CURVA NAO E O PISO DA CIDADE, e confundir os dois publicava
-# promessa falsa para 15.802 carteiras. A curva do snapshot tem piso de 1 m2,
-# que e geometrico; o MENOR LOTE que a cidade constroi tem 24 m2, porque abaixo
-# disso o dono nao cabe em pe no proprio terreno (masterplan §17). Quem nao
-# alcanca o menor lote recebe LAPIDE no cemiterio, nao lote, e a consulta da
-# landing precisa dizer isso em vez de mostrar "YOUR LOT: 10 m2".
-#
-# O corte e derivado, nunca escolhido: e o saldo que paga 24 m2 na curva
-# publicada, (24 / 0,986443)^2 = 591,9411 DOG. A copy publica ele ARREDONDADO
-# PARA CIMA (591,95), porque 591,94 pagam 23,999978 m2 e quem obedecesse a
-# instrucao continuaria com lapide.
-K, PISO_CURVA, TETO = 0.986443, 1.0, 40000.0
-PISO_LOTE = 24.0
-CORTE_DOG = (PISO_LOTE / K) ** 2
+RAIZ = '/home/bitmax/Projects/bitcoin-fullstack/DogData-v1'
+SNAP = os.path.join(RAIZ, 'data', 'snapshots')
+REG = os.path.join(RAIZ, 'data')
 
-# ⚠️ O TETO DO DISTRITO FINANCEIRO E OUTRO, E A PAGINA JA PUBLICA ISSO. As 21
-# institucionais tem teto de 150.000 m2 (docs secao 5, contrato-publico §4) e o
-# lookup servia 40.000 para os quatro maiores, cujo registro selado da 42.199,
-# 50.511, 52.140 e 54.300 m2. Medido em 22/09 contra data/dogcity_lotes.csv: sao
-# exatamente esses quatro enderecos, e nenhum lote de carteira fora do distrito
-# chega a 40.000 (o maior tem 31.035 m2), entao o teto geral segue valendo para
-# 85.814 carteiras. Publicado o merkle root, essa diferenca deixa de ser detalhe
-# de copy e vira aritmetica de terceiro contra a folha assinada.
-TETO_FIN = 150000.0
-_CAM_FIN = os.path.join(SNAP, 'dog_966670_tag_institucional.json')
+DRY = '--dry-run' in sys.argv[1:]
+
+CAM_LOTES = os.path.join(REG, 'dogcity_lotes.csv')
+CAM_CEM = os.path.join(REG, 'dogcity_cemiterio.csv')
+CAM_SNAP = os.path.join(SNAP, 'dog_snapshot_966670.json')
+CAM_FIN = os.path.join(SNAP, 'dog_966670_tag_institucional.json')
+
+# ⚠️ A CURVA CONTINUA AQUI, MAS SO COMO REGUA DE CONFERENCIA. Ela nao decide mais
+# nenhum valor que sobe: serve para medir a razao entregue/prometida e imprimi-la,
+# que e o numero que a secao 3 dos docs publica (`ENTREGA` em
+# app/dogcity/dogcity-data.ts). Se alguem voltar a usar K para PREENCHER area_m2,
+# a tabela volta a desmentir o registro e o merkle root.
+K, PISO_LOTE, TETO, TETO_FIN = 0.986443, 24.0, 40000.0, 150000.0
+
+# ⚠️ AS DUAS FONTES DE VERDADE, E O QUE CADA UMA DECIDE:
+#   dogcity_lotes.csv     -> destino 'lote'  e area_m2 (a area GRAVADA, inteira)
+#   dogcity_cemiterio.csv -> destino 'lapide' e area_m2 = 0
+#   dog_snapshot_966670.json -> dog, genesis, runestones, utxo_count
+# O saldo NAO vem do CSV de lotes de proposito: em 22/09 aquele arquivo gravava
+# `dog=0` e `utxo_count=0` para 725 lotes (os 704 do projeto mais os 21
+# institucionais), e publicar zero de saldo para a Gate.io seria trocar um defeito
+# de registro por uma mentira na API. O snapshot tem as 21 de 21.
+
+
+def morre(msg):
+    raise SystemExit('lookup: ' + msg + ' Nada foi enviado.')
+
+
+def le_csv(caminho):
+    with io.open(caminho, encoding='utf-8') as f:
+        return list(csv.DictReader(f))
+
+
+for cam in (CAM_LOTES, CAM_CEM, CAM_SNAP):
+    if not os.path.exists(cam):
+        morre(f'{cam} nao existe. A tabela serve o REGISTRO desde 22/09, entao sem '
+              'registro nao ha o que subir.')
+
+# ── o registro ───────────────────────────────────────────────────────────────
+lotes = le_csv(CAM_LOTES)
+cem = le_csv(CAM_CEM)
+
+# ⚠️ O LOTE DO PROJETO NAO TEM DONO E NAO PODE ENTRAR. O endereco dele comeca com
+# `__projeto` e nao existe na cadeia; se entrasse, a tabela publica passaria a
+# listar a reserva da casa endereco por endereco.
+area_de = {}
+dobrados = []
+for r in lotes:
+    a = r['address']
+    if a.startswith('__projeto'):
+        continue
+    if a in area_de:
+        dobrados.append(a)
+    area_de[a] = int(round(float(r['area_m2'])))
+
+lapide = {r['address'] for r in cem}
+
+# ── as quatro conferencias, cada uma com o proprio contador ──────────────────
+# ⚠️ LACO SEM CONTADOR E CEGO: cada rejeicao abaixo e contada POR MOTIVO. Um unico
+# "deu ruim" no fim esconderia qual das quatro coisas quebrou, e as quatro pedem
+# conserto em lugares diferentes.
+if dobrados:
+    morre(f'{len(dobrados)} enderecos aparecem em mais de um lote no registro '
+          f'(ex.: {dobrados[:3]}). A tabela tem chave primaria `address` e o upsert '
+          'guardaria um lote arbitrario dos dois.')
+
+nos_dois = sorted(set(area_de) & lapide)
+if nos_dois:
+    morre(f'{len(nos_dois)} enderecos tem lote E lapide (ex.: {nos_dois[:3]}). '
+          'O portao (conferir_lotes.py) tem um teste exatamente para isso; se ele '
+          'passou e isto reprovou, o registro e o portao leram arquivos diferentes.')
+
+hold = json.load(io.open(CAM_SNAP, encoding='utf-8'))['holders']
+no_snap = {h['address'] for h in hold}
+
+sem_destino = sorted(no_snap - set(area_de) - lapide)
+if sem_destino:
+    morre(f'{len(sem_destino)} carteiras do snapshot nao tem lote nem lapide no '
+          f'registro (ex.: {sem_destino[:3]}). Toda carteira do bloco recebe um '
+          'dos dois; faltar destino significa que o registro e o snapshot sao de '
+          'rodadas diferentes.')
+
+fora_do_snap = sorted((set(area_de) | lapide) - no_snap)
+if fora_do_snap:
+    morre(f'{len(fora_do_snap)} enderecos do registro nao estao no snapshot '
+          f'(ex.: {fora_do_snap[:3]}). A tabela e o recorte publico do bloco '
+          '966.670 e nao pode ganhar endereco que o bloco nao viu.')
+
+# ── o teto elevado do Distrito Financeiro, conferido e nunca aplicado ────────
+# ⚠️ ISTO JA FOI UM DEFEITO: com area saindo da curva, este script aplicava o teto
+# geral de 40.000 m2 a TODAS as carteiras e servia 40.000 aos quatro maiores do
+# distrito, cujo registro da 54.300, 52.140, 50.511 e 42.199 m2. Com a area vindo
+# do registro o defeito some sozinho, mas a conferencia FICA: e ela que acusa se o
+# gerador um dia plantar lote residencial acima do teto publicado, o que seria a
+# secao 3 dos docs virando falsa sem ninguem notar.
 try:
-    _tag = json.load(io.open(_CAM_FIN, encoding='utf-8'))
-    FIN = {r['address'] for r in (_tag.get('linhas') or [] if isinstance(_tag, dict) else _tag)}
+    _tag = json.load(io.open(CAM_FIN, encoding='utf-8'))
+    FIN = {r['address'] for r in (_tag.get('linhas') or _tag.get('institucionais') or []
+                                  if isinstance(_tag, dict) else _tag)}
 except (OSError, ValueError, KeyError, TypeError):
     FIN = set()
-# ⚠️ SEM A TAG O ERRO VOLTA CALADO. Se o arquivo mudar de formato ou sumir, `FIN`
-# fica vazio, os quatro voltam a 40.000 e nada no console acusa. Aqui a subida
-# MORRE antes de tocar em producao.
 if not FIN:
-    raise SystemExit('lookup: dog_966670_tag_institucional.json nao entregou endereco nenhum. '
-                     'Sem a tag, o Distrito Financeiro volta ao teto de 40.000 e a tabela '
-                     'publica menos area do que o registro. Nada foi enviado.')
+    morre('dog_966670_tag_institucional.json nao entregou endereco nenhum. A area nao '
+          'depende mais dela, mas a conferencia do teto de 150.000 m2 do Distrito '
+          'Financeiro depende, e uma conferencia que some em silencio e pior do que '
+          'nenhuma.')
 
-env={}
-for arq in ('.env.local','.env'):
-    p=os.path.join(RAIZ,arq)
-    if not os.path.exists(p): continue
-    for l in io.open(p,encoding='utf-8',errors='ignore'):
-        l=l.strip()
-        if '=' in l and not l.startswith('#'):
-            k,v=l.split('=',1); env.setdefault(k.strip(), v.strip().strip('"').strip("'"))
-URL=env['SUPABASE_URL'].rstrip('/'); KEY=env['SUPABASE_SERVICE_ROLE_KEY']
+acima_do_teto = sorted(a for a, m in area_de.items() if m > TETO)
+intrusos = [a for a in acima_do_teto if a not in FIN]
+if intrusos:
+    morre(f'{len(intrusos)} lotes fora do Distrito Financeiro passam do teto publicado '
+          f'de {TETO:,.0f} m2 (ex.: {intrusos[:3]}). A secao 3 dos docs publica esse '
+          'teto para a cidade inteira.')
+estourados = sorted(a for a, m in area_de.items() if m > TETO_FIN)
+if estourados:
+    morre(f'{len(estourados)} lotes passam do teto elevado de {TETO_FIN:,.0f} m2 '
+          f'(ex.: {estourados[:3]}), que a secao 5 dos docs publica como o maximo do '
+          'Distrito Financeiro.')
 
-hold=json.load(io.open(os.path.join(SNAP,'dog_snapshot_966670.json'),encoding='utf-8'))['holders']
-linhas=[]; n_alto=0
+# ── as linhas ────────────────────────────────────────────────────────────────
+# ⚠️ `setor_de` existe SO para a medicao da cauda que a secao 3 publica, e NAO
+# entra em `linhas`. Setor e posicao; posicao nao sobe.
+setor_de = {r['address']: r['setor'] for r in lotes if not r['address'].startswith('__projeto')}
+linhas = []
+raz = []
 for h in hold:
-    d=float(h.get('dog') or 0)
-    _cem = d < CORTE_DOG
-    _teto = TETO_FIN if h['address'] in FIN else TETO
-    _curva = K*math.sqrt(max(d,0))
-    if _curva > TETO and _teto > TETO: n_alto += 1
-    linhas.append({'address':h['address'],'dog':round(d,5),
+    a = h['address']
+    d = float(h.get('dog') or 0)
+    eh_lote = a in area_de
+    area = area_de[a] if eh_lote else 0
+    linhas.append({
+        'address': a,
+        'dog': round(d, 5),
         # ⚠️ area 0 para quem tem lapide: a consulta le este campo e nao pode
-        # anunciar metro quadrado para quem nao recebeu terra
-        'area_m2': 0.0 if _cem else round(max(PISO_LOTE,min(_teto,_curva)),2),
-        'destino': 'lapide' if _cem else 'lote',
-        'genesis':float(h.get('airdrop_amount') or 0)>0,
-        'runestones':int(h.get('runestones') or 0),
-        'utxo_count':int(h.get('utxo_count') or 0)})
-print(f'{len(linhas):,} carteiras, {sum(1 for l in linhas if l["genesis"]):,} com Genesis Badge, '
-      f'{sum(1 for l in linhas if l["destino"]=="lapide"):,} com lapide (abaixo de {CORTE_DOG:.2f} DOG)',flush=True)
-# ⚠️ CONTADOR POR MOTIVO: quantos de fato passaram do teto geral pelo teto do
-# distrito. Se isto imprimir 0, a tag nao casou com o snapshot e os quatro
-# maiores estao saindo capados em 40.000 de novo.
-print(f'{len(FIN)} enderecos do Distrito Financeiro, {n_alto} acima do teto geral de '
-      f'{TETO:,.0f} m2 (teto do distrito: {TETO_FIN:,.0f} m2)',flush=True)
+        # anunciar metro quadrado para quem nao recebeu terra. A rota decide o
+        # ramo pela coluna `destino`, nao pelo saldo (migracao 031).
+        'area_m2': float(area),
+        'destino': 'lote' if eh_lote else 'lapide',
+        'genesis': float(h.get('airdrop_amount') or 0) > 0,
+        'runestones': int(h.get('runestones') or 0),
+        'utxo_count': int(h.get('utxo_count') or 0),
+    })
+    if eh_lote:
+        teto = TETO_FIN if a in FIN else TETO
+        alvo = min(teto, max(PISO_LOTE, K * math.sqrt(max(d, 0))))
+        raz.append((area / alvo, setor_de.get(a, '?')))
 
-LOTE=1000
-for i in range(0,len(linhas),LOTE):
-    corpo=json.dumps(linhas[i:i+LOTE]).encode()
-    r=urllib.request.Request(URL+'/rest/v1/dog_snapshot_lookup', data=corpo, method='POST',
-        headers={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json',
-                 'Prefer':'resolution=merge-duplicates,return=minimal'})
+n_lote = sum(1 for l in linhas if l['destino'] == 'lote')
+n_lap = len(linhas) - n_lote
+print(f'{len(linhas):,} carteiras: {n_lote:,} com lote, {n_lap:,} com lapide', flush=True)
+print(f'{len(FIN)} enderecos do Distrito Financeiro, {len(acima_do_teto)} acima do teto '
+      f'geral de {TETO:,.0f} m2 (teto do distrito: {TETO_FIN:,.0f} m2), '
+      f'maior lote {max(area_de.values()):,} m2', flush=True)
+
+# ── a razao entregue/prometida, que a secao 3 dos docs publica ───────────────
+# ⚠️ ESTE BLOCO E A FONTE DOS NUMEROS DE `ENTREGA` EM app/dogcity/dogcity-data.ts.
+# Depois de cada regeracao, rode com --dry-run e copie mediana, minimo e as tres
+# contagens para la. Se os dois discordarem, a pagina publica uma cauda que a
+# cidade nao tem mais (ou, pior, esconde a que ela tem).
+raz.sort()
+if raz:
+    v = [x[0] for x in raz]
+    print('razao entregue/prometida sobre %s lotes de carteira: mediana %.4f, minimo %.4f, '
+          'p1 %.4f, p10 %.4f' % (f'{len(v):,}', statistics.median(v), v[0],
+                                 v[int(len(v) * 0.01)], v[int(len(v) * 0.10)]), flush=True)
+    for corte in (0.95, 0.90, 0.50):
+        sub = [x for x in raz if x[0] < corte]
+        por_setor = {}
+        for _, st in sub:
+            por_setor[st] = por_setor.get(st, 0) + 1
+        pior = max(por_setor.items(), key=lambda kv: kv[1]) if por_setor else ('-', 0)
+        print('  abaixo de %.2f: %d lotes, %d deles no setor %s'
+              % (corte, len(sub), pior[1], pior[0]), flush=True)
+    print('  acima da curva: %d lotes (as orlas, onde o lote vai ate a linha d\'agua)'
+          % sum(1 for x in v if x > 1.0001), flush=True)
+
+if DRY:
+    print('\n--dry-run: NADA foi enviado. Primeiras 5 linhas que subiriam:', flush=True)
+    for l in linhas[:5]:
+        print('  ' + json.dumps(l), flush=True)
+    print('\nPara subir de verdade (so o fundador roda):', flush=True)
+    print('  python3 scripts/city/sobe_lookup.py', flush=True)
+    raise SystemExit(0)
+
+env = {}
+for arq in ('.env.local', '.env'):
+    p = os.path.join(RAIZ, arq)
+    if not os.path.exists(p):
+        continue
+    for l in io.open(p, encoding='utf-8', errors='ignore'):
+        l = l.strip()
+        if '=' in l and not l.startswith('#'):
+            k, v = l.split('=', 1)
+            env.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+URL = env['SUPABASE_URL'].rstrip('/')
+KEY = env['SUPABASE_SERVICE_ROLE_KEY']
+
+LOTE = 1000
+for i in range(0, len(linhas), LOTE):
+    corpo = json.dumps(linhas[i:i + LOTE]).encode()
+    r = urllib.request.Request(URL + '/rest/v1/dog_snapshot_lookup', data=corpo, method='POST',
+                               headers={'apikey': KEY, 'Authorization': 'Bearer ' + KEY,
+                                        'Content-Type': 'application/json',
+                                        'Prefer': 'resolution=merge-duplicates,return=minimal'})
     for t in range(4):
         try:
-            urllib.request.urlopen(r,timeout=120); break
-        except Exception as e:
-            if t==3: raise
-            time.sleep(3*(t+1))
-    if (i//LOTE)%15==0: print(f'  {i+LOTE:,}/{len(linhas):,}',flush=True)
+            urllib.request.urlopen(r, timeout=120)
+            break
+        except Exception:
+            if t == 3:
+                raise
+            time.sleep(3 * (t + 1))
+    if (i // LOTE) % 15 == 0:
+        print(f'  {i + LOTE:,}/{len(linhas):,}', flush=True)
     time.sleep(0.08)
-print('pronto',flush=True)
+print('pronto', flush=True)

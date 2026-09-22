@@ -2309,13 +2309,26 @@ if os.path.exists(_ANCORAS):
     _mapa = json.load(open(_ANCORAS, encoding='utf-8'))
     _novas = 0
     for _a in _mapa.get('ancoras', []):
-        _poly = _a.get('poly') or []
+        _poly = [[float(q[0]), float(q[1])] for q in (_a.get('poly') or [])]
         if len(_poly) < 3: continue
+        # ⚠️ `area` NÃO É OPCIONAL, E A FALTA DELA MATOU UMA RODADA INTEIRA. O
+        # publicador de public/city/cidade.json faz `q['area']` direto, sem
+        # `.get`, e `programaHa` soma o campo: sem ele o gerador planta a cidade
+        # toda, grava o CSV e as lápides, e só então estoura `KeyError: 'area'`,
+        # depois de dezenas de minutos e com metade das saídas no disco.
+        # Medido em 22/09 numa rodada de conferência: as 7 parcelas ancoradas
+        # nasciam sem o campo e a rodada morreu na gravação do manifesto.
+        # A área é a do POLÍGONO (fórmula do cadarço), porque ele é o contorno
+        # real; `area_m2` do mapa entra quando existe, que é a mesma fonte que a
+        # linha de log abaixo já usava.
+        _sh = abs(sum(_poly[_i][0]*_poly[_i-1][1] - _poly[_i-1][0]*_poly[_i][1]
+                      for _i in range(len(_poly)))) / 2.0
         PROGRAMA_GEO.append({
             'id': _a['id'], 'nome': _a.get('nome', _a['id']), 'tipo': 'ancorada',
-            'forma': 'poligono', 'poly': [[float(q[0]), float(q[1])] for q in _poly],
+            'forma': 'poligono', 'poly': _poly,
             'cx': float(_a['cx']), 'cz': float(_a['cz']), 'a': 0.0, 'b': 0.0,
             'rot': 0.0, 'c': 1.0, 's': 0.0,
+            'area': float(_a.get('area_m2') or 0.0) or _sh,
         })
         _novas += 1
     _ha = sum(float(_a.get('area_m2', 0)) for _a in _mapa.get('ancoras', [])) / 1e4
@@ -2523,7 +2536,7 @@ REJ = {'mascara': 0, 'agua': 0, 'declive': 0, 'ok': 0}
 # separar os três, otimizar empacotamento é chute.
 ORC = {'queimada': 0.0, 'queimada_n': 0, 'vao_usado': 0.0, 'vao_n': 0,
        'q_estreita': 0.0, 'q_mascara': 0.0, 'q_par': 0.0,
-       'espremido': 0, 'desviado': 0}
+       'espremido': 0, 'desviado': 0, 'desviado_area': 0}
 
 # ⚠️ O VÃO: A MAIOR PERDA DO EMPACOTAMENTO, E ELA ERA INVISÍVEL. A sondagem anda
 # 12 m quando a pegada cai em máscara e ABANDONA aquele pedaço de testada para
@@ -5335,7 +5348,7 @@ def uma_passada():
     ORC['queimada'] = 0.0; ORC['queimada_n'] = 0
     ORC['vao_usado'] = 0.0; ORC['vao_n'] = 0
     ORC['q_estreita'] = ORC['q_mascara'] = ORC['q_par'] = 0.0
-    ORC['espremido'] = ORC['desviado'] = 0
+    ORC['espremido'] = ORC['desviado'] = ORC['desviado_area'] = 0
     for _l in VAOS: _l.clear()
     sem_lugar.clear()
     aparadas.clear()
@@ -5440,13 +5453,21 @@ def uma_passada():
         # fundador é que todo elegível tem endereço; se nem o distrito mais folgado
         # honra a área, o lote espremido ainda é melhor que carteira sem lote, e
         # o contador `ORC['espremido']` diz quantas vezes isso aconteceu.
-        _s0 = s
+        # ⚠️ `_esp0` SEPARA OS DOIS MOTIVOS DE DESVIO, e sem ele o contador mente.
+        # `coloca` já devolvia None quando o distrito não tinha prateleira
+        # NENHUMA, e esse desvio é antigo: medido, 4.807 carteiras por passada.
+        # O desvio POR ÁREA é outro, muito menor (100 na mesma passada), e somar
+        # os dois num número só faria o conserto parecer dez vezes maior do que é.
+        _s0, _esp0 = s, ORC['espremido']
         r = coloca(s, elig[c[3]], c[3], exige=EXIGE_AREA)
         if r is None:
+            _por_area = ORC['espremido'] > _esp0
             alt = max(range(N_DIST), key=lambda t: sum(pr['livre'] for pr in PASSO[t][cursor[t]:]))
             r = coloca(alt, elig[c[3]], c[3], exige=EXIGE_AREA)
             if r is not None:
-                s = alt; ORC['desviado'] = ORC.get('desviado', 0) + 1
+                s = alt
+                ORC['desviado'] += 1
+                if _por_area: ORC['desviado_area'] += 1
             else:
                 r = coloca(_s0, elig[c[3]], c[3])
                 if r is None:
@@ -5535,11 +5556,19 @@ k_bom, saida_boa = None, None
 # cota de outra. Medido antes do conserto: muro de arrimo de até 139 m entre
 # vizinhos, que é relevo inexistente neste sítio.
 cota_boa, orc_boa = None, None
-k_lo, k_hi = K_AREA, None
+k_lo, k_hi = None, None
 # ⚠️ SEIS TENTATIVAS DEIXAVAM TERRA NA MESA. A rodada do snapshot parou com
 # k_lo=0,2805 e k_hi=0,29148, ou seja 3,9% de área ainda em disputa, porque
 # acabou a contagem e não porque convergiu. Terra é o recurso que o fundador
 # mandou não desperdiçar (20/09), e cada passada custa cerca de um minuto.
+# ⚠️ E `k_lo` COMEÇAVA VALENDO `K_AREA`, QUE MATAVA A BISSEÇÃO NA PRIMEIRA
+# VOLTA. Se a passada 1 não coubesse, `k_hi` virava o MESMO número que `k_lo` e
+# `(k_hi - k_lo)/k_lo` dava 0, abaixo do 0,004: o laço saía com `saida_boa` em
+# None e a cidade inteira caía no caminho do PISO, que converge com folga de 2%
+# em vez de 0,4%. Medido numa rodada de conferência em 22/09: ela terminou com
+# k_lo = 0,90772 e k_hi = 0,92147, ou seja 1,5% da área de TODO MUNDO ficou na
+# mesa porque acabou a tolerância, não porque convergiu. Agora `k_lo` começa em
+# None ("ainda não provei piso nenhum") e o laço desce sozinho até achar um.
 for tentativa in range(12):
     obtido = uma_passada()
     coube = _lotes_de_carteira(saida) >= N_DESTINOS
@@ -5555,6 +5584,12 @@ for tentativa in range(12):
     else:
         k_hi = K_AREA
     if k_hi is None: break
+    if k_lo is None:
+        # ⚠️ NADA COUBE AINDA: desce e volta, em vez de sair pela tolerância.
+        # Sem este ramo o laço morria aqui e entregava a cidade do caminho do
+        # piso, que é o mesmo mecanismo com folga cinco vezes maior.
+        K_AREA = k_hi * 0.6
+        continue
     if (k_hi - k_lo) / k_lo < 0.004: break
     K_AREA = (k_lo + k_hi) / 2
 if saida_boa is None:
@@ -5864,9 +5899,11 @@ print('  vãos reaproveitados: %d lotes, %.1f km de testada que antes se perdia'
 # quantas carteiras isso mandou para outro distrito. Se `recusas` for grande e
 # `desviados` pequeno, o problema deixou de ser a prateleira e passou a ser
 # falta de terra: aí a conversa é sobre PHI_LOTE, não sobre o alocador.
-print('  cauda da promessa: %d prateleiras recusadas por entregar menos de %.0f%% '
-      'da área, %d carteiras desviadas de distrito por isso'
-      % (ORC.get('espremido',0), EXIGE_AREA*100, ORC.get('desviado',0)), file=sys.stderr)
+print('  cauda da promessa: %d prateleiras recusadas por entregar menos de %.0f%% da '
+      'área | %d carteiras trocaram de distrito POR ÁREA | %d trocaram por falta de '
+      'prateleira (motivo antigo)'
+      % (ORC.get('espremido',0), EXIGE_AREA*100, ORC.get('desviado_area',0),
+         ORC.get('desviado',0) - ORC.get('desviado_area',0)), file=sys.stderr)
 # ⚠️ A REPARTIÇÃO SAI POR MOTIVO, sempre. Laço que rejeita candidato e só
 # imprime o total é laço cego: foi contando por motivo que a orla da baía
 # descobriu que os quatro dedos eram 100% rampa de praia. Total não é

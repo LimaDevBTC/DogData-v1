@@ -20,6 +20,16 @@
 // certa):
 //   1. in_snapshot:     a escritura: área, saldo no bloco, Genesis Badge,
 //                       Runestones, o bloco e o hash. CTA para a licença.
+//
+//      🔒 DECISÃO DO FUNDADOR, 22/09/2026: "YOUR LOT" DEIXOU DE SER A CURVA.
+//      Até aqui a rota devolvia `clamp(0,986443 × √DOG, 24, 40.000)` e a tela
+//      anunciava isso como se fosse posse. O registro selado entrega 0,963
+//      disso na mediana: 68.511 carteiras recebem menos do que o alvo, e a
+//      tela prometia a elas 1.621.504 m² que a escritura delas não diz.
+//      Agora "YOUR LOT" é a área GRAVADA no registro, que é o que o merkle
+//      root sela, e a curva aparece
+//      ao lado como "CURVE TARGET", que é o que ela sempre foi: o alvo
+//      publicado na §3 dos docs. As duas linhas juntas, nunca só a boa.
 //   2. memorial:        a carteira estava no bloco e não alcança o menor lote
 //                       da cidade (24 m²). Recebe lápide no cemitério, não
 //                       lote, e a tela não anuncia metro quadrado para ela.
@@ -32,8 +42,9 @@
 //                       ação certa (sacar).
 //
 // ⚠️ NUNCA POSIÇÃO. A tabela não tem bairro, distrito, vizinho nem tag
-// institucional, só as seis colunas públicas. Este componente não pode
-// inventar nenhuma delas.
+// institucional, só as sete colunas públicas (dog, area_m2, destino, genesis,
+// runestones, utxo_count, bloco). Este componente não pode inventar nenhuma
+// das que faltam.
 //
 // DOIS USOS DO MESMO MOTOR: `variant="hero"` é a dobra 1 inteira (mapa de
 // fundo escurecido, campo grande). `variant="repeat"` é a dobra 7 (o mesmo
@@ -45,7 +56,7 @@
 
 import { useState, type FormEvent } from "react"
 import { HAIR, HAIR_SOFT } from "../motion"
-import { SNAPSHOT_PROOF, PISO_LOTE_M2 } from "../dogcity-data"
+import { SNAPSHOT_PROOF, PISO_LOTE_M2, alvoDaCurva } from "../dogcity-data"
 
 // ── formatação exata, nunca arredondada para "K"/"M" ────────────────────────
 // formatDog() de ../dogcity-data.ts abrevia ("889.8K"), o que é exatamente o
@@ -278,12 +289,20 @@ function Documento({ r }: { r: Resultado }) {
   }
 
   // in_snapshot: a escritura
+  //
+  // ⚠️ O ALVO É CALCULADO AQUI, NÃO SERVIDO. A tabela pública não tem coluna de
+  // alvo de propósito: seria uma segunda cópia de um número que sai de `dog`
+  // com uma fórmula já publicada, e duas cópias divergem. `alvoDaCurva` lê a
+  // própria área entregue para saber qual teto vale (o do Distrito Financeiro
+  // é 150.000 e não 40.000), então nenhuma posição precisa sair da rota.
+  const alvo = alvoDaCurva(r.dog, r.area_m2)
   return (
     <div className={`border ${HAIR} bg-[#08080A] px-5 py-6 md:px-7 md:py-7`}>
       {/* o rótulo do anel saiu daqui e foi para o selo, no fim do documento */}
       <p className="font-mono text-[10px] tracking-[0.2em] text-lava">DECIDED AT THE FOUNDING</p>
       <div className="mt-3">
         {linhaDoc("YOUR LOT", `${areaExata(r.area_m2)} m2`)}
+        {linhaDoc("CURVE TARGET", `${areaExata(Math.round(alvo))} m2`)}
         {linhaDoc(`$DOG AT BLOCK ${r.block.toLocaleString("en-US")}`, dogExato(r.dog))}
         {linhaDoc("GENESIS BADGE", r.genesis ? "yes, original airdrop wallet" : "no")}
         {linhaDoc("RUNESTONES", r.runestones.toLocaleString("en-US"))}
@@ -295,6 +314,18 @@ function Documento({ r }: { r: Resultado }) {
 
       <p className="text-[13px] md:text-sm text-mist mt-5 leading-relaxed">
         You already own this. It was not for sale and it cannot be bought.
+      </p>
+      {/* ⚠️ A DIFERENÇA É DITA, NUNCA ESCONDIDA. Se a tela mostrasse só a linha
+          boa, o holder descobriria a outra ao abrir o registro assinado, e aí
+          a conta seria contra a nossa assinatura. Curto de propósito: a
+          explicação inteira mora na §3 dos docs, que é onde ela cabe. */}
+      <p className="text-[12px] md:text-[13px] text-dusty mt-3 leading-relaxed">
+        Your lot is the area the registry holds for this address, sealed under the same
+        fingerprint as every other lot. The target is what the curve asks for; ground is finite,
+        so a lot can land under it where a block ran out of depth.{" "}
+        <a href="/dogcity/docs#how-land-follows-the-coins" className="text-lava hover:text-lava-light underline underline-offset-2">
+          How far the whole city lands from the curve
+        </a>.
       </p>
       <a
         href="/dogcity/founders"
