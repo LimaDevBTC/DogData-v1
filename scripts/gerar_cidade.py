@@ -1262,6 +1262,7 @@ OB_DEDO_PONTA= _ts_const('orla-baia.ts', 'ORLA_BAIA_DEDO_PONTA')
 OB_DEDO_CAIS = _ts_const('orla-baia.ts', 'ORLA_BAIA_DEDO_CAIS')
 OB_CAIS_TALUDE = _ts_const('orla-baia.ts', 'ORLA_BAIA_CAIS_TALUDE')
 OB_TESTADA_MIN = _ts_const('orla-baia.ts', 'ORLA_BAIA_TESTADA_MIN')
+OB_RECUO     = _ts_const('orla-baia.ts', 'ORLA_BAIA_RECUO_FUNDO')
 OB_CANAL_FUNDO = _ts_const('orla-baia.ts', 'ORLA_BAIA_CANAL_FUNDO')
 OB_CANAL_TALUDE= _ts_const('orla-baia.ts', 'ORLA_BAIA_CANAL_TALUDE')
 OB_FRANJA    = _ts_const('orla-baia.ts', 'ORLA_BAIA_FRANJA')
@@ -2113,7 +2114,21 @@ if _AB:
         _x, _z = _x4 / 4.0, _z4 / 4.0
         _w, _d = _w10 / 10.0, _d10 / 10.0
         _gg = math.radians(_g / 100.0)
-        _v.append(declive_lote(_x, _z, math.cos(_gg), math.sin(_gg), 0.0, 0.0, _w, _d))
+        _v.append((declive_lote(_x, _z, math.cos(_gg), math.sin(_gg), 0.0, 0.0, _w, _d),
+                   _s, math.hypot(_x, _z), rumo_de(_x, _z), _w, _d))
+    # ⚠️ QUEM ESTOURA O TETO PRECISA TER NOME, não só contagem. "12 lotes acima
+    # de 12%" não diz onde consertar; setor e rumo dizem.
+    _acima = sorted((q for q in _v if q[0] > DECL_LOTE_MAX), key=lambda q: -q[0])
+    if _acima:
+        print('  acima do teto de %.0f%%: %d lotes' % (DECL_LOTE_MAX*100, len(_acima)),
+              file=sys.stderr)
+        import collections as _c
+        for _st, _qt in _c.Counter(q[1] for q in _acima).most_common():
+            print('    setor %d: %d' % (_st + 1, _qt), file=sys.stderr)
+        for q in _acima[:8]:
+            print('    %.1f%%  setor %d  r %.0f  rumo %.1f  %.1f x %.1f m'
+                  % (q[0]*100, q[1]+1, q[2], q[3], q[4], q[5]), file=sys.stderr)
+    _v = [q[0] for q in _v]
     _v.sort(); _n = len(_v) or 1
     print('AUDITA %s: %d lotes | mediana %.1f%% | p90 %.1f%% | p99 %.1f%% | máx %.1f%%'
           % (_AB, len(_v), _v[_n//2]*100, _v[int(_n*0.9)]*100, _v[int(_n*0.99)]*100, _v[-1]*100),
@@ -3693,6 +3708,40 @@ ORLA_LOTES = []          # (x, z, frente, prof, giro_graus, addr ou None)
 S_ORLA = 6                # setor 7 no endereço (S07-Q01-B{lote}-L001)
 _GIRO_ORLA = {}           # o giro de cada lote da orla, tangente ao círculo
 
+# ⚠️ RETÂNGULO TANGENTE NUM ANEL NÃO CABE EM `testada / raio`, E ISSO CUSTOU
+# 210 PARES DE LOTES SOBREPOSTOS (medido em 22/09 pelo teste novo do portão:
+# 202 na Orla Nobre, mediana 0,87 m, e 8 no Distrito Financeiro, o pior com
+# 13,98 m). Nenhum teste olhava para eles porque cada um grava UM QUARTEIRÃO POR
+# LOTE, e o teste de sobreposição agrupava por quarteirão: com um lote em cada
+# balde, ele nunca comparava dois.
+#
+# A conta errada é a ingênua: dividir o comprimento do arco pelo número de lotes
+# e usar isso como largura. O lote é um RETÂNGULO, e o canto dele fica no raio
+# INTERNO, onde o mesmo ângulo vale menos metros. Dois retângulos vizinhos, cada
+# um girado do outro, se atravessam pelos cantos.
+#
+# A conta certa: o lote ocupa 2·atan((w/2) / r_interno) de ângulo, e isso tem de
+# caber no passo. Invertendo, w <= 2 · r_interno · tan(passo/2). O raio interno é
+# a testada menos o fundo quando a fileira cresce para dentro, e a própria
+# testada quando cresce para fora.
+def _testada_no_anel(nominal, total, span_graus, r_borda, sentido, fundo_max, donos):
+    """a maior testada que NÃO faz o canto do lote invadir o vizinho."""
+    passo = math.radians(span_graus) / max(1, total)
+    t = nominal
+    for _ in range(8):
+        if sentido < 0:
+            fundo = max((max(ORLA_PISO_FUNDO, min(fundo_max, elig_area(a) / t))
+                         for a in donos), default=ORLA_PISO_FUNDO)
+            r_in = r_borda - fundo
+        else:
+            r_in = r_borda
+        w_max = 2.0 * max(1.0, r_in) * math.tan(passo / 2)
+        novo = min(nominal, w_max)
+        if abs(novo - t) < 0.005: return novo
+        t = novo
+    return t
+
+
 def planta_orla_nobre():
     """devolve a lista de lotes da alça, já com dono, na ordem do caderno."""
     if not TIER_DE: return []
@@ -3726,16 +3775,36 @@ def planta_orla_nobre():
             return _o
 
         def _slot_livre(slot, total_, testada_):
-            """a vaga está livre de peça de programa? O Portão do Parque
-            Runestone sai no rumo 43° e ATRAVESSA a alça: ali a fileira abre
-            passagem pública em vez de plantar lote privado."""
+            """a vaga está livre de peça de programa E dentro do teto de declive?
+
+            O Portão do Parque Runestone sai no rumo 43° e ATRAVESSA a alça: ali
+            a fileira abre passagem pública em vez de plantar lote privado.
+
+            ⚠️ E O TETO DE DECLIVE ENTROU EM 22/09, DEPOIS DE 12 LOTES PASSAREM.
+            A Orla Nobre nunca testou declividade: a auditoria da cidade gravada
+            achou 12 lotes dela acima do teto de 12% do §15, com pior de 25,5%,
+            TODOS nos rumos 346,9 a 347,4 e 115,1 a 115,9. São as duas pontas do
+            arco da alça, onde a terraplanagem volta ao terreno natural numa
+            franja de 250 m: a fileira plantava em cima da rampa de transição.
+            O tecido comum sempre testou isso (`_cabe`); esta fileira, não.
+            """
             ang_ = math.radians((a0 + span * (slot + 0.5) / total_) % 360.0)
             r_b = ALCA_R + sentido * ALCA_LARG / 2
+            # a peça de programa continua sendo testada na pegada do lote PISO,
+            # que é o que 388 dos 446 lotes de fato ocupam
             for _t in (0.15, 0.5, 0.85):
                 r_ = r_b + sentido * ORLA_PISO_FUNDO * _t
                 for _d in (-testada_ / 2.2, 0.0, testada_ / 2.2):
                     _a2 = ang_ + _d / max(1.0, r_)
                     if em_programa(math.sin(_a2) * r_, -math.cos(_a2) * r_) is not None:
+                        return False
+            # o declive é testado na faixa INTEIRA que a fileira pode ocupar,
+            # porque o lote fundo é justamente o que alcança a rampa da franja
+            for _t in (0.0, 0.25, 0.5, 0.75, 1.0):
+                r_ = r_b + sentido * fundo_max * _t
+                for _d in (-testada_ / 2.2, 0.0, testada_ / 2.2):
+                    _a2 = ang_ + _d / max(1.0, r_)
+                    if declive(math.sin(_a2) * r_, -math.cos(_a2) * r_) > DECLIVE_MAX:
                         return False
             return True
 
@@ -3746,7 +3815,9 @@ def planta_orla_nobre():
         total = len(donos) + n_projeto
         base_total, bloq, testada = total, [], L / total
         for _tent in range(8):
-            testada = L / total
+            testada = _testada_no_anel(L / total, total, span,
+                                       ALCA_R + sentido * ALCA_LARG / 2, sentido,
+                                       fundo_max, donos)
             bloq = [k for k in range(total) if not _slot_livre(k, total, testada)]
             novo_total = base_total + len(bloq)
             if novo_total == total: break
@@ -3836,8 +3907,16 @@ class FitaOrla:
         o flanco."""
         comp = abs(math.radians(a_fim - a_ini)) * r_f
         if comp <= 0: return
+        # ⚠️ O CUSTO ANGULAR DO LOTE SE MEDE NO RAIO INTERNO, NÃO NA TESTADA.
+        # Ver a nota longa de `_testada_no_anel`: o canto do retângulo fica no
+        # raio interno, onde o mesmo ângulo vale menos metros, e consumir o arco
+        # pela testada faz o canto invadir o vizinho. `fator` converte: uma
+        # testada de `w` custa `w · r_testada / r_interno` de arco lido na
+        # testada. Na fileira que cresce para FORA o raio interno é a própria
+        # testada e o fator é 1.
+        r_in = r_f - OB_PROF if sentido < 0 else r_f
         self.trechos.append({'tipo': 'anel', 'comp': comp, 'cur': 0.0, 'n': 0,
-                             'q': len(self.trechos) + 1,
+                             'q': len(self.trechos) + 1, 'fator': r_f / max(1.0, r_in),
                              'r': r_f, 'sentido': sentido, 'a0': a_ini,
                              'sinal': 1.0 if a_fim > a_ini else -1.0})
 
@@ -3845,20 +3924,24 @@ class FitaOrla:
         """uma banda de dedo, da PONTA para a base: a ponta é o endereço, ela
         tem água nos três lados."""
         comp = OB_DEDO_PONTA - OB_R_FRENTE
+        # o dedo é reto: os lotes são paralelos e a testada custa ela mesma
         self.trechos.append({'tipo': 'dedo', 'comp': comp, 'cur': 0.0, 'n': 0,
-                             'q': len(self.trechos) + 1,
+                             'q': len(self.trechos) + 1, 'fator': 1.0,
                              'rumo': rumo, 'lado': lado})
 
     def _geo(self, t, s, w):
         """(x, z, giro) do lote que ocupa [s, s+w] deste trecho."""
         if t['tipo'] == 'anel':
             ang = t['a0'] + t['sinal'] * math.degrees((s + w / 2) / t['r'])
-            r_c = t['r'] + t['sentido'] * OB_PROF / 2
+            # ⚠️ O RECUO DE FUNDO ANDA O RETÂNGULO INTEIRO meio metro na direção
+            # da rua. Sem ele o fundo de duas fileiras de costas fica na MESMA
+            # reta tangente e elas se atravessam: 141 pares medidos em 22/09.
+            r_c = t['r'] + t['sentido'] * (OB_PROF / 2 - OB_RECUO)
             a = math.radians(ang)
             return math.sin(a) * r_c, -math.cos(a) * r_c, ang % 360.0
         rumo = t['rumo']; lado = t['lado']
         ao_longo = OB_DEDO_PONTA - (s + w / 2)
-        perp = lado * (OB_DEDO_LARG / 2 - OB_DEDO_CAIS - OB_PROF / 2)
+        perp = lado * (OB_DEDO_LARG / 2 - OB_DEDO_CAIS - OB_PROF / 2 + OB_RECUO)
         a = math.radians(rumo)
         ux, uz = math.sin(a), -math.cos(a)          # o eixo do dedo, para fora
         vx, vz = math.cos(a), math.sin(a)           # a perpendicular dele
@@ -3875,12 +3958,12 @@ class FitaOrla:
         regex do portão reprovava a cidade inteira. Com o trecho no Q, o maior
         B do distrito é o maior trecho, que tem algumas centenas de lotes."""
         for _ in range(4000):
-            cand = [t for t in self.trechos if t['cur'] + w <= t['comp']]
+            cand = [t for t in self.trechos if t['cur'] + w * t['fator'] <= t['comp']]
             if not cand: return None
             t = min(cand, key=lambda t: t['cur'] / t['comp'])
-            x, z, giro = self._geo(t, t['cur'], w)
+            x, z, giro = self._geo(t, t['cur'], w * t['fator'])
             if _ob_livre(x, z, giro, w):
-                t['cur'] += w
+                t['cur'] += w * t['fator']
                 t['n'] = t.get('n', 0) + 1
                 return x, z, giro, t['q'], t['n']
             # ⚠️ ANDA, NÃO DESISTE. É a mesma sondagem de 12 m do tecido: o
@@ -4033,7 +4116,12 @@ def planta_distrito_financeiro():
         dog = float(it.get('dog') or 0)
         area = max(1.0, min(FIN_TETO, K_PUBLICADA * math.sqrt(max(0.0, dog))))
         frente = max(20.0, area / prof)
-        passo = math.degrees(frente / r_med)
+        # ⚠️ O PASSO SAI DO CANTO DO RETÂNGULO, NÃO DO ARCO NO RAIO MÉDIO. Ver a
+        # nota de `_testada_no_anel`. Aqui o erro era grande porque a faixa é
+        # estreita (140 m) e o raio é pequeno (985): a Gate.io tem 388 m de
+        # testada, ou 22,6° de arco, e o canto dela passava 13,98 m por cima da
+        # vizinha. Com o canto na conta, o passo dela vira 24,0°.
+        passo = 2.0 * math.degrees(math.atan((frente / 2) / FIN_R0))
         # ⚠️ PULA A PONTE. Os quatro bulevares cardeais atravessam esta faixa e
         # viram ponte sobre o lago: lote em cima deles fecharia a travessia.
         for _ in range(64):
@@ -4889,8 +4977,13 @@ open(ps('public/city/cidade-cotas.bin'), 'wb').write(cot)
 # é promessa pública: publicar a regra vem antes (plano-diretor, passo 4).
 with open(ps('data/dogcity_lotes.csv'), 'w', newline='') as f:
     w = csv.writer(f)
+    # ⚠️ O GIRO VIRA COLUNA EM 22/09, e o motivo é que ele não existia em NENHUM
+    # arquivo revisável: o `.bin` guardava o giro e o CSV não, então nenhum
+    # conferidor podia comparar o giro contra coisa alguma. Num distrito onde o
+    # lote do dedo é radial e o da fileira é tangente, giro errado é lote de
+    # lado, e passaria batido.
     w.writerow(['lot_id', 'address', 'ordem', 'setor', 'quarto', 'quarteirao', 'lote',
-                'x_m', 'z_m', 'raio_m', 'frente_m', 'prof_m', 'area_m2',
+                'x_m', 'z_m', 'raio_m', 'frente_m', 'prof_m', 'area_m2', 'giro_graus',
                 'dog', 'utxo_count', 'forma', 'coorte', 'familia', 'dsc', 'cota_m'])
     for x, z, s, a, fr, pf, q_, b_, n_ in saida:
         # lote sem fila: projeto ou institucional (ver a nota na gravação do .bin)
@@ -4904,6 +4997,7 @@ with open(ps('data/dogcity_lotes.csv'), 'w', newline='') as f:
                     # lotes que se encostam apareciam cruzados em meio metro.
                     round(x, 2), round(z, 2), round(math.hypot(x, z), 1),
                     round(fr, 2), round(pf, 2), round(fr * pf),
+                    round(_GIRO_DE.get((s, q_, b_), 0.0), 2),
                     round(elig.get(a, 0)), 0 if _proj else u,
                     0 if _proj else forma_de(u),
                     0 if _proj else min(7, posto[a]*8//N),

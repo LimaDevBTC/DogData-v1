@@ -167,6 +167,24 @@ export const ORLA_BAIA_FILEIRA_PROF = 68
 export const ORLA_BAIA_TESTADA_MIN = 12
 
 /**
+ * O RECUO DE DIVISA DE FUNDO, e ele existe porque duas fileiras de costas com
+ * o fundo EXATAMENTE na mesma linha se atravessam.
+ *
+ * ⚠️ MEDIDO em 22/09 pelo teste novo do portão: 141 pares de lotes sobrepostos
+ * na orla, todos entre fileiras de costas (A×B, C×D, E×F), o pior com 0,41 m.
+ * A causa é geométrica e não tem a ver com o canto (esse é o §23): o fundo de
+ * cada lote é uma reta TANGENTE ao círculo do encontro, e duas tangentes em
+ * rumos diferentes se cruzam. Com as duas fileiras encostando na mesma linha,
+ * qualquer diferença de rumo já produz cruzamento.
+ *
+ * O recuo resolve sem custar um metro de testada: o retângulo inteiro anda
+ * meio metro na direção da rua, então o fundo fica 0,5 m aquém da linha e a
+ * folga entre as duas fileiras é 1 m. A rua perde 0,5 m de cada lado (12 vira
+ * 11), que é recuo de calçada, não de lote.
+ */
+export const ORLA_BAIA_RECUO_FUNDO = 0.5
+
+/**
  * AS CINCO TESTADAS, de fora para dentro: raio, sentido de crescimento (+1 para
  * fora, −1 para dentro) e a que tier a fileira pertence. É esta lista que o
  * gerador lê: mudar a seção aqui muda o loteamento lá, sem cópia.
@@ -237,25 +255,32 @@ export const ORLA_BAIA_DEDO_CAIS = 17
 /** O enrocamento da lateral do dedo: 10 m de queda em 15 m de corrida. */
 export const ORLA_BAIA_CAIS_TALUDE = 15
 /**
- * A PONTA DO DEDO. 6.150, e os 100 m a mais que o esboço de 21/09 previa são
- * conta de testada, não gosto: a 6.050 faltavam 754 m de linha para os 2.062
- * lotes depois de descontar o que os canais radiais CR01 e CR03 atravessam.
- * Deixa 430 m de lâmina até a praia da alça, que continua canal navegável largo.
+ * A PONTA DO DEDO, e ela é conta de testada, não gosto. O esboço de 21/09 dizia
+ * 6.050. MEDIDO com o desenho fechado: a 6.150 sobrava 0,1 km de linha em 42,0
+ * e UMA carteira dos 2.062 ficava de fora. Depois veio o conserto do canto do
+ * retângulo (ver `_testada_no_anel` no gerador), que come mais 1,5% de arco nas
+ * três fileiras que crescem para dentro. Em 6.300 a folga volta para uns 0,4 km.
+ * Deixa 280 m de lâmina até a praia da alça (6.580), que é canal navegável, e
+ * os dois dedos estão medidos livres de ilha até r 6.400.
  */
-export const ORLA_BAIA_DEDO_PONTA = 6150
+export const ORLA_BAIA_DEDO_PONTA = 6300
 
 /**
- * OS DOIS ANÉIS DE CANAL, pelos eixos. Seção: fundo chato de 30 m na cota −44,
- * talude de 30 m de cada lado até a plataforma (−30), 90 m de corredor no
- * total. Isso põe a lâmina em 47 m de largura, que é a escala das grachten de
- * Amsterdam (27 m médios, 28,31 na Keizersgracht) e não a do canal arterial da
- * cidade (`CANAL_ANEL_SEC`, 60 de lâmina e 140 de corredor). É canal de
- * bairro, e o corredor menor é o que deixa as cinco fileiras caberem entre a
- * praia e o AN4.
+ * OS DOIS ANÉIS DE CANAL, pelos eixos. Seção: fundo chato de 44 m na cota −44,
+ * talude de 23 m de cada lado até a plataforma (−30), 90 m de corredor no
+ * total. A lâmina sai com **57 m**, que é praticamente o padrão arterial da
+ * casa (`CANAL_ANEL_SEC`, 60), num corredor bem menor (90 contra 140) — é o
+ * que deixa as fileiras caberem entre a praia e o AN4.
+ *
+ * ⚠️ A LÂMINA NÃO PODE SER ESTREITA, E ISSO NÃO É GOSTO. A primeira versão
+ * tinha 47 m de lâmina. A malha de água da cena (`lagos.ts`) amostra a 30 m:
+ * uma lâmina de 47 m é uma célula e meia e desenha fita picotada, não canal.
+ * Com 57 m são quase duas células cheias. O talude ficou mais íngreme (14 m em
+ * 23, ou 61%), que é enrocamento de canal, a mesma ordem do cais do dedo.
  */
 export const ORLA_BAIA_CANAL_EIXOS: readonly number[] = [4515, 4237]
-export const ORLA_BAIA_CANAL_FUNDO = 30
-export const ORLA_BAIA_CANAL_TALUDE = 30
+export const ORLA_BAIA_CANAL_FUNDO = 44
+export const ORLA_BAIA_CANAL_TALUDE = 23
 
 /**
  * A COSTA DAS TRÊS ILHAS QUE CAEM NA JANELA DA ORLA, como tabela polar no

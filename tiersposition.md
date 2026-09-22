@@ -66,6 +66,12 @@ Qualquer regra de posição baseada em tier PRECISA dizer o que fazer com os 68,
 
 **MEDIDO** (contagens de 10/09/2026, 19:39). **DECIDIDO/PENDENTE** por linha.
 
+⚠️ **ESTAS CONTAGENS SÃO PRÉ-SNAPSHOT E NÃO SÃO A CONTA FINAL.** Elas são de
+10/09, dois dias antes do bloco 966.670. A contagem que vale é a do snapshot
+fechado, publicada em `/dogcity/docs`: por exemplo o tier 4 tem **713** e não
+715, e o tier 5 tem **1.349** e não 1.347. A tabela fica aqui porque é o
+registro da decisão; para citar número, use o docs ou o próprio snapshot.
+
 | # | tier | carteiras | posição | estado |
 |---|---|---|---|---|
 | 1 | Satoshi Visionary | 88 | Orla Nobre, frente, **23,2° a 77,7°** (centro do arco) | 🔒 **fechado** (§3.1, §3.2) |
@@ -643,8 +649,8 @@ margem que serpenteia 2.300 m não dá fileira contínua nem praia. Diagnóstico
 |---|---|---|
 | **praia imposta** | círculo de linha d'água em r 4.800, praia de 80 m a 1:8 | o mesmo gesto do `ALCA_R_BAIA` na margem de lá: a linha d'água vira DESENHO, não achado de relevo |
 | **enseada** | 20° no eixo (41,3 a 61,3), a água mergulha até r 3.780 num seno | devolve 1.370 m de aproximação de barco à ilha do mirante (§11.4) contra 350 m se o círculo valesse ali; **zero lote**, é praia pública |
-| **quatro dedos** | penínsulas em 11,3 / 31,3 / 71,3 / 91,3, de r 4.720 à ponta em 6.150, seção de 182 m | passo igual de 20° com o slot central VAGO porque ali é a enseada: excluir em vez de desalinhar |
-| **dois anéis de canal** | eixos em r 4.532 e 4.242, lâmina de 57 m (escala grachten) | transformam UMA fileira de frente d'água em cinco |
+| **dois dedos** | penínsulas em 11,3 e 91,3, de r 4.720 à ponta em 6.250, seção de 182 m | eram quatro no estudo; o arquipélago da baía come o par interno, ver abaixo |
+| **dois anéis de canal** | eixos em r 4.515 e 4.237, lâmina de 57 m (escala grachten) | transformam UMA fileira de frente d'água em seis |
 
 **DECIDIDO — a regra de área é a INVERSA da Orla Nobre, e isso foi medição, não gosto.**
 Na alça a testada é fixa e o fundo varia. Aqui não fecha: o maior Ordinal Believer tem
@@ -666,14 +672,43 @@ urbana de canal, no espírito de Amsterdam, um degrau abaixo do estate da alça.
 **avançam juntos**, não um de cada vez: é requisito de desenho, porque enchendo trecho a
 trecho os melhores endereços cairiam todos de um lado da enseada. Ordem dos trechos:
 
-1. os quatro dedos, do par mais perto do eixo para fora (31,3 e 71,3 antes de 11,3 e 91,3),
-   e dentro de cada dedo **da ponta para a base** — a ponta tem água nos três lados;
+1. os dois dedos, e dentro de cada um **da ponta para a base**, porque a ponta tem água
+   nos três lados;
 2. a praia, abrindo **da enseada para os flancos**;
-3. os quatro anéis de canal, de fora para dentro, cada um também da enseada para o flanco.
+3. as cinco fileiras de dentro (B a F), de fora para dentro, cada uma também da enseada
+   para o flanco.
 
-⚠️ **O tier 4 transborda para o primeiro anel, e isso é de propósito.** Dedo mais praia dão
-17,3 km de testada e o tier 4 precisa de 16,0: sobra para os melhores DOG Supporter
-pegarem praia. A divisa entre os dois tiers é a fila, não uma linha no mapa.
+⚠️ **A divisa entre os dois tiers é a FILA, não uma linha no mapa.** O tier 4 enche os
+dedos e a praia e transborda para a primeira fileira de canal; sobra praia para os
+melhores DOG Supporter. É de propósito: com a testada saindo da área, nenhum trecho
+comporta um tier inteiro de forma exata.
+
+**⚠️ O PENTE DE QUATRO DEDOS MORREU EM 22/09, E QUEM O MATOU FOI O ARQUIPÉLAGO.** O
+estudo desenhou os dedos sem consultar `ILHAS` em `ilhas.ts`. MEDIDO:
+
+```
+IL01 Ilha do Fundador   rumos 28 a 44   r 4.670 a 6.520   (raio 672, alonga 1,35)
+IL02 Ilha Norte         rumos 50 a 60   r 5.470 a 6.460
+IL04 Ilha Leste         rumos 66 a 70   r 5.770 a 6.430
+```
+
+O dedo de 31,3° entrava DENTRO da Ilha do Fundador: pedindo 200 m de folga ele só ia até
+r 4.810, ou seja 90 m de península. O de 71,3° batia na Ilha Leste e parava em 5.800.
+
+E não existe pente de quatro que sirva: com passo igual e o slot do meio vago, o par
+interno fica em 51,3 ± S; para limpar a ilha do fundador ele precisa de S ≥ 25,3, e aí o
+par externo cai em 51,3 − 2S ≤ 0,7, fora do arco. **Regra do fundador ao pé da letra:
+excluir é melhor que desalinhar.** Saem os dois de dentro, ficam 11,3 e 91,3, a 80° um do
+outro, espelhados no eixo e livres até r 6.400. O miolo da baía fica para a enseada e para
+o arquipélago, que é o que ele já é. A **fileira F** (r 4.044, a Rua de Trás) nasceu para
+pagar a testada: os dois dedos perdidos custavam 5.720 m e ela devolve 5.647.
+
+⚠️ **E A ILHA NÃO TEM COTA.** As ilhas são malha à parte e não entram em `heightAt`: para
+o gerador o chão debaixo da Ilha do Fundador era o chão da praia, e ele plantou 427 m de
+testada da fileira A lá dentro sem que nada reclamasse. A máscara agora é a costa MEDIDA
+de cada ilha em tabela polar de 72 baldes (`ORLA_BAIA_ILHAS` em `orla-baia.ts`). Disco e
+elipse foram testados e reprovados: os dois alcançam r 4.522 e comeriam a fileira B,
+contra os 4.670 da costa real.
 
 **MEDIDO — o que rejeita, e os dois defeitos que a medição pegou** (a sondagem conta motivo
 por motivo em `OB_REJ`, no gerador):

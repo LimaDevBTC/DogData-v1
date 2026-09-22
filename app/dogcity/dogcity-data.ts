@@ -306,7 +306,11 @@ export const TIERS = [
 export const WALLET_STEPS = [
   { n: "01", title: "DOG wallet", text: "Your wallet is the identity. No seed phrase, no signup: the address is enough." },
   { n: "02", title: "Balance & eligibility", text: "Your DOG balance sets the registration level a property can reach." },
-  { n: "03", title: "Oldest UTXO", text: "The age of your oldest eligible DOG UTXO influences district placement; older coins live closer to the core." },
+  // ⚠️ A RÉGUA MUDOU EM 12/09 (masterplan §12) E ESTA LINHA FICOU PARA TRÁS. Não
+  // é mais a idade do UTXO mais antigo: é DOG-tempo, saldo vezes idade somado
+  // moeda a moeda, que é o que o gerador de fato usa desde 19/09. A régua velha
+  // premiava quem tinha uma moeda velha e nada mais.
+  { n: "03", title: "DOG-time", text: "Balance times age, summed coin by coin. It is the whole history that counts, not one old coin; more DOG-time places you closer to the core." },
   { n: "04", title: "District assignment", text: "The masterplan assigns your lot inside one of the districts, following real terrain." },
   { n: "05", title: "Lunar coordinates", text: "Every lot maps to true selenographic coordinates at Mare Tranquillitatis." },
   { n: "06", title: "Bitcoin inscription", text: "At the Grand Opening, licensed properties can be minted as Ordinals on Bitcoin L1 (planned, not live yet)." },

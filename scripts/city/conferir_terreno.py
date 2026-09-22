@@ -26,7 +26,7 @@
 #   1) node scripts/city/topo.mjs --n=1400 --raio=7200 --saida=/tmp/topo
 #   2) python3 scripts/city/conferir_terreno.py --topo=/tmp/topo
 # ═══════════════════════════════════════════════════════════════════════════
-import json, math, struct, sys, os
+import json, math, re, struct, sys, os
 
 arg = lambda k, d: next((a.split('=', 1)[1] for a in sys.argv[1:] if a.startswith(f'--{k}=')), d)
 TOPO = arg('topo', '/tmp/topo')
@@ -119,7 +119,69 @@ def altura(x, z):
     if r < PLATO_FUNDE:
         b = 0.0 if r <= PLATO_R else b * ((lambda t: t*t*(3-2*t))((r - PLATO_R) / (PLATO_FUNDE - PLATO_R)))
     w = podio_peso(x, z)
-    return b*(1.0-w) + PY_*w
+    return _esculpe(x, z, b*(1.0-w) + PY_*w)
+
+
+# ⚠️ A ALÇA E A ORLA DA BAÍA NÃO ERAM MODELADAS AQUI, E POR ISSO A TOLERÂNCIA DE
+# 1,5 m NÃO QUERIA DIZER NADA NAQUELA FAIXA. Este conferidor reconstruía relevo
+# cru, platô e pódio, e parava aí: contra a cena, que esculpe uma plataforma em
+# −30 na alça e outra na orla da baía, o resíduo era de dezenas de metros, e a
+# grade fixa que eu acabara de acrescentar mediria justamente isso como se fosse
+# defeito, ou (pior) seria calibrada para tolerá-lo.
+#
+# ⚠️ E A SAÍDA NÃO É REESCREVER AS DUAS FUNÇÕES AQUI. Reimplementar medição fora
+# do gerador é exatamente a doença que este arquivo existe para pegar; uma
+# terceira cópia das mesmas fórmulas divergiria das outras duas em silêncio. O
+# que ele faz é EXECUTAR o bloco do próprio gerador, o mesmo texto, com os
+# mesmos leitores de constante da cena. Se o gerador mudar, isto muda junto.
+def _carrega_esculpido():
+    src = open(p('scripts/gerar_cidade.py'), encoding='utf-8').read()
+    ini = src.index('ALCA_PLATAFORMA_Y = _ts_const')
+    fim = src.index('def altura(x, z):')
+    p_ts = lambda nome: p('app/city/plaza', nome)
+
+    def _ts_const(caminho, chave):
+        txt = open(p_ts(caminho), encoding='utf-8').read()
+        m = re.search(rf'\b{chave}\s*(?::[^=\n]*)?[:=]\s*\[\s*(-?[0-9.]+)\s*,\s*(-?[0-9.]+)', txt)
+        if m: return (float(m.group(1)), float(m.group(2)))
+        m = re.search(rf'\b{chave}\s*(?::[^=\n]*)?[:=]\s*(?:[A-Za-z_][A-Za-z0-9_.]*\()?\s*(-?[0-9.]+)', txt)
+        if m: return float(m.group(1))
+        raise SystemExit(f'conferir_terreno: nao achei {chave} em {caminho}')
+
+    def _ts_lista(caminho, chave):
+        txt = open(p_ts(caminho), encoding='utf-8').read()
+        m = re.search(rf'\b{chave}\s*(?::[^=\n]*)?[:=]\s*\[([^\]]*)\]', txt)
+        return [float(t) for t in re.findall(r'-?[0-9.]+', m.group(1))]
+
+    def _ts_fileiras(caminho, chave):
+        txt = open(p_ts(caminho), encoding='utf-8').read()
+        m = re.search(rf'\b{chave}\b[^=]*=\s*\[(.*?)\n\]', txt, re.S)
+        return [(float(a.group(1)), int(a.group(2)), int(a.group(3))) for a in
+                re.finditer(r'\{\s*r:\s*(-?[0-9.]+)\s*,\s*sentido:\s*([+-]?1)\s*,\s*tier:\s*([0-9]+)', m.group(1))]
+
+    def _ts_ilhas(caminho, chave):
+        txt = open(p_ts(caminho), encoding='utf-8').read()
+        m = re.search(rf'\b{chave}\b[^=]*=\s*\[(.*?)\n\]', txt, re.S)
+        return [(float(a.group(1)), float(a.group(2)), float(a.group(3)),
+                 [float(t) for t in a.group(4).split(',')]) for a in
+                re.finditer(r"x:\s*(-?[0-9.]+)\s*,\s*z:\s*(-?[0-9.]+)\s*,\s*giro:\s*(-?[0-9.]+)\s*,\s*r:\s*\[([^\]]*)\]", m.group(1))]
+
+    ns = {'math': math, 're': re, 'os': os, 'sys': sys,
+          '_ts_const': _ts_const, '_ts_lista': _ts_lista,
+          '_ts_fileiras': _ts_fileiras, '_ts_ilhas': _ts_ilhas,
+          'ALCA_TERRA_ARCO': _ts_const('teia.ts', 'ALCA_TERRA'),
+          'ALCA_R_BAIA': _ts_const('alca.ts', 'ALCA_R_BAIA'),
+          'ALCA_R_MAR': _ts_const('alca.ts', 'ALCA_R_MAR'),
+          'ALCA_PRAIA': _ts_const('alca.ts', 'ALCA_PRAIA_LARGURA')}
+    exec(compile(src[ini:fim], 'gerar_cidade:esculpido', 'exec'), ns)
+    return ns
+
+_ESC = _carrega_esculpido()
+def _esculpe(x, z, base):
+    """a alça primeiro, a orla da baía por fora: a MESMA ordem de `altura()` no
+    gerador e de `heightAt` em terrain.ts. Trocar a ordem apaga as pontas dos
+    dedos, que é o motivo de ela estar escrita em três lugares."""
+    return _ESC['orla_baia_altura'](x, z, _ESC['alca_altura'](x, z, base))
 
 # ⚠️ AMOSTRAR SÓ ONDE O LOTE NASCE DEIXOU PASSAR 43 METROS. Até 20/09 nenhum
 # lote ia além de φ 5.500, então a alça inteira ficava fora desta amostra, e o

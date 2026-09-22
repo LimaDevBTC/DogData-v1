@@ -48,6 +48,7 @@ import { buildObras, type Obras } from './obras'
 import { buildIlhas, type Ilhas } from './ilhas'
 import { encaixaPrograma, desenhaPrograma, type PecaEncaixada,
          type ProgramaDesenho } from './programa'
+import { ORLA_BAIA_VIAS } from './orla-baia'
 import { buildVias, type Vias } from './vias'
 import { buildPracas, type Pracas } from './pracas'
 import { buildLunetaPraca } from './luneta-praca'
@@ -2982,6 +2983,14 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                     // seria deformado por uma correção de esquadria que não lhe
                     // cabe.
                     ...(lago ? [{ r: lago.rAnelOrla, larg: LARG_ORLA, circulo: true }] : []),
+                    // ⚠️ E AS QUATRO RUAS DA ORLA DA BAÍA, PELO MESMO MOTIVO.
+                    // Os canais radiais CR01 (25°) e CR03 (85°) atravessam o
+                    // distrito inteiro e cruzam as cinco ruas dele. Sem entrar
+                    // nesta lista, `canais.ts` não constrói ponte e a via para
+                    // na lâmina (`paraNaAgua`): dez pistas terminando na água.
+                    // A lista de `vias.ts` é outra cópia; esta é a que manda em
+                    // ponte, e as duas têm de citar as mesmas ruas.
+                    ...ORLA_BAIA_VIAS.map((v) => ({ r: v.r, larg: v.larg, circulo: true })),
                   ],
                   raioEmPhi: _raioEmPhi,
                   rFimRadial: rFim,

@@ -46,7 +46,7 @@ import { FEATURES, WALLET_STEPS } from "../dogcity-data"
 const LEDGER = [
   { from: "ADDRESS", to: "IDENTITY" },
   { from: "BALANCE", to: "REGISTRATION LEVEL" },
-  { from: "OLDEST UTXO AGE", to: "DISTANCE FROM CORE" },
+  { from: "DOG-TIME", to: "DISTANCE FROM CORE" },
   { from: "DISTRICT", to: "LOT" },
   { from: "LOT", to: "SELENOGRAPHIC COORDINATES" },
   { from: "PROPERTY", to: "ORDINAL ON BITCOIN L1" },

@@ -88,9 +88,18 @@ item('.bin, CSV e cotas na mesma ordem', mesma, f'{len(lotes)} / {len(linhas)} /
 
 # 3. lot_id único e no formato
 import re
-pad = re.compile(r'^S\d{2}-Q\d{2}-B\d{3}-L\d{3}$')
+# ⚠️ O CAMPO B TEM LARGURA VARIÁVEL E O REGEX FIXO JÁ REPROVOU A CIDADE UMA VEZ.
+# `B{:03d}` escreve QUATRO dígitos quando o quarteirão passa de 999, e a Orla da
+# Baía chegou a ter 2.062 lotes num quarteirão só. O gerador foi consertado para
+# numerar por TRECHO, mas o portão não pode depender disso: ele aceita 3 ou mais
+# dígitos e diz qual é o maior que encontrou, para o dia em que estourar de novo.
+pad = re.compile(r'^S\d{2}-Q\d{2}-B\d{3,}-L\d{3,}$')
 ids = [r['lot_id'] for r in linhas]
-item('lot_id único e no padrão', len(set(ids)) == len(ids) and all(pad.match(i) for i in ids))
+_maus = [i for i in ids if not pad.match(i)]
+_maiorB = max((int(i.split('-')[2][1:]) for i in ids if pad.match(i)), default=0)
+item('lot_id único e no padrão', len(set(ids)) == len(ids) and not _maus,
+     f'{len(set(ids))} únicos de {len(ids)}, maior quarteirão B{_maiorB}'
+     + (f', {len(_maus)} fora do padrão (ex.: {_maus[:2]})' if _maus else ''))
 
 # 4. sobreposição, pelo eixo separador, dentro do mesmo quarteirão
 def cantos(x, z, w, d, giro):
@@ -133,7 +142,11 @@ for i, r in enumerate(linhas):
     _, _, _s, _c, _f, _fl, _w, _d, giro_c = lotes[i]
     x, z = float(r['x_m']), float(r['z_m'])
     w, d = float(r['frente_m']), float(r['prof_m'])
-    por_quarteirao[r['lot_id'][:14]].append((i, cantos(x, z, max(1.0, w), max(1.0, d), math.radians(giro_c/100))))
+    # ⚠️ SPLIT, NÃO FATIA. `lot_id[:14]` supõe que o campo B tem sempre três
+    # dígitos; com quatro ele corta no meio do número e junta quarteirões
+    # diferentes no mesmo balde, o que ESCONDE sobreposição em vez de achar.
+    _p = r['lot_id'].split('-')
+    por_quarteirao['-'.join(_p[:3])].append((i, cantos(x, z, max(1.0, w), max(1.0, d), math.radians(giro_c/100))))
 pares, piores, fundos = 0, [], []
 for _q, itens in por_quarteirao.items():
     for a in range(len(itens)):
@@ -149,6 +162,75 @@ detalhe = f'{pares} pares acima de {TOL:.2f} m'
 if fundos:
     detalhe += f', mediana {fundos[len(fundos)//2]:.2f} m, pior {fundos[-1]:.2f} m em {piores[0][1:] if piores else ""}'
 item('nenhum lote sobre outro', pares == 0, detalhe)
+
+# 4b. OS DISTRITOS ESPECIAIS NÃO ERAM CONFERIDOS POR NINGUÉM
+# ⚠️ Orla Nobre (S07), Distrito Financeiro (S08) e Orla da Baía (S09) gravam UM
+# QUARTEIRÃO POR LOTE, porque cada lote tem giro próprio. O teste 4 agrupa por
+# quarteirão: com um lote em cada balde, ele nunca compara dois deles e os três
+# distritos passavam sem ser olhados — justamente os que não nascem do alocador
+# de tecido e não têm prateleira para garantir que não se encostam.
+# Aqui eles são comparados par a par, dentro de cada setor.
+_esp = collections.defaultdict(list)
+for i, r in enumerate(linhas):
+    _s_ = int(r['setor'])
+    if _s_ < 7: continue
+    _, _, _, _, _, _, _, _, giro_c = lotes[i]
+    _esp[_s_].append((i, cantos(float(r['x_m']), float(r['z_m']),
+                                max(1.0, float(r['frente_m'])), max(1.0, float(r['prof_m'])),
+                                math.radians(giro_c/100))))
+_pe, _piore = 0, (0.0, '', '')
+for _s_, itens in _esp.items():
+    for a in range(len(itens)):
+        for b in range(a + 1, len(itens)):
+            pen = penetracao(itens[a][1], itens[b][1])
+            if pen > TOL:
+                _pe += 1
+                if pen > _piore[0]:
+                    _piore = (pen, linhas[itens[a][0]]['lot_id'], linhas[itens[b][0]]['lot_id'])
+item('nenhum lote sobre outro nos distritos especiais (S07, S08, S09)', _pe == 0,
+     f'{sum(len(v) for v in _esp.values())} lotes comparados par a par, {_pe} pares acima de {TOL:.2f} m'
+     + (f', pior {_piore[0]:.2f} m em {_piore[1]} x {_piore[2]}' if _pe else ''))
+
+# 4c. O GIRO DO REGISTRO BATE COM O DO .bin?
+# ⚠️ Até 22/09 o giro só existia no binário, ou seja não havia contra o que
+# conferi-lo: o documento do dono não dizia para que lado o lote está virado.
+# Num distrito em que o lote do dedo é radial e o da fileira é tangente, giro
+# trocado é lote de lado, e nenhum teste pegava.
+if 'giro_graus' in (linhas[0].keys() if linhas else {}):
+    _pior_g, _onde_g, _n_g = 0.0, '', 0
+    for i, r in enumerate(linhas):
+        g_csv = float(r['giro_graus']) % 360.0
+        g_bin = (lotes[i][8] / 100.0) % 360.0
+        d = abs(((g_csv - g_bin + 180) % 360) - 180)
+        if d > 0.01: _n_g += 1
+        if d > _pior_g: _pior_g, _onde_g = d, r['lot_id']
+    item('giro do CSV bate com o do .bin', _pior_g <= 0.01,
+         f'pior desvio {_pior_g:.4f}° em {_onde_g}, {_n_g} acima de 0,01°')
+else:
+    item('giro do CSV bate com o do .bin', True,
+         'PULADO: este CSV é anterior à coluna giro_graus (22/09)')
+
+# 4d. O CEMITÉRIO OBEDECE À REGRA QUE O PRÓPRIO MANIFESTO PUBLICA?
+# ⚠️ Nenhum teste cruzava o destino "lápide" com o motivo dele. O portão sabia
+# que toda carteira tem UM destino, mas não que o destino é o CERTO: uma
+# carteira rica no cemitério, ou uma abaixo do corte com lote, passava.
+_manif = json.load(open(os.path.join(BASE, 'public/city/cidade.json')))
+_cem = _manif.get('cemiterio') or {}
+_corte = float(_cem.get('corteDog') or 0)
+if _corte > 0 and colum:
+    _dog = {r['address']: float(r.get('dog') or 0) for r in fila}
+    _ricos = [a for a in colum if _dog.get(a, 0) > _corte + 0.01]
+    _pobres = [r['address'] for r in linhas
+               if not str(r['address']).startswith('__projeto')
+               and r['address'] in _dog and _dog[r['address']] < _corte - 0.01]
+    item('cemitério obedece ao corte publicado',
+         not _ricos and not _pobres,
+         f'corte {_corte:.2f} DOG; {len(_ricos)} lápides acima do corte, '
+         f'{len(_pobres)} lotes abaixo dele'
+         + (f' (ex.: {(_ricos or _pobres)[:2]})' if (_ricos or _pobres) else ''))
+else:
+    item('cemitério obedece ao corte publicado', True,
+         'PULADO: manifesto sem corteDog ou cidade sem cemitério')
 
 # 5. área entregue contra a prometida pelo snapshot
 # ⚠️ só quem recebeu lote entra nesta conta: o nicho não promete metro quadrado

@@ -1816,8 +1816,8 @@ a fachada da baía e esta é a arquibancada que a vê.
 
 **As quatro peças:** praia imposta num círculo de r 4.800 (o mesmo gesto do `ALCA_R_BAIA`
 na margem de lá), uma enseada de 20° no eixo onde a água mergulha a r 3.780 e **não nasce
-lote nenhum**, quatro dedos (penínsulas) em 11,3 / 31,3 / 71,3 / 91,3, e dois anéis de
-canal que transformam uma fileira de frente d'água em cinco.
+lote nenhum**, **dois** dedos (penínsulas) em 11,3 e 91,3, e dois anéis de canal que
+transformam uma fileira de frente d'água em seis.
 
 **A lei que sai daqui, e ela é nova:** neste distrito o **fundo é travado em 68 m e a
 testada é a área ÷ 68**, o inverso da Orla Nobre. Não é preferência: o maior Ordinal
@@ -1843,6 +1843,37 @@ aparecerem foi contar o motivo: `OB_REJ` separa água, programa, canal, anel e d
 foi a linha `declive 31%` que apontou o dedo. **Laço de plantio sem contador de motivo é
 laço cego.**
 
+**⚠️ A BAÍA EM FRENTE AO DISTRITO É UM ARQUIPÉLAGO, E NINGUÉM TINHA OLHADO.** O estudo
+desenhou quatro dedos num pente de 20° sem consultar `ILHAS` em `ilhas.ts`. Medido em
+22/09: a **Ilha do Fundador** (IL01) ocupa os rumos 28 a 44 entre r 4.670 e 6.520, a Ilha
+Norte os rumos 50 a 60 e a Ilha Leste os rumos 66 a 70. O dedo de 31,3° entrava DENTRO da
+ilha do fundador e o de 71,3° dentro da Ilha Leste.
+
+E o pente de quatro é **geometricamente impossível** aqui, não é questão de gosto: com
+passo igual e o slot do meio vago, o par interno fica em 51,3 ± S; para limpar a Ilha do
+Fundador ele precisa de S ≥ 25,3, e aí o par externo cai fora do arco, que começa em 1,3.
+Não existe passo que sirva para os dois pares. Vale então a regra do fundador ao pé da
+letra: **excluir é melhor que desalinhar.** Sai o par interno inteiro e ficam dois dedos em
+11,3 e 91,3, espelhados no eixo e livres até r 6.400. Uma **fileira F** nasceu na borda
+interna para pagar a testada perdida.
+
+**A regra que fica: ilha é peça declarada, não relevo.** As ilhas da baía são malha à
+parte e NÃO entram em `heightAt`. Para o gerador, o chão debaixo da Ilha do Fundador era o
+chão da praia: sem máscara ele plantou 427 m de testada dentro dela, e nem o gerador nem o
+portão veriam problema, porque os dois medem cota e a ilha não tem cota. A máscara agora é
+a costa MEDIDA de cada ilha, em tabela polar de 72 baldes (`ORLA_BAIA_ILHAS`). Disco e
+elipse foram testados e reprovados: os dois alcançam r 4.522 e comeriam a fileira B, contra
+os 4.670 da costa real.
+
+**⚠️ E A SAIA DE VOLTA AO NATURAL ERA UM BANCO DE AREIA.** Do lado da água eu devolvia o
+leito escavado ao terreno natural em 250 m, para preservar as ilhas. Medido pelo próprio
+gerador: **165 de 165 rumos** do arco ficavam com terra entre a linha d'água nova e a baía,
+até 760 m dela. A praia imposta olhava para um banco de areia e os canais ficavam presos
+atrás dele. A saia não era necessária: as ilhas são malha à parte, com saia própria até
+−62 m. Regra agora, a mesma da alça: **do lado da água a orla nunca levanta o chão, só
+abaixa** (`min` com o natural). Depois do conserto: 12 rumos de 183, e os que sobram são a
+franja das duas pontas do arco, que é onde ela tem de existir.
+
 **O que o estudo previu e a obra desmentiu:** o estudo de 21/09 dizia que a baía CRESCERIA
 0,414 km². Medido na cidade gerada: **20,18 km², contra 21,04 do §18.4, ou seja −4,1%**. Os
 dedos tiram mais água do que a enseada devolve. Não publicar o número do estudo.
@@ -1851,3 +1882,82 @@ dedos tiram mais água do que a enseada devolve. Não publicar o número do estu
 do cruzamento pedra-mais-DOG, 15,20 km² para 6.393 carteiras. Essa terra nunca existiu — a
 conta vinha de uma orla imaginada sobre a margem natural sinuosa. Está reaberto como P10 no
 caderno. O prêmio que sobrevive é a **Runestone no quintal**, que não custa terra.
+
+---
+
+## §23 — Retângulo tangente não cabe em `testada ÷ raio` 🔒 (medido 22/09/2026)
+
+**O defeito, e ele é dos graves: 210 pares de lotes SOBREPOSTOS**, escondidos desde que a
+Orla Nobre e o Distrito Financeiro existem.
+
+```
+Orla Nobre (S07)          202 pares   mediana 0,87 m   pior 1,36 m
+Distrito Financeiro (S08)   8 pares   mediana 4,76 m   pior 13,98 m
+```
+
+**Por que ninguém via.** O teste de sobreposição do portão agrupava por QUARTEIRÃO, e os
+três distritos especiais gravam **um quarteirão por lote** (cada lote tem giro próprio).
+Com um lote em cada balde, o teste nunca comparava dois. Ele passava com nota cheia sobre
+os três distritos que não nascem do alocador de tecido, ou seja justamente os que não têm
+prateleira garantindo que ninguém se encosta.
+
+**Por que acontecia.** A conta ingênua divide o arco pelo número de lotes e usa isso como
+largura. Mas o lote é um RETÂNGULO e o canto dele fica no raio INTERNO, onde o mesmo
+ângulo vale menos metros. Dois retângulos vizinhos, cada um girado do outro, se atravessam
+pelos cantos. No Distrito Financeiro o erro é enorme porque a faixa é estreita (140 m) e o
+raio é pequeno (985): a maior institucional tem 388 m de testada, ou 22,6° de arco.
+
+**A lei que fica:** o lote ocupa **2·atan((w/2) ÷ r_interno)** de ângulo, não `w ÷ r`. O
+raio interno é a testada menos o fundo quando a fileira cresce para dentro, e a própria
+testada quando cresce para fora. Consequências aplicadas em 22/09:
+
+- Orla Nobre: a testada da frente caiu de 74,0 para **71,8 m** (o fundo dela chega a 214 m,
+  então o canto fica 214 m mais para dentro).
+- Distrito Financeiro: o passo virou `2·atan((frente/2) ÷ FIN_R0)`.
+- Orla da Baía: as três fileiras que crescem para dentro passam a consumir arco pelo raio
+  interno (fator de 1,5%).
+
+**E a lição de portão, que vale mais que o conserto:** um teste que agrupa por chave pode
+ficar VAZIO sem nunca reprovar. Sempre que um distrito novo usar uma chave de agrupamento
+diferente, o teste que depende dela precisa de um irmão que não dependa. O portão ganhou
+`nenhum lote sobre outro nos distritos especiais (S07, S08, S09)`, que compara par a par,
+sem agrupar.
+
+---
+
+## §24 — O merkle root do registro 🔒 (22/09/2026)
+
+A fase 4 do plano de mint manda inscrever um Ordinal-pai (o Charter) com o merkle root do
+registro. Até 22/09 o root **não existia**: o que havia era o sha256 plano do artefato
+(`congelar-mapa.ts`), que prova que o arquivo não mudou mas não deixa ninguém provar que
+UMA carteira está lá dentro sem baixar a cidade inteira.
+
+**Construído em `scripts/city/merkle.py`.** sha256 duplo com duplicação do nó ímpar, que é
+a construção do Bitcoin e a que qualquer auditor já sabe verificar.
+
+**A folha é o DIREITO, não o desenho:**
+
+```
+lote:   L|lot_id|address|x_cm|z_cm|frente_cm|prof_cm|giro_cc|area_m2|cota_cm
+lápide: M|address
+ordenadas por (address, lot_id)
+```
+
+⚠️ **Tudo em centímetros inteiros, nunca em ponto flutuante.** Texto de float muda de forma
+entre linguagens e o root mudaria sem a cidade mudar.
+
+⚠️ **O `.bin` não entra.** Ele é a cópia quantizada em quartos de metro que a cena desenha;
+o registro de direito é o CSV. Selar os dois daria dois roots para uma cidade só. O
+`merkle.json` guarda o sha256 dos quatro artefatos, o que amarra root a arquivo sem
+misturar as duas coisas.
+
+**A prova de inclusão é o ponto inteiro:** `--prova=<endereço>` devolve os 17 hashes que
+ligam a folha ao root. Com o root publicado, o holder confere o próprio lote sem baixar a
+cidade e sem confiar no projeto. Testado ponta a ponta em 22/09.
+
+⚠️ **As 87 mil provas prontas NÃO são gravadas, de propósito:** dariam 47 MB para um dado
+que se recomputa em segundos a partir de `dogcity_merkle_folhas.txt`, que é gravado.
+
+**A ordem que fica:** cidade gerada → portão APROVADO → merkle root → Charter → janela de
+432 blocos → mint. O root só vale sobre uma cidade que passou no portão, e o script recusa
+rodar se duas linhas tiverem o mesmo endereço.

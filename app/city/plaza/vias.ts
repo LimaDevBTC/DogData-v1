@@ -51,7 +51,10 @@ import { corCurta, normalCurta } from './atributos'
 import { LIMIAR_PRACA } from './pracas'
 import type { DistanceCuller } from './perf'
 import { ANEIS, AVENIDAS, HR, N_RAD, aneisDaCidade, anguloDe, avenidasGeom, naAlcaDeTerra, nasceEm, noArcoDoAnel, raioDodeca } from './teia'
-import { ORLA_BAIA_ARCO, ORLA_BAIA_VIAS, naOrlaDaBaia } from './orla-baia'
+import {
+  ORLA_BAIA_ARCO, ORLA_BAIA_VIAS, ORLA_BAIA_DEDO_RUMOS, ORLA_BAIA_DEDO_ESPINHA_LARG,
+  ORLA_BAIA_R_FRENTE, ORLA_BAIA_RUA, ORLA_BAIA_DEDO_PONTA, naOrlaDaBaia,
+} from './orla-baia'
 import { look2 } from './look'
 import { superficie, vestir, type Superficie } from './materiais'
 
@@ -1861,6 +1864,29 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   // perfeita, que na planta lia como poá e foi o que o fundador chamou de
   // carimbado. O verde agora é `parques`, poucos e escolhidos, e quem desenha é
   // pracas.ts. Sem quarto não há anel de quarto.
+
+  // ── 1c. A ESPINHA DOS DEDOS DA ORLA DA BAÍA ───────────────────────────────
+  // ⚠️ SEM ELA O LOTE DE PENÍNSULA NÃO TEM COMO SER ALCANÇADO. O dedo tem
+  // testada na água dos dois lados e ACESSO pelos fundos: as duas fileiras
+  // ficam de costas para uma rua de 12 m que corre no eixo, da Rua da Praia até
+  // a ponta. É o mesmo arranjo da fileira de trás da Orla Nobre.
+  //
+  // Ela é desenhada com `faixa` e SEC_RUA, sem marcação: marcação viária é
+  // privilégio do bulevar (ver a nota do laço abaixo), e pintar eixo numa via
+  // local de 12 m apagaria a hierarquia que a malha construiu.
+  for (const rumo of ORLA_BAIA_DEDO_RUMOS) {
+    const ang = (rumo * Math.PI) / 180
+    const perpX = Math.cos(ang), perpZ = Math.sin(ang)
+    const dirX = Math.sin(ang), dirZ = -Math.cos(ang)
+    const larg = ORLA_BAIA_DEDO_ESPINHA_LARG
+    const esc = larg / SEC_RUA[SEC_RUA.length - 1].ate
+    const secao = esc === 1 ? SEC_RUA : SEC_RUA.map((b) => ({ ...b, de: b.de * esc, ate: b.ate * esc }))
+    // começa na Rua da Praia (que ela encontra em cruz) e morre na ponta
+    const r0 = ORLA_BAIA_R_FRENTE - ORLA_BAIA_RUA, r1 = ORLA_BAIA_DEDO_PONTA
+    faixa(dirX * r0 - perpX * larg / 2, dirZ * r0 - perpZ * larg / 2,
+          dirX * r1 - perpX * larg / 2, dirZ * r1 - perpZ * larg / 2,
+          perpX, perpZ, secao, false)
+  }
 
   // ── 2. os 12 bulevares de costura, e só eles ganham marcação ──────────────
   // ⚠️ ELES SAEM DE tecido.ts E PASSAM A MORAR AQUI. Lá a pista era desenhada

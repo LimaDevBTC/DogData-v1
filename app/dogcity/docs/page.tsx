@@ -436,9 +436,11 @@ export default function DogCityDocsPage() {
                 the data can show.
               </P>
               <P>
-                Holder tier counts at the snapshot. These tiers are the ranks of the Genesis Badge,
-                earned by airdrop history; the badge is a mark, not a lot, and it does not decide
-                where a wallet lives (see section 3):
+                Holder tier counts at the snapshot. These tiers are the ranks of the Genesis
+                Badge, earned by airdrop history. The badge is a mark, never a payout, and it never
+                changes how much land a wallet gets: the area always comes from the curve in
+                section 3. For the first five tiers it does decide the neighborhood, and only the
+                neighborhood, because the city has two waterfronts and they are finite:
               </P>
               <Table
                 head={["Tier", "Wallets"]}
@@ -561,8 +563,18 @@ export default function DogCityDocsPage() {
                 The airdrop itself did not disappear from the picture. It became the Genesis Badge:
                 every wallet that received the original airdrop carries this mark permanently, on
                 the record as part of the first community. The Genesis Badge is identity and
-                legacy, never land and never a return. It does not decide where a wallet lives and
-                it pays out nothing; the tiers above are its ranks.
+                legacy, never land and never a return: it pays out nothing and it never changes lot
+                size, which always comes from the curve.
+              </P>
+              <P>
+                What it does decide, for the first five tiers, is the address. The bay has two
+                shores and neither can hold everyone, so the badge ranks who gets them. Tiers 1 to
+                3, the 446 oldest and steadiest wallets, take the Spit: two rows of large lots on
+                the causeway that closes the bay, facing the water. Tiers 4 and 5, 2,062 wallets,
+                take the Bay Shore on the opposite margin, looking back at the Spit across the
+                water: a beach row, two peninsulas, five rows and two canals. Tier 6, Diamond Paws,
+                is the body of the city and has no fixed district. Everyone else is placed by the
+                position ruler alone.
               </P>
 
               <Sub>Why the problem exists</Sub>
@@ -809,11 +821,11 @@ export default function DogCityDocsPage() {
                 a financial district is supposed to show. Under the raised cap, the largest wallet
                 identified so far reaches roughly 112,000 m2, well under the new ceiling, and the
                 curve still holds: a wallet with 4.3 times the balance of another receives only 2.1
-                times the land. Twenty-two already-identified institutional wallets today account
-                for 28.85% of the supply and would occupy under 0.6 km2 even at the higher cap; a
-                broader projection across every exchange currently listing $DOG and their bridges
-                puts the total closer to 1.9 km2, comfortably inside the 13.5 km2 available in the
-                surrounding ring should the district ever need to grow into it.
+                times the land. Measured against the closed snapshot, the 21 institutional wallets
+                hold 13.66% of the supply and take 403,911 m2 in total, or 0.40 km2, with the
+                largest reaching 54,300 m2, roughly a third of the raised ceiling. The district is
+                built and the whole of it fits with room to spare in the dry ring between the
+                precinct wall and the Plaza Lake.
               </P>
               <P>
                 $DOG is listed on 20 exchanges today (source: CoinGecko, 13 September 2026), 14
@@ -823,13 +835,18 @@ export default function DogCityDocsPage() {
 
               <Sub>How you enter</Sub>
               <P className="mt-3">
-                Entry is by verified identity, never by measurement. A wallet does not qualify for
-                the Financial District by looking like a business on chain: the exchange or
-                institution comes to the project, proves who it is, and the project and the
-                institution enter a partnership. This is the mirror image of how a residential lot
-                is earned: in the neighborhoods, a wallet proves what it did; in the Financial
-                District, it proves who it is. An exchange that has not yet reached out does not get
-                placed there by the project&apos;s own deduction.
+                Two doors, and it matters which is which. The preferred door is partnership: the
+                exchange or institution comes to the project, proves who it is, and the two enter an
+                agreement. Nothing about that has changed and it is still how we want this to work.
+                <br /><br />
+                The second door is the one that is actually open today, and the page has to say so.
+                At the snapshot the project ran the person-versus-service ruler of section 4 over
+                the largest wallets and marked 21 of them as institutional. Those 21 were placed in
+                the Financial District by that measurement, not by a handshake, because the city had
+                to be generated and every wallet had to land somewhere. Any wallet marked this way
+                has the right of appeal described below, and a successful appeal moves it to a
+                residential lot of the same standard from the reserve. An exchange that has not
+                reached out and was not marked is not placed there by deduction.
               </P>
 
               <Sub>The right of appeal</Sub>
