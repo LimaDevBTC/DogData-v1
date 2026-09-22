@@ -30,24 +30,77 @@ export function onDiagonal(q: Quadrant, r: number, side = 0): [number, number] {
   return [Math.cos(a) * r + px * side, Math.sin(a) * r + pz * side]
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// AS TRÊS QUE FICAM, EM CIMA DO DECK, A 120° UMA DA OUTRA (22/09/2026)
+//
+// Decisão do fundador: o jardim clássico saiu (ver a bandeira `JARDIM` em
+// precinct.ts) e só três peças continuam na Satoshi Plaza, mudando-se para
+// cima do deck, debaixo da torre: a Pata de Diamante com a estátua do
+// Leônidas, o Jardim do White Paper e o painel do Dog Social Club. "120° pra
+// cada", palavras dele.
+//
+// ⚠️ O DESLOCAMENTO DO PENTE NÃO É ESCOLHA LIVRE, E ELE TEM DONO. Com passo de
+// 120° qualquer pente cai em cima de um dos quatro bulevares cardeais, exceto
+// os que saem de 45 em 45. E entre os que servem, um tem significado: **68,7°
+// é o rumo do condomínio do Dog Social Club na cidade externa** (`DSC_RUMO` em
+// `scripts/gerar_cidade.py`, que decide o setor cujos lotes mais internos são
+// reservados a eles), e é exatamente o rumo em que o painel já está hoje.
+// Ancorando o pente nele, o painel continua apontando para o condomínio e
+// nenhum dos três braços encosta em bulevar:
+//
+//   68,7°   painel do Dog Social Club   (fica onde está, só muda de raio)
+//  188,7°   Pata de Diamante + Leônidas (gira 53,7° do SE de hoje)
+//  308,7°   Jardim do White Paper       (gira 96,3° do NE de hoje)
+//
+// ⚠️ A FAIXA LIVRE DO DECK É r 85 A 245, MEDIDA, NÃO SUPOSTA: por dentro o
+// pedestal da Agulha vai a 56 e o Círculo dos Fundadores fecha em 77; por fora
+// a colunata dórica está em 250. Os braseiros ocupam r 150 nas quatro
+// diagonais e as caixas de BTC r 196 perto do norte — os três rumos acima
+// passam a 26° ou mais de qualquer um deles.
+//
+// ⚠️ E A COTA É A ARMADILHA DESTA MUDANÇA. As três peças se assentam hoje por
+// `yAt(x, z)`, que é o regolito; o piso do deck está `DECK_Y` (39,95 m) ACIMA
+// disso. Mudar só o (x, z) enterra as três quarenta metros abaixo do piso. Ver
+// a nota de `DECK_Y` mais abaixo, que já documenta a mesma armadilha para
+// `props-table.ts` e para a Calçada dos Fundadores.
+export const DECK_RUMO = { dsc: 68.7, pata: 188.7, paper: 308.7 } as const
+
+/** ponto no deck: rumo de BÚSSOLA da cidade (x leste, z sul), raio, e `side`
+ *  metros para a esquerda de quem olha para fora. É o irmão de `onDiagonal`
+ *  para quem não mora numa diagonal. */
+export function noDeck(rumoGraus: number, r: number, side = 0): [number, number] {
+  const b = (rumoGraus * Math.PI) / 180
+  const ux = Math.sin(b), uz = -Math.cos(b)     // para fora
+  return [ux * r + Math.cos(b) * side, uz * r + Math.sin(b) * side]
+}
+
 // ── Jardim do White Paper (NE): nove estelas alternando os lados da alameda ──
-export const STELA_SIDE = 13
-/** raios das nove estelas: cinco antes do passeio-anel (r 739..751), quatro depois */
-const STELA_R = [628, 652, 676, 700, 724, 762, 786, 810, 834]
+/** ⚠️ A ALAMEDA ESTREITOU DE 13 PARA 7 m, E É ARITMÉTICA, NÃO GOSTO. As estelas
+ *  alternam os lados, então a alameda tem 2×STELA_SIDE de largura e o passo
+ *  entre duas estelas seguidas é o vão radial. Enquanto o passo era 25,75 m
+ *  (r 628 a 834 na diagonal), 13 m de lado davam 26 de largura contra 25,75 de
+ *  vão: quadrado, e a fileira lia como nave. No deck o passo caiu para 15 m e a
+ *  largura de 26 passou a ser MAIOR que o vão: o zigue-zague deixou de ler como
+ *  caminho e virou um punhado de lápides espalhadas (visto na chapa de 22/09).
+ *  Com 7 m a proporção volta: 14 de largura contra 15 de vão. */
+export const STELA_SIDE = 7
+/** ⚠️ OS NOVE RAIOS ENCOLHERAM PARA CABER NO DECK. A alameda ocupava 206 m
+ *  (r 628 a 834) na diagonal NE; a faixa livre do deck tem 160 m. Passo de
+ *  15 m em vez de 25,75, de r 105 a 225, e o Bloco Gênese fecha em 240, logo
+ *  antes da colunata. A leitura não muda: quem entra pelo anel caminha as nove
+ *  páginas para dentro e encontra o Gênese no fim. */
+const STELA_R = [105, 120, 135, 150, 165, 180, 195, 210, 225]
 export const STELAE: { pos: [number, number]; side: -1 | 1; page: number }[] = STELA_R.map((r, i) => {
   const side = (i % 2 === 0 ? 1 : -1) as -1 | 1
-  return { pos: onDiagonal('NE', r, side * STELA_SIDE), side, page: i + 1 }
+  return { pos: noDeck(DECK_RUMO.paper, r, side * STELA_SIDE), side, page: i + 1 }
 })
-export const GENESIS_POS = onDiagonal('NE', 872)
+export const GENESIS_POS = noDeck(DECK_RUMO.paper, 240)
 /** ciprestes atrás das estelas: uma nave, duas filas, saltando o passeio-anel */
-export const WHITEPAPER_CYPRESSES: [number, number][] = (() => {
-  const out: [number, number][] = []
-  for (let r = 618; r <= 850; r += 20) {
-    if (r > 728 && r < 762) continue
-    out.push(onDiagonal('NE', r, 25), onDiagonal('NE', r, -25))
-  }
-  return out
-})()
+/** ⚠️ VAZIO DESDE 22/09: os ciprestes eram jardim, e o jardim saiu (ver a
+ *  bandeira `JARDIM` em precinct.ts). A lista continua exportada porque quem a
+ *  consome não deve precisar saber disso; um dia ela volta com outra espécie,
+ *  se o fundador quiser árvore no deck. */
+export const WHITEPAPER_CYPRESSES: [number, number][] = []
 
 // ── O Espelho de Satoshi (NW): a figura no espelho d'água, 21 ciprestes em crescente ──
 export const SATOSHI_POOL = poolCenter('NW')
@@ -69,16 +122,26 @@ export const SATOSHI_CYPRESSES: [number, number][] = (() => {
 export const SATOSHI_BENCHES: [number, number][] = [onDiagonal('NW', 500, 14), onDiagonal('NW', 500, -14)]
 
 // ── A Pata de Diamante (SE): a palma é o espelho da diagonal, quatro dedos abrem para fora ──
-export const PAW_PALM = poolCenter('SE')
+/** ⚠️ A PALMA DESCEU DE r 560 PARA r 140 e mudou de rumo: ela está no deck
+ *  agora. O espelho tem 96 m de diâmetro (POOL_R 48), então ocupa r 92 a 188,
+ *  dentro da faixa livre de 85 a 245. */
+export const PAW_PALM = noDeck(DECK_RUMO.pata, 140)
 export const PAW_TOE_R = 17
+/** ⚠️ OS DEDOS ENCURTARAM DE 80/92 PARA 52/62 m do centro da palma, pelo mesmo
+ *  motivo das estelas: com 80/92 a pata inteira mede 227 m e a faixa do deck
+ *  tem 160. Os ângulos de abertura não mudaram, então a FORMA da pata é a
+ *  mesma, só a escala. */
 export const PAW_TOES: [number, number][] = (() => {
   const [cx, cz] = PAW_PALM
-  const a0 = QUADRANT_ANGLE.SE
-  return ([[-0.66, 80], [-0.23, 92], [0.23, 92], [0.66, 80]] as const).map(([da, r]) => [cx + Math.cos(a0 + da) * r, cz + Math.sin(a0 + da) * r] as [number, number])
+  const b = (DECK_RUMO.pata * Math.PI) / 180
+  const a0 = Math.atan2(-Math.cos(b), Math.sin(b))   // o rumo, na convenção atan2(z,x) deste arquivo
+  return ([[-0.66, 52], [-0.23, 62], [0.23, 62], [0.66, 52]] as const).map(([da, r]) => [cx + Math.cos(a0 + da) * r, cz + Math.sin(a0 + da) * r] as [number, number])
 })()
-export const PAW_PLAQUE = onDiagonal('SE', 498, 12)
-/** Leonidas, o fundador do DOG: no eixo da diagonal, atrás dos dedos da pata, de frente para o deck */
-export const LEONIDAS_POS = onDiagonal('SE', 730)
+export const PAW_PLAQUE = noDeck(DECK_RUMO.pata, 95, 12)
+/** Leonidas, o fundador do DOG: no eixo, atrás dos dedos da pata, de frente
+ *  para a Agulha. Em r 228 o pedestal (8 m) mais o passeio (7 m) chegam a 243,
+ *  sete metros antes da colunata dórica. */
+export const LEONIDAS_POS = noDeck(DECK_RUMO.pata, 228)
 export const LEONIDAS_PLINTH_R = 8
 /** A casa do LeonidasNFT ("The Block"): o cubo fecha a vista da alameda SE
  *  atrás da estátua, como o Gênese fecha a NE. Fachada olhando o deck.
@@ -86,18 +149,8 @@ export const LEONIDAS_PLINTH_R = 8
 export const BLOCK_POS = onDiagonal('SE', 825)
 export const BLOCK_R = 45 // meia diagonal do pódio 1,4× (43,6) + folga
 /** árvores de flor branca em arco atrás dos dedos, dos dois lados da alameda */
-export const PAW_BLOSSOMS: [number, number][] = (() => {
-  const [cx, cz] = PAW_PALM
-  const out: [number, number][] = []
-  for (const sgn of [-1, 1]) {
-    for (let i = 0; i < 6; i++) {
-      const a = QUADRANT_ANGLE.SE + sgn * (0.16 + (i / 5) * 1.3)
-      const r = 118 + (i % 2) * 12
-      out.push([cx + Math.cos(a) * r, cz + Math.sin(a) * r])
-    }
-  }
-  return out
-})()
+/** ⚠️ VAZIO DESDE 22/09, mesmo motivo dos ciprestes: era jardim. */
+export const PAW_BLOSSOMS: [number, number][] = []
 
 // ── Jardim Ordinal (SW): o círculo de runestones ao lado da alameda, e as placas ──
 export const ORDINAL_CENTER = onDiagonal('SW', 660, 64)

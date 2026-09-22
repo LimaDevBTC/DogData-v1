@@ -2066,3 +2066,64 @@ construção não flutua nem corta, e o tracejado por descarte no fragmento (`fr
 voltaria a cortar o chão de um lado e boiar do outro, que é o defeito que ela veio
 consertar. São 8 vértices por lote, cerca de 17 MB, e só no modo `lote`, que **não** é o
 modo padrão da cena.
+
+---
+
+## §27 — A Satoshi Plaza perde o jardim e ganha três peças no deck 🔒 (22/09/2026)
+
+**A queixa, do fundador:** *"a Satoshi Plaza tá uma zona, com aquele monte de fontes,
+jardins... com esse monte de planta aí não dá nem para ver onde estão os terrenos dos caras
+na parte central"*.
+
+**DECIDIDO.** Do jardim clássico do precinto ficam **três peças**, e elas se mudam para
+cima do deck, debaixo da torre: a **Pata de Diamante com a estátua do Leônidas**, o
+**Jardim do White Paper** e o **painel do Dog Social Club**. Saem o Espelho de Satoshi e o
+Jardim Ordinal, além das sebes, da topiaria, das palmeiras, das árvores e dos quatro
+espelhos d'água. O anel viário, as radiais e as calçadas ficam.
+
+**DECIDIDO, e é o que trava o resto:** o chão liberado (r 332 a 900) continua **cívico**.
+Ele recebe prédio do PROJETO, como a BitFlow, a Kray, o Chalé e a Sphere já são, e **não**
+lote de carteira. O §3.1 do caderno de tiers (o anel 0 revogado como assento dos Satoshi
+Visionary, "o centro fica cívico") segue de pé, e por isso nada disto toca no gerador, no
+registro ou no portão.
+
+### O pente de 120°, e por que ele começa em 68,7°
+
+O fundador pediu "120° pra cada". Com esse passo, **qualquer pente cai em cima de um dos
+quatro bulevares cardeais, exceto os que saem de 45 em 45**. Entre os que servem, um tem
+significado: **68,7° é o `DSC_RUMO` do gerador**, o rumo do setor cujos lotes mais internos
+são reservados ao condomínio do Dog Social Club na cidade externa, e é exatamente onde o
+painel já estava. Ancorando o pente nele, o painel continua apontando para o condomínio:
+
+```
+ 68,7°  painel do Dog Social Club    r 200     (não girou)
+188,7°  Pata de Diamante + Leônidas  palma 140, estátua 228
+308,7°  Jardim do White Paper        estelas 105 a 225, Gênese 240
+```
+
+**A faixa livre do deck é r 85 a 245, medida:** por dentro o pedestal da Agulha vai a 56 e
+o Círculo dos Fundadores fecha em 77; por fora a colunata dórica está em 250. Os braseiros
+ocupam r 150 nas quatro diagonais e as caixas de BTC r 196 perto do norte, e os três rumos
+acima passam a 26° ou mais de qualquer um deles.
+
+**As duas peças grandes encolheram, e isso é conta.** A alameda do White Paper ocupava
+206 m e a Pata com os dedos 227; a faixa tem 160. O passo das estelas caiu de 25,75 para
+15 m e os dedos da pata de 80/92 para 52/62 do centro da palma. **Os ângulos de abertura da
+pata não mudaram**, então a forma é a mesma, só a escala.
+
+⚠️ **E A COTA ERA A ARMADILHA.** As três se assentavam por `heightAt`, que é o regolito, e
+o piso do deck está `DECK_Y` = 39,95 m acima. Mudar só o (x, z) enterraria a Pata, o
+Leônidas e as nove estelas quarenta metros abaixo do chão que se pisa. O conserto entra
+numa linha só, onde o módulo lê o terreno, e **por raio** (250, a colunata), para o busto
+do Satoshi, que fica fora do deck, não subir junto.
+
+⚠️ **E A PROPORÇÃO DA ALAMEDA NÃO SOBREVIVE A UMA MUDANÇA DE ESCALA SOZINHA.** As estelas
+alternam os lados, então a alameda tem `2 × STELA_SIDE` de largura contra o passo radial de
+vão. Com 13 m de lado e passo de 25,75 a fileira lia como nave; encolhido o passo para 15 e
+mantido o lado, a largura virou MAIOR que o vão e a fileira leu como lápides espalhadas.
+`STELA_SIDE` caiu para 7. **Quando uma peça linear muda de escala, o afastamento lateral
+muda junto ou o desenho inverte de significado.**
+
+**O que não saiu de propósito:** os geradores `fEspelho` e `fOrdinal` continuam escritos em
+`monuments.ts`, fora da fila `trabalhos`. Tirar da fila é o que desliga; deixar o código é
+para a peça voltar sem ser reescrita.

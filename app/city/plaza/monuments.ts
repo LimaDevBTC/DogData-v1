@@ -50,6 +50,7 @@ import {
   STELAE, GENESIS_POS, SATOSHI_POOL, PAW_PALM, PAW_TOES, PAW_TOE_R, PAW_PLAQUE, LEONIDAS_POS, LEONIDAS_PLINTH_R,
   ORDINAL_CENTER, ORDINAL_RING_R, ORDINAL_STONES, ORDINAL_PLAQUES, QUADRANT_ANGLE, POOL_R,
   BUST_POS, HERO_PALMS,
+  DECK_RUMO, DECK_Y,
 } from './garden-plan'
 import { SF, loadSf, dressSf, firstGeometry, podarMapasSecundarios } from './sf-assets'
 import { TIERS, crystalMaterialFor, loadCrystalTextures } from './park'
@@ -257,7 +258,23 @@ export function monumentosEmObra(opts: MonumentsOpts): MonumentosEmObra {
   const cullText = (o: THREE.Object3D, x: number, z: number) => opts.culler?.add(o, TEXT_CULL, new THREE.Vector3(x, 0, z))
   const disposables: { dispose: () => void }[] = []
   const track = <T extends { dispose: () => void }>(o: T): T => { disposables.push(o); return o }
-  const yAt = opts.heightAt
+  // ⚠️ A COTA DO DECK ENTRA AQUI, NUMA LINHA SÓ, E ELA É A ARMADILHA DESTA
+  // MUDANÇA. As três peças que sobraram se mudaram para cima do deck em
+  // 22/09/2026, e todas elas se assentavam por `heightAt`, que é o REGOLITO. O
+  // piso do deck está `DECK_Y` = 39,95 m acima disso (a laje do plaza.glb, ver
+  // a nota longa em garden-plan.ts): mudar só o (x, z) enterraria a Pata, o
+  // Leônidas e as nove estelas quarenta metros abaixo do chão que se pisa.
+  //
+  // É o MESMO padrão que `props-table.ts` já usa (`terrainY + DECK_Y`), e por
+  // isso ele entra aqui do mesmo jeito: somado à altura LOCAL, para acompanhar
+  // sozinho se a praça descer de novo.
+  //
+  // ⚠️ E É POR RAIO, NÃO PARA TODO MUNDO: o busto do Satoshi continua fora do
+  // deck, junto ao portão noroeste, e somar DECK_Y nele o poria no ar. 250 é a
+  // colunata dórica, que é onde a laje de fato termina.
+  const R_PISO_DECK = 250
+  const yAt = (x: number, z: number) =>
+    opts.heightAt(x, z) + (x * x + z * z <= R_PISO_DECK * R_PISO_DECK ? DECK_Y : 0)
   const lights: THREE.PointLight[] = []
   const pulses: { m: THREE.MeshStandardMaterial; base: number }[] = []
   const texLoader = new THREE.TextureLoader()
@@ -359,7 +376,10 @@ export function monumentosEmObra(opts: MonumentsOpts): MonumentosEmObra {
   // do PDF (letras claras) entra como mapa de cor e de emissão sobre o granito.
   function* fWhitepaper(): Tarefa {
     const rel = novoRelogio()
-    const aNE = QUADRANT_ANGLE.NE
+    // ⚠️ O RUMO NÃO É MAIS A DIAGONAL NE: a alameda se mudou para o deck
+    // (ver `DECK_RUMO` em garden-plan.ts). Ler QUADRANT_ANGLE aqui deixava
+    // a estela no lugar certo e VIRADA para o lado errado.
+    const aNE = Math.atan2(-Math.cos(DECK_RUMO.paper * Math.PI / 180), Math.sin(DECK_RUMO.paper * Math.PI / 180))
     const px = -Math.sin(aNE), pz = Math.cos(aNE)
     const STELA_W = 5.6, STELA_H = 7.2, STELA_T = 0.9
     // as quatro geometrias repetidas nascem UMA vez: eram nove caixas de plinto e
@@ -452,7 +472,10 @@ export function monumentosEmObra(opts: MonumentsOpts): MonumentosEmObra {
   // ═══ NE · O Bloco Gênese ══════════════════════════════════════════════════
   function* fGenesis(): Tarefa {
     const rel = novoRelogio()
-    const aNE = QUADRANT_ANGLE.NE
+    // ⚠️ O RUMO NÃO É MAIS A DIAGONAL NE: a alameda se mudou para o deck
+    // (ver `DECK_RUMO` em garden-plan.ts). Ler QUADRANT_ANGLE aqui deixava
+    // a estela no lugar certo e VIRADA para o lado errado.
+    const aNE = Math.atan2(-Math.cos(DECK_RUMO.paper * Math.PI / 180), Math.sin(DECK_RUMO.paper * Math.PI / 180))
     const [gx, gz] = GENESIS_POS
     const gy = yAt(gx, gz)
     const g = new THREE.Group()
@@ -670,7 +693,8 @@ export function monumentosEmObra(opts: MonumentsOpts): MonumentosEmObra {
     })))
     mark.rotation.x = -Math.PI / 2
     // o topo do texto para fora, para quem chega do deck ler certo (Euler XYZ: Rz primeiro)
-    mark.rotation.z = Math.atan2(-Math.cos(QUADRANT_ANGLE.SE), -Math.sin(QUADRANT_ANGLE.SE))
+    const aPata = Math.atan2(-Math.cos(DECK_RUMO.pata * Math.PI / 180), Math.sin(DECK_RUMO.pata * Math.PI / 180))
+    mark.rotation.z = Math.atan2(-Math.cos(aPata), -Math.sin(aPata))
     mark.position.set(px, yAt(px, pz) + 0.27, pz)
     group.add(mark)
     if (rel.estourou()) { yield; rel.reinicia() }
@@ -718,7 +742,7 @@ export function monumentosEmObra(opts: MonumentsOpts): MonumentosEmObra {
       foot: '$DOG',
     }, track)
     p.position.set(qx, yAt(qx, qz), qz)
-    p.rotation.y = faceAxisYaw(QUADRANT_ANGLE.SE, 12)
+    p.rotation.y = faceAxisYaw(Math.atan2(-Math.cos(DECK_RUMO.pata * Math.PI / 180), Math.sin(DECK_RUMO.pata * Math.PI / 180)), 12)
     group.add(p)
     cullText(p, qx, qz)
   }
@@ -974,9 +998,14 @@ export function monumentosEmObra(opts: MonumentsOpts): MonumentosEmObra {
   const trabalhos: Trabalho[] = [
     { nome: 'The Whitepaper Garden', peso: 12, faixa: 2, fatia: fWhitepaper },
     { nome: 'The Genesis Block', peso: 8, faixa: 2, fatia: fGenesis },
-    { nome: 'The Satoshi Mirror', peso: 2, faixa: 2, fatia: fEspelho },
+    // ⚠️ O ESPELHO DE SATOSHI E O JARDIM ORDINAL SAÍRAM EM 22/09/2026, por
+    // decisão do fundador: das peças da praça só ficam três (a Pata com o
+    // Leônidas, o White Paper e o painel do Dog Social Club) e elas se mudaram
+    // para cima do deck. Os geradores `fEspelho` e `fOrdinal` continuam
+    // escritos logo acima, sem uso: tirá-los da fila é o que os desliga, e
+    // deixá-los no arquivo é de propósito, para a peça voltar sem ser
+    // reescrita se o fundador mudar de ideia.
     { nome: 'The Diamond Paw', peso: 10, faixa: 2, fatia: fPata },
-    { nome: 'The Ordinal Garden', peso: 6, faixa: 2, fatia: fOrdinal },
     { nome: 'Leonidas', peso: 6, faixa: 2, fatia: fLeonidas },
     { nome: 'The Satoshi bust', peso: 3, faixa: 2, fatia: fBusto },
     { nome: 'Monument lights', peso: 1, faixa: 2, fatia: fPocas },

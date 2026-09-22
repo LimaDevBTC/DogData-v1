@@ -12,6 +12,7 @@
 // A parede é uma malha só (306 quadrinhos com UV no atlas) + os trechos de pedra
 // instanciados: duas chamadas de desenho para a coleção inteira.
 import * as THREE from 'three'
+import { DECK_Y } from './garden-plan'
 import type { PerfProfile, DistanceCuller } from './perf'
 import { makeGroundPool, type PoolDisc } from './light-pool'
 
@@ -26,8 +27,18 @@ interface AtlasMeta { count: number; cols: number; rows: number; tile: number; p
 const WARM = new THREE.Color('#FFB35C')
 const ORANGE = new THREE.Color('#F7931A')
 
-/** Centro do muro, no jardim a nordeste do lote da Kray, olhando para a praça. */
-export const DSC_CENTER = new THREE.Vector3(596, 0, -232)
+/** Centro do muro, EM CIMA DO DECK, olhando para a Agulha.
+ *
+ *  ⚠️ ELE SE MUDOU EM 22/09/2026, de r 639,6 para r 200, e o RUMO NÃO MUDOU: os
+ *  68,7° de antes continuam valendo, e isso é de propósito. Esse número é o
+ *  `DSC_RUMO` do gerador (`scripts/gerar_cidade.py`), o rumo do setor cujos
+ *  lotes mais internos são reservados ao condomínio do Dog Social Club na
+ *  cidade externa. O painel aponta para o condomínio, e o pente de 120° das
+ *  três peças do deck foi ancorado nele justamente para não perder isso.
+ *
+ *  `FACE` logo abaixo se recalcula sozinha (é o rumo daqui até a origem, onde a
+ *  Agulha está travada), então o painel continua virado para o centro. */
+export const DSC_CENTER = new THREE.Vector3(186.3, 0, -72.7)
 const FACE = Math.atan2(-DSC_CENTER.x, -DSC_CENTER.z) // olha para o centro da praça
 
 export async function buildDscGallery(opts: {
@@ -63,7 +74,10 @@ export async function buildDscGallery(opts: {
   const ROWS = Math.ceil(meta.count / COLS)          // 9 fileiras para 306
   const R = 46                                       // raio da curva do muro
   const step = (TILE + GAP) / R                      // ângulo por coluna
-  const y0 = opts.heightAt(DSC_CENTER.x, DSC_CENTER.z)
+  // ⚠️ MAIS DECK_Y: o painel está sobre a laje agora, e `heightAt` devolve o
+  // regolito, 39,95 m abaixo dela. Sem esta soma ele nasce enterrado. Mesma
+  // armadilha documentada em garden-plan.ts e repetida em monuments.ts.
+  const y0 = opts.heightAt(DSC_CENTER.x, DSC_CENTER.z) + DECK_Y
   const BASE = 1.6                                   // o embasamento
   const H = BASE + ROWS * (TILE + GAP) + 1.2         // altura total do muro
 
