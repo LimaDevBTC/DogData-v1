@@ -70,6 +70,18 @@ const VISTAS = {
   orlabaia: [1712, -28.3, -4392, 2434, -26, -6242, 45],
   dedo:     [1078, -28.3, -5393, 1234, -30, -6178, 45],
   enseada:  [2888, -28.3, -2313, 4875, -12, -3316, 45],
+  // `orlarua`:   AO LONGO da Rua da Praia (r 4.714), que é o quadro que mostra
+  //              fileira, rua, areia e a alça do outro lado, tudo na mesma foto.
+  // `orlacanal`: da Rua do Canal Norte atravessando o canal 1, para julgar
+  //              lâmina, talude e a fileira da outra banda.
+  orlarua:  [1299, -28.3, -4531, 2636, -28.5, -3908, 50],
+  // `orlaalto`: oblíqua de cima da água, o único quadro que mostra o distrito
+  //             inteiro: praia, fileiras, os dois canais e um dedo.
+  // `cr01foz`: ao longo do CANAL RADIAL CR01 (rumo 25), de dentro para a baía.
+  //            É o quadro que responde "o canal chega na água?".
+  cr01foz:  [1479, 60, -3172, 2198, -38, -4713, 45],
+  orlaalto: [2806, 420, -5752, 1929, -30, -3955, 45],
+  orlacanal:[1411, -28.3, -4343, 2226, -29.5, -3856, 50],
   foz:      [1100, 95, -2650, 1620, -35, -3260, 42],
   // ⚠️ ATUALIZADO EM 02/09: o pátio saiu de r 9.200 para r 11.200 quando a casca
   // foi a 9.050. O enquadramento antigo apontava para o lugar vazio, e a primeira

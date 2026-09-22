@@ -33,7 +33,10 @@ import { alturaInvernoAt, zonaEsquiavelAt, fatorRochaAt } from './inverno'
 import { campusAlturaAt } from './campus'
 import { aquaticsAlturaAt } from './aquatics'
 import { alcaAlturaAt, ALCA_R_BAIA, ALCA_R_MAR, ALCA_PRAIA_LARGURA } from './alca'
-import { orlaBaiaAlturaAt } from './orla-baia'
+import {
+  orlaBaiaAlturaAt, naOrlaDaBaia,
+  ORLA_BAIA_CANAL_TALUDE, ORLA_BAIA_LEITO_Y, ORLA_BAIA_PLATAFORMA_Y,
+} from './orla-baia'
 import { ALCA_TERRA, noArcoDoAnel } from './teia'
 
 export interface TerrainMeta {
@@ -1120,7 +1123,57 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
     // escavado e a orla só levanta a terra que é dela. Ver o cabeçalho de
     // `orla-baia.ts`.
     const bAlca = alcaAlturaAt(x, z, bAquatics)
-    return orlaBaiaAlturaAt(x, z, bAlca) + microRelevoAt(x, z) + alturaInvernoAt(x, z)
+    const bOrla = orlaBaiaAlturaAt(x, z, bAlca)
+    // ⚠️ E O CANAL RADIAL MANDA SOBRE A PLATAFORMA DA ORLA. Este `min` é
+    // conserto de um defeito que o fundador viu na chapa: "o canal radial não
+    // está ligando até a baía".
+    //
+    // O que acontecia: `canalRadialAbsAt` cava o perfil absoluto do canal bem
+    // no começo desta função (`_canalAbs`, lá em cima), e a plataforma da orla
+    // da baía, que roda por ÚLTIMO, punha −30 chapado por cima. Resultado: CR01
+    // (rumo 25) e CR03 (rumo 85) eram ATERRADOS nos 690 m em que atravessam o
+    // distrito, e o canal morria a 4.030 em vez de desaguar na baía em 4.770.
+    // O gerador reservava a terra (nenhum lote nasce ali, `em_canal`), então o
+    // que sobrava era uma cicatriz seca de 144 m de largura.
+    //
+    // A regra que fica: **a orla levanta terra, nunca aterra água que já foi
+    // cavada.** É a mesma doutrina do lado de fora (`min` com o natural na
+    // rampa espelhada), aplicada agora também para dentro. Fora do corredor do
+    // canal `_canalAbs` é `null` e esta linha não faz nada.
+    // ⚠️ E DENTRO DO DISTRITO ELE TEM CAIS, NÃO PRAIA. O perfil absoluto do
+    // canal (`_canalAbs`) é o da cidade aberta: banco largo, para dar "praia em
+    // todas as margens" (decisão de 05/09). MEDIDO na cena em r 4.400, rumo 25:
+    // ele só volta aos −30 a 130 m do eixo. O gerador reserva 72 m (`em_canal`
+    // com `CANAL_TALUDE + 2`) e não modela canal nenhum na cota, então deixar a
+    // praia larga entrar no distrito poria 42 lotes da orla num barranco de até
+    // 8,9 m enquanto o registro os declara planos em −30.
+    //
+    // A saída não é alargar a reserva (custaria 1,5 km de testada que o
+    // distrito não tem): é dar ao canal, AQUI, a mesma seção de cais que os
+    // canais do próprio distrito usam. Lâmina de 60, enrocamento de 23 m, tudo
+    // dentro dos 53 m que a reserva já cobre. Um canal que chega numa cidade
+    // troca banco de areia por muro de cais, que é o que ele faz de verdade.
+    let bCanal = bOrla
+    if (_canalAbs !== null) {
+      let perpMin = Infinity
+      for (const r of _radiais) {
+        const tt = x * r.dx + z * r.dz
+        if (tt < r.rInicio || tt > r.rFim) continue
+        perpMin = Math.min(perpMin, Math.abs(x * r.px + z * r.pz) - r.meia)
+      }
+      if (perpMin < Infinity) {
+        if (naOrlaDaBaia(x, z)) {
+          const T = ORLA_BAIA_CANAL_TALUDE
+          const alvo = perpMin <= 0 ? ORLA_BAIA_LEITO_Y
+            : perpMin >= T ? bOrla
+            : ORLA_BAIA_LEITO_Y + (ORLA_BAIA_PLATAFORMA_Y - ORLA_BAIA_LEITO_Y) * (perpMin / T)
+          bCanal = Math.min(bOrla, alvo)
+        } else {
+          bCanal = Math.min(bOrla, _canalAbs)
+        }
+      }
+    }
+    return bCanal + microRelevoAt(x, z) + alturaInvernoAt(x, z)
   }
 
   // ⚠️ CONTRATO NOVO, DEPOIS DE A MALHA GROSSA SER MASCARADA (não mais

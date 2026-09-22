@@ -1570,6 +1570,14 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
      *  de quarteirão liga isto (as pontas do trilho SÃO os quatro cantos do
      *  quarteirão); bulevar e anel não têm ponta no meio do próprio trilho. */
     rampaExtremos = 0,
+    /** ⚠️ A VIA QUE É DONA DO LUGAR NÃO PODE SE APAGAR SOZINHA. `naAlca` (que
+     *  hoje é alça OU orla da baía) existe para manter a TEIA fora desses dois
+     *  desenhos; mas a espinha dos dedos da orla É a via de lá, e quando ela
+     *  passou a ser desenhada com `faixa` a máscara a apagou inteira. Medido em
+     *  chapa a 1,70 m: o dedo saiu com lote dos dois lados e regolito pelado no
+     *  meio. A saída é a mesma que a AN7 já tem por outro caminho (o anel
+     *  circular não consulta a máscara): quem É a via passa `true` aqui. */
+    ignoraExcecao = false,
   ): Trilho => {
     // ⚠️ O PASSO SAI DO COMPRIMENTO, E ISTO FOI MEDIDO, NÃO ESTIMADO. Com 4
     // passos fixos o lado de 168 m virava trechos de 42 m, e uma faixa plana de
@@ -1886,6 +1894,84 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     faixa(dirX * r0 - perpX * larg / 2, dirZ * r0 - perpZ * larg / 2,
           dirX * r1 - perpX * larg / 2, dirZ * r1 - perpZ * larg / 2,
           perpX, perpZ, secao, false, 0, 0, false, 0, true)
+  }
+
+  // ── 1d. AS TRAVESSAS DE SERVIÇO, A RUA QUE FALTAVA ───────────────────────
+  //
+  // ⚠️ ESTE ERA O MAIOR BURACO DA CIDADE E NINGUÉM O MEDIA. Queixa do fundador
+  // em 22/09: os lotes parecem "soltos no terreno". Medido com a própria
+  // máscara de pavimento (`naVia`), lote a lote nos 70.720:
+  //
+  //   com asfalto encostado (até 9 m da divisa)
+  //     Orla Nobre 100%, Orla da Baía 90,6%  (as duas que têm via própria)
+  //     tecido comum de 8,9% a 21,3%
+  //   distância até o asfalto mais próximo, busca em 24 direções:
+  //     mediana 154 m, 28% sem nada em 250 m, só 9% com rua a 12 m
+  //
+  // A causa não era traçado errado, era via que nunca foi desenhada. O
+  // loteamento SEMPRE previu a travessa: `_z_das_filas` no gerador monta cada
+  // quarteirão como k faixas de 50 m separadas por travessas de 9 m, e o
+  // comentário dele diz, desde sempre, "REGRA DO FUNDADOR: TODA FILEIRA DÁ
+  // FRENTE PARA VIA". O vão entre as fileiras estava lá, reservado, vazio, sem
+  // um metro de asfalto em cima. A teia desenha o esqueleto (anel, radial,
+  // bulevar) e o miolo do quarteirão ficava sem nada.
+  //
+  // ⚠️ E A TABELA VEM DO MANIFESTO, não de uma conta local: `travessasPorK`
+  // publica z0/z1 de cada travessa por k. Quando um k não estiver publicado
+  // (aconteceu: a tabela era escrita à mão para k = 2, 3 e 4 e as bandas
+  // cresceram para 6, deixando 778 quarteirões sem travessa), a derivação de
+  // reserva abaixo usa as próprias bandas e o defeito vira uma linha de log em
+  // vez de silêncio.
+  {
+    const tpk = (K.travessasPorK ?? {}) as Record<string, { z0: number; z1: number }[]>
+    const bandasK = (K.bandas ?? []) as { k: number; lado: number }[]
+    let faixaP = 50, travP = 9
+    if (bandasK.length >= 2) {
+      const passo = (bandasK[1].lado - bandasK[0].lado) / (bandasK[1].k - bandasK[0].k)
+      const f0 = bandasK[0].lado - (bandasK[0].k - 1) * passo
+      if (f0 > 10 && passo > f0) { faixaP = f0; travP = passo - f0 }
+    }
+    const derivada = (k: number) => Array.from({ length: Math.max(0, k - 1) }, (_, i) => {
+      const z0 = -(k * faixaP + (k - 1) * travP) / 2 + faixaP + i * (faixaP + travP)
+      return { z0, z1: z0 + travP }
+    })
+    let n = 0, derivados = 0
+    for (const q of malha.quarteiroes) {
+      const k = (q as unknown as { k?: number }).k ?? 0
+      if (k < 2) continue
+      const tabela = tpk[String(k)] ?? (derivados++, derivada(k))
+      if (!tabela.length) continue
+      const g = ((q as unknown as { giro?: number }).giro ?? 0) * Math.PI / 180
+      const ca = Math.cos(g), sa = Math.sin(g)
+      // ⚠️ A CONVENÇÃO É A DO GERADOR, palavra por palavra (`_bloco`):
+      // mundo = centro + local_x·(cos g, sin g) + local_z·(−sin g, cos g).
+      // Trocar o sinal aqui espelha a travessa para dentro do lote vizinho, que
+      // é o mesmo defeito de sinal que a máscara de peça já custou em 29/08.
+      const dirX = ca, dirZ = sa
+      const perpX = -sa, perpZ = ca
+      const meiaL = ((q as unknown as { lado?: number }).lado ?? 0) / 2
+      if (meiaL < 8) continue
+      const lpf = ((q as unknown as { lotesPorFileira?: number[] }).lotesPorFileira) ?? []
+      for (let j = 0; j < tabela.length; j++) {
+        // ⚠️ TRAVESSA ENTRE DUAS FILEIRAS VAZIAS É RUA PARA NINGUÉM. A faixa j
+        // cobre as fileiras 2j e 2j+1; a travessa j separa a fileira 2j+1 da
+        // 2j+2. Sem este teste a cidade ganharia asfalto em quarteirão sem um
+        // lote sequer, que é o oposto de "toda fileira dá frente para via".
+        if (lpf.length && !((lpf[2 * j + 1] ?? 0) > 0 || (lpf[2 * j + 2] ?? 0) > 0)) continue
+        const { z0, z1 } = tabela[j]
+        const larg = z1 - z0
+        const esc = larg / SEC_TRAVESSA[SEC_TRAVESSA.length - 1].ate
+        const secao = esc === 1 ? SEC_TRAVESSA
+          : SEC_TRAVESSA.map((bb) => ({ ...bb, de: bb.de * esc, ate: bb.ate * esc }))
+        const bx = q.x + perpX * z0, bz = q.z + perpZ * z0
+        faixa(bx - dirX * meiaL, bz - dirZ * meiaL,
+              bx + dirX * meiaL, bz + dirZ * meiaL,
+              perpX, perpZ, secao)
+        n++
+      }
+    }
+    if (n) console.log(`[vias] ${n} travessas de serviço desenhadas dentro dos quarteirões`
+      + (derivados ? `, ${derivados} com a tabela derivada (k fora de travessasPorK)` : ''))
   }
 
   // ── 2. os 12 bulevares de costura, e só eles ganham marcação ──────────────

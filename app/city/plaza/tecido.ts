@@ -119,6 +119,18 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
   // tem, que é o desenho da rua entre as coisas. 1,4 m de cada lado.
   const RECUO = 1.4
 
+  /** a cor da linha de divisa quando a pintura é a de pedra: cal sobre
+   *  regolito, que é como um loteamento se marca no chão de verdade. */
+  const COR_DIVISA = '#D8D2C4'
+  /** o passo do tracejado, em metros de divisa. 3 m pintados, 3 m de chão. */
+  const DASH = 6.0
+  /** o acumulador da moldura: posição, cor, `u` (metro corrido ao longo da
+   *  divisa, de onde sai o tracejado) e o setor de cada lote, para o corte por
+   *  esfera continuar valendo. */
+  const mol = { pos: [] as number[], cor: [] as number[], u: [] as number[],
+                idx: [] as number[], setor: [] as number[] }
+  const sSetDe = (s: number) => (s < SET ? s : SET - 1)
+
   const geo = new THREE.BoxGeometry(1, 1, 1)
   geo.translate(0, 0.5, 0)          // pivô no pé: a massa cresce do chão para cima
   const mat = new THREE.MeshStandardMaterial({ roughness: 0.88, metalness: 0.0 })
@@ -211,6 +223,64 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
       alt = ALTURA[forma] * (0.72 + 0.5 * areaRel * 0.35 + 0.4 * r01)
     }
 
+    // ⚠️ NO MODO LOTE O TERRENO DEIXA DE SER VOLUME E VIRA MOLDURA NO CHÃO.
+    //
+    // Queixa do fundador, 22/09: "todos os terrenos são blocos de concreto
+    // sobre o terreno, parece que todos foram levantados, e que todas as ruas
+    // estariam no andar de baixo". Ele está certo e a causa são DUAS somadas:
+    // a caixa de 0,45 m, e o pé dela ser o canto MAIS ALTO dos quatro (a nota
+    // logo abaixo explica por que era assim: assentando pelo centro, metade do
+    // lote enterrava). Num lote de 68 m de fundo com o teto de declive de 12%,
+    // o canto mais alto está 8 m acima do mais baixo: a laje fica pairando
+    // metros no ar do lado de baixo, e a rua ao lado parece um piso inferior.
+    //
+    // A saída é a que ele pediu: pontilhado no chão demarcando o terreno. A
+    // moldura tem QUATRO CANTOS COM COTA PRÓPRIA, então ela acompanha o
+    // declive e não pode nem flutuar nem cortar. O tracejado não é geometria
+    // (dash por geometria custaria 60 triângulos por lote, 4,2 M no total): é
+    // descarte por `u` no fragmento, 8 triângulos por lote.
+    if (modo === 'lote') {
+      const cg = Math.cos(-giroLote), sg = Math.sin(-giroLote)
+      const mf = Math.max(1.5, frente / 2 - RECUO), mp = Math.max(1.5, prof / 2 - RECUO)
+      const BANDA = Math.min(1.2, Math.min(mf, mp) * 0.35)
+      // os quatro cantos, cada um na SUA cota: é isto que tira o lote do ar
+      const cantos: [number, number, number][] = []
+      for (const [lx, lz] of [[-mf, -mp], [mf, -mp], [mf, mp], [-mf, mp]] as const) {
+        const wx = x + lx * cg - lz * sg, wz = z + lx * sg + lz * cg
+        cantos.push([wx, o.heightAt(wx, wz) + 0.10, wz])
+      }
+      // e os quatro de dentro, na MESMA cota do canto de fora: a 1,2 m de
+      // distância o chão não muda o bastante para pagar outra sondagem, e o
+      // laço já é o grosso do tempo de subida da cena.
+      const dentro: [number, number, number][] = []
+      for (let k = 0; k < 4; k++) {
+        const [lx, lz] = [[-mf + BANDA, -mp + BANDA], [mf - BANDA, -mp + BANDA],
+                          [mf - BANDA, mp - BANDA], [-mf + BANDA, mp - BANDA]][k] as [number, number]
+        dentro.push([x + lx * cg - lz * sg, cantos[k][1], z + lx * sg + lz * cg])
+      }
+      cor.set(pintura === 'idade' ? CORES_COORTE[Math.min(7, coorte)]
+            : pintura === 'forma' ? CORES_FORMA[forma]
+            : COR_DIVISA)
+      if (flags & 1) cor.set('#7FD4E0')
+      const base = mol.pos.length / 3
+      let u = 0
+      for (let k = 0; k < 4; k++) {
+        const a = cantos[k], b = cantos[(k + 1) % 4]
+        const ai = dentro[k], bi = dentro[(k + 1) % 4]
+        const lado = Math.hypot(b[0] - a[0], b[2] - a[2])
+        for (const [p, uu] of [[a, u], [b, u + lado], [ai, u], [bi, u + lado]] as const) {
+          mol.pos.push(p[0], p[1], p[2])
+          mol.cor.push(cor.r, cor.g, cor.b)
+          mol.u.push(uu)
+        }
+        const q0 = base + k * 4
+        mol.idx.push(q0, q0 + 1, q0 + 3, q0, q0 + 3, q0 + 2)
+        u += lado
+      }
+      mol.setor.push(sSetDe(setor))
+      continue
+    }
+
     q.setFromAxisAngle(eixoY, -giroLote)
     // ⚠️ O PÉ DO LOTE É O PONTO MAIS ALTO DA TESTADA, NÃO O CENTRO. Uma caixa é
     // plana e o terreno não: assentando pelo centro, a metade de cima do lote
@@ -243,6 +313,66 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
     }
     if (flags & 1) cor.set('#7FD4E0')      // o condomínio DSC continua marcado
     porSetor[sSet].c.push(cor.r, cor.g, cor.b)
+  }
+
+  // ── a moldura de divisa, uma malha por setor ─────────────────────────────
+  // ⚠️ NÃO É INSTÂNCIA, E NÃO PODE SER. Instância é um transform rígido: uma
+  // moldura plana instanciada cortaria o chão de um lado e boiaria do outro
+  // exatamente onde o lote está em declive, que é o defeito que ela veio
+  // consertar. Cada canto precisa da cota dele, então cada lote traz os seus
+  // oito vértices. São 8 triângulos por lote (contra 12 da caixa) e cerca de
+  // 17 MB no modo `lote`, que NÃO é o modo padrão da cena.
+  const molhas: THREE.Mesh[] = []
+  if (modo === 'lote' && mol.setor.length) {
+    const matMol = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false })
+    // ⚠️ O TRACEJADO É DESCARTE NO FRAGMENTO, NÃO GEOMETRIA NEM TEXTURA. Dash
+    // por geometria custaria 60 triângulos por lote (4,2 M na cidade); por
+    // textura custaria um sampler e um material novo, que é o recurso escasso
+    // desta cena. Aqui é uma linha de GLSL sobre o `u` que já viaja no vértice.
+    matMol.onBeforeCompile = (sh) => {
+      sh.vertexShader = 'attribute float aU;\nvarying float vU;\n' + sh.vertexShader
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vU = aU;')
+      sh.fragmentShader = 'varying float vU;\n' + sh.fragmentShader
+        .replace('#include <clipping_planes_fragment>',
+                 `#include <clipping_planes_fragment>\n  if (fract(vU / ${DASH.toFixed(1)}) > 0.5) discard;`)
+    }
+    const porS: Record<number, number[]> = {}
+    for (let i = 0; i < mol.setor.length; i++) (porS[mol.setor[i]] ||= []).push(i)
+    for (const [sTxt, lista] of Object.entries(porS)) {
+      const pos: number[] = [], cores: number[] = [], us: number[] = [], idx: number[] = []
+      let mnX = Infinity, mxX = -Infinity, mnZ = Infinity, mxZ = -Infinity
+      for (const li of lista) {
+        const b = li * 16, base = pos.length / 3
+        for (let v = 0; v < 16; v++) {
+          pos.push(mol.pos[(b + v) * 3], mol.pos[(b + v) * 3 + 1], mol.pos[(b + v) * 3 + 2])
+          cores.push(mol.cor[(b + v) * 3], mol.cor[(b + v) * 3 + 1], mol.cor[(b + v) * 3 + 2])
+          us.push(mol.u[b + v])
+          mnX = Math.min(mnX, mol.pos[(b + v) * 3]); mxX = Math.max(mxX, mol.pos[(b + v) * 3])
+          mnZ = Math.min(mnZ, mol.pos[(b + v) * 3 + 2]); mxZ = Math.max(mxZ, mol.pos[(b + v) * 3 + 2])
+        }
+        for (let k = 0; k < 4; k++) {
+          const q0 = base + k * 4
+          idx.push(q0, q0 + 1, q0 + 3, q0, q0 + 3, q0 + 2)
+        }
+      }
+      const g = new THREE.BufferGeometry()
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+      g.setAttribute('color', new THREE.Float32BufferAttribute(cores, 3))
+      g.setAttribute('aU', new THREE.Float32BufferAttribute(us, 1))
+      g.setIndex(idx)
+      // ⚠️ A ESFERA VAI NA GEOMETRIA, NÃO NA MALHA: `Mesh` não tem
+      // `boundingSphere`; quem o frustum consulta é o da geometria. Escrever no
+      // objeto errado compila em JS e o corte simplesmente nunca acontece.
+      g.boundingSphere = new THREE.Sphere(
+        new THREE.Vector3((mnX + mxX) / 2, 0, (mnZ + mxZ) / 2),
+        Math.hypot(mxX - mnX, mxZ - mnZ) / 2 + 20)
+      const m = new THREE.Mesh(g, matMol)
+      m.name = `tecido:divisa:S${String(+sTxt + 1).padStart(2, '0')}`
+      m.frustumCulled = true
+      m.renderOrder = 2
+      molhas.push(m)
+      group.add(m)
+    }
   }
 
   // ── as 12 malhas, uma por setor, cada uma com a esfera dela ──────────────
@@ -388,7 +518,8 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
     : { group: new THREE.Group(), triangulos: 0, covas: [], dispose() {} }
   group.add(construidas.group)
 
-  const triangulos = (modo === 'obra' ? 0 : n * 12) + construidas.triangulos
+  // ⚠️ NO MODO LOTE SÃO 8 TRIÂNGULOS (a moldura), NÃO 12 (a caixa).
+  const triangulos = (modo === 'obra' ? 0 : n * (modo === 'lote' ? 8 : 12)) + construidas.triangulos
   // ⚠️ 900 m É ONDE O MARCO PARA DE CONTAR HISTÓRIA. Ele tem 1,5 m: a essa
   // distância mede cerca de 2 px de altura, e o que ele diz (terreno demarcado,
   // com dono) já foi dito pela própria fileira de lotes.
@@ -408,6 +539,7 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
     dispose() {
       geo.dispose(); mat.dispose()
       for (const im of lotes) im.dispose()
+      for (const m of molhas) { m.geometry.dispose(); (m.material as THREE.Material).dispose() }
       geoMarco?.dispose(); matMarco?.dispose()
       construidas.dispose()
     },

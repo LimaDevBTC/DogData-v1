@@ -3999,7 +3999,14 @@ def _ob_livre(x, z, giro, w):
         # dela. Ver `ORLA_BAIA_ILHAS` em orla-baia.ts.
         if na_ilha_da_baia(px, pz): OB_REJ['ilha'] += 1; return False
         if em_programa(px, pz) is not None: OB_REJ['programa'] += 1; return False
-        if em_canal(px, pz, CANAL_TALUDE + 2.0): OB_REJ['canal'] += 1; return False
+        # ⚠️ AQUI A RESERVA DO CANAL RADIAL É MAIOR QUE NO RESTO DA CIDADE, e
+        # o número é medido na cena, não escolhido. `CANAL_TALUDE + 2` reserva
+        # 72 m do eixo, mas a SUPERFÍCIE DESENHADA (`superficieAt`, malha de
+        # 59,2 m) borra a margem do canal e só volta aos −30 a 112 m: sondado
+        # em r 4.400, rumo 25, a cota a 72 m é −35,3 contra os −30 que o
+        # registro declararia. Eram 42 lotes da orla num barranco invisível
+        # para o gerador. 85 m de margem cobre os 112 com folga.
+        if em_canal(px, pz, 85.0): OB_REJ['canal'] += 1; return False
         if num_anel(px, pz) is not None: OB_REJ['anel'] += 1; return False
     if declive_lote(x, z, c, sn, 0.0, 0.0, w, OB_PROF) > DECL_LOTE_MAX:
         OB_REJ['declive'] += 1; return False
@@ -4029,10 +4036,33 @@ def _ob_fita():
         # da enseada para o flanco: o setor de baixo enche de `e0` para `a0`
         if sentido_enseada < 0: pares = [(b, a) for a, b in reversed(pares)]
         for aa, bb in pares: f.anel(r_a, sent_a, aa, bb)
-    # 3. os quatro anéis de canal, de fora para dentro
+    # 3. as fileiras de dentro, de fora para dentro
+    #
+    # ⚠️ CADA FILEIRA ENTRA NA ENSEADA ATÉ ONDE A ÁGUA DEIXA, e isso não é
+    # ganho de testada procurado a fórceps: é o que uma enseada faz. A linha
+    # d'água dela mergulha num seno, então quanto mais INTERNA a fileira, mais
+    # ela avança para dentro do arco antes de molhar o pé. Parar todas em 41,3 e
+    # 61,3 (a borda da enseada) deixava a fileira F, que está 664 m mais para
+    # dentro, terminar 4,6° antes do necessário.
+    #
+    # MEDIDO: as cinco fileiras juntas ganham cerca de 2,0 km de testada assim,
+    # que é exatamente o que a reserva maior do canal radial custou.
+    def _entra_na_enseada(r_f, lado):
+        """o rumo em que a praia da enseada alcança esta fileira. `lado` é -1
+        para o setor de baixo (a enseada abre a partir de e0) e +1 para o de
+        cima."""
+        borda = e0 if lado < 0 else e1
+        lo, hi = 0.0, (e1 - e0) / 2            # até o eixo, nunca além
+        for _ in range(40):
+            m = (lo + hi) / 2
+            g = borda + (m if lado < 0 else -m)
+            if ob_linha_dagua(g) - OB_PRAIA >= r_f: lo = m
+            else: hi = m
+        return borda + (lo if lado < 0 else -lo)
+
     for r_f, sentido, _tier in OB_FILEIRAS[1:]:
-        f.anel(r_f, sentido, e0, a0)      # setor de baixo, da enseada ao flanco
-        f.anel(r_f, sentido, e1, a1)      # setor de cima, idem
+        f.anel(r_f, sentido, _entra_na_enseada(r_f, -1), a0)   # setor de baixo
+        f.anel(r_f, sentido, _entra_na_enseada(r_f, +1), a1)   # setor de cima
     return f
 
 
@@ -5441,6 +5471,7 @@ with open(ps('public/city/cidade-malha.json'), 'w') as f:
         'contorno': 'a borda da cidade em pontos: ela nao e mais um raio, e a curva de nivel de phi.',
         'ids': 'os mesmos S..-Q..-B.. de data/dogcity_lotes.csv (lot_id sem o -L...).',
     }, ensure_ascii=False, separators=(',', ':')) + ',\n')
+    _KS_PUB = sorted({b[3] for b in BANDAS})
     f.write('"constantes":' + json.dumps({
         'distritos': N_DIST, 'setoresLegado': SETORES,
         # ⚠️ NÃO EXISTE MAIS UM QUARTEIRÃO SÓ. Publica a família inteira, que é o
@@ -5466,10 +5497,15 @@ with open(ps('public/city/cidade-malha.json'), 'w') as f:
         'raioSitio': R_SITIO,
         'fileiras': _FILEIRAS,
         # as travessas dependem do lado, então vão por k
+        # ⚠️ TODO k QUE A CIDADE USA, NÃO SÓ 2, 3 E 4. A tabela era escrita à
+        # mão para três valores e as bandas cresceram: Borda usa k=5 e Horizonte
+        # k=6, ou seja 778 quarteirões ficavam SEM travessa publicada. Quem lê
+        # (a arborização, e agora o desenho da via) simplesmente não plantava
+        # nem desenhava nada neles, calado. Agora sai da própria lista de bandas.
         'travessasPorK': {str(k): [{'z0': -_lado(k)/2 + i*(FAIXA+TRAVESSA) + FAIXA,
                                     'z1': -_lado(k)/2 + i*(FAIXA+TRAVESSA) + FAIXA + TRAVESSA}
-                                   for i in range(k-1)] for k in (2, 3, 4)},
-        'fileirasPorK': {str(k): _fileiras_de(k) for k in (2, 3, 4)},
+                                   for i in range(k-1)] for k in _KS_PUB},
+        'fileirasPorK': {str(k): _fileiras_de(k) for k in _KS_PUB},
     }, ensure_ascii=False, separators=(',', ':')) + ',\n')
     f.write('"resumo":' + json.dumps({
         'quartos': len(malha_q), 'quartosComLote': sum(1 for q in malha_q if any(
