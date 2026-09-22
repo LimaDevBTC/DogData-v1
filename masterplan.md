@@ -1961,3 +1961,75 @@ que se recomputa em segundos a partir de `dogcity_merkle_folhas.txt`, que é gra
 **A ordem que fica:** cidade gerada → portão APROVADO → merkle root → Charter → janela de
 432 blocos → mint. O root só vale sobre uma cidade que passou no portão, e o script recusa
 rodar se duas linhas tiverem o mesmo endereço.
+
+---
+
+## §25 — A rua que nunca foi desenhada 🔒 (medido 22/09/2026)
+
+**A queixa, do fundador, olhando a chapa:** os lotes parecem "soltos no terreno". Ele
+estava certo, e não era impressão nem estética.
+
+**MEDIDO** com a própria máscara de pavimento da cena (`naVia`, a mesma que a arborização
+usa para não plantar dentro do asfalto), lote a lote nos 70.720:
+
+```
+                            lotes com asfalto encostado (até 9 m da divisa)
+Orla Nobre (S07)                100,0%     têm via própria
+Orla da Baía (S09)               90,6%     têm via própria
+Distrito Financeiro (S08)         0,0%
+tecido comum                8,9% a 21,3%
+─────────────────────────────────────────
+cidade inteira                   16,4%
+
+distância até o asfalto mais próximo, busca em 24 direções, tecido comum:
+mediana 154 m · 28% sem nada em 250 m · só 9% com rua a 12 m
+```
+
+**A causa não era traçado errado, era via que nunca foi desenhada.** O loteamento SEMPRE
+previu a rua: `_z_das_filas` monta cada quarteirão como k faixas de 50 m separadas por
+**travessas de 9 m**, e o comentário dele diz, desde sempre, *"REGRA DO FUNDADOR: TODA
+FILEIRA DÁ FRENTE PARA VIA"*. O vão entre as fileiras estava lá, reservado e vazio. A teia
+desenhava o esqueleto (bulevar, anel, radial) e o miolo do quarteirão ficava sem um metro
+de asfalto em cima.
+
+**Depois de desenhar as travessas:** 85,8% dos lotes com rua encostada, mediana de 10 m,
+**zero** lote sem rua em 250 m.
+
+**⚠️ E A TABELA DO MANIFESTO ESTAVA CURTA.** `travessasPorK` era escrita à mão para k = 2,
+3 e 4; as bandas cresceram para 6. **778 quarteirões não tinham travessa publicada** e
+quem lia (a arborização, e agora o desenho) simplesmente não fazia nada neles, calado.
+Agora ela sai da própria lista de bandas, e o desenho tem derivação de reserva que grita
+no log em vez de ficar quieto.
+
+**⚠️ E O DISTRITO FINANCEIRO ERA O ÚNICO EM ZERO.** Os 21 institucionais ocupavam a faixa
+seca inteira entre a muralha do precinto (900) e a margem do Lago da Praça, com frente
+para a água e fundo para a muralha, sem acesso nenhum. A faixa encolheu 14 m (o fundo
+passa a começar em 929) e nasceu a Rua do Distrito Financeiro em r 921: acesso pelos
+fundos, vista para a água, que é o arranjo normal de frente d'água.
+
+**A regra que fica:** reservar terra para rua não é desenhar rua. Toda vez que o
+loteamento abrir um vão para via, alguém tem de responder QUEM desenha aquele vão, e a
+resposta não pode ser "a teia", que é outra escala. E a medição que prova isso é a
+pergunta feita à própria máscara de pavimento, lote a lote, não a inspeção de chapa.
+
+---
+
+## §26 — Lote é marcação no chão, não volume 🔒 (22/09/2026)
+
+**A queixa:** *"todos os terrenos são blocos de concreto sobre o terreno, parece que todos
+foram levantados, e que todas as ruas estariam no andar de baixo"*.
+
+**As duas causas, somadas:** no modo `lote` cada terreno era uma caixa de 0,45 m, e o pé
+dela era o canto **mais alto** dos quatro (assentar pelo centro enterrava metade do lote,
+medido em 29/08). Num lote de 68 m de fundo com o teto de declive de 12%, o canto alto
+está 8 m acima do baixo: a laje fica pairando metros no ar do lado de baixo.
+
+**O que substitui:** uma moldura de divisa com **quatro cantos de cota própria**, que por
+construção não flutua nem corta, e o tracejado por descarte no fragmento (`fract(u/6) >
+0.5 → discard`), não por geometria nem por textura. Custa 8 triângulos por lote contra os
+12 da caixa. Dash por geometria custaria 60 por lote, 4,2 M na cidade.
+
+⚠️ Ela **não é instância**: instância é transform rígido e uma moldura plana instanciada
+voltaria a cortar o chão de um lado e boiar do outro, que é o defeito que ela veio
+consertar. São 8 vértices por lote, cerca de 17 MB, e só no modo `lote`, que **não** é o
+modo padrão da cena.

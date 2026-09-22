@@ -4128,7 +4128,15 @@ def planta_orla_baia():
 # Elas ficam na faixa seca entre a muralha do precinto (r 900) e a margem
 # interna do lago, de frente para a água, e a faixa pula os quatro bulevares
 # cardeais, que são as pontes.
-FIN_R0, FIN_R1 = 915.0, 1055.0        # faixa seca medida entre muralha e lago
+# ⚠️ A FAIXA ENCOLHEU 14 m EM 22/09 PARA CABER A RUA, e o motivo é medição:
+# os 21 lotes ocupavam a faixa seca INTEIRA, de 915 a 1.055, e o distrito saía
+# com 0% de lote com rua encostada — o único da cidade em zero. Eles davam
+# frente para o lago e fundo para a muralha, sem nenhum acesso.
+# Agora o fundo começa em 929 e a Rua do Distrito Financeiro corre em 921,
+# entre a muralha do precinto (900) e o lote: acesso pelos fundos, vista para a
+# água, que é o arranjo normal de frente d'água (o mesmo do dedo da orla).
+FIN_RUA_R, FIN_RUA_LARG = 921.0, 12.0
+FIN_R0, FIN_R1 = 929.0, 1055.0        # faixa seca entre a rua do distrito e o lago
 FIN_PULO = 3.5                        # graus de folga em cada bulevar cardeal
 FIN_TETO = 150000.0                   # o teto elevado que a página publica
 S_FIN = 7                             # setor 8 no endereço

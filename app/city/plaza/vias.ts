@@ -1001,6 +1001,17 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     id: v.id, nome: v.nome, r: v.r, larg: v.larg, circulo: true,
     arco: [ORLA_BAIA_ARCO[0], ORLA_BAIA_ARCO[1]] as [number, number],
   })))
+  // ⚠️ E A RUA DO DISTRITO FINANCEIRO, pelo mesmo caminho e pelo mesmo motivo.
+  // MEDIDO em 22/09: o Distrito Financeiro era o ÚNICO pedaço da cidade com
+  // 0% de lote com rua encostada. Os 21 institucionais ocupavam a faixa seca
+  // inteira entre a muralha do precinto (900) e a margem do Lago da Praça,
+  // com frente para a água e fundo para a muralha, sem acesso nenhum. O
+  // gerador encolheu a faixa para 929 e esta é a via que nasceu no vão: um
+  // círculo de verdade, porque a margem do lago é redonda e um dodecágono
+  // ali entraria na água (é a mesma exceção da AN7).
+  meta.aneis = meta.aneis.concat([{
+    id: 'FIN', nome: 'Rua do Distrito Financeiro', r: 921, larg: 12, circulo: true,
+  }])
 
   const K = malha.constantes
   // ⚠️ `meio` ERA GLOBAL E VALIA 84 PARA A CIDADE INTEIRA. Com o quarteirão
@@ -1963,9 +1974,20 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
         const esc = larg / SEC_TRAVESSA[SEC_TRAVESSA.length - 1].ate
         const secao = esc === 1 ? SEC_TRAVESSA
           : SEC_TRAVESSA.map((bb) => ({ ...bb, de: bb.de * esc, ate: bb.ate * esc }))
+        // ⚠️ A TRAVESSA PASSA DA DIVISA DO QUARTEIRÃO, E ISSO É CONECTIVIDADE,
+        // NÃO DESCUIDO. Desenhadas exatamente do início ao fim do `lado`, elas
+        // encadeiam umas nas outras e formam uma rede TANGENCIAL paralela aos
+        // anéis, que nunca cruza uma arterial: medido com
+        // `vias-varredura.mjs --dilata=1`, o pavimento dobrou para 9,89 km² mas
+        // 41% dele virou ilha, com vão de 12 a 48 m até a rede. O quarteirão
+        // não encosta na célula da teia, sobra folga entre os dois, e é nessa
+        // folga que mora o radial. `SOBRA` atravessa a folga; onde não houver
+        // o que encontrar, as máscaras de `faixa` (água, bulevar, alça, orla)
+        // param o traçado sozinhas.
+        const SOBRA = 34
         const bx = q.x + perpX * z0, bz = q.z + perpZ * z0
-        faixa(bx - dirX * meiaL, bz - dirZ * meiaL,
-              bx + dirX * meiaL, bz + dirZ * meiaL,
+        faixa(bx - dirX * (meiaL + SOBRA), bz - dirZ * (meiaL + SOBRA),
+              bx + dirX * (meiaL + SOBRA), bz + dirZ * (meiaL + SOBRA),
               perpX, perpZ, secao)
         n++
       }
