@@ -2257,3 +2257,64 @@ sobrevive à mudança que devia tê-lo levado junto.
 o devolve). O desenho do pôster — `makeScreenTexture` — mudou-se para `telao.ts` e é um só,
 para não existirem dois pôsteres divergindo com o tempo. **Pendente, e é do fundador:** o
 que preenche o recesso de 96 × 54 da fachada da mansão quando ela for para o chão liberado.
+
+---
+
+## §29 — O portão escrito contra o registro selado 🔒 (22/09/2026, 15:41)
+
+**Por que esta seção existe.** Até agora o último resultado de portão ESCRITO era o do §18.7,
+de 21/09: dez testes verdes, 47,51 km². Só que o portão ganhou o décimo quinto teste em
+22/09 às 02:03 (`nenhum lote sobre outro nos distritos especiais`, nascido dos 210 pares do
+§23) e o registro foi gravado às 02:27, **depois** disso. A cidade rodou e passou naquela
+madrugada, mas a saída ficou num terminal de sessão e morreu com ele. **Aprovação que não
+está escrita não existe.** Esta seção é o conserto.
+
+**O artefato conferido**, sem ambiguidade possível:
+
+```
+public/city/cidade-lotes.bin     1.060.800 B   22/09 02:27:31   70.720 registros
+data/dogcity_lotes.csv          11.543.049 B   22/09 02:27:31
+data/dogcity_cemiterio.csv       2.284.627 B   22/09 02:27:31   15.802 lápides
+merkle root  9c16f4bdf7708beeb2a8a1c93533d8bfcd827a225d99fee1b71d91e62446f4c4
+```
+
+Os quatro selos de `data/dogcity_merkle.json` batem byte a byte com os arquivos no disco, e
+o `merkle.py` rodado de novo em 22/09 15:41 devolveu **o mesmo root**, 86.522 folhas, 18
+níveis. O root sela o que está lá agora, não uma versão anterior.
+
+### Quinze de quinze, APROVADO
+
+| teste | resultado |
+|---|---|
+| cada carteira tem um destino | 69.995 lotes + 15.802 lápides = 85.797 de 85.797, **0 em dois lugares** |
+| lote do projeto não tem dono de carteira | 704, todos com endereço próprio |
+| .bin, CSV e cotas na mesma ordem | 70.720 / 70.720 / 70.720 |
+| lot_id único e no padrão | 70.720 únicos, maior quarteirão B511 |
+| nenhum lote sobre outro | **0 pares** acima de 2 cm |
+| idem nos distritos especiais (S07/S08/S09) | 2.594 lotes par a par, **0 pares** |
+| giro do CSV bate com o do .bin | pior desvio 0,0000° |
+| muro de divisa dentro do teto de 3 m | 416 de 104.556 acima (0,40%, teto 1%), pior 14,66 m |
+| nenhum lote com cota de outro lugar | 70.720 contra a mediana dos vizinhos, **0** acima de 25 m |
+| cemitério obedece ao corte publicado | corte 591,94 DOG, 0 lápides acima, 0 lotes abaixo |
+| área entregue honra a prometida | mediana **0,96**, p1 0,95, p10 0,96 |
+| cota dentro da faixa do relevo | 0 fora |
+| .bin fiel ao registro (1/4 m) | pior desvio 0,120 m |
+| cidade.json bate com os arquivos | declara 69.995 / 70.720, arquivo tem 70.720 |
+| cemitério declarado bate com o gravado | 15.802 / 15.802 |
+
+⚠️ **O QUE ESTE APROVADO NÃO DIZ, E É O QUE IMPORTA AGORA.** Ele aprova o artefato de
+02:27, e o gerador foi editado às 03:49. Duas correções já provadas ficaram FORA do dado, e
+as duas são mensuráveis dentro do próprio artefato:
+
+1. **O Distrito Financeiro.** O código já recuou a faixa de 915 para 929 e abriu a rua em
+   921, mas os 21 lotes gravados têm borda interna em **exatamente 914,99 m**: a rua nova
+   corre 12 m em cima deles. Medido no CSV, não deduzido do mtime.
+2. **As travessas de k=5 e k=6.** `cidade-malha.json` publica `travessasPorK` e
+   `fileirasPorK` só para as chaves 2, 3 e 4. Contagem dos 2.122 quarteirões por banda:
+   `{2:303, 3:394, 4:647, 5:439, 6:339}` — os **778 quarteirões** do §25 são 439+339, e eles
+   carregam **44.036 lotes, 64,6% da cidade**, hoje dependentes da derivação em `vias.ts`.
+
+**Consequência de ordem, e ela é dura:** regerar muda o merkle root. Então a sequência é
+regerar → portar → selar → publicar, nunca publicar antes de regerar. Quem publicar o root
+de hoje numa superfície pública estará selando uma cidade que já se sabe uma revisão
+atrasada.

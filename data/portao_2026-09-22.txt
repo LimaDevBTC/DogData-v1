@@ -1,0 +1,23 @@
+=== PORTAO contra o registro de 22/09 02:27:31 ===
+2026-09-22T15:41:28-03:00
+CONFERÊNCIA DO LOTEAMENTO em /home/bitmax/Projects/bitcoin-fullstack/DogData-v1
+  PASSA  cada carteira tem um destino, lote ou lápide  69995 lotes + 15802 lápides = 85797 de 85797 carteiras, 704 do projeto e 21 institucionais à parte, 0 em dois lugares
+  PASSA  lote do projeto não tem dono de carteira  704 lotes do projeto, todos com endereço próprio
+  PASSA  .bin, CSV e cotas na mesma ordem  70720 / 70720 / 70720
+  PASSA  lot_id único e no padrão  70720 únicos de 70720, maior quarteirão B511
+  PASSA  nenhum lote sobre outro  0 pares acima de 0.02 m
+  PASSA  nenhum lote sobre outro nos distritos especiais (S07, S08, S09)  2594 lotes comparados par a par, 0 pares acima de 0.02 m
+  PASSA  giro do CSV bate com o do .bin  pior desvio 0.0000° em , 0 acima de 0,01°
+  PASSA  muro de divisa dentro do teto de 3 m  104556 divisas medidas, 416 acima de 3 m (0.40%, teto 1%), pior 14.66 m em S03-Q23-B036-L001 x S03-Q24-B006-L001
+  PASSA  nenhum lote com cota de outro lugar  70720 lotes contra a mediana dos vizinhos em 120 m; 0 acima de 25 m
+  PASSA  cemitério obedece ao corte publicado  corte 591.94 DOG; 0 lápides acima do corte, 0 lotes abaixo dele
+  PASSA  área entregue honra a prometida  mediana 0.96, p1 0.95, p10 0.96
+  PASSA  cota dentro da faixa do relevo  0 fora
+  PASSA  .bin fiel ao registro (1/4 m)  pior desvio 0.120 m
+  PASSA  cidade.json bate com os arquivos  declara 69995 de 69995 carteiras, 70720 linhas no total, arquivo tem 70720
+  PASSA  cemitério declarado bate com o gravado  declara 15802, gravados 15802
+APROVADO
+=== MERKLE (reconferencia) ===
+merkle root: 9c16f4bdf7708beeb2a8a1c93533d8bfcd827a225d99fee1b71d91e62446f4c4
+  86522 folhas (70720 lotes, 15802 lápides), 18 níveis
+  gravado data/dogcity_merkle.json e data/dogcity_merkle_folhas.txt
