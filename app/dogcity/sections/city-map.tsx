@@ -5,7 +5,7 @@
 //
 // Decisão do fundador em 11/09: "quero essa imagem na hero section, ela está
 // muito boa e diretamente ligada com o snapshot de amanhã". A carta responde a
-// pergunta que o countdown levanta — faltam X blocos para QUÊ — mostrando a
+// pergunta que o countdown levanta, faltam X blocos para QUÊ, mostrando a
 // cidade inteira, com cada tier na cor dele.
 //
 // ⚠️ ELA MOSTRA BAIRRO, NUNCA LOTE, e é essa linha que autoriza a peça a estar
@@ -20,7 +20,7 @@
 // embutido, mas ele foi desenhado para 2.400 px: num telefone de 390 px aquele
 // texto tem 2 px de altura. A imagem entrega a ESTRUTURA (os anéis, a alça, a
 // baía, a autopista), que sobrevive pequena; o entendimento vem da lista aqui do
-// lado, que é texto de verdade — selecionável, legível por leitor de tela e que
+// lado, que é texto de verdade: selecionável, legível por leitor de tela e que
 // não depende de a pessoa dar zoom.
 //
 // ⚠️ E A COR DA AMOSTRA É COMPOSTA, COMO NO MAPA. Lá a mancha é pintada SOBRE o
@@ -33,7 +33,7 @@
 // As variantes menores NÃO são versionadas: o `next/image` as deriva desta com
 // o `sizes` abaixo, e no telefone o que desce fica em torno de 96 KB. Guardar
 // cópias de 1.000 e 640 px no repositório seria a mesma confusão de ter duas
-// cartas da mesma cidade — alguém acabaria apontando para a errada.
+// cartas da mesma cidade, alguém acabaria apontando para a errada.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import Image from "next/image"
@@ -41,7 +41,20 @@ import { HAIR, HAIR_SOFT } from "../motion"
 import { SNAPSHOT } from "../dogcity-data"
 
 /** a paleta é a mesma de `scripts/city/mapa-topo.mjs` (TIER_COR/TIER_OP), e a
- *  base é o marrom médio do relevo sobre o qual a mancha é pintada */
+ *  base é o marrom médio do relevo sobre o qual a mancha é pintada.
+ *
+ *  ⚠️ ESTA LEGENDA DESCREVE UM GRADIENTE, NÃO ANÉIS. O caderno de tiers desenhou
+ *  bandas de raio por tier, e o masterplan §19 as descartou em 21/09: a banda
+ *  do tier 6 não comportava o tier 6 (faltavam 4,35 km² no melhor caso), o
+ *  começo em r 960 é terra que não existe, e o §12 já tinha decidido que o
+ *  tier vira emblema e o DOG-tempo decide a posição. Medido na cidade aprovada:
+ *  Diamond Paws ficam em r 1.954 a 5.547 (mediana 3.825) e Paper Hands em
+ *  4.374 a 6.788 (mediana 5.356), ou seja a separação existe e é contínua, sem
+ *  fronteira. Dizer "no ranking" para quem tem menos de 20k era falso: o
+ *  DOG-tempo ordena todo mundo.
+ *
+ *  ⚠️ A ARTE `public/landing/citymap-1600-v2.webp` ainda pinta os anéis do
+ *  caderno e precisa ser repintada. Pendência aberta em 21/09. */
 const BASE_RELEVO = "#6F5C45"
 export const TIERS_MAPA: { cor: string; op: number; nome: string; onde: string }[] = [
   { cor: "#FFCE7A", op: 0.86, nome: "1 · Satoshi Visionary", onde: "the spit, front row, centre of the arc" },
@@ -51,7 +64,7 @@ export const TIERS_MAPA: { cor: string; op: number; nome: string; onde: string }
   { cor: "#87452A", op: 0.78, nome: "5 · DOG Supporter", onde: "waterfront, behind the shore road" },
   { cor: "#9C8F79", op: 0.66, nome: "6 · Diamond Paws", onde: "inner fabric, by how the wallet is used" },
   { cor: "#6A6E72", op: 0.68, nome: "7 to 12 · The Group", onde: "from 20k DOG, oldest UTXO sits closer in" },
-  { cor: "#414750", op: 0.7, nome: "Every other holder", onde: "under 20k DOG, outskirts, no ranking" },
+  { cor: "#414750", op: 0.7, nome: "Every other holder", onde: "under 20k DOG, toward the edge" },
 ]
 
 function Amostra({ cor, op }: { cor: string; op: number }) {
@@ -104,8 +117,9 @@ export function CityMap() {
         </a>
       </div>
       <figcaption className={`mt-3 border-t ${HAIR_SOFT} pt-3 font-mono text-[9px] md:text-[10px] tracking-[0.14em] text-mist leading-relaxed`}>
-        THE PLAN BEFORE THE SNAPSHOT · EVERY WALLET IS PLACED AT BLOCK{" "}
-        <span className="tabular-nums text-lava">{SNAPSHOT.block.toLocaleString("en-US")}</span>
+        DRAWN BEFORE THE SNAPSHOT · EVERY WALLET WAS PLACED AT BLOCK{" "}
+        <span className="tabular-nums text-lava">{SNAPSHOT.block.toLocaleString("en-US")}</span>{" "}
+        · THE BANDS READ AS A GRADIENT, NOT AS FENCES
       </figcaption>
     </figure>
   )
