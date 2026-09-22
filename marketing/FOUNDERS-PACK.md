@@ -1,3 +1,10 @@
+> ⚠️ **CLOSED 12 SEPTEMBER 2026; ITS LAND NUMBERS ARE OUT OF DATE.** The curve printed in
+> section 7 still has the old floor of 1 m2 and the old 46.66 km2 total. The published curve
+> is `clamp(0.986443 x sqrt(DOG), 24 m2, 40,000 m2)` with a target of 46.17 km2, every wallet
+> under 591.95 $DOG receives a headstone instead of a lot, and four of the six wallets that
+> reach the cap sit in the Financial District under a ceiling raised to 150,000 m2. Read the
+> live page, `/dogcity/docs`, before copying a number out of this file.
+
 # DogCity Founders Pack
 
 **Status:** closed and locked, 12 September 2026.

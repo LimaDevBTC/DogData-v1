@@ -5,8 +5,10 @@
 do GitHub, entao a busca da landing NAO tem como ler arquivo. E `/api/plot` hoje le arquivo
 local com `fs` e serve numero diferente do snapshot.
 
-⚠️ SO ENTRA O QUE PODE SER PUBLICO. Posicao, bairro e tag institucional ficam de fora de
-proposito. Area vem da curva publica e depende so do saldo.
+⚠️ SO ENTRA O QUE PODE SER PUBLICO. Posicao e bairro ficam de fora de proposito. Area vem da
+curva publica e depende so do saldo. A tag institucional e LIDA para escolher o teto (o
+Distrito Financeiro tem teto proprio, publicado), mas NAO sobe: nenhuma coluna diz quem e
+institucional.
 """
 import json, io, os, math, time, urllib.request
 
@@ -27,6 +29,29 @@ K, PISO_CURVA, TETO = 0.986443, 1.0, 40000.0
 PISO_LOTE = 24.0
 CORTE_DOG = (PISO_LOTE / K) ** 2
 
+# ⚠️ O TETO DO DISTRITO FINANCEIRO E OUTRO, E A PAGINA JA PUBLICA ISSO. As 21
+# institucionais tem teto de 150.000 m2 (docs secao 5, contrato-publico §4) e o
+# lookup servia 40.000 para os quatro maiores, cujo registro selado da 42.199,
+# 50.511, 52.140 e 54.300 m2. Medido em 22/09 contra data/dogcity_lotes.csv: sao
+# exatamente esses quatro enderecos, e nenhum lote de carteira fora do distrito
+# chega a 40.000 (o maior tem 31.035 m2), entao o teto geral segue valendo para
+# 85.814 carteiras. Publicado o merkle root, essa diferenca deixa de ser detalhe
+# de copy e vira aritmetica de terceiro contra a folha assinada.
+TETO_FIN = 150000.0
+_CAM_FIN = os.path.join(SNAP, 'dog_966670_tag_institucional.json')
+try:
+    _tag = json.load(io.open(_CAM_FIN, encoding='utf-8'))
+    FIN = {r['address'] for r in (_tag.get('linhas') or [] if isinstance(_tag, dict) else _tag)}
+except (OSError, ValueError, KeyError, TypeError):
+    FIN = set()
+# ⚠️ SEM A TAG O ERRO VOLTA CALADO. Se o arquivo mudar de formato ou sumir, `FIN`
+# fica vazio, os quatro voltam a 40.000 e nada no console acusa. Aqui a subida
+# MORRE antes de tocar em producao.
+if not FIN:
+    raise SystemExit('lookup: dog_966670_tag_institucional.json nao entregou endereco nenhum. '
+                     'Sem a tag, o Distrito Financeiro volta ao teto de 40.000 e a tabela '
+                     'publica menos area do que o registro. Nada foi enviado.')
+
 env={}
 for arq in ('.env.local','.env'):
     p=os.path.join(RAIZ,arq)
@@ -38,20 +63,28 @@ for arq in ('.env.local','.env'):
 URL=env['SUPABASE_URL'].rstrip('/'); KEY=env['SUPABASE_SERVICE_ROLE_KEY']
 
 hold=json.load(io.open(os.path.join(SNAP,'dog_snapshot_966670.json'),encoding='utf-8'))['holders']
-linhas=[]
+linhas=[]; n_alto=0
 for h in hold:
     d=float(h.get('dog') or 0)
     _cem = d < CORTE_DOG
+    _teto = TETO_FIN if h['address'] in FIN else TETO
+    _curva = K*math.sqrt(max(d,0))
+    if _curva > TETO and _teto > TETO: n_alto += 1
     linhas.append({'address':h['address'],'dog':round(d,5),
         # ⚠️ area 0 para quem tem lapide: a consulta le este campo e nao pode
         # anunciar metro quadrado para quem nao recebeu terra
-        'area_m2': 0.0 if _cem else round(max(PISO_LOTE,min(TETO,K*math.sqrt(max(d,0)))),2),
+        'area_m2': 0.0 if _cem else round(max(PISO_LOTE,min(_teto,_curva)),2),
         'destino': 'lapide' if _cem else 'lote',
         'genesis':float(h.get('airdrop_amount') or 0)>0,
         'runestones':int(h.get('runestones') or 0),
         'utxo_count':int(h.get('utxo_count') or 0)})
 print(f'{len(linhas):,} carteiras, {sum(1 for l in linhas if l["genesis"]):,} com Genesis Badge, '
       f'{sum(1 for l in linhas if l["destino"]=="lapide"):,} com lapide (abaixo de {CORTE_DOG:.2f} DOG)',flush=True)
+# ⚠️ CONTADOR POR MOTIVO: quantos de fato passaram do teto geral pelo teto do
+# distrito. Se isto imprimir 0, a tag nao casou com o snapshot e os quatro
+# maiores estao saindo capados em 40.000 de novo.
+print(f'{len(FIN)} enderecos do Distrito Financeiro, {n_alto} acima do teto geral de '
+      f'{TETO:,.0f} m2 (teto do distrito: {TETO_FIN:,.0f} m2)',flush=True)
 
 LOTE=1000
 for i in range(0,len(linhas),LOTE):

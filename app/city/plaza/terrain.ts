@@ -23,7 +23,8 @@
 // que um único nível de clipmap extra cobriria o sítio inteiro, e não cobre.
 import * as THREE from 'three'
 import { corCurta, normalCurta } from './atributos'
-import { PODIO_Y, PODIO_R0, PODIO_R1, PODIO_R2, PODIO_R3, PODIO_R3_PARQUE } from './dome'
+import { PODIO_Y, PODIO_R0, PODIO_R1, PODIO_R2, PODIO_R3, PODIO_R3_PARQUE, DOME_R } from './dome'
+import { campoMargem, margemAguaAt, MARGEM_CHAO } from './margem-agua'
 import { exageroEm, VEX_HORIZONTE } from './vex'
 import { PARK_CENTER, PARK_PIT, parkReach, parkCore } from './park-site'
 import { look2 } from './look'
@@ -1010,7 +1011,15 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
       : (R3 - r) / (R3 - PODIO_R2)
     return t * t * (3 - 2 * t)
   }
-  const heightAt = (x: number, z: number): number => {
+  // ⚠️ O CHÃO ANTES DA MARGEM, EXTRAÍDO DE `heightAt` EM 22/09 PARA O §16.6.
+  // Ele é o que o campo de distância da margem precisa consultar ponto a ponto
+  // na montagem, e era o começo do corpo de `heightAt`. Saiu inteiro, sem uma
+  // vírgula de mudança: o `_canalAbs` entra por parâmetro porque `heightAt`
+  // também precisa dele mais abaixo (o `min` da orla da baía) e
+  // `canalRadialAbsAt` é a parte cara desta conta. Devolver um par para não
+  // recalcular custaria uma alocação por chamada, e esta função é chamada por
+  // vértice de malha e por quadro de câmera.
+  const chaoAntesDaMargem = (x: number, z: number, _canalAbs: number | null): number => {
     // ⚠️ A VALA DO CANAL ENTRA JUNTO COM A BACIA DO LAGO, no mesmo ponto e pelo
     // mesmo motivo: os dois são água, e água só aparece se o chão for cavado.
     //
@@ -1020,7 +1029,6 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
     // passar pelo peso `_kc`. `cavaEm` continua servindo só os anéis de canal
     // (hoje nenhum), com o mesmo blend por peso de sempre.
     const _bb = bbAt(x, z)
-    const _canalAbs = canalRadialAbsAt(x, z)
     const _kc = cavaEm(x, z)
     // ⚠️ A CONCORDÂNCIA DA BOCA: as duas superfícies deixam de se cortar em
     // ângulo vivo onde o radial encontra o Lago da Praça.
@@ -1073,7 +1081,57 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
       ? _bb - _kc * Math.max(0, _bb - _leitoAbs)
       : _bb - _fundoC * _kc
     const _w = podioPeso(x, z)
-    const b = _w > 0 ? b0 * (1 - _w) + PODIO_Y * _w : b0
+    return _w > 0 ? b0 * (1 - _w) + PODIO_Y * _w : b0
+  }
+
+  // ── §16.6: A MARGEM DEIXA DE SER DEGRAU ───────────────────────────────────
+  //
+  // Ver o cabeçalho de `margem-agua.ts` para o defeito medido, a aritmética da
+  // garantia e de onde vem cada número. Aqui ficam só as duas decisões que são
+  // desta função e de mais nenhuma: ONDE ela entra na fila e POR QUÊ.
+  //
+  // ⚠️ ELA ENTRA DEPOIS DO PÓDIO E ANTES DO PARQUE, E A ORDEM É O CONTRATO.
+  //
+  //  • DEPOIS DO CANAL RADIAL (que mora em `b0`), e isto é o que fecha a junta.
+  //    Na borda da faixa o perfil do canal vale exatamente `bbAt` do MESMO
+  //    ponto (`xRef`/`zRef` coincidem com `x`/`z` quando `d == rBanda`), então
+  //    os dois lados da borda recebem o mesmo corte e a costura continua
+  //    fechada. Se a margem rodasse ANTES, o canal subiria até um `bbAt` que já
+  //    não existe e a banda abriria um degrau de até 12 m a 990 m do eixo.
+  //
+  //  • DEPOIS DO PÓDIO, senão a baía natural por baixo do anel da abóbada
+  //    (r 6.150 a 8.300) seria lida como margem e a margem cavaria o platô que
+  //    a casca precisa nivelado.
+  //
+  //  • ANTES DO PARQUE, DO CAMPUS, DO AQUATICS, DA ALÇA E DA ORLA DA BAÍA,
+  //    porque essas cinco IMPÕEM o próprio chão na pegada delas e se dissolvem
+  //    no natural na franja. Rodando antes, a margem só mexe no chão que sobra
+  //    entre elas, e a franja delas dissolve para o chão já corrigido, sem
+  //    aresta. ⚠️ Se a margem rodasse DEPOIS, ela re-esculpiria a praia de
+  //    12,5% da alça e a plataforma de −30 da Orla Nobre: 510 lotes decididos
+  //    mudariam de cota por causa de um conserto que não é deles. A margem
+  //    conserta degrau de regolito, não margem desenhada.
+  //
+  // ⚠️ E O CAMPO É MONTADO AQUI, UMA VEZ, NÃO SOB DEMANDA. Montar na primeira
+  // chamada de `heightAt` jogaria a conta inteira dentro do primeiro quadro (ou
+  // dentro do pouso do primeiro lote), e quem paga é justamente quem não
+  // esperava pagar. Aqui ele é custo de montagem de terreno, como a malha.
+  const _campoMargem = MARGEM_CHAO
+    ? campoMargem({
+      n, cell,
+      lamina: LAGO_AGUA_Y,
+      // a mesma trava que `lagos.ts` usa para não desenhar água fora da casca
+      raioAgua: DOME_R - 40,
+      chao: (x, z) => chaoAntesDaMargem(x, z, canalRadialAbsAt(x, z)),
+    })
+    : null
+
+  const heightAt = (x: number, z: number): number => {
+    const _canalAbs = canalRadialAbsAt(x, z)
+    const _chao = chaoAntesDaMargem(x, z, _canalAbs)
+    const b = _campoMargem === null
+      ? _chao
+      : margemAguaAt(_chao, _campoMargem.distanciaAt(x, z), LAGO_AGUA_Y)
     const lx = x - PARK_CENTER.x, lz = z - PARK_CENTER.z
     const r = Math.hypot(lx, lz)
     // ⚠️ O ALCANCE VEM DA DIREÇÃO, não de uma constante: curto no rumo da cidade

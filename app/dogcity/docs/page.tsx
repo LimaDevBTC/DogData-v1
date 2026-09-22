@@ -1,11 +1,16 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // DogCity Documentation, V1 (/dogcity/docs), página pública, texto em inglês.
 //
-// Transcrição de marketing/DOGCITY-DOCS-V1.md (604 linhas, aprovado). Todo
-// número, tabela e frase abaixo vem literalmente desse arquivo; nada foi
-// somado, arredondado ou reescrito. A única liberdade tomada foi de
-// APRESENTAÇÃO: markdown vira componente (tabela, bloco de dados, cartão),
-// nunca reescrita de conteúdo.
+// Nasceu como transcrição de marketing/DOGCITY-DOCS-V1.md (aprovado em
+// 13/09/2026). ⚠️ DESDE 20/09 ESTA PÁGINA MANDA E O MARKDOWN NÃO. O markdown
+// ficou na curva de piso 1 m² com alvo de 46,66 km² (§3 dele), na reserva de
+// 15% e no split 30/15/55 da praça (§5 dele); aqui já valem piso 24 m², alvo
+// 46,17 km², reserva 1% e o split desmentido pela medição. Ressincronizar
+// esta página A PARTIR do markdown REVERTE o contrato público. O markdown
+// carrega um aviso no topo dizendo a mesma coisa; se aquele aviso sumir,
+// este comentário continua valendo. A liberdade de APRESENTAÇÃO continua
+// valendo: markdown vira componente (tabela, bloco de dados, cartão), nunca
+// reescrita de conteúdo.
 //
 // ⚠️ SEÇÃO 8 DO MARKDOWN ("Notes for whoever writes the copy") FICOU DE FORA
 // DE PROPÓSITO. Aquela seção não é conteúdo do documento: são instruções
@@ -322,9 +327,8 @@ export default function DogCityDocsPage() {
               <Sub>What happened</Sub>
               <P className="mt-3">
                 On 12 September 2026 a single Bitcoin block decided the land allocation of every
-                self custody $DOG wallet in the city. Nothing was claimed, nothing was signed,
-                nothing was registered. The chain was read once, at one height, and the result was
-                frozen.
+                address holding $DOG on chain. Nothing was claimed, nothing was signed, nothing was
+                registered. The chain was read once, at one height, and the result was frozen.
               </P>
               <DataBlock>
                 <Row label="block" value="966,670" />
@@ -342,8 +346,12 @@ export default function DogCityDocsPage() {
               <P>
                 The rune&apos;s total supply is 100,000,000,000. The count is 24,406,797.66 short of
                 that figure, and the difference is burned $DOG: destroyed on chain, owned by nobody.
-                The snapshot counts what exists, so it counts circulating supply exactly. The
-                project&apos;s own API publishes the burn figure at <Code>/api/dog-rune/stats</Code>.
+                What the snapshot counts is what the chain still holds, which is not the same as
+                what circulates. Four addresses widely known to be dead ends, the Bitcoin burn
+                address among them, hold 889,806 $DOG each, one full airdrop allocation, and the
+                city gives each of them a lot like any other address: the rule is the chain, and
+                the chain cannot tell a lost key from a patient one. The project&apos;s own API
+                publishes the burn figure at <Code>/api/dog-rune/stats</Code>.
               </P>
 
               <Sub>How it was built</Sub>
@@ -438,9 +446,10 @@ export default function DogCityDocsPage() {
               <P>
                 Holder tier counts at the snapshot. These tiers are the ranks of the Genesis
                 Badge, earned by airdrop history. The badge is a mark, never a payout, and it never
-                changes how much land a wallet gets: the area always comes from the curve in
-                section 3. For the first five tiers it does decide the neighborhood, and only the
-                neighborhood, because the city has two waterfronts and they are finite:
+                changes how much land a wallet gets: the curve in section 3 sizes every lot in the
+                city, badge or no badge. For the first five tiers it does decide the neighborhood,
+                and only the neighborhood, because the city has two waterfronts and they are
+                finite:
               </P>
               <Table
                 head={["Tier", "Wallets"]}
@@ -475,10 +484,14 @@ export default function DogCityDocsPage() {
                   ["101,779 $DOG (the median holder)", "315 m2"],
                   ["889,806 $DOG (one full airdrop allocation)", "931 m2"],
                   ["10,000,000 $DOG", "3,119 m2"],
-                  ["1,644,000,000 $DOG and above", "40,000 m2 (the cap)"],
+                  ["1,644,000,000 $DOG and above", "40,000 m2 (the residential cap)"],
                 ]}
               />
-              <P>Six wallets reach the cap.</P>
+              <P>
+                Six wallets reach that ceiling. Four of them were measured as institutional by the
+                ruler in section 4 and sit in the Financial District, where section 5 raises the
+                ceiling to 150,000 m2.
+              </P>
               <P>The number that answers the whale question before it is asked:</P>
               <DataBlock>
                 <Row label="Top 20 wallets, share of supply" value="33.02%" />
@@ -564,7 +577,7 @@ export default function DogCityDocsPage() {
                 every wallet that received the original airdrop carries this mark permanently, on
                 the record as part of the first community. The Genesis Badge is identity and
                 legacy, never land and never a return: it pays out nothing and it never changes lot
-                size, which always comes from the curve.
+                size, because the curve sizes every lot in the city, badge or no badge.
               </P>
               <P>
                 What it does decide, for the first five tiers, is the address. The bay has two
@@ -816,12 +829,11 @@ export default function DogCityDocsPage() {
               <Sub>How land is sized inside the district</Sub>
               <P className="mt-3">
                 The district uses the same square-root curve as the rest of the city, with its
-                ceiling raised from 40,000 m2 to 150,000 m2. The residential cap would tie every
-                large institution at the same maximum size, which erases exactly the size difference
-                a financial district is supposed to show. Under the raised cap, the largest wallet
-                identified so far reaches roughly 112,000 m2, well under the new ceiling, and the
-                curve still holds: a wallet with 4.3 times the balance of another receives only 2.1
-                times the land. Measured against the closed snapshot, the 21 institutional wallets
+                ceiling raised from 40,000 m2 to 150,000 m2. The residential cap would tie the
+                largest institutions at the same maximum size, which erases exactly the size
+                difference a financial district is supposed to show. Under the raised cap the curve
+                still holds: a wallet with four times the balance of another receives only twice the
+                land. Measured against the closed snapshot, the 21 institutional wallets
                 hold 13.66% of the supply and take 403,911 m2 in total, or 0.40 km2, with the
                 largest reaching 54,300 m2, roughly a third of the raised ceiling. The district is
                 built and the whole of it fits with room to spare in the dry ring between the
@@ -860,7 +872,7 @@ export default function DogCityDocsPage() {
               </P>
               <P>
                 That right only works because the project holds a standing reserve everywhere it
-                might be needed. The project keeps 1% of the lots in every neighborhood in the city,
+                might be needed. The project keeps 1% of the lots in the city&apos;s neighborhoods,
                 scattered throughout each one rather than gathered into a single block, so that a
                 lot of comparable standing is always available near wherever an appeal happens to
                 land. The measurement in section 4 flagged 21 wallets, and the reserve covers every
@@ -994,8 +1006,8 @@ export default function DogCityDocsPage() {
               <BulletList
                 items={[
                   {
-                    lead: "No lot has a published address.",
-                    text: "The snapshot decides how much land a wallet receives, not where in the city that land sits. Where each wallet lives comes later, and will be published with the same method, numbers, and fingerprint used here.",
+                    lead: "No lot has an announced address.",
+                    text: "The snapshot decides how much land a wallet receives, not where in the city that land sits. The working record that places every wallet is kept in the open while it is drawn, and it is still being redrawn: no address in it has been announced and none of it is final. The version that counts is the one published with the same method, numbers, and fingerprint used here, on the day the city is sealed.",
                   },
                   {
                     lead: "No deed has been minted.",
@@ -1006,12 +1018,12 @@ export default function DogCityDocsPage() {
                     text: "Moving coins after block 966,670 does not change what that block recorded, in either direction.",
                   },
                   {
-                    lead: "The Financial District is a set of decided rules, not a built district.",
-                    text: "Its boundaries, its cap, and its entry process are locked; the lots themselves have not been generated or assigned.",
+                    lead: "The Financial District is drawn, and nothing in it has been issued.",
+                    text: "Its 21 lots are sized by the same curve under the raised cap, and section 5 publishes their total area. What has not happened is the deed: nothing there has been minted, and every wallet placed there by measurement keeps the right of appeal.",
                   },
                   {
                     lead: "The city is not reproducible by outsiders yet.",
-                    text: "The snapshot file and its fingerprint are published, and anyone can check their own wallet's balance and coin age against the chain by hand. A public script that rebuilds the entire list from scratch does not exist yet.",
+                    text: "The fingerprint of the snapshot is published and anyone can check their own balance and coin age against the chain by hand, but the file itself is not downloadable yet, and no public script rebuilds the list from the chain from scratch. Until both of those exist, nobody outside the project can redo this work end to end.",
                   },
                 ]}
               />

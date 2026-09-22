@@ -15,8 +15,9 @@
 # ── o que entra na folha, e por que exatamente isto ────────────────────────
 # A folha é o DIREITO, não o desenho. Entra o que o título vai afirmar:
 #
-#   lote:   L|lot_id|address|x_cm|z_cm|frente_cm|prof_cm|giro_cc|area_m2|cota_cm
-#   lápide: M|address
+#   cabeçalho: H|versao|bloco|n_folhas|artefato=sha256|...   (sempre no índice 0)
+#   lote:      L|lot_id|address|x_cm|z_cm|frente_cm|prof_cm|giro_cc|area_m2|cota_cm|forma
+#   lápide:    M|address
 #
 # ⚠️ EM CENTÍMETROS E INTEIROS, NUNCA EM PONTO FLUTUANTE. Texto de float muda de
 # forma entre linguagens ("-0.0", "1e-05", 17 dígitos contra 15) e o root mudaria
@@ -27,10 +28,14 @@
 # o .bin. Selar os dois daria dois roots para uma cidade só.
 #
 # ── a ordem, que é parte da prova ──────────────────────────────────────────
-# As folhas são ordenadas por `address` e, no empate (uma carteira nunca tem
-# dois destinos, mas lote do projeto não tem carteira), por `lot_id`. Ordenar
-# por posição na fila amarraria o root à ordem de chegada, que é um dado que já
-# está dentro da folha.
+# As folhas L e M são ordenadas por `address` e, no empate (uma carteira nunca
+# tem dois destinos, mas lote do projeto não tem carteira), por `lot_id`.
+# Ordenar por posição na fila amarraria o root à ordem de chegada, que é um dado
+# que já está dentro da folha.
+#
+# ⚠️ O CABEÇALHO FICA FORA DA ORDENAÇÃO e é inserido no índice 0 depois dela.
+# Ele não tem endereço, então participar do `sort` o jogaria para o começo por
+# acidente e não por regra, e qualquer mudança na chave o moveria.
 #
 # ── a árvore ───────────────────────────────────────────────────────────────
 # sha256 duplo, como no Bitcoin. Nível ímpar duplica o último nó, também como no
@@ -50,15 +55,67 @@ def d256(b):
 
 cm = lambda v: int(round(float(v) * 100))
 
+# ⚠️ O BLOCO E A VERSÃO DA FOLHA MORAM AQUI, E EM UM LUGAR SÓ. Eles saem duas
+# vezes do script (no cabeçalho, que vira hash, e no JSON, que é lido por gente)
+# e duas cópias literais acabam discordando no dia em que uma das duas muda.
+BLOCO, VERSAO = 966670, 2
+
+# a mesma escada do gerador (`forma_de`, scripts/gerar_cidade.py): 0 massa única,
+# 1 pátio, 2 condomínio baixo, 3 torre, 4 quarteirão com várias torres
+forma_de = lambda u: 0 if u <= 1 else 1 if u <= 3 else 2 if u <= 9 else 3 if u <= 99 else 4
+
+# ⚠️ ZERO É UMA TIPOLOGIA DE VERDADE, NÃO UM CAMPO VAZIO. `forma=0` quer dizer
+# "massa única, casa no centro", e 48.357 lotes de uma UTXO só são zero com toda
+# a razão. O que NÃO pode existir é lote de carteira com `dog=0` ou
+# `utxo_count=0`: carteira que está no snapshot tem saldo e tem UTXO, e zero ali
+# é o gerador não tendo achado o dado. Foi o que aconteceu em 22/09 com os 21
+# lotes do Distrito Financeiro, que saíram do registro com dog, utxo_count e
+# forma zerados: a Gate.io tem 3,03B DOG e 20.008 UTXOs no bloco, ou seja forma
+# 4, e o registro selado afirmava forma 0. Como a tipologia é CONGELADA
+# (masterplan §2) e trava o catálogo de prédio do dono (§4.1), selar isso é
+# selar direito errado, e o root não desfaz. Aqui a rodada MORRE antes de
+# escrever qualquer coisa, com contador por motivo.
+recusa = {'CSV sem coluna forma legível': [],
+          'forma fora da faixa 0 a 4': [],
+          'lote do projeto com tipologia (projeto não tem dono)': [],
+          'lote de carteira com dog ou utxo_count zerado': [],
+          'forma divergente do utxo_count da própria linha': []}
+
 folhas = []
 with open(p('data/dogcity_lotes.csv'), newline='') as f:
     for r in csv.DictReader(f):
         giro = r.get('giro_graus')
-        folhas.append((r['address'], r['lot_id'], 'L|%s|%s|%d|%d|%d|%d|%d|%d|%d' % (
+        projeto = r['address'].startswith('__projeto')
+        try:
+            forma = int(r['forma'])
+        except (KeyError, TypeError, ValueError):
+            # a rodada já vai morrer lá embaixo; não montar folha com campo inventado
+            recusa['CSV sem coluna forma legível'].append(r['lot_id'])
+            continue
+        if forma not in (0, 1, 2, 3, 4):
+            recusa['forma fora da faixa 0 a 4'].append(r['lot_id'])
+        elif projeto:
+            if forma:
+                recusa['lote do projeto com tipologia (projeto não tem dono)'].append(r['lot_id'])
+        else:
+            u = int(float(r.get('utxo_count') or 0))
+            if u < 1 or float(r.get('dog') or 0) <= 0:
+                recusa['lote de carteira com dog ou utxo_count zerado'].append(r['lot_id'])
+            elif forma != forma_de(u):
+                recusa['forma divergente do utxo_count da própria linha'].append(r['lot_id'])
+        folhas.append((r['address'], r['lot_id'], 'L|%s|%s|%d|%d|%d|%d|%d|%d|%d|%d' % (
             r['lot_id'], r['address'], cm(r['x_m']), cm(r['z_m']),
             cm(r['frente_m']), cm(r['prof_m']),
             int(round(float(giro) * 100)) if giro not in (None, '') else -1,
-            int(round(float(r['area_m2']))), cm(r['cota_m']))))
+            int(round(float(r['area_m2']))), cm(r['cota_m']), forma)))
+
+if any(recusa.values()):
+    print('merkle: o registro NÃO pode ser selado, e nada foi gravado.', file=sys.stderr)
+    for motivo, ids in recusa.items():
+        if ids:
+            print('  %6d  %s  (ex.: %s)' % (len(ids), motivo, ', '.join(ids[:3])), file=sys.stderr)
+    sys.exit('merkle: conserte o gerador e regere antes de selar. '
+             'A tipologia entra na folha, e folha errada vira direito errado na cadeia.')
 
 cam_cem = p('data/dogcity_cemiterio.csv')
 n_lap = 0
@@ -79,6 +136,49 @@ if len(set(chaves)) != len(chaves):
     sys.exit(f'merkle: {len(chaves) - len(set(chaves))} endereços com mais de um destino '
              f'(ex.: {dup}). O portão tinha de ter pegado isto. Nada foi gravado.')
 
+# ── A FOLHA DE CABEÇALHO, sempre no índice 0 ───────────────────────────────
+#
+# ⚠️ O ROOT SOZINHO NÃO DIZ DE QUE CIDADE ELE É. Sem cabeçalho, o registro de
+# outro bloco produz um root do mesmo formato e nada DENTRO da árvore distingue
+# os dois; e o sha256 dos quatro artefatos vivia só em `dogcity_merkle.json`,
+# que NÃO vai para a cadeia, ou seja o `.bin` que a cena desenha ficava sem
+# lastro on chain. Com o cabeçalho, o Charter inscreve o root e mais nada, e o
+# .bin continua provado.
+#
+# ⚠️ ELE TAMBÉM FECHA A AMBIGUIDADE DO NÓ DUPLICADO da construção do Bitcoin
+# (CVE-2012-2459), porque passa a existir uma contagem de folhas DENTRO da
+# árvore. A cidade de 22/09 tem sete níveis de contagem ímpar (43.261, 21.631,
+# 169, 85, 43, 11 e 3), então a duplicação acontece de verdade.
+#
+# ⚠️ ELE NÃO ENTRA NA ORDENAÇÃO, e isso é de propósito: a ordenação por
+# (address, lot_id) já aconteceu acima, e o cabeçalho é enfiado no índice 0
+# depois. `chaves` recebe a string vazia no mesmo índice para não desalinhar o
+# `--prova`; nenhum endereço é vazio (os do projeto começam com `__projeto`).
+#
+# ⚠️ CUSTO MEDIDO: 380 bytes no arquivo de folhas e ZERO passo a mais na prova.
+# 86.522 folhas dão 17 passos e 86.523 também, porque 2^17 = 131.072.
+ARTEFATOS = ('data/dogcity_lotes.csv', 'data/dogcity_cemiterio.csv',
+             'public/city/cidade-lotes.bin', 'public/city/cidade.json')
+selos, faltam = {}, []
+for nome in ARTEFATOS:
+    cam = p(nome)
+    if os.path.exists(cam):
+        selos[nome] = hashlib.sha256(open(cam, 'rb').read()).hexdigest()
+    else:
+        faltam.append(nome)
+# ⚠️ ARTEFATO QUE FALTA DERRUBA A RODADA. O cabeçalho é justamente a amarra
+# entre root e arquivo: selar um '-' no lugar do sha256 do .bin publicaria um
+# root que afirma "esta cidade não tem desenho", em silêncio.
+if faltam:
+    sys.exit('merkle: faltam %d dos quatro artefatos (%s). O cabeçalho amarra o root '
+             'a eles, então nada foi gravado.' % (len(faltam), ', '.join(faltam)))
+
+cabecalho = 'H|%d|%d|%d|%s' % (
+    VERSAO, BLOCO, len(folhas) + 1,
+    '|'.join('%s=%s' % (n, selos[n]) for n in ARTEFATOS))
+folhas.insert(0, ('', '', cabecalho))
+chaves.insert(0, '')
+
 nivel = [d256(t[2].encode('utf-8')) for t in folhas]
 alturas = [len(nivel)]
 while len(nivel) > 1:
@@ -87,22 +187,17 @@ while len(nivel) > 1:
     alturas.append(len(nivel))
 root = nivel[0]
 
-# o selo dos arquivos que produziram este root, para amarrar root a artefato
-selos = {}
-for nome in ('data/dogcity_lotes.csv', 'data/dogcity_cemiterio.csv',
-             'public/city/cidade-lotes.bin', 'public/city/cidade.json'):
-    cam = p(nome)
-    if os.path.exists(cam):
-        selos[nome] = hashlib.sha256(open(cam, 'rb').read()).hexdigest()
-
 saida = {
-    'versao': 1,
+    'versao': VERSAO,
     'algoritmo': 'sha256 duplo, nível ímpar duplica o último (construção do Bitcoin)',
-    'folha': 'L|lot_id|address|x_cm|z_cm|frente_cm|prof_cm|giro_cc|area_m2|cota_cm  '
-             'ou  M|address; ordenadas por (address, lot_id)',
-    'bloco': 966670,
+    'folha': 'H|versao|bloco|n_folhas|artefato=sha256|... no índice 0; depois  '
+             'L|lot_id|address|x_cm|z_cm|frente_cm|prof_cm|giro_cc|area_m2|cota_cm|forma  '
+             'ou  M|address; as folhas L e M ordenadas por (address, lot_id). '
+             'O distrito não é campo: ele é o prefixo S do lot_id.',
+    'bloco': BLOCO,
     'folhas': len(folhas),
-    'lotes': len(folhas) - n_lap,
+    'cabecalho': cabecalho,
+    'lotes': len(folhas) - n_lap - 1,
     'lapides': n_lap,
     'root': root.hex(),
     'niveis': alturas,
@@ -148,6 +243,7 @@ if alvo:
     sys.exit(0 if conf == root else 1)
 
 print('merkle root: %s' % root.hex(), file=sys.stderr)
-print('  %d folhas (%d lotes, %d lápides), %d níveis'
-      % (len(folhas), len(folhas) - n_lap, n_lap, len(alturas)), file=sys.stderr)
+print('  %d folhas (1 cabeçalho, %d lotes, %d lápides), %d níveis'
+      % (len(folhas), len(folhas) - n_lap - 1, n_lap, len(alturas)), file=sys.stderr)
+print('  cabeçalho: %s' % cabecalho, file=sys.stderr)
 print('  gravado data/dogcity_merkle.json e data/dogcity_merkle_folhas.txt', file=sys.stderr)

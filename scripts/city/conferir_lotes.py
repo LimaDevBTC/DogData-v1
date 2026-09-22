@@ -13,7 +13,19 @@
 # sobreposição onde não há e perde a que existe. Aqui o teste é o do eixo
 # separador, com os quatro cantos de cada lote.
 #
+# ⚠️ E EM 22/09 ELE DEU 15 DE 15 APROVADO NUMA CIDADE ERRADA. Ele não mentiu:
+# ele não olhava. Faltavam cinco perguntas, e cada uma tinha defeito medido do
+# outro lado: 845 lotes em cima de obra que a cena já constrói (72,18 ha), 36
+# lotes abaixo da lâmina d'água, 8.171 lotes com a cota de outro chão (a
+# mediana era 0,00 e a cauda 56,6 m), 725 lotes com `dog`, `utxo_count`,
+# `forma` e `coorte` zerados, e 409 ilhas de pavimento que ninguém tinha de
+# aprovar antes da rodada. Portão que só sabe responder o que já foi
+# perguntado uma vez não é portão: é histórico.
+#
 #   python3 scripts/city/conferir_lotes.py --cidade=/caminho/da/saida
+#   opções: --tolerancia=<m> (sobreposição, padrão 0,02)
+#           --conexao=<arquivo> (saída de vias-varredura.mjs, padrão
+#                                /tmp/vias/conexao.json)
 # ═══════════════════════════════════════════════════════════════════════════
 import csv, json, math, os, struct, sys, collections
 
@@ -41,6 +53,15 @@ falhas = []
 def item(nome, ok, detalhe=''):
     print(('  PASSA  ' if ok else '  FALHA  ') + nome + (('  ' + detalhe) if detalhe else ''))
     if not ok: falhas.append(nome)
+
+def indisponivel(nome, detalhe=''):
+    """⚠️ SILÊNCIO NÃO É APROVAÇÃO. Quando falta o insumo de um teste, ele não
+    passa: ele fica INDISPONÍVEL e reprova a rodada junto com as falhas. É o
+    contrário do que aconteceu com a conectividade viária, que existia só como
+    relatório num arquivo em /tmp e por isso nunca reprovou nada. Portão que
+    aprova o que não conseguiu medir é o portão de 15/15 na cidade errada."""
+    print('  INDISP  ' + nome + (('  ' + detalhe) if detalhe else ''))
+    falhas.append(nome + ' (INDISPONÍVEL)')
 
 print(f'CONFERÊNCIA DO LOTEAMENTO em {BASE}')
 
@@ -167,7 +188,7 @@ item('nenhum lote sobre outro', pares == 0, detalhe)
 # ⚠️ Orla Nobre (S07), Distrito Financeiro (S08) e Orla da Baía (S09) gravam UM
 # QUARTEIRÃO POR LOTE, porque cada lote tem giro próprio. O teste 4 agrupa por
 # quarteirão: com um lote em cada balde, ele nunca compara dois deles e os três
-# distritos passavam sem ser olhados — justamente os que não nascem do alocador
+# distritos passavam sem ser olhados, justamente os que não nascem do alocador
 # de tecido e não têm prateleira para garantir que não se encostam.
 # Aqui eles são comparados par a par, dentro de cada setor.
 _esp = collections.defaultdict(list)
@@ -260,6 +281,93 @@ item('muro de divisa dentro do teto de 3 m', _fora <= _nd * _MAX_FORA,
      f'{_nd} divisas medidas, {_fora} acima de {_TETO_DIVISA:.0f} m ({100*_fora/_nd:.2f}%, teto {_MAX_FORA*100:.0f}%)'
      + (f', pior {_div[0][0]:.2f} m em {_div[0][1]} x {_div[0][2]}' if _div else ''))
 
+# 4g. NENHUM LOTE EM CIMA DE PEÇA DE PROGRAMA
+# ⚠️ O PORTÃO NUNCA OLHOU A OBRA QUE A CENA JÁ CONSTRÓI. Medido em 22/09 sobre
+# o registro selado: 845 lotes em 72,18 ha caem dentro das 7 parcelas ancoradas
+# de `public/city/mapa-v1.json` (CAMPUS 679, ESTADIO 279, ATLETISMO 212, GEODE
+# 180, SPHERE 58, DERBY 55, AQUATICS 53). O gerador reserva terra pelas 52 peças
+# do programa congelado e não conhece NENHUMA das âncoras, embora o cabeçalho do
+# próprio mapa-v1.json prometa que "o gerador de lotes CONSOME este arquivo".
+#
+# ⚠️ AS DUAS FONTES ENTRAM, E NÃO É REDUNDÂNCIA. O programa é onde o gerador
+# guardou terra; a âncora é onde a cena de fato levanta a peça. Quando os dois
+# discordam a cidade erra dos dois lados ao mesmo tempo, e foi o que aconteceu:
+# o $DOG ARENA está a 1.125 m da máscara E03 e o DOG Derby a 250 m da E02, ou
+# seja 80,6 ha guardados em lugar nenhum e 845 lotes sobre o lugar certo.
+#
+# ⚠️ POLÍGONO, NUNCA O RETÂNGULO INSCRITO. A peça de célula é um trapézio da
+# teia; testar o retângulo inscrito deixa lote nascer nos cantos, que é
+# exatamente onde peça e quadra brigam (a mesma nota está em `em_programa()`).
+# Quando o manifesto publica `poly`, ele manda. Só as peças de borda, que saem
+# como retângulo ou elipse sem `poly`, são reconstruídas de `x/z/a/b/rot`, com
+# `a` e `b` em SEMI-eixos, que é a convenção de `em_programa()`.
+def _dentro_poly(pt, poly):
+    """cruzamento de raio: vale para polígono côncavo, que é o caso do trapézio"""
+    x, y = pt; c = False; m_ = len(poly)
+    for k in range(m_):
+        x1, y1 = poly[k]; x2, y2 = poly[(k+1) % m_]
+        if ((y1 > y) != (y2 > y)) and (x < (x2-x1)*(y-y1)/((y2-y1) or 1e-18) + x1): c = not c
+    return c
+def _cruzam(a1, a2, b1, b2):
+    _d = lambda o, a, b: (a[0]-o[0])*(b[1]-o[1]) - (a[1]-o[1])*(b[0]-o[0])
+    d1, d2 = _d(b1, b2, a1), _d(b1, b2, a2)
+    d3, d4 = _d(a1, a2, b1), _d(a1, a2, b2)
+    return ((d1 > 0) != (d2 > 0)) and ((d3 > 0) != (d4 > 0))
+def _sobrepoe(quad, poly):
+    """⚠️ TRÊS PERGUNTAS, NÃO UMA. Canto do lote dentro da peça pega o lote
+    engolido; vértice da peça dentro do lote pega a peça pequena dentro de um
+    lote grande; cruzamento de aresta pega o caso em que nenhum vértice está
+    dentro do outro e mesmo assim as duas figuras se atravessam."""
+    if any(_dentro_poly(q_, poly) for q_ in quad): return True
+    if any(_dentro_poly(v_, quad) for v_ in poly): return True
+    return any(_cruzam(quad[k], quad[(k+1) % 4], poly[j], poly[(j+1) % len(poly)])
+               for k in range(4) for j in range(len(poly)))
+
+_pecas = []
+_cam_mapa = os.path.join(BASE, 'public/city/mapa-v1.json')
+if os.path.exists(_cam_mapa):
+    for _a_ in (json.load(open(_cam_mapa)).get('ancoras') or []):
+        if _a_.get('poly'):
+            _pecas.append(('âncora ' + str(_a_.get('id')),
+                           [(float(u), float(v)) for u, v in _a_['poly']]))
+_prog_manif = json.load(open(os.path.join(BASE, 'public/city/cidade.json')))
+for _q_ in (_prog_manif.get('programa') or []):
+    if _q_.get('poly'):
+        _pecas.append((str(_q_.get('id')), [(float(u), float(v)) for u, v in _q_['poly']]))
+        continue
+    _cx, _cz, _sa_, _sb_ = _q_.get('x'), _q_.get('z'), _q_.get('a'), _q_.get('b')
+    if _cx is None or _cz is None or not _sa_ or not _sb_: continue
+    _ro = math.radians(float(_q_.get('rot') or 0.0)); _rc, _rs = math.cos(_ro), math.sin(_ro)
+    if _q_.get('forma') == 'retangulo':
+        _loc = [(-_sa_, -_sb_), (_sa_, -_sb_), (_sa_, _sb_), (-_sa_, _sb_)]
+    else:   # elipse: 24 lados descrevem a borda com menos de 1% de erro de área
+        _loc = [(_sa_*math.cos(2*math.pi*k/24), _sb_*math.sin(2*math.pi*k/24)) for k in range(24)]
+    _pecas.append((str(_q_.get('id')),
+                   [(float(_cx) + lx*_rc - lz*_rs, float(_cz) + lx*_rs + lz*_rc) for lx, lz in _loc]))
+
+# ⚠️ REAPROVEITA `_cant` e `_bd` DO TESTE ACIMA de propósito: são os mesmos
+# quatro cantos e o mesmo balde de 80 m. Recalcular daria a chance de os dois
+# testes medirem lotes com geometrias levemente diferentes, que é como um
+# portão passa a discordar de si mesmo.
+_sob, _por_peca = set(), collections.Counter()
+for _nm, _poly in _pecas:
+    _xs = [q[0] for q in _poly]; _zs = [q[1] for q in _poly]
+    _x0, _x1 = min(_xs) - 200, max(_xs) + 200
+    _z0, _z1 = min(_zs) - 200, max(_zs) + 200
+    _cand = set()
+    for _bi in range(int(_x0 // _CELD), int(_x1 // _CELD) + 1):
+        for _bj in range(int(_z0 // _CELD), int(_z1 // _CELD) + 1):
+            _cand.update(_bd.get((_bi, _bj), ()))
+    for _i in _cand:
+        if _sobrepoe(_cant[_i][3], _poly):
+            _por_peca[_nm] += 1; _sob.add(_i)
+_ha_sob = sum(float(linhas[_i]['area_m2']) for _i in _sob) / 1e4
+_cart_sob = sum(1 for _i in _sob if not linhas[_i]['address'].startswith('__projeto'))
+item('nenhum lote sobre peça de programa', not _sob,
+     f'{len(_pecas)} peças (programa + âncoras) contra {len(linhas)} lotes; '
+     f'{len(_sob)} lotes sobrepostos, {_ha_sob:.2f} ha, {_cart_sob} de carteira'
+     + ('; pior: ' + ', '.join(f'{k} {v}' for k, v in _por_peca.most_common(4)) if _sob else ''))
+
 # 4e. NENHUM LOTE TEM COTA DE OUTRO LUGAR
 # ⚠️ O teste 6 só exige que a cota caia na FAIXA do relevo do sítio, e por isso
 # um zero inventado passa: zero está dentro da faixa. Medido em 22/09, os 65
@@ -331,6 +439,24 @@ item('área entregue honra a prometida', raz[int(n*0.10)] >= 0.95,
 fora = [c for c in cotas if not (-200 <= c <= 300)]
 item('cota dentro da faixa do relevo', not fora, f'{len(fora)} fora')
 
+# 6a. NENHUM LOTE DEBAIXO D'ÁGUA, e este teste faltava.
+# ⚠️ A REGRA É DO FUNDADOR (30/08): lâmina única, "toda água da cidade precisa
+# ter exatamente o mesmo nível", e o manifesto publica "tudo abaixo de cota
+# dentro da casca é água". O teste acima só confere se a cota é PLAUSÍVEL, não
+# se ela está acima da água: na cidade de 22/09 passaram 36 lotes de carteira
+# com cota entre −45,07 e −40,25, todos em poças de menos de 3 ha que
+# `_acha_lagos()` descarta antes de entrar na máscara.
+# ⚠️ A LÂMINA SE LÊ DO MANIFESTO, não se crava aqui: o dia em que ela mudar,
+# este teste muda junto, em vez de virar a quarta cópia do número.
+_cam_malha = os.path.join(BASE, 'public/city/cidade-malha.json')
+_LAMINA = (json.load(open(_cam_malha)).get('lagos', {}).get('cota', -40.0)
+           if os.path.exists(_cam_malha) else -40.0)
+_afogados = sorted(((float(r['cota_m']), r['lot_id'], r['address']) for r in linhas
+                    if float(r['cota_m']) < _LAMINA))
+item("nenhum lote abaixo da lâmina d'água", not _afogados,
+     f'lâmina {_LAMINA:.1f} m; {len(_afogados)} lotes abaixo'
+     + (f', pior {_afogados[0][0]:.2f} m em {_afogados[0][1]}' if _afogados else ''))
+
 # 6b. o .bin é cópia fiel do registro, dentro da resolução dele (um quarto de metro)
 pior_bin = 0.0
 for i, r in enumerate(linhas):
@@ -340,6 +466,125 @@ for i, r in enumerate(linhas):
                    abs(w10/10.0 - float(r['frente_m'])),
                    abs(d10/10.0 - float(r['prof_m'])))
 item('.bin fiel ao registro (1/4 m)', pior_bin <= 0.13, f'pior desvio {pior_bin:.3f} m')
+
+# 6c. A COTA GRAVADA CAI DENTRO DO CHÃO QUE A CIDADE DESENHA, JULGADA PELA CAUDA
+# ⚠️ O TESTE 4e COMPARA COM OS VIZINHOS, E ERRO SISTEMÁTICO PASSA INTEIRO. Um
+# bairro todo 35 m fora do lugar tem vizinhos igualmente errados, então a
+# mediana da vizinhança concorda com ele e o teste aplaude. Medido em 22/09:
+# 15.834 lotes a mais de 1,5 m, 1.647 acima de 30 m, pior 56,72 m, e mesmo assim
+# 4e passou e `conferir_terreno.py` (que julgava pela MEDIANA, 0,00 m) passou
+# junto. Aqui a referência é absoluta e quem reprova é a CAUDA: p99 e pior.
+# Defeito de chão nunca é uniforme, ele mora na FEIÇÃO.
+#
+# ⚠️ A REFERÊNCIA MUDOU EM 22/09, E ESSA É A NOTA IMPORTANTE. Este teste
+# comparava com a RÉPLICA ANALÍTICA que `conferir_terreno.py` reconstrói do
+# gerador. Só que o gerador parou de replicar o chão: `altura()` agora lê
+# `data/superficie.f32`, que é a superfície assada da própria cena pela sonda
+# `__plazaPerfil` (ver `scripts/city/assar_superficie.mjs`). Comparar a cota com
+# a réplica passou a medir a distância entre duas coisas que ninguém usa: medido,
+# a réplica e a superfície divergem até 155 m. O teste reprovaria para sempre,
+# pelo motivo errado, que é a pior espécie de portão.
+#
+# ⚠️ A COTA É DA TESTADA, NÃO DO CENTRO (masterplan §15), e a testada não está
+# gravada: o registro tem centro, frente, fundo e giro. Por isso a conferência
+# não exige que a cota bata com um ponto escolhido, e sim que ela esteja DENTRO
+# da faixa de alturas da PEGADA, amostrada em 9 pontos (centro, quatro cantos,
+# quatro meios de face), com a tolerância de grade do teste 6d somada.
+COTA_P99 = 1.5
+COTA_PIOR = 6.0
+COTA_TOL_GRADE = 1.0   # o teto medido do erro da grade de 15 m (ver 6d)
+
+def _le_superficie():
+    """a grade assada da cena: a MESMA fonte que o gerador usa para plantar."""
+    import array
+    mj = os.path.join(BASE, 'data/superficie.json')
+    mf = os.path.join(BASE, 'data/superficie.f32')
+    if not (os.path.exists(mj) and os.path.exists(mf)): return None
+    m = json.load(open(mj, encoding='utf-8'))
+    a = array.array('f'); a.fromfile(open(mf, 'rb'), m['n'] * m['n'])
+    return m, a
+
+_sup = _le_superficie()
+if _sup is None:
+    indisponivel('cota gravada cai dentro do chão que a cidade desenha',
+                 'falta data/superficie.f32; asse com '
+                 'node scripts/city/assar_superficie.mjs (dev server no ar)')
+else:
+    _m, _a = _sup
+    _sn, _sr, _sc = _m['n'], float(_m['raio']), float(_m['celulaM'])
+    def _alt(x, z):
+        fi = (x + _sr) / _sc; fj = (z + _sr) / _sc
+        if not (0 <= fi <= _sn - 1.001 and 0 <= fj <= _sn - 1.001): return None
+        i, j = int(fi), int(fj); u, v = fi - i, fj - j
+        G = lambda q, w: _a[w * _sn + q]
+        return (G(i, j)*(1-u)*(1-v) + G(i+1, j)*u*(1-v)
+                + G(i, j+1)*(1-u)*v + G(i+1, j+1)*u*v)
+    _exc, _pior_c, _fora = [], (0.0, '', 0.0), 0
+    for _i, _r in enumerate(linhas):
+        _x, _z = float(_r['x_m']), float(_r['z_m'])
+        _g = math.radians(float(lotes[_i][8]) / 100.0)
+        _hw, _hd = max(1.0, float(_r['frente_m'])) / 2, max(1.0, float(_r['prof_m'])) / 2
+        _cg, _sg = math.cos(_g), math.sin(_g)
+        _hs = [_alt(_x + lx*_cg - lz*_sg, _z + lx*_sg + lz*_cg)
+               for lx, lz in ((0, 0), (-_hw, -_hd), (_hw, -_hd), (_hw, _hd), (-_hw, _hd),
+                              (0, -_hd), (0, _hd), (-_hw, 0), (_hw, 0))]
+        _hs = [h for h in _hs if h is not None]
+        if not _hs: _fora += 1; continue
+        _c = float(_r['cota_m'])
+        _v = max(0.0, _c - (max(_hs) + COTA_TOL_GRADE), (min(_hs) - COTA_TOL_GRADE) - _c)
+        _exc.append(_v)
+        if _v > _pior_c[0]: _pior_c = (_v, _r['lot_id'], _c)
+    _exc.sort()
+    _n99 = _exc[int(len(_exc) * 0.99)] if _exc else 0.0
+    item('cota gravada cai dentro do chão que a cidade desenha',
+         bool(_exc) and _n99 <= COTA_P99 and _exc[-1] <= COTA_PIOR and _fora == 0,
+         f'{len(_exc)} lotes contra a superfície assada: mediana {_exc[len(_exc)//2]:.2f} m, '
+         f'p99 {_n99:.2f} m (corte {COTA_P99:.1f}), pior {_exc[-1]:.2f} m (corte {COTA_PIOR:.1f}) '
+         f'em {_pior_c[1]} (grava {_pior_c[2]:.2f} m); '
+         f'{sum(1 for v in _exc if v > COTA_P99)} acima do corte de p99'
+         + (f'; {_fora} lotes FORA da grade assada' if _fora else ''))
+
+# 6d. A SUPERFÍCIE ASSADA É FIEL À CENA
+# ⚠️ ESTE É O TESTE QUE IMPEDE O 6c DE SER CIRCULAR. O gerador planta sobre a
+# grade assada e o 6c julga a cota contra a mesma grade: sozinhos, os dois
+# concordariam mesmo que a grade inteira estivesse errada. Aqui a referência é a
+# CENA, sondada ponto a ponto no centro de cada lote por `__plazaPerfil`, que é
+# a mesma função que assenta lote, rua e peça:
+#
+#     node scripts/city/assar_superficie.mjs --pontos=data/dogcity_lotes.csv
+#
+# ⚠️ E A TOLERÂNCIA NÃO É ARBITRÁRIA: é o erro de INTERPOLAÇÃO da grade de 15 m,
+# medido em 22/09 sobre os 70.720 lotes do registro selado, mediana 0,005 m,
+# p99 0,212 m, pior 0,864 m, zero lotes acima de 1 m. Os cortes abaixo têm folga
+# sobre isso e continuam duas ordens de grandeza abaixo do defeito que a réplica
+# analítica produzia.
+SUP_P99, SUP_PIOR = 0.5, 1.5
+_pl = os.path.join(BASE, 'data/superficie_lotes.csv')
+if _sup is None:
+    pass                    # já reprovou no 6c, não repete a mesma queixa
+elif not os.path.exists(_pl):
+    indisponivel('a superfície assada é fiel à cena',
+                 'falta data/superficie_lotes.csv; sonde com '
+                 'node scripts/city/assar_superficie.mjs --pontos=data/dogcity_lotes.csv')
+else:
+    _ex = {}
+    with open(_pl, newline='') as _f:
+        for _q in csv.DictReader(_f): _ex[_q['lot_id']] = float(_q['cota_cena_m'])
+    _d, _piorS, _semq = [], (0.0, ''), 0
+    for _r in linhas:
+        _e = _ex.get(_r['lot_id'])
+        if _e is None: _semq += 1; continue
+        _gq = _alt(float(_r['x_m']), float(_r['z_m']))
+        if _gq is None: _semq += 1; continue
+        _v = abs(_gq - _e); _d.append(_v)
+        if _v > _piorS[0]: _piorS = (_v, _r['lot_id'])
+    _d.sort()
+    _p99 = _d[int(len(_d) * 0.99)] if _d else 0.0
+    item('a superfície assada é fiel à cena',
+         bool(_d) and _semq == 0 and _p99 <= SUP_P99 and _d[-1] <= SUP_PIOR,
+         f'{len(_d)} lotes sondados na cena: mediana {_d[len(_d)//2]:.3f} m, '
+         f'p99 {_p99:.3f} m (corte {SUP_P99}), pior {_d[-1]:.3f} m (corte {SUP_PIOR}) em {_piorS[1]}'
+         + (f'; {_semq} lotes sem sonda (a sonda é de outra rodada)' if _semq else ''))
 
 # 7. o que a cidade.json declara bate com o que existe
 meta = json.load(open(os.path.join(BASE, 'public/city/cidade.json')))
@@ -358,6 +603,113 @@ if colum:
     dec = (meta.get('cemiterio') or {}).get('lapides')
     item('cemitério declarado bate com o gravado', dec == len(colum),
          f'declara {dec}, gravados {len(colum)}')
+
+# 9. AS COLUNAS QUE NINGUÉM LIA
+# ⚠️ O PORTÃO CONFERIA GEOMETRIA E IGNORAVA A IDENTIDADE. `dog`, `utxo_count`,
+# `forma` e `coorte` entram no registro, aparecem na página do dono e nunca
+# foram comparadas com fonte nenhuma. Medido em 22/09: 725 lotes gravam as
+# quatro colunas em zero. 704 são lote de projeto, onde zero é a resposta certa
+# porque não há carteira atrás; os outros 21 são as institucionais do Distrito
+# Financeiro, carteiras de verdade, e a maior delas é a Gate.io com 3,03
+# bilhões de DOG gravados como 0 e `forma` 0, que o gerador traduz por "massa
+# única: casa no centro".
+# ⚠️ A CAUSA É UMA LINHA SÓ, e por isso este teste é barato: na gravação do CSV
+# `_proj = a.startswith('__projeto') or a not in posto` mete institucional e
+# projeto no mesmo balde, e `posto` é só a fila residencial. A institucional tem
+# fonte própria (`dog_966670_tag_institucional.json`) e ela é lida aqui.
+_fonte_dog = {r['address']: float(r.get('dog') or 0) for r in fila}
+_cam_inst = os.path.join(BASE, 'data/snapshots/dog_966670_tag_institucional.json')
+_n_inst = 0
+if os.path.exists(_cam_inst):
+    for _l in (json.load(open(_cam_inst)).get('linhas') or []):
+        if _l.get('address'):
+            _fonte_dog.setdefault(_l['address'], float(_l.get('dog') or 0)); _n_inst += 1
+# ⚠️ A ESCADA DE `forma` SE LÊ DO GERADOR, não se copia: ela é `forma_de(u)` e
+# muda quando o produto mudar. Se o texto dela sumir, a subconferência de forma
+# é PULADA e dita como pulada, nunca dada por boa.
+_escada = []
+try:
+    import re as _re2
+    _src_ger = open(os.path.join(BASE, 'scripts/gerar_cidade.py'), encoding='utf-8').read()
+    _bloco = _src_ger[_src_ger.index('def forma_de(u):'):][:400]
+    _escada = [(int(a), int(b)) for a, b in _re2.findall(r'if u <= (\d+): *return (\d+)', _bloco)]
+    _ult = _re2.search(r'\n *return (\d+)', _bloco)
+    _escada_ult = int(_ult.group(1)) if _ult else None
+except Exception:
+    _escada, _escada_ult = [], None
+if _escada_ult is None: _escada = []     # escada meio lida é escada não lida
+def _forma_de(u):
+    for _lim, _v in _escada:
+        if u <= _lim: return _v
+    return _escada_ult
+_mot = collections.Counter()
+_ex = {}
+for _r in linhas:
+    _a = _r['address']; _proj = _a.startswith('__projeto')
+    _d = float(_r['dog']); _u = int(_r['utxo_count'])
+    _f = int(_r['forma']); _co = int(_r['coorte'])
+    if _proj:
+        # o lote do projeto não tem carteira atrás: as quatro colunas são zero
+        if _d or _u or _f or _co:
+            _mot['projeto com coluna de carteira'] += 1; _ex.setdefault('projeto com coluna de carteira', _r['lot_id'])
+        continue
+    _src_d = _fonte_dog.get(_a)
+    if _src_d is None:
+        _mot['carteira sem fonte de saldo'] += 1; _ex.setdefault('carteira sem fonte de saldo', _r['lot_id'])
+    elif abs(_d - _src_d) > 1.0:      # o CSV grava DOG arredondado ao inteiro
+        _mot['dog diferente da fonte'] += 1; _ex.setdefault('dog diferente da fonte', _r['lot_id'])
+    if _u < 1:
+        _mot['utxo_count zerado'] += 1; _ex.setdefault('utxo_count zerado', _r['lot_id'])
+    elif _escada and _f != _forma_de(_u):
+        _mot['forma fora da escada'] += 1; _ex.setdefault('forma fora da escada', _r['lot_id'])
+    if not (0 <= _co <= 7):
+        _mot['coorte fora de 0 a 7'] += 1; _ex.setdefault('coorte fora de 0 a 7', _r['lot_id'])
+_zerados = sum(1 for _r in linhas if not _r['address'].startswith('__projeto')
+               and not float(_r['dog']) and not int(_r['utxo_count'])
+               and not int(_r['forma']) and not int(_r['coorte']))
+item('dog, utxo_count, forma e coorte batem com a fonte', not _mot,
+     f'{_n_inst} institucionais na fonte à parte, escada de forma com {len(_escada)} degraus'
+     + ('' if _escada else ' (PULADA: não achei forma_de no gerador)')
+     + f'; {_zerados} carteiras com as quatro colunas zeradas; '
+     + (', '.join(f'{k} {v} (ex.: {_ex[k]})' for k, v in _mot.most_common()) if _mot else 'nenhum desvio'))
+
+# 10. A CONECTIVIDADE VIÁRIA É PORTÃO, NÃO RELATÓRIO
+# ⚠️ O CORTE ESTÁ ESCRITO AQUI, ANTES DA RODADA, DE PROPÓSITO. A varredura de
+# vias já existia e já media: 409 grupos de pavimento, 370 deles só de
+# `via:pista`, 4,21 km² fora da rede (14,0% do pavimento desenhado). Só que ela
+# saía num arquivo em /tmp que ninguém tinha de ler, então a cidade passou por
+# 15 testes com 370 ilhas. Critério escolhido depois de ver o número é critério
+# que cabe no número; este está escrito antes.
+# ⚠️ A ILHA SE MEDE CONTRA O PAVIMENTO, não contra a cidade: é a fração do
+# pavimento desenhado que não está no maior componente conexo. A varredura tem
+# de ter rodado com `--dilata=1`, senão a serrilha da grade parte rua contínua
+# em pedaços e o número mente para pior.
+#   node scripts/city/vias-varredura.mjs --cel=6 --dilata=1
+VIAS_GRUPOS_MAX = 60
+VIAS_ILHA_MAX = 0.03
+_cam_con = arg('conexao', '/tmp/vias/conexao.json')
+if not os.path.exists(_cam_con):
+    indisponivel('malha viária conexa',
+                 f'não achei {_cam_con}; rode `node scripts/city/vias-varredura.mjs '
+                 f'--cel=6 --dilata=1` com o dev server no ar')
+else:
+    try:
+        _con = json.load(open(_cam_con))
+        _gr = _con.get('grupos') or []
+        _cels = [int(g.get('celulas') or 0) for g in _gr]
+        _tot = sum(_cels) or 0
+    except Exception as _e:
+        _gr, _tot = [], 0
+    if not _gr or not _tot:
+        indisponivel('malha viária conexa', f'{_cam_con} não tem `grupos` legível')
+    else:
+        _ilha = (_tot - max(_cels)) / _tot
+        _km2 = (_tot - max(_cels)) * (float(_con.get('cel') or 1) ** 2) / 1e6
+        item('malha viária conexa',
+             len(_gr) < VIAS_GRUPOS_MAX and _ilha < VIAS_ILHA_MAX,
+             f'{len(_gr)} grupos (corte < {VIAS_GRUPOS_MAX}), '
+             f'ilha {100*_ilha:.1f}% do pavimento (corte < {VIAS_ILHA_MAX*100:.0f}%), '
+             f'{_km2:.2f} km² fora da rede')
 
 print(('REPROVADO: ' + ', '.join(falhas)) if falhas else 'APROVADO')
 sys.exit(1 if falhas else 0)

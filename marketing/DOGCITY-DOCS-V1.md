@@ -1,3 +1,13 @@
+> ⚠️ **FROZEN ON 13 SEPTEMBER 2026, AND OUT OF DATE IN PART.** What the project
+> stands behind today is the page that ships, `app/dogcity/docs/page.tsx`. If the two
+> disagree, the page wins. Known differences still carried below: section 3 has the old
+> curve floor of 1 m2 and the old 46.66 km2 target (the page publishes **24 m2** and
+> **46.17 km2**, because the cemetery rule sends every wallet under 591.95 $DOG to a
+> headstone instead of a lot); section 5 has the project reserve at 15% (now **1%**), the
+> 30/15/55 split of Satoshi Plaza that the page itself now describes as a measurement
+> error, and an entry process for the Financial District that the page has replaced.
+> Do not copy a number out of this file into new copy. Read it off the page.
+
 # DogCity Documentation, V1
 
 **Status:** public documentation, first version.
@@ -38,9 +48,9 @@ not equity, an investment, or a yield.
 
 ### What happened
 
-On 12 September 2026 a single Bitcoin block decided the land allocation of every self
-custody $DOG wallet in the city. Nothing was claimed, nothing was signed, nothing was
-registered. The chain was read once, at one height, and the result was frozen.
+On 12 September 2026 a single Bitcoin block decided the land allocation of every address
+holding $DOG on chain. Nothing was claimed, nothing was signed, nothing was registered. The
+chain was read once, at one height, and the result was frozen.
 
 ```
 block        966,670
@@ -58,9 +68,12 @@ rune         DOG-GO-TO-THE-MOON   (id 840000:3, 5 decimals)
 ```
 
 The rune's total supply is 100,000,000,000. The count is 24,406,797.66 short of that
-figure, and the difference is burned $DOG: destroyed on chain, owned by nobody. The
-snapshot counts what exists, so it counts circulating supply exactly. The project's own API
-publishes the burn figure at `/api/dog-rune/stats`.
+figure, and the difference is burned $DOG: destroyed on chain, owned by nobody.
+What the snapshot counts is what the chain still holds, which is not the same as what
+circulates. Four addresses widely known to be dead ends, the Bitcoin burn address among
+them, hold 889,806 $DOG each, one full airdrop allocation, and the city gives each of them a
+lot like any other address: the rule is the chain, and the chain cannot tell a lost key from
+a patient one. The project's own API publishes the burn figure at `/api/dog-rune/stats`.
 
 ### How it was built
 
@@ -131,8 +144,10 @@ Runestone that brought it to them. On chain, that is the longest patience the da
 show.
 
 Holder tier counts at the snapshot. These tiers are the ranks of the Genesis Badge, earned
-by airdrop history; the badge is a mark, not a lot, and it does not decide where a wallet
-lives (see section 3):
+by airdrop history. The badge is a mark, never a payout, and it never changes how much land
+a wallet gets: the curve in section 3 sizes every lot in the city, badge or no badge. For
+the first five tiers it does decide the neighborhood, and only the neighborhood, because the
+city has two waterfronts and they are finite:
 
 ```
 Satoshi Visionary       88      BTC Maximalist        100
@@ -162,9 +177,11 @@ wallets.
 | 101,779 $DOG (the median holder) | 315 m2 |
 | 889,806 $DOG (one full airdrop allocation) | 931 m2 |
 | 10,000,000 $DOG | 3,119 m2 |
-| 1,644,000,000 $DOG and above | 40,000 m2 (the cap) |
+| 1,644,000,000 $DOG and above | 40,000 m2 (the residential cap) |
 
-Six wallets reach the cap.
+Six wallets reach that ceiling. Four of them were measured as institutional by the ruler in
+section 4 and sit in the Financial District, where section 5 raises the ceiling to
+150,000 m2.
 
 The number that answers the whale question before it is asked:
 
@@ -545,20 +562,24 @@ never moves anyone else's either.
 
 ## 7. What this is not, yet
 
-- **No lot has a published address.** The snapshot decides how much land a wallet receives,
-  not where in the city that land sits. Where each wallet lives comes later, and will be
-  published with the same method, numbers, and fingerprint used here.
+- **No lot has an announced address.** The snapshot decides how much land a wallet receives,
+  not where in the city that land sits. The working record that places every wallet is kept
+  in the open while it is drawn, and it is still being redrawn: no address in it has been
+  announced and none of it is final. The version that counts is the one published with the
+  same method, numbers, and fingerprint used here, on the day the city is sealed.
 - **No deed has been minted.** There is nothing to claim, nothing to sign, nothing to pay
   today.
 - **Nothing you do now changes the snapshot.** Moving coins after block 966,670 does not
   change what that block recorded, in either direction.
-- **The Financial District is a set of decided rules, not a built district.** Its
-  boundaries, its cap, and its entry process are locked; the lots themselves have not been
-  generated or assigned.
-- **The city is not reproducible by outsiders yet.** The snapshot file and its fingerprint
-  are published, and anyone can check their own wallet's balance and coin age against the
-  chain by hand. A public script that rebuilds the entire list from scratch does not exist
-  yet.
+- **The Financial District is drawn, and nothing in it has been issued.** Its 21 lots are
+  sized by the same curve under the raised cap, and section 5 publishes their total area.
+  What has not happened is the deed: nothing there has been minted, and every wallet placed
+  there by measurement keeps the right of appeal.
+- **The city is not reproducible by outsiders yet.** The fingerprint of the snapshot is
+  published and anyone can check their own balance and coin age against the chain by hand,
+  but the file itself is not downloadable yet, and no public script rebuilds the list from
+  the chain from scratch. Until both of those exist, nobody outside the project can redo
+  this work end to end.
 
 ---
 

@@ -1,3 +1,9 @@
+> ⚠️ **PUBLISHED 12 SEPTEMBER 2026 AND OUT OF DATE IN ITS NUMBERS.** Section 6 still
+> carries the old curve floor of 1 m2 and the old 46.66 km2 target. The published curve is
+> `clamp( 0.986443 x sqrt(DOG), 24 m2, 40,000 m2 )` with a target of 46.17 km2, and every
+> wallet under 591.95 $DOG receives a headstone instead of a lot. Read the live page,
+> `/dogcity/docs`, before copying a number out of this file.
+
 # The DogCity Snapshot, block 966,670
 
 **Published 12 September 2026.** Companion to the Founders Pack document.
@@ -9,8 +15,8 @@ later and will be published the same way.
 
 ## 1. What happened
 
-On 12 September 2026 a single Bitcoin block decided the address of every self custody $DOG
-wallet in DogCity. Nothing was claimed, nothing was signed, nothing was registered. The
+On 12 September 2026 a single Bitcoin block decided the land allocation of every address
+holding $DOG on chain. Nothing was claimed, nothing was signed, nothing was registered. The
 chain was read once, at one height, and the result was frozen.
 
 ```
@@ -30,8 +36,11 @@ rune         DOG•GO•TO•THE•MOON   (id 840000:3, 5 decimals)
 
 **On the missing 24 million.** The supply of DOG is 100,000,000,000 and the count is
 **24,406,797.66 short of it**. That difference is burned $DOG, destroyed on chain and owned
-by nobody. The snapshot counts what exists, so it counts circulating supply exactly. The
-project's own API publishes the burn figure at `/api/dog-rune/stats`.
+by nobody. What the snapshot counts is what the chain still holds, which is not the same as
+what circulates: four addresses widely known to be dead ends, the Bitcoin burn address among
+them, hold 889,806 $DOG each and each receives a lot, because the rule is the chain and the
+chain cannot tell a lost key from a patient one. The project's own API publishes the burn
+figure at `/api/dog-rune/stats`.
 
 Say this in the copy. If it is not said, it becomes the first reply under the announcement.
 

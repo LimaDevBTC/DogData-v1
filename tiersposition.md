@@ -536,16 +536,45 @@ Diamond Paws com pedra                   18.642 de 19.288  (96,7%)
 ⚠️ Repare no C: **3,0 pedras por carteira**, contra 1,2 do B. Quem chegou depois acumulou
 pedra com intenção, não recebeu por estar numa lista.
 
+⚠️ **A COLUNA "PRECISA" É CHÃO URBANIZADO E DE OUTRA CURVA, E ISSO PRECISA FICAR ESCRITO.**
+Os 7,78 / 39,83 / 7,42 km² foram calculados em 11/09 pela curva do §3.8
+(`clamp(1,132380 × √DOG, 40 m², 40.000 m²)`) e depois divididos pelo aproveitamento de 52%
+do §3.7, ou seja são **lote mais rua mais verde**, não lote. A conta estava CERTA na unidade
+dela. Pela curva publicada do §3.11, MEDIDO em 22/09 sobre
+`data/snapshots/dog_snapshot_966670.json` (85.818 carteiras, campo `area_m2`):
+
+```
+A  3,520 km² de lote        B  18,037 km²        C  3,358 km²        A+C  6,878 km²
+```
+
+Do 15,20 ao 6,878 há 2,21 vezes, e **1,92 delas são chão contra lote**; só 1,15 é a troca de
+curva. Quem citar "15,20 km²" sem dizer a unidade vai comparar chão com lote, que é
+exatamente o erro que derrubou a §3.9 (ver §3.13 e o P10).
+
 **A orla da baía vai para A e C.** A na primeira fileira, colada à praia, porque segurou a
 pedra e ainda multiplicou o airdrop. C na segunda, atrás do boulevard: comprou os dois no
-mercado, com convicção e sem histórico. **MEDIDO:** os dois somam 15,20 km² e a faixa nobre
-tem 20,56 km² livres depois dos tiers 4 e 5.
+mercado, com convicção e sem histórico. **MEDIDO:** os dois somam 15,20 km² (área
+urbanizada; 7,901 km² de lote pela curva do dia) e a faixa nobre tem 20,56 km² livres depois
+dos tiers 4 e 5.
 
 🚫 **ESTA PARTE CAIU EM 21/09, E NÃO POR MUDANÇA DE IDEIA: A TERRA NÃO EXISTE.** Os
 "20,56 km² livres" vinham de uma orla imaginada sobre a margem natural sinuosa. A orla que
-foi desenhada e gerada (§3.13) tem **2,60 km² no total**, todos comprometidos com os tiers
-4 e 5. Classe A e classe C continuam sem endereço próprio e o assunto está aberto na §4.
-O que sobreviveu intacto desta seção é a **Runestone no quintal**, que não custa terra.
+foi desenhada e gerada (§3.13) tem **2,587 km² de lote no total**, todos comprometidos com
+os tiers 4 e 5. O que sobreviveu intacto desta seção é a **Runestone no quintal**, que não
+custa terra.
+
+⚠️ **E METADE DESTA PENDÊNCIA JÁ ESTAVA RESOLVIDA PELA GERAÇÃO, SEM NINGUÉM OLHAR.** A frase
+"classe A e classe C continuam sem endereço próprio" que ficava aqui é FALSA para a classe A.
+MEDIDO em 22/09 cruzando `data/dogcity_lotes.csv` (selado 22/09 02:27:31) com o campo
+`tem_runestone` do snapshot, que é a lista de pedra FIXADA no bloco (§3.10, e **não**
+`runestone_holders_today.json`, que é do bloco corrente): **toda carteira da classe A tem
+lote próprio e nenhuma está no tecido comum**: 409 na Orla Nobre (S07), 1.908 na Orla da
+Baía (S09) e 3 em lote institucional no Distrito Financeiro (S08, r 985). A causa é
+aritmética: A é o recorte dos tiers 1 a 5 que ainda segura pedra, e tier 1 a 3 vai para a
+Orla Nobre e 4 e 5 para a Orla da Baía por decisão já implementada (§3.1 e §3.3). ⚠️ A
+contagem da classe A oscila de **2.320 a 2.325** conforme a definição de "multiplicou"
+(`change_pct > 0` dá 2.320; `dog > airdrop_amount` dá 2.325), e **nenhuma das definições põe
+uma única carteira da classe A no tecido**. Sobrou só a classe C, e ela está fechada no P10.
 
 **DECIDIDO. Os 5,36 km² que sobram são do projeto, espalhados irregularmente** ao longo da
 costa, e não num trecho contínuo. Dono, 2026-09-11. Parcela de projeto concentrada num
@@ -583,6 +612,21 @@ nenhuma do holder, igual ao resto do snapshot.
 
 ⚠️ O RECORTE É "AIRDROP INTACTO + PEDRA HOJE", e não as classes A/B/C. As letras eram só
 rótulo meu para as três combinações de pedra e DOG; este prêmio não usa elas.
+
+🔒 **EMENDA DE 2026-09-22 (fundador), e ela fecha o P10: o monumento passa a CONTAR PEDRAS.**
+O tamanho da Runestone no quintal cresce com o número de pedras da carteira, em vez de a
+lista de quem ganha ser alargada. Medido no snapshot: **A 3,29 pedras por carteira, C 3,01,
+B 1,22** (12.247 pedras nas 4.069 carteiras da classe C). Alargar custaria a distinção:
+"pedra hoje" sozinho leva o prêmio de 18.638 para **29.011 carteiras** (33,8% da cidade) e
+A+B+C dá 25.027 (29,2%). Contar aprofunda sem diluir, e não custa um metro de terra, que é
+a condição que fez este prêmio ser escolhido.
+
+🔓 **E A FRONTEIRA DE "INTACTO" NÃO ESTÁ ESCRITA EM LUGAR NENHUM, e o gerador vai precisar
+dela.** MEDIDO no snapshot: se "intacto" for retenção **exatamente 100%** o recorte é a
+classe B, **18.638** carteiras; se for retenção **100% ou mais** (quem segurou e ainda
+comprou continua com o airdrop intacto) são **20.958**, ou seja A + B. A diferença são as
+2.320 da classe A. Esta linha e a de "para quem o monumento é semeado" são a mesma pergunta,
+e estão juntas no P10 da §4. Escolher antes de semear, senão o gerador escolhe sozinho.
 
 **B fica onde já estava, o tecido central**, e ganha uma leitura em vez de um prêmio: com
 96,7% dos Diamond Paws segurando pedra, "pedra mais airdrop intacto" praticamente DEFINE o
@@ -754,17 +798,90 @@ rumo 100 e caía dentro do distrito. Mover um campo solar é mais barato que apa
 antiga e o Reservatório do Cinturão (118), sem tocar em nenhum dos dois.
 
 ⚠️ **A BAÍA NÃO CRESCEU, ao contrário do que o estudo previa.** O estudo de 21/09 dizia
-+0,414 km². **MEDIDO na cidade gerada: 20,18 km² contra 21,04 km² do §18.4, ou seja −4,1%.**
-Os dedos (mais largos e 100 m mais longos do que o estudo supunha) tiram mais água do que a
-enseada devolve. A lâmina continua sendo a maior da cidade e o canal até a alça continua
-navegável, mas o número do estudo não vale e não deve ser publicado.
++0,414 km². Os dedos (mais largos e 100 m mais longos do que o estudo supunha) tiram mais
+água do que a enseada devolve. A lâmina continua sendo a maior da cidade e o canal até a
+alça continua navegável, mas o número do estudo não vale e não deve ser publicado.
+
+⚠️ **TEXTO VENCIDO, CORRIGIDO EM 22/09: os 20,18 km² que esta linha publicava eram de uma
+rodada anterior.** No artefato selado a baía tem **21.936.752 m² = 21,94 km²**
+(`public/city/cidade-malha.json`, chave `lagos.baia.area`, run de 22/09 02:27), contra
+21,04 km² do §18.4, ou seja ela CRESCEU 0,90 km². O que continua de pé é a advertência: a
+previsão do estudo (+0,414) não é o que se mede, e o que vale é sempre o artefato.
 
 ⚠️ **ISTO NÃO RESOLVE A §3.9.** A §3.9 (11/09) destinava a orla da baía também às classes A
 e C do cruzamento pedra-mais-DOG, 15,20 km² para 6.393 carteiras, com a conta de que a
-faixa nobre teria 20,56 km² livres. **Essa terra não existe**: o distrito inteiro tem
-2,60 km² e está todo comprometido com os tiers 4 e 5. A decisão de A e C ganharem orla está
-**sem chão** e volta para as pendências (§4) — o prêmio que sobrevive intacto é a
-**Runestone no quintal**, que por construção não custa terra.
+faixa nobre teria 20,56 km² livres. ⚠️ **Os dois números são ÁREA URBANIZADA (lote mais rua
+mais verde), não lote, e a conta estava CERTA na unidade dela**: pela curva do §3.8, em
+vigor em 11/09, A e C pedem 7,901 km² de lote, que aos 52% de aproveitamento do §3.7 dão
+15,19 km² de chão. Pela curva do §3.11, a de hoje, pedem **6,878 km² de lote**: A 3,520 e
+C 3,358, MEDIDO em 22/09 sobre `data/snapshots/dog_snapshot_966670.json`. **Essa terra não
+existe NA ORLA DESENHADA**: o distrito inteiro tem 2,587 km² de lote e está todo
+comprometido com os tiers 4 e 5, ou seja 2,66 vezes menos do que A e C pediam juntas.
+A pendência virou o P10 na §4 e **foi FECHADA em 22/09**: a classe A já mora na orla (a
+geração resolveu isso sozinha) e a classe C fica no tecido. O prêmio que sobrevive intacto é
+a **Runestone no quintal**, que por construção não custa terra, e que a partir de 22/09
+cresce com o número de pedras da carteira (§3.9, emenda do fundador).
+
+---
+
+### 3.14: o cemitério vai para o platô do pódio (🔒 2026-09-22)
+
+**RESOLVIDO.** As 15.802 lápides do masterplan §17 ganham chão, e o chão é o **platô do
+pódio**: rumo **231,25**, raio **7.061**, retângulo de **540 x 178 m = 9,61 ha**. A conta do
+§17.1 confere: 15.802 sepulturas de 1,5 x 3,0 m dão 7,11 ha, mais 35% de alameda e bosque
+dão 9,60 ha.
+
+**Custo em lote de holder: ZERO, e isso é medido, não suposto.** O platô da abóbada vai de
+r 6.950 a 7.150 e é rigorosamente plano (0,00° nos 360 rumos, cota 13,00 m, cerca de 886 ha).
+MEDIDO na pegada proposta contra `data/dogcity_lotes.csv` selado: **0 lotes dentro dela**, e
+o lote mais próximo está a **69,3 m** da divisa (S04-Q24-B017-L001, r 6.904,6, rumo 229,91).
+O cemitério, portanto, **não compete com o P10 por terra**: ele pede 9,6 ha num anel de 886,
+não sai do tecido e não entra na conta de área de carteira nenhuma.
+
+⚠️ **O TECIDO NÃO PARA EM 6.900, E QUEM REPETIR ISSO VAI ERRAR.** No registro selado há
+**71 lotes do setor 4 acima de r 6.900**, chegando a **r 7.070,2**, nos rumos 207,4 a 229,9,
+ou seja o tecido ENTRA no anel do platô naquele quadrante. A folga de 69 m é o que separa o
+cemitério do vizinho mais próximo, e ela some se a rodada final subir `PHI_LOTE` de 6.500
+para 6.900 (a receita escrita no masterplan §17.2 ainda diz 6.900; o artefato selado foi
+feito com 6.500). Fixar `PHI_LOTE` da rodada final ANTES de plantar a peça.
+
+⚠️ **E O RUMO 231,25 COLIDE COM A VP02, MEDIDO.** A Floresta de Extrativismo
+(`public/city/cidade.json`, VP02) está em r 6.761,8 rumo 236,09 com 1.280 x 840 m, e cobre o
+anel de r 6.374 a 7.210 entre os rumos 229,6 e 242,6. Teste de eixo separador com os quatro
+cantos: as duas peças se sobrepõem, e **58,2% da pegada do cemitério cai dentro da VP02**.
+Some-se a isto que aresta reta em coroa joga o CANTO para fora: com 540 x 178 m em r 7.061
+os cantos chegam a **7.155 m**, cinco metros além do limite do platô (7.150). Os arcos do
+anel livres de peça E de lote, medidos: **116,8 a 162,9 / 179,4 a 186,9 / 195,6 a 204,9 /
+241,4 a 345,7**. Duas saídas, e as duas preservam a decisão: mover a VP02, ou pousar o
+cemitério dentro de um dos arcos livres (556 x 172,6 m em r 7.058,3 encosta exatamente em
+6.972 por dentro e 7.150 no canto). O LUGAR está decidido; o que falta é a conferência
+contra a VP02.
+
+⚠️ **A PEÇA NASCE SEM AS LÁPIDES.** `data/dogcity_cemiterio.csv` não tem x nem z: as colunas
+são lápide, address, dog, utxo_count, posicao_residencial, airdrop, assinou, direito. Ou o
+gerador passa a semear as 15.802 posições dentro da peça (o §17.1 manda fileira alinhada e
+passo constante), ou a peça é uma reserva de chão declarada como tal. Escolher e escrever a
+escolha, senão é peça órfã.
+
+### 3.15: o excedente da Orla Nobre volta ao tecido (🔒 2026-09-22)
+
+**DECISÃO DO FUNDADOR.** Os **388.212 m²** que a Orla Nobre entrega ACIMA da curva voltam
+ao tecido na regeração final.
+
+**Por que:** a página pública jura, duas vezes, que o Genesis Badge *"never changes how much
+land a wallet gets: the area always comes from the curve"*. MEDIDO em 22/09 no setor 7 do
+registro selado, contra `clamp(0,986443 × √DOG, 24 m², 40.000 m²)`: as 446 carteiras da Orla
+Nobre recebem razão entregue/prometida **mediana 1,4423**, máxima **1,8282**, mínima 0,9999,
+e o excedente soma **388.212 m²**. Enquanto isso o tecido comum fica em 0,9629 e 85 lotes
+ficam abaixo de 0,90. Com o excedente devolvido, **a frase da página volta a ser verdadeira**
+e pode continuar publicada como está.
+
+⚠️ **A ORLA DA BAÍA NÃO TEM ESSE PROBLEMA, e a diferença é a regra de área.** Medido no setor
+9: razão mediana **1,0000**, máxima 1,0005, mínima 0,9995, porque lá o fundo é travado em
+68 m e a testada sai de `área ÷ 68` (§3.13). Na Orla Nobre é o contrário: a testada é a fatia
+do arco e o fundo trava em 60 m, então a área é uma CONSEQUÊNCIA da geometria e não da curva.
+Devolver o excedente é fazer a Orla Nobre obedecer à curva como a Orla da Baía já obedece; o
+que sobra de arco vira testada menor ou lote do projeto, nunca lote de outro holder.
 
 ---
 
@@ -886,25 +1003,80 @@ empacotamento chegou: 88% de testada usada contra 84% antes. Subir `PHI_LOTE` de
 direção a `R_ABOBADA` (8.900) abre bandas novas, mas invade o cinturão produtivo. Não foi
 feito; é a próxima alavanca se a razão voltar a cair.
 
-**P10 — Onde moram a classe A e a classe C da §3.9.** REABERTO em 2026-09-21, e não por
-mudança de ideia: a §3.9 destinou a orla da baía aos dois grupos contando com 20,56 km² de
-faixa nobre livre, e a orla que foi desenhada e gerada (§3.13) tem **2,60 km² no total**,
-inteiramente comprometidos com os tiers 4 e 5. São **6.393 carteiras** (2.322 da classe A e
-4.071 da C) pedindo **15,20 km²** que não existem naquela margem.
+**P10, onde mora a classe C da §3.9. ✅ FECHADO em 2026-09-22 pelo fundador.** Ficou aberto
+de 21/09 a 22/09. Foi remedido contra o registro selado de 22/09 02:27 antes de ser
+decidido, e a remedição encolheu a pergunta duas vezes e mudou o nome dela.
 
-Três saídas, nenhuma medida ainda:
+⚠️ **A CLASSE A SAIU DA PERGUNTA: ELA JÁ MORA NA ÁGUA.** MEDIDO cruzando
+`data/dogcity_lotes.csv` com o campo `tem_runestone` do snapshot (§3.10, a lista fixada no
+bloco, e não `runestone_holders_today.json`): **toda a classe A tem lote próprio e nenhuma
+carteira dela está no tecido comum** (409 na Orla Nobre, 1.908 na Orla da Baía, 3 em lote
+institucional no Distrito Financeiro, em r 985). A contagem fica entre **2.320 e 2.325**
+conforme a definição de "multiplicou o airdrop", e o destino é o mesmo nas duas pontas. A
+causa é aritmética e estava escrita desde o §3.1: A é o recorte dos tiers 1 a 5 que ainda
+segura pedra, e esses tiers já têm bairro de orla. Dar orla para A é dar de novo o que ela
+já tem. E mais: **A é a única classe da cidade entregue ACIMA da curva**, razão agregada
+**1,1012**, contra 0,9628 da B e da C.
 
-1. **Nada muda de lugar, e a distinção vira só o prêmio.** A Runestone no quintal já foi
-   decidida (§3.9, fecho da rodada) e não custa terra; classe A e C continuam no tecido,
-   com o monumento marcando quem são. É a saída barata e é coerente com o *"não precisa
-   reposicionar nada"* do próprio fundador naquele dia.
-2. **Um segundo distrito de água**, em outro corpo d'água que não a baía. Precisa medir
-   onde, e a cidade está com razão 0,98 de área: terra nova sai de onde?
-3. **Prioridade dentro do tecido** em vez de endereço próprio: A e C entram na frente na
-   fila do bairro, ou seja ganham posição e não paisagem.
+⚠️ **OS 15,20 km² SÃO CHÃO COM RUA, E AINDA POR CIMA DE OUTRA CURVA.** O §3.9 é de 11/09 e
+media área urbanizada pela curva do §3.8; pela curva publicada do §3.11, A+C pedem **6,878
+km² de lote** e C sozinha **3,358 km²**. Do 15,20 ao 6,878 há 2,21 vezes, das quais **1,92
+são chão contra lote** e só 1,15 é a troca de curva.
 
-⚠️ Enquanto isto estiver aberto, **a §3.9 não pode ser citada como se a orla fosse de A e
-C**: esse trecho está marcado como caído lá mesmo.
+**O QUE ESTAVA ABERTO ERA SÓ A CLASSE C**, que comprou a pedra e o DOG no mercado:
+
+```
+carteiras                4.069      DOG 6,74B      pedras 12.247 (3,01 por carteira)
+área prometida           3,358 km²  entregue 3,232 km²   razão por lote 0,9629
+destino gravado          3.913 lotes no tecido, 1 institucional, 155 lápides
+posição                  raio p50 4.800 m (a cidade é 4.826), percentil 50,7% da fila
+```
+
+C é mediana em tudo. Ela não estava mal colocada; estava sem distinção.
+
+**AS TRÊS SAÍDAS, MEDIDAS ANTES DA DECISÃO:**
+
+| | entrega a C | de onde sai | o que custa |
+|---|---|---|---|
+| **1. Nada muda de lugar** | 0 km² novos | nada | zero terra, zero gerador |
+| **2. Distrito no istmo da alça** | 2,6 a 3,0 km² de lote, 77% a 91% do pedido | 5,6 a 6,0 km² de plataforma livre no istmo, fora da faixa da Orla Nobre. Não tira de ninguém: zero lotes de tecido lá dentro | módulo novo, plantio novo, entrada em `ORLA_DONOS`, e o tecido perde os 3.914 lotes de C de uma vez |
+| **3. Prioridade na fila** | 0 km² novos, mas o raio p50 de C cai de 4.800 para 2.061 m | os 3.913 lotes mais internos do tecido | tira o miolo de **2.405 carteiras da classe B**, contra o "B fica onde já estava" fechado na §3.9 |
+
+🔒 **DECISÃO DO FUNDADOR, 22/09: a saída 1. A classe C FICA no tecido, e o prêmio da pedra
+passa a CONTAR PEDRAS em vez de alargar a lista** (ver a emenda na §3.9). O monumento deixa
+de ser um objeto igual para todo mundo e cresce com o número de pedras da carteira, que é a
+única régua em que a classe C se destaca sem custar terra a ninguém: **3,01 pedras por
+carteira contra 1,22 da classe B** e 3,29 da A.
+
+⚠️ **E A CONTRADIÇÃO QUE ESTAVA NESTE DOCUMENTO MORRE AQUI.** A saída 1, do jeito que estava
+escrita, dizia que *"classe A e C continuam no tecido, com o monumento marcando quem são"*,
+e as duas metades eram falsas: A não está no tecido, e o recorte do prêmio fechado na §3.9 é
+"airdrop intacto mais pedra hoje", que exclui C por construção, porque C não tem airdrop. O
+que passa a valer: **a distinção não vem mais de estar ou não estar numa lista, vem do
+TAMANHO do monumento**, e tamanho é contagem de pedra, que ninguém precisa pedir nem provar.
+
+🔓 **A ÚNICA LINHA QUE FALTA, E ELA É DO FUNDADOR: para quem o monumento é semeado.** As duas
+leituras estão medidas, e o gerador precisa de uma:
+
+```
+só o recorte da §3.9 (airdrop intacto + pedra hoje)   18.638 se "intacto" = retenção 100%
+                                                      20.958 se "intacto" = 100% ou mais
+toda carteira com pedra no bloco 966.670              29.011  (33,8% da cidade)
+   destas, a classe C                                  4.069
+```
+
+Se ficar no recorte da §3.9, a classe C sai desta pendência sem nada e isso tem de estar
+escrito com todas as letras, porque era só isso que a saída 1 tinha a oferecer a ela. Se for
+toda carteira com pedra, o monumento deixa de ser raro e passa a valer pela contagem, que é
+exatamente o que a decisão de 22/09 institui. ⚠️ Não inventar a resposta no gerador: quem
+semear o monumento sem esta linha escrita está decidindo pelo fundador.
+
+⚠️ Esta pendência está FECHADA, mas a §3.9 continua não podendo ser citada como se a orla
+fosse de A e C: aquele trecho está marcado como caído lá mesmo.
+
+⚠️ **O CEMITÉRIO NÃO COMPETE COM ESTA DECISÃO.** Ele vai para o platô do pódio (§3.14), fora
+da faixa loteável, com 0 lotes na pegada. Quem reabrir P10 por causa de terra do cemitério
+está somando duas contas que não se tocam.
 
 **P9 — Os holders que estão em corretora.** ABERTO, e é o único item desta lista com
 prazo público: o snapshot é amanhã e a landing já diz que saldo em corretora não é lido.
@@ -926,7 +1098,14 @@ O dono levantou duas saídas em 11/09 e MEDIÇÃO matou a primeira:
 
 2. *Sacou, ganha lote novo na reserva.* Aritmeticamente possível, mas só se for limitada por
    TERRA e não por DOG, e a reserva do projeto (38,46 km²) seria consumida em 84% no
-   cenário de 1M por sacador — justo onde moram marina, clube, hotel e sede.
+   cenário de 1M por sacador, justo onde moram marina, clube, hotel e sede.
+
+   ⚠️ **TEXTO VENCIDO: esses 38,46 km² não existem mais como "reserva do projeto".** Eram o
+   resíduo de 30% do split do §3.7, medido em 10/09 sobre 128,20 km² de terra livre. Hoje a
+   reserva DENTRO dos bairros é 1% e vale **0,6057 km² em 704 lotes** (medido no registro
+   selado), e o land bank grande do projeto foi para o anel de expansão, não para o tecido.
+   Quem for retomar o P9 precisa refazer a conta com 0,6 km², não com 38,46, ou vai
+   prometer terra que não está reservada.
 
 ⚠️ **AS DUAS ESBARRAM EM DOIS PROBLEMAS ANTES DA TERRA.**
 
@@ -992,9 +1171,60 @@ r 8.000 e 935 m em r 8.500. Só nos últimos 200 m ela fecha.
    os dois cabos já usam.
 2. **15,92 km² são de 5° a 12°:** aceitam rua, não aceitam lote. Viram lote com terraço, e
    sem isso o número real é 25,39 e não 41,31.
-3. **"Reserva" hoje quer dizer duas coisas** — os 30% do projeto e a coroa que o gerador não
+3. **"Reserva" hoje quer dizer duas coisas:** os 30% do projeto e a coroa que o gerador não
    alcança. Se a coroa virar destino de coorte, as duas precisam de nomes distintos, senão a
    próxima medição soma uma com a outra.
+
+⚠️ **CORREÇÃO DE 22/09 nesta seção:** a frase "gerar_bairros.py para em R_SITIO 3.500 e as
+BANDAS travam em φ 5.500" descreve um gerador de duas revisões atrás. No artefato selado as
+bandas vão até φ 6.500 e há lote de tecido até **r 7.070**. O que continua verdade, e é o
+que importa aqui, é a cinta vazia: **zero lotes de tecido dentro do istmo da alça** (§4.2).
+
+### 4.2: o istmo da alça, terra conhecida, medida e NÃO USADA
+
+Registro para ninguém remedir isto daqui a uma semana. Foi medido em 22/09, oferecido ao P10
+como saída 2, e **recusado na mesma rodada**. A terra continua lá, e continua sem dono.
+
+**O que é:** o arco da alça (`ALCA_TERRA`, rumos **346 a 116,5**) não é margem, é **istmo**:
+tem água dos dois lados, com **736 m de largura constante** entre a baía e o anel externo
+(`ALCA_R_BAIA = 6.580` e `ALCA_R_MAR = 7.316` em `app/city/plaza/alca.ts`). São 14,99 km de
+linha d'água interna e 16,67 km de linha externa. O chão ali não é relevo natural: a cena
+esculpe uma plataforma plana em -30 m, com lâmina em -40 e praia 1:8 de 80 m de cada lado, e
+os 511 lotes do anel estão todos gravados com cota -30,0.
+
+**Quanto sobra, fora da faixa já ocupada pela Orla Nobre (r 6.830 a 7.042):**
+
+```
+sonda polar de 10 m x 0,25° sobre topo.f32, chão até 5°
+  faixa interna  6.580 a 6.830       2,745 km²
+  faixa externa  7.042 até a água    3,271 km²
+  TOTAL                              6,016 km²
+
+pela geometria declarada em alca.ts (plataforma útil 6.660 a 7.236, menos a
+faixa da Orla Nobre e a franja das pontas)    5,585 a 5,766 km²
+```
+
+A banda honesta é **5,6 a 6,0 km² de chão livre**, que a 46% a 54,5% de aproveitamento (os
+dois números medidos nos distritos de orla que existem) rendem **2,6 a 3,0 km² de lote**.
+
+**Por que não foi usada:** o P10 foi fechado na saída 1, e nenhuma outra pendência pediu
+terra. Registrado também o que ela NÃO resolve: "declive até 5°" não descobre terra nova ali,
+porque a plataforma é plana por construção; a **AN7 Avenida da Alça** (círculo de 44 m em
+r 6.950) já corta o istmo ao meio, então qualquer distrito ali nasce partido em duas metades
+por uma avenida de 15,9 km; e sair com a classe C abriria 3,23 km² de buraco no tecido dos
+setores 1 a 6.
+
+⚠️ **NÃO EXISTE UM SEGUNDO LAGO, e é por isso que o istmo era a única saída 2 possível.**
+MEDIDO em `public/city/cidade-malha.json` do run selado: 17 corpos d'água, o #1 é o artefato
+de borda do masterplan §18.4 (35,04 km²), o #2 é a baía (21,94 km²) e os outros **quinze
+somam 2,22 km², com o maior em 0,449 km²**. O que existe é a OUTRA MARGEM do mesmo anel.
+
+⚠️ **E A COROA SECA DO §4.1 NÃO SERVE DE ORLA.** Os 25,39 km² livres estão entre 135° e 330°,
+onde há 0,01 km² de água. Ela resolve "onde cabe", nunca "quem ganha água".
+
+⚠️ **ESTES NÚMEROS ENVELHECEM NA PRÓXIMA RODADA.** O masterplan §16.6 (o terreno desce em
+declive natural até a água) entra na regeração final e mexe exatamente na margem: quem
+retomar o istmo precisa remedir a linha d'água DEPOIS dela, não antes.
 
 ---
 
@@ -1051,6 +1281,26 @@ Quando for reconstruir, o gerador precisa:
 
 ## 6. Registro de mudanças deste arquivo
 
+- **2026-09-22**, a rodada dos cadernos antes da regeração final. Seis decisões do fundador
+  e duas correções de texto vencido, todas medidas contra o registro selado de 22/09 02:27
+  (`data/dogcity_lotes.csv`, portão 15 de 15, merkle root `9c16f4bd...f4c4`):
+  **(1)** P10 FECHADO na saída 1 (§4): a classe A já morava na orla e saiu da pergunta, a
+  classe C fica no tecido, e o prêmio da pedra passa a CONTAR PEDRAS em vez de alargar a
+  lista (§3.9).
+  **(2)** §3.14 nova: o cemitério vai para o platô do pódio, rumo 231,25, r 7.061,
+  540 x 178 m, 9,61 ha, zero lote de holder na pegada, com a colisão medida contra a VP02
+  registrada ali mesmo.
+  **(3)** §3.15 nova: os 388.212 m² que a Orla Nobre entrega acima da curva voltam ao
+  tecido, para a promessa de que o badge não muda o tamanho do lote voltar a ser verdadeira.
+  **(4)** §3.12.2 e §3.12.4: a reserva do projeto de **15% está REVOGADA**, é 1% desde
+  22/09 (2% em 21/09), 704 lotes medidos.
+  **(5)** §3.12.4: o passo regular da reserva FICA (o teste de aceitação foi rodado: p50
+  129 m), e passa a existir pelo menos uma reserva em cada distrito especial, que hoje têm
+  ZERO nos três.
+  **(6)** §4.2 nova: o istmo da alça entra no caderno como terra conhecida, medida e NÃO
+  usada, para ninguém remedir daqui a uma semana.
+  Texto vencido corrigido: a baía tem 21,94 km² e não 20,18 (§3.13), e os 15,20 km² da §3.9
+  são chão urbanizado, não lote.
 - **2026-09-20** — §3.1: os 65 lotes do projeto na Orla Nobre passam a ser tratados como
   **reserva de valor** (estoque para um mint público futuro), e não só como destino público.
   Programa nosso não entra neles: precedente do mirante da Terra, retirado pelo fundador.
@@ -1195,6 +1445,19 @@ Bitflow. **Temos endereço de 5 das 14.**
    **A raiz quadrada continua funcionando aqui:** a Kraken tem 4,3x o DOG da Gate.io e só 2,1x
    o terreno. O distrito não vira concentração, e a frase é defensável em público igual à do
    bairro residencial.
+
+   ⚠️ **TODO ESTE BLOCO PRESSUPÕE A KRAKEN DENTRO DO DISTRITO, E NO REGISTRO SELADO ELA NÃO
+   ESTÁ.** MEDIDO em 22/09 sobre `data/dogcity_lotes.csv`: as DUAS maiores carteiras da
+   cidade ficaram no tecido residencial, no setor 5 e no mesmo quarteirão. A hot da Kraken
+   (12,948B DOG) está em `S05-Q21-B016-L001` com **30.201 m²** e a treasury cold (3,112B) em
+   `S05-Q21-B017-L001` com **31.035 m²**, ou seja razão 0,755 e 0,776 contra a curva, as duas
+   piores da cidade entre as grandes. Os ranks 3 a 6 (Gate.io, Bitget, a anônima #2 e a MEXC)
+   estão todos no setor 8. Enquanto isso não for decidido, os números "Kraken 11,22 ha" e
+   "Kraken para em 112.247 m²" são projeção, não estado da cidade, e a frase "o teto de
+   150.000 não corta ninguém hoje" está apoiada numa carteira que não está lá dentro.
+   DECIDIR ANTES DA RODADA FINAL: a hot da Kraken e a treasury cold entram no Distrito
+   Financeiro ou continuam no tecido? Se entrarem, o maior lote do distrito deixa de ser os
+   54.300 m² da Gate.io e a §5 da página pública muda de número.
 2. **Entrada por IDENTIDADE VERIFICADA, nunca por medição.** Simetria que o projeto ganha de
    graça: no bairro residencial você prova **o que fez**; no distrito financeiro, **quem é**.
    Fecha a brecha de se declarar corretora para pegar endereço nobre.
@@ -1246,10 +1509,19 @@ sobreposição ~zero (Gate.io 1.024 destinos e 0%, MEXC 1.093 e 0%, CoinEx 1.047
 (69%), #178 (96%) e da ponte do Stacks (63%). Ponte, pool ou custodial. Institucional do mesmo
 jeito, mas de outro tipo, e o distrito precisa comportar os dois.
 
-### §3.12.2 — Reserva do projeto: 15% de TODOS os bairros 🔒 (2026-09-13)
+### §3.12.2, reserva do projeto: 1% de todos os bairros 🔒 (2026-09-22)
 
-**Decisão do fundador:** o projeto reserva **15% dos lotes em todos os bairros**, distribuídos
-em vários pontos dentro de cada um, não concentrados num bloco.
+⚠️ **O 15% QUE ESTAVA GRAVADO AQUI ESTÁ REVOGADO, e a data importa.** Caiu para **2% em
+21/09** e para **1% em 22/09**, as duas por decisão do fundador (ver a §4, P11). O motivo é
+sempre o mesmo: cada ponto de reserva custa um ponto de área de todo mundo. MEDIDO no
+registro selado de 22/09 02:27: **704 lotes de projeto (1,00% de 70.720)**, sendo 639 de
+reserva (0,3967 km², lote mediano 598 m²) e 65 do land bank da Orla Nobre (0,2091 km²), para
+**21 carteiras marcadas**, ou seja lastro de 33 vezes. A aritmética que este bloco trazia
+("15% de 510 é 77, e as carteiras caem de 445 para 433") morreu junto: **a Orla Nobre fica
+com os 65 já decididos e as carteiras continuam 446**.
+
+**Decisão do fundador:** o projeto reserva **1% dos lotes em todos os bairros do tecido**,
+distribuídos em vários pontos dentro de cada um, não concentrados num bloco.
 
 **Por que existe:** não é cota comercial, é **infraestrutura do recurso** contra a tag de
 comportamento institucional (§3.12.1). Quem for marcado por engano troca por um terreno da
@@ -1311,15 +1583,20 @@ carteiras. O novo primeiro colocado é a antiga posição 5: 1,03 B DOG, 18 UTXO
 R 0,668, uma baleia que dorme. 21 carteiras entram no top 500 vindas de trás, maior salto da
 521 para a 500.
 
-### §3.12.4 — A reserva é 15% em TODOS os bairros, orgânica 🔒 (2026-09-13)
+### §3.12.4, a reserva é 1% em todos os bairros, orgânica 🔒 (2026-09-22)
 
 **Decisão do fundador, que simplifica e destrava:** não é preciso escolher quais pontos são
-nobres. **15% dos lotes em todos os bairros, distribuídos de maneira orgânica.**
+nobres. **Reserva em todos os bairros, distribuída de maneira orgânica.**
 
 Isso ENCERRA o único bloqueio de publicação que existia (o antigo Balde 2). Não há mais
 decisão pendente para a tag institucional ir a público.
 
-### Orçamento de terra, medido
+⚠️ **A PORCENTAGEM DESTA SEÇÃO ERA 15% E HOJE É 1%** (2% em 21/09, 1% em 22/09, fundador).
+O orçamento de terra abaixo é o de 13/09 e fica aqui como histórico: ele dimensionava
+15.141 lotes de reserva e 4,76 km². O registro selado tem **639 lotes de reserva e 0,3967
+km²**, mais 65 do land bank da Orla Nobre.
+
+### Orçamento de terra, medido em 13/09 (histórico, a porcentagem caiu depois)
 
 ```
 carteiras residenciais               85.797
@@ -1332,7 +1609,8 @@ folga                                 15,71 km2
 ```
 
 ⚠️ A reserva é **CARVADA do inventário**, não somada: é a mesma conta da Orla Nobre, onde
-510 = 445 de carteira + 65 do projeto.
+511 = 446 de carteira + 65 do projeto no registro selado (o projeto de 10/09 dizia 510, com
+445 de carteira).
 
 ### ⚠️ "Orgânico" tem de virar regra executável, senão o gerador inventa uma
 
@@ -1350,6 +1628,34 @@ caminhos e por que só um serve:
 **O teste de aceitação, e é ele que importa:** todo lote da cidade precisa ter um lote de
 reserva de **qualidade comparável** dentro de um raio curto. Não é estética, é o que torna a
 troca do recurso honesta. O raio ainda precisa ser escolhido e medido contra o loteamento real.
+
+🔒 **DECISÃO DO FUNDADOR, 22/09, depois de o teste de aceitação ser finalmente medido: o
+PASSO REGULAR FICA, e a reserva passa a alcançar os distritos especiais.**
+
+O gerador intercala um lote de reserva a cada ~99 lotes na ordem de plantio, que é grade e
+não ruído azul. Em 15% isso seria treliça visível. **Em 1% não é**, e o teste que esta seção
+pediu foi rodado: 6.000 lotes sorteados do registro selado, distância até a reserva mais
+próxima.
+
+```
+p50  129 m      p90  335 m      p95  456 m      p99  953 m      máximo  3.260 m
+4,1% dos lotes acima de 500 m        ~1% acima de 950 m
+```
+
+A mediana já é de um quarteirão. A briga entre passo regular e ruído azul só muda a vida de
+cerca de 1% dos lotes, e trocar o passo por Poisson é máquina nova no gerador na véspera da
+rodada final. **Não se troca.**
+
+⚠️ **O QUE SE CONSERTA É OUTRA COISA, E ESSA É BURACO DE VERDADE: os três distritos especiais
+têm ZERO reserva.** MEDIDO no registro selado, contando `__projeto_reserva` por setor: S01
+36, S02 43, S03 220, S04 48, S05 189, S06 103, **S07 0, S08 0, S09 0**. Os 65 lotes do
+projeto na Orla Nobre são land bank do §6 (estoque de valor, §3.1 de 20/09), não reserva de
+recurso, e o recurso que a §3.12.1 promete precisa oferecer **lote do mesmo padrão**: quem
+for marcado por engano na Orla da Baía não tem o que receber em troca dentro da Orla da
+Baía. Decisão: **pelo menos UMA reserva em cada distrito especial** (Orla Nobre, Distrito
+Financeiro, Orla da Baía), somada à regra de 1% do tecido. Custo medido: 3 lotes.
+Atenuante que NÃO dispensa o conserto: nenhuma das 21 carteiras marcadas hoje é tier 4 ou 5,
+então hoje nenhum recurso cai na Orla da Baía; a frase publicada, porém, é conferível.
 
 ### §3.12.5 — O Distrito Financeiro vai para DENTRO da Satoshi Plaza 🔒 (2026-09-13)
 

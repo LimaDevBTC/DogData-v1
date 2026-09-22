@@ -2,13 +2,19 @@
 
 **13/09/2026.** Inglês, para o X. Conferir a URL final e o @ antes de postar.
 
+⚠️ **NÃO POSTAR SEM RECONFERIR.** Este rascunho dizia "decided the address of every self
+custody $DOG wallet", duas frases que a página desmente hoje: o snapshot decide ÁREA, não
+endereço na cidade, e ele conta todo endereço da cadeia, inclusive quatro carteiras
+ingastáveis que recebem lote. As duas frases já foram corrigidas abaixo; o resto dos números
+sai da página no ar, não deste arquivo.
+
 ---
 
 ## Thread
 
 **1/**
-On 12 September a single Bitcoin block decided the address of every self custody $DOG wallet in
-DogCity.
+On 12 September a single Bitcoin block decided the land allocation of every address holding
+$DOG on chain.
 
 Block 966,670. Nothing was claimed, nothing was signed, nothing was registered.
 
@@ -88,8 +94,8 @@ Check a wallet: [URL]/dogcity
 
 ## Versão de post único, para alcance
 
-On 12 September, block 966,670 decided the address of every self custody $DOG wallet in
-DogCity.
+On 12 September, block 966,670 decided the land allocation of every address holding $DOG on
+chain.
 
 85,818 wallets. 239,432 UTXOs. 99,975,593,202.33 $DOG.
 

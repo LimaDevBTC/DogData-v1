@@ -309,12 +309,28 @@ DECLIVE_MAX  = math.degrees(math.atan(DECL_LOTE_MAX))   # 6,84° = 12%
 # o fino decide o lote.
 
 
-# ⚠️ 960/1.300 -> 1.470/1.830 EM 03/09, e o número não é escolha desta frente: é
-# o que `terrain.ts` desenha (`PLATO_R`/`PLATO_FIM`, linha 307). O platô da praça
-# foi estendido lá em 30/08 para o anel do Lago da Praça ficar todo na cota 0, e
-# o gerador ficou com o par velho. Enquanto ficou, ele mediu relevo de verdade
-# entre 1.300 e 1.830 num lugar onde a cena desenha rampa até a cota 0.
-PLATO_R, PLATO_FUNDE = 1470, 1830
+# ⚠️ 960/1.300 -> 1.470/1.830 (03/09) -> LIDO DE `terrain.ts` (22/09), E A LIÇÃO
+# É QUE COPIAR NÚMERO DE CHÃO NUNCA FUNCIONOU NESTE PROJETO.
+#
+# A nota antiga aqui já dizia, com todas as letras, que o número "não é escolha
+# desta frente: é o que `terrain.ts` desenha". E mesmo assim ele foi COPIADO, e
+# mesmo assim divergiu de novo: a cena foi para 2.400/2.760 e o gerador ficou em
+# 1.470/1.830, uma diferença de 930 m, por dezenove dias. O comentário até
+# apontava "linha 307", que já não existe.
+#
+# ⚠️ O QUE ISSO CUSTOU, MEDIDO: 8.171 lotes (12,2% do tecido) com a cota gravada
+# a mais de 1,5 m do chão que a cena desenha, 4.142 acima de 10 m, 1.644 acima de
+# 30 m, pior caso 56,6 m. E `cota_cm` ENTRA NA FOLHA DO MERKLE
+# (`scripts/city/merkle.py`), ou seja o root de 22/09 assinava esses números: não
+# era defeito de desenho, era defeito de TÍTULO. O portão de 15 testes não viu
+# porque ele compara a cota de cada lote com a MEDIANA DOS VIZINHOS, e erro que
+# vale igual para o bairro inteiro passa.
+#
+# Agora o par é LIDO do arquivo da cena, como a alça e a orla já são. Se a cena
+# mudar, o gerador acompanha ou morre com mensagem clara (`_ts_const` levanta
+# SystemExit). Não há terceira opção, e é de propósito.
+PLATO_R     = _ts_const('terrain.ts', 'PLATO_R')     # 2.400
+PLATO_FUNDE = _ts_const('terrain.ts', 'PLATO_FIM')   # 2.760
 # ⚠️ O PARQUE TEVE DE SAIR. Com a cidade a 6.900 (R_ABOBADA) ele ficaria DENTRO
 # dela em 5.200, e ele é parque nacional: fica fora da abóbada, alcançado de
 # veículo pressurizado. 9.800 deixa a chegada dele (o Portão, a 2,75 km do
@@ -1352,13 +1368,63 @@ def orla_baia_altura(x, z, natural):
     return natural * (1 - k) + alvo * k
 
 
-def altura(x, z):
+# ── A BACIA DO LAGO DA PRAÇA E A SUBIDA DA CIDADE ──────────────────────────
+#
+# ⚠️ ISTO FALTAVA INTEIRO NO GERADOR, e é o irmão do defeito do platô, achado na
+# mesma varredura. A cena monta o chão como `baseAt − bacia + monte`
+# (`terrain.ts`, `bbAt`); o gerador fazia só platô, pódio, alça e orla. A bacia
+# cava 35 m na praça, 47,5 m no fundo do lago, e a cidade só volta a ficar seca e
+# plana em `R_CIDADE_SECA`, a 2.344 m do centro. Sem ela, todo lote do miolo
+# nascia com a cota do relevo cru num lugar onde a cena desenha rampa.
+#
+# ⚠️ TODA CONSTANTE DAQUI É LIDA DE `terrain.ts`. Nenhuma é copiada, pela mesma
+# razão do platô logo acima: a cópia diverge, e a divergência é silenciosa porque
+# o número continua plausível. `R_AGUA_OUT` e `R_CIDADE_SECA` são derivadas na
+# cena por soma (`LAGO_R1 + 40` e `R_AGUA_OUT + 950`) e por isso se derivam aqui
+# do mesmo jeito, a partir do valor lido.
+PRACA_Y_CENA  = _ts_const('terrain.ts', 'PRACA_Y')          # −35
+R_PRACA_BORDA = _ts_const('terrain.ts', 'R_PRACA_BORDA')    # 1.024
+R_AGUA_IN     = _ts_const('terrain.ts', 'R_AGUA_IN')        # 1.144
+LAGO_R0       = _ts_const('terrain.ts', 'LAGO_R0')          # 1.184
+LAGO_R1       = _ts_const('terrain.ts', 'LAGO_R1')          # 1.354
+LAGO_FUNDO    = _ts_const('terrain.ts', 'LAGO_FUNDO')       # 47,5
+R_AGUA_OUT    = LAGO_R1 + 40.0                              # simétrico ao mergulho interno
+R_CIDADE_SECA = R_AGUA_OUT + 950.0                          # a subida da cidade, 40 m a 4,14%
+
+
+def _reta(d, d0, h0, d1, h1):
+    """reta grampeada, a mesma de `terrain.ts`: inclinação CONSTANTE e trava fora
+    do intervalo. Reta e não curva de propósito: o smoothstep acelerava no meio e
+    escondia a linha d'água em cima do trecho mais íngreme."""
+    t = (d - d0) / (d1 - d0)
+    if t <= 0: return h0
+    if t >= 1: return h1
+    return h0 + (h1 - h0) * t
+
+
+def bacia_praca(r):
+    """quanto o chão DESCE neste raio por causa da bacia da praça. Espelho exato
+    de `bacia()` em `terrain.ts`, na mesma ordem de faixas."""
+    if r <= R_PRACA_BORDA: return -PRACA_Y_CENA                                   # a praça inteira, plana
+    if r <= R_AGUA_IN:     return _reta(r, R_PRACA_BORDA, -PRACA_Y_CENA, R_AGUA_IN, 40.0)
+    if r <= LAGO_R0:       return _reta(r, R_AGUA_IN, 40.0, LAGO_R0, LAGO_FUNDO)  # o mergulho
+    if r <= LAGO_R1:       return LAGO_FUNDO                                      # fundo plano
+    if r <= R_AGUA_OUT:    return _reta(r, LAGO_R1, LAGO_FUNDO, R_AGUA_OUT, 40.0)
+    if r <= R_CIDADE_SECA: return _reta(r, R_AGUA_OUT, 40.0, R_CIDADE_SECA, 0.0)  # a subida da cidade
+    return 0.0
+
+
+def _altura_analitica(x, z):
     b = crua(x, z); r = math.hypot(x, z)
     if r < PLATO_FUNDE:
         if r <= PLATO_R: b = 0.0
         else:
             t = (r-PLATO_R)/(PLATO_FUNDE-PLATO_R)
             b = b*(t*t*(3-2*t))
+    # ⚠️ A BACIA ENTRA AQUI, DEPOIS DO PLATÔ E ANTES DO PÓDIO, porque é essa a
+    # ordem da cena: `bbAt = baseAt − bacia + monte`, e `baseAt` já traz o platô
+    # dentro. Trocar a ordem com o pódio mudaria a cota de todo o anel do platô.
+    b -= bacia_praca(r)
     # ⚠️ O PÓDIO ENTRA POR MISTURA, não por soma: `terrain.ts` interpola o chão
     # ATÉ a cota do pódio pelo peso (`b0*(1-w) + PODIO_Y*w`), então no platô o
     # chão É 13 m, não "13 m acima do que havia". Somar deixaria o relevo cru
@@ -1368,6 +1434,115 @@ def altura(x, z):
     # alça cava o leito a -44 em todo o arco dela, que contém o da orla, e
     # rodando primeiro apagaria as pontas dos dedos.
     return orla_baia_altura(x, z, alca_altura(x, z, b*(1.0-w) + PODIO_Y*w))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# A SUPERFÍCIE COMO CONSTRUÍDA: O GERADOR PERGUNTA À CENA EM VEZ DE ADIVINHAR
+#
+# ⚠️ ESTA É A CORREÇÃO DE 22/09/2026, E ELA É ESTRUTURAL, NÃO UM NÚMERO.
+#
+# `_altura_analitica` logo acima é uma RÉPLICA em Python do `heightAt` da cena, e
+# réplica de chão neste projeto SEMPRE divergiu. O histórico está escrito nos
+# próprios comentários deste arquivo: o exagero vertical do `vex.ts` (03/09), o
+# pódio da abóbada (03/09), e agora o platô (930 m de diferença por dezenove
+# dias), a bacia do Lago da Praça e a vala dos canais radiais, que nunca
+# existiram deste lado.
+#
+# ⚠️ O QUE A DIVERGÊNCIA CUSTAVA, MEDIDO PONTO A PONTO CONTRA A CENA em 22/09,
+# sobre os 70.720 lotes do registro selado:
+#
+#     |erro| mediana ......  0,63 m
+#     acima de 1,5 m ......  15.834 lotes (22,4%)
+#     acima de  10 m ......   4.474
+#     acima de  30 m ......   1.647
+#     pior caso ...........  56,72 m (S04-Q05-B004-L001: a escritura afirmava
+#                            +42,21 m onde a cidade desenha −14,51 m)
+#     chão da cena abaixo
+#     da lâmina d'água ....  73 lotes
+#
+# E `cota_cm` ENTRA NA FOLHA DO MERKLE. Ou seja isto nunca foi defeito de
+# desenho: era defeito de TÍTULO, assinado pelo root.
+#
+# ⚠️ E A TENTAÇÃO ERRADA ERA PORTAR A FÓRMULA DE NOVO. Seria a quarta cópia
+# (cena, aqui, `conferir_terreno.py`, e a nova), e as três primeiras divergiram.
+# `superficieAt` é a MESMA função que assenta lote, rua, praia e peça na cena: é
+# a única fonte que não diverge do que a câmera mostra. `scripts/city/
+# assar_superficie.mjs` extrai ela pela sonda `__plazaPerfil` e grava aqui.
+#
+# ⚠️ E O ARQUIVO NÃO PODE ENVELHECER EM SILÊNCIO, que é como o platô divergiu.
+# A assadura grava o sha256 de todo módulo que entra em `heightAt`; este leitor
+# recalcula e ABORTA se divergir. Não existe modo "continua assim mesmo": selar
+# uma cidade contra um chão que mudou é exatamente o defeito que isto conserta.
+_SUP = None
+
+def _carrega_superficie():
+    """a grade assada da cena, ou None se não houver (e aí o gerador aborta)."""
+    global _SUP
+    import hashlib
+    meta_p, f32_p = p('data/superficie.json'), p('data/superficie.f32')
+    if not (os.path.exists(meta_p) and os.path.exists(f32_p)):
+        return None
+    meta = json.load(open(meta_p, encoding='utf-8'))
+    h = hashlib.sha256()
+    for m in meta.get('modulos', []):
+        try: txt = open(p_ts(m), encoding='utf-8').read()
+        except FileNotFoundError: txt = '(ausente)'
+        h.update(m.encode()); h.update(b'\0'); h.update(txt.encode()); h.update(b'\0')
+    agora = h.hexdigest()
+    if agora != meta.get('digitalDoChao'):
+        raise SystemExit(
+            'gerar_cidade: a superfície assada está VELHA.\n'
+            f'  assada com  {meta.get("digitalDoChao", "?")[:16]}...\n'
+            f'  o chão hoje {agora[:16]}...\n'
+            '  Um dos módulos de chão mudou depois da assadura. Reasse antes de gerar:\n'
+            '      node scripts/city/assar_superficie.mjs\n'
+            '  (dev server no ar em localhost:3000). NÃO existe modo de seguir assim:\n'
+            '  foi assim que 15.834 lotes nasceram com a cota errada em 22/09.')
+    import array
+    a = array.array('f'); a.fromfile(open(f32_p, 'rb'), meta['n'] * meta['n'])
+    _SUP = (meta['n'], float(meta['raio']), float(meta['celulaM']), a)
+    return _SUP
+
+
+def altura(x, z):
+    """a cota do chão neste ponto. A CENA MANDA: se a superfície assada existe,
+    ela é a resposta; a réplica analítica só serve de socorro explícito."""
+    if _SUP is not None:
+        sn, sraio, sc, sa = _SUP
+        fi = (x + sraio) / sc; fj = (z + sraio) / sc
+        if 0 <= fi <= sn - 1.001 and 0 <= fj <= sn - 1.001:
+            i, j = int(fi), int(fj); u, v = fi - i, fj - j
+            G = lambda a_, b_: sa[b_ * sn + a_]
+            return (G(i, j)*(1-u)*(1-v) + G(i+1, j)*u*(1-v)
+                    + G(i, j+1)*(1-u)*v + G(i+1, j+1)*u*v)
+    return _altura_analitica(x, z)
+
+
+# ⚠️ CARREGA AGORA, ANTES DA GRADE DE DECLIVE, porque é ela a primeira
+# consumidora. E aborta aqui, no começo, em vez de deixar a cidade inteira nascer
+# sobre o chão errado e só descobrir no portão.
+# ⚠️ E ELE TEM DE PODER SER DESLIGADO POR QUEM SÓ QUER A ESCULTURA.
+# `scripts/city/conferir_terreno.py` não importa este arquivo: ele lê o FONTE e
+# executa a fatia que vai até `def altura(x, z):`, justamente para não ter uma
+# terceira cópia das fórmulas. Se o aborto abaixo disparar dentro dele, o
+# conferidor morre sem conferir nada, que é trocar um silêncio por outro.
+# `SUPERFICIE_OPCIONAL=1` diz "eu só quero as funções, não vou plantar cidade".
+if os.environ.get('SUPERFICIE_OPCIONAL') == '1':
+    try: _carrega_superficie()
+    except SystemExit: _SUP = None
+elif os.environ.get('SEM_SUPERFICIE') == '1':
+    print('⚠️  SEM_SUPERFICIE=1: plantando sobre a RÉPLICA analítica, não sobre a cena.\n'
+          '    Isto serve para experimento, NUNCA para a rodada que vai ser selada.')
+elif _carrega_superficie() is None:
+    raise SystemExit(
+        'gerar_cidade: falta a superfície assada da cena (data/superficie.f32).\n'
+        '  O gerador não replica mais o chão: ele pergunta à cena, porque a\n'
+        '  réplica divergiu em 22,4% dos lotes, até 56,7 m, e a cota entra na\n'
+        '  folha do merkle. Asse antes de gerar, com o dev server no ar:\n'
+        '      node scripts/city/assar_superficie.mjs\n'
+        '  Para experimentar sem ela (e NUNCA para selar): SEM_SUPERFICIE=1.')
+else:
+    print(f'superfície da cena: grade {_SUP[0]}² sobre ±{_SUP[1]:.0f} m, célula {_SUP[2]:.2f} m')
 
 grade = [0.0]*(n*n)
 for j in range(n):
@@ -1889,6 +2064,119 @@ if os.path.exists(_CONG):
         q['c'], q['s'] = math.cos(rr), math.sin(rr)
     print(f'programa lido do congelado: {len(PROGRAMA_GEO)} peças', file=sys.stderr)
 
+# ── AS TRÊS MÁSCARAS QUE GUARDAVAM LUGAR NENHUM ───────────────────────────
+#
+# ⚠️ MÁSCARA NO LUGAR ERRADO É PIOR QUE MÁSCARA NENHUMA: ela reserva chão vazio
+# E deixa o prédio descoberto, cobrando a terra duas vezes. Medido em 22/09, com
+# a âncora de `mapa-v1.json` como referência:
+#
+#   E02  "DOG Derby"           congelada em (1.999, 2.297); o Derby que a cena
+#                              constrói está em (2.240, 2.415), a 268 m dali.
+#   E03  "$DOG ARENA"          congelada em (2.398, 1.481); o estádio está em
+#                              (3.182, 853), a 1.004 m dali.
+#   F01  "Distrito Financeiro" congelada em (−1.637, 1.710), r 2.368, do lado
+#                              OPOSTO da cidade ao Distrito Financeiro de
+#                              verdade, que mora em r 985 desde 13/09 (§3.12.5).
+#                              A cidade reservava terra para um distrito que não
+#                              mora ali, e o módulo 3D desenhava um segundo
+#                              distrito financeiro no lado errado.
+#
+# As duas primeiras ficaram redundantes no instante em que as parcelas ancoradas
+# passaram a entrar (logo abaixo): a obra de verdade agora tem máscara própria,
+# no polígono que ela ocupa. A terceira é revogação de decisão.
+#
+# ⚠️ A RETIRADA É AQUI, EM CÓDIGO COM MOTIVO, E NÃO UMA EDIÇÃO NO JSON CONGELADO.
+# O congelado é o registro histórico do que o reticulado antigo decidiu; apagar
+# linha dele deixaria a remoção sem explicação e sem revisor. Quem quiser a peça
+# de volta tira o id daqui e sabe exatamente o que está desfazendo.
+_PECAS_RETIRADAS = {
+    'E02': 'duplicata do DERBY ancorado, 268 m fora do lugar',
+    'E03': 'duplicata do ESTADIO ancorado, 1.004 m fora do lugar',
+    'F01': 'Distrito Financeiro revogado em 13/09; o de verdade mora em r 985',
+}
+_antes = len(PROGRAMA_GEO)
+_livre = 0.0
+for _q in PROGRAMA_GEO:
+    if _q['id'] in _PECAS_RETIRADAS:
+        _livre += (2*_q.get('a', 0.0)) * (2*_q.get('b', 0.0))
+PROGRAMA_GEO = [_q for _q in PROGRAMA_GEO if _q['id'] not in _PECAS_RETIRADAS]
+if _antes != len(PROGRAMA_GEO):
+    print(f'peças retiradas: {_antes - len(PROGRAMA_GEO)} '
+          f'({", ".join(sorted(_PECAS_RETIRADAS))}), {_livre/1e4:.1f} ha devolvidos ao tecido',
+          file=sys.stderr)
+
+# ── AS PARCELAS ANCORADAS: A OBRA QUE A CENA JÁ CONSTRÓI ───────────────────
+#
+# ⚠️ 845 LOTES DE CARTEIRA ESTAVAM GRAVADOS EM CIMA DE PRÉDIO, e o portão de 15
+# testes deu APROVADO em cima disso porque não existia teste de lote contra peça.
+# Medido no registro selado de 22/09: 845 lotes, 830 endereços, 72,18 ha, sobre o
+# campus esportivo, o $DOG ARENA, a THE GEODE, o atletismo, o centro aquático, o
+# DOG Derby e a Sphere. São sete parcelas que `app/city/plaza/` constrói com
+# módulo 3D próprio e que este gerador nunca soube que existiam.
+#
+# ⚠️ E AS DUAS MÁSCARAS DE ESPORTE QUE EXISTIAM ESTAVAM NO LUGAR ERRADO, o que é
+# pior que não existir: o $DOG ARENA era reservado a 1.125 m de onde a cena o
+# constrói, e o Derby a 250 m. Máscara no lugar errado reserva chão vazio E
+# deixa o prédio descoberto, cobrando duas vezes.
+#
+# ⚠️ ELAS ENTRAM AQUI, DEPOIS DO CONGELAMENTO, E NÃO EM `PROGRAMA_MALHA`. O
+# congelado SUBSTITUI `PROGRAMA_GEO` inteiro (logo acima), então peça escrita
+# lá em cima é letra morta desde que o arquivo passou a existir. Quem não souber
+# disso "conserta" o programa e vê o conserto sumir sem erro nenhum.
+#
+# ⚠️ E A FONTE É `public/city/mapa-v1.json`, NÃO UMA CÓPIA. É o mesmo arquivo de
+# onde a cena tira a âncora de cada peça, com o polígono em coordenada de mundo.
+# Copiar os números para cá criaria a mesma deriva que a cota acabou de custar.
+_ANCORAS = p('public/city/mapa-v1.json')
+if os.path.exists(_ANCORAS):
+    _mapa = json.load(open(_ANCORAS, encoding='utf-8'))
+    _novas = 0
+    for _a in _mapa.get('ancoras', []):
+        _poly = _a.get('poly') or []
+        if len(_poly) < 3: continue
+        PROGRAMA_GEO.append({
+            'id': _a['id'], 'nome': _a.get('nome', _a['id']), 'tipo': 'ancorada',
+            'forma': 'poligono', 'poly': [[float(q[0]), float(q[1])] for q in _poly],
+            'cx': float(_a['cx']), 'cz': float(_a['cz']), 'a': 0.0, 'b': 0.0,
+            'rot': 0.0, 'c': 1.0, 's': 0.0,
+        })
+        _novas += 1
+    _ha = sum(float(_a.get('area_m2', 0)) for _a in _mapa.get('ancoras', [])) / 1e4
+    print(f'parcelas ancoradas: {_novas} peças, {_ha:.1f} ha (mapa-v1.json)', file=sys.stderr)
+else:
+    raise SystemExit(
+        'gerar_cidade: falta public/city/mapa-v1.json, que é a fonte das parcelas\n'
+        '  ancoradas (Estádio, Geode, Sphere, Campus, Atletismo, Aquatics, Derby).\n'
+        '  Sem ele o gerador planta lote em cima de prédio: foram 845 em 22/09.')
+
+def _no_poligono(x, z, poly, margem=0.0):
+    """ponto dentro do polígono, com margem. Cruzamento de raio para o dentro,
+    mais distância ao segmento para a margem.
+
+    ⚠️ A MARGEM NÃO É DECORAÇÃO, e o número dela tem história: `gerar_cidade`
+    grava x e z como int16 em METROS INTEIROS, então um lote a 40 cm de fora da
+    elipse do Coliseu arredondava para DENTRO dela. Eram 3 lotes em 52.991. Todo
+    teste de pegada deste arquivo carrega a mesma margem de 2 m pelo mesmo
+    motivo, e o polígono não é exceção."""
+    n_ = len(poly)
+    dentro = False
+    j = n_ - 1
+    for i in range(n_):
+        xi, zi = poly[i]; xj, zj = poly[j]
+        if (zi > z) != (zj > z):
+            xc = xi + (z - zi) * (xj - xi) / (zj - zi)
+            if x < xc: dentro = not dentro
+        j = i
+    if dentro or margem <= 0: return dentro
+    for i in range(n_):
+        xi, zi = poly[i]; xj, zj = poly[(i + 1) % n_]
+        ex, ez = xj - xi, zj - zi
+        L2 = ex*ex + ez*ez
+        t = 0.0 if L2 == 0 else max(0.0, min(1.0, ((x - xi)*ex + (z - zi)*ez) / L2))
+        if math.hypot(x - (xi + t*ex), z - (zi + t*ez)) <= margem: return True
+    return False
+
+
 def em_programa(x, z, margem=2.0):
     """MUNDO = R(rot) · LOCAL, então LOCAL = R(-rot) · MUNDO.
 
@@ -1910,6 +2198,12 @@ def em_programa(x, z, margem=2.0):
         dx, dz = x - q['cx'], z - q['cz']
         lx =  dx*q['c'] + dz*q['s']
         lz = -dx*q['s'] + dz*q['c']
+        if q['forma'] == 'poligono':
+            # ⚠️ O POLÍGONO É TESTADO EM MUNDO, NÃO EM LOCAL: ele já vem com os
+            # vértices em coordenada de mundo (`mapa-v1.json`), porque foi o
+            # módulo 3D que o desenhou lá. Girar de novo o poria em outro lugar.
+            if _no_poligono(x, z, q['poly'], margem): return q
+            continue
         if q['forma'] == 'retangulo':
             if abs(lx) <= q['a'] + margem and abs(lz) <= q['b'] + margem:
                 return q
@@ -2044,7 +2338,7 @@ def livre(x, z):
 # gravado, que é a mesma escala em que o holder vai andar. O teste vem por
 # último de propósito: ele custa quatro consultas de altura e só vale a pena
 # depois que as máscaras baratas já aprovaram.
-REJ = {'mascara': 0, 'declive': 0, 'ok': 0}
+REJ = {'mascara': 0, 'agua': 0, 'declive': 0, 'ok': 0}
 # ⚠️ O ORÇAMENTO DE TESTADA. A cidade entrega 67% do tecido que tem, e "67%" não
 # diz onde os outros 33% foram. Três destinos possíveis e excludentes: testada
 # USADA por lote, testada QUEIMADA (prateleira zerada porque a pegada caiu em
@@ -2300,6 +2594,20 @@ def _cabe(pr, ox, oz, frente, prof):
             REJ['mascara'] += 1
             return False
         hs.append(altura(wx, wz))
+    # ⚠️ NENHUM PONTO DA PEGADA PODE ESTAR ABAIXO DA LÂMINA D'ÁGUA, e esta regra
+    # faltava inteira. Medido no registro selado de 22/09, contra a superfície da
+    # própria cena: 73 lotes de carteira tinham o chão ABAIXO de −40 m, ou seja
+    # escritura de terra seca debaixo d'água. O portão de 15 testes não pegava
+    # porque o teste de cota só conferia se ela cai entre −200 e 300.
+    #
+    # ⚠️ E O GUARDA VAI NA PEGADA, NÃO NA MÁSCARA DE LAGO. A máscara joga fora
+    # qualquer poça com menos de 3 ha (`_acha_lagos`), então água pequena não
+    # existe para ela; e testar um ponto só deixaria o canto do lote molhado. Em
+    # `_cabe` o teste custa ZERO chamadas novas de `altura()`, porque as cinco
+    # cotas já foram calculadas duas linhas acima para o declive.
+    if min(hs) < LAGO_COTA:
+        REJ['agua'] += 1
+        return False
     # hs[1..4] são os cantos na ordem (-,-), (+,-), (+,+), (-,+)
     gx = ((hs[2] + hs[3]) - (hs[1] + hs[4])) / (2 * max(1e-6, frente))
     gz = ((hs[3] + hs[4]) - (hs[1] + hs[2])) / (2 * max(1e-6, prof))
@@ -3694,16 +4002,29 @@ ORLA_PROJETO_FRENTE, ORLA_PROJETO_TRAS = 18, 47   # land bank do §6, §3.2
 ORLA_FUNDO_MAX_FRENTE, ORLA_FUNDO_MAX_TRAS = 214.0, 246.0
 
 def _tier_de():
-    """tier e change_pct por endereço, do snapshot (a escada do airdrop)."""
+    """tier, change_pct, DOG e utxo_count por endereço, do snapshot.
+
+    ⚠️ ELE DEVOLVE DOG E UTXO TAMBÉM, E ISSO CONSERTA UMA MENTIRA NO REGISTRO.
+    `elig` e `UTX_SNAP` só conhecem quem está na FILA RESIDENCIAL, e as 21
+    carteiras institucionais não estão nela (saíram no próprio snapshot: é por
+    isso que a fila tem 85.797 e não 85.818). A gravação tratava "sem fila" como
+    "sem dono" e escrevia `dog=0, utxo_count=0, forma=0` nas 21.
+    ⚠️ O QUE ISSO AFIRMAVA, medido no registro selado de 22/09: a Gate.io tem
+    3.030.049.556 DOG e 20.008 UTXOs no snapshot, e o registro dizia que ela tem
+    zero e forma 0, que é "massa única, casa no centro". Eram os 21 lotes mais
+    visíveis da cidade, o Distrito Financeiro inteiro, e o portão de 15 testes
+    não via porque ele não lê nenhuma dessas quatro colunas."""
     try:
         _sn = json.load(open(p('data/snapshots/dog_snapshot_966670.json')))['holders']
     except FileNotFoundError:
-        return {}, {}
+        return {}, {}, {}, {}
     return ({r['address']: r.get('tier') for r in _sn},
             {r['address']: (r.get('change_pct') if r.get('change_pct') is not None else -1e9)
-             for r in _sn})
+             for r in _sn},
+            {r['address']: float(r.get('dog') or 0.0) for r in _sn},
+            {r['address']: int(r.get('utxo_count') or 1) for r in _sn})
 
-TIER_DE, CHANGE_DE = _tier_de()
+TIER_DE, CHANGE_DE, DOG_SNAP, UTX_SNAP_TODOS = _tier_de()
 ORLA_LOTES = []          # (x, z, frente, prof, giro_graus, addr ou None)
 S_ORLA = 6                # setor 7 no endereço (S07-Q01-B{lote}-L001)
 _GIRO_ORLA = {}           # o giro de cada lote da orla, tangente ao círculo
@@ -4966,7 +5287,13 @@ for x, z, s, a, w, d, _q, _b, _n in saida:
     # institucionais têm endereço de carteira de verdade e NÃO estão na fila
     # residencial: elas saíram dela no próprio snapshot, que é por isso que a
     # fila tem 85.797 e não 85.818.
-    _proj = a.startswith('__projeto') or a not in posto
+    # ⚠️ "SEM DONO" E "FORA DA FILA" SÃO COISAS DIFERENTES, e tratá-las como uma
+    # só fez o .bin afirmar `forma=0` (massa única, casa no centro) nas 21
+    # institucionais, entre elas uma carteira com 20.008 UTXOs, que é forma 4
+    # (quarteirão de torres). Coorte e família seguem neutras nas duas, porque
+    # posição na fila é o que elas de fato não têm; a FORMA não.
+    _sem_dono = a.startswith('__projeto')
+    _proj = _sem_dono or a not in posto
     coorte = 0 if _proj else min(7, posto[a]*8//N)
     fam = 0 if _proj else familia_de.get(a, 0)
     # ⚠️ OS QUATRO BITS LIVRES DA FLAG VIRARAM O QUARTO DE METRO. `w` e `d` são
@@ -4986,7 +5313,8 @@ for x, z, s, a, w, d, _q, _b, _n in saida:
     # eram remendo para o mesmo problema.
     _w10 = max(1, min(65535, int(round(w * 10))))
     _d10 = max(1, min(65535, int(round(d * 10))))
-    fl = (0 if _proj else ((1 if a in dsc else 0) | (forma_de(UTX.get(a, 1)) << 1)))
+    _u_bin = 1 if _sem_dono else (UTX.get(a) or UTX_SNAP_TODOS.get(a, 1))
+    fl = (0 if _sem_dono else ((1 if a in dsc else 0) | (forma_de(_u_bin) << 1)))
     giro_c = int(round(_GIRO_DE.get((s, _q, _b), 0.0) * 100)) % 36000
     # ⚠️ A POSIÇÃO PASSOU A SER EM QUARTOS DE METRO (versão 2 do registro,
     # 20/09). Em metros inteiros dois lotes que se ENCOSTAM na divisa de fundo
@@ -5038,9 +5366,18 @@ with open(ps('data/dogcity_lotes.csv'), 'w', newline='') as f:
                 'x_m', 'z_m', 'raio_m', 'frente_m', 'prof_m', 'area_m2', 'giro_graus',
                 'dog', 'utxo_count', 'forma', 'coorte', 'familia', 'dsc', 'cota_m'])
     for x, z, s, a, fr, pf, q_, b_, n_ in saida:
-        # lote sem fila: projeto ou institucional (ver a nota na gravação do .bin)
-        _proj = a.startswith('__projeto') or a not in posto
-        u = UTX.get(a, 1)
+        # ⚠️ DUAS COISAS DIFERENTES QUE ERAM UMA SÓ, E A CONFUSÃO MENTIA NO
+        # REGISTRO. "Lote sem dono" (o land bank do projeto) e "carteira de
+        # verdade fora da fila residencial" (as 21 institucionais) caíam no mesmo
+        # `_proj` e saíam com dog=0, utxo_count=0 e forma=0. A primeira não tem
+        # dono mesmo; a segunda tem 3,03 bilhões de DOG e 20.008 UTXOs.
+        _sem_dono = a.startswith('__projeto')
+        _fora_da_fila = a not in posto
+        _proj = _sem_dono or _fora_da_fila          # coorte e família seguem neutras
+        # DOG e UTXO vêm da fila quando ela conhece o endereço e do snapshot
+        # inteiro quando não conhece. Zero só para quem não tem dono.
+        _dog = 0.0 if _sem_dono else (elig.get(a) or DOG_SNAP.get(a, 0.0))
+        u = 1 if _sem_dono else (UTX.get(a) or UTX_SNAP_TODOS.get(a, 1))
         w.writerow([f'S{s+1:02d}-Q{q_:02d}-B{b_:03d}-L{n_:03d}', a,
                     -1 if _proj else posto[a], s + 1, q_, b_, n_,
                     # ⚠️ O CSV É O REGISTRO DE DIREITO e o .bin é a cópia que a
@@ -5050,8 +5387,8 @@ with open(ps('data/dogcity_lotes.csv'), 'w', newline='') as f:
                     round(x, 2), round(z, 2), round(math.hypot(x, z), 1),
                     round(fr, 2), round(pf, 2), round(fr * pf),
                     round(_GIRO_DE.get((s, q_, b_), 0.0), 2),
-                    round(elig.get(a, 0)), 0 if _proj else u,
-                    0 if _proj else forma_de(u),
+                    round(_dog), 0 if _sem_dono else u,
+                    0 if _sem_dono else forma_de(u),
                     0 if _proj else min(7, posto[a]*8//N),
                     0 if _proj else familia_de.get(a, 0),
                     0 if _proj else (1 if a in dsc else 0),
@@ -5103,8 +5440,12 @@ print('  a queima, por motivo: %.0f km testada estreita demais para o lote da ve
       file=sys.stderr)
 print('  vãos reaproveitados: %d lotes, %.1f km de testada que antes se perdia'
       % (ORC.get('vao_n',0), ORC.get('vao_usado',0)/1000), file=sys.stderr)
-print('  sondagem: %d pegadas aprovadas, %d barradas por máscara, %d barradas pelo teto'
-      % (REJ['ok'], REJ['mascara'], REJ['declive']), file=sys.stderr)
+# ⚠️ A REPARTIÇÃO SAI POR MOTIVO, sempre. Laço que rejeita candidato e só
+# imprime o total é laço cego: foi contando por motivo que a orla da baía
+# descobriu que os quatro dedos eram 100% rampa de praia. Total não é
+# diagnóstico.
+print('  sondagem: %d pegadas aprovadas, %d por máscara, %d abaixo da lâmina, %d pelo teto de declive'
+      % (REJ['ok'], REJ['mascara'], REJ['agua'], REJ['declive']), file=sys.stderr)
 _ct = sorted(COTA.get(a, 0.0) for *_r, a in ((0, 0, 0, r[3]) for r in saida))
 print('  cota de testada: mínima %.1f m | mediana %.1f | máxima %.1f'
       % (_ct[0], _ct[_nn//2], _ct[-1]), file=sys.stderr)
