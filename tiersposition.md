@@ -71,8 +71,8 @@ Qualquer regra de posição baseada em tier PRECISA dizer o que fazer com os 68,
 | 1 | Satoshi Visionary | 88 | Orla Nobre, frente, **23,2° a 77,7°** (centro do arco) | 🔒 **fechado** (§3.1, §3.2) |
 | 2 | BTC Maximalist | 99 | Orla Nobre, frente, os dois flancos | 🔒 **fechado** (§3.1, §3.2) |
 | 3 | Rune Master | 258 | Orla Nobre, fileira de trás | 🔒 **fechado** (§3.1, §3.2) |
-| 4 | Ordinal Believer | 715 | Orla interna da baía, **de frente para as mansões** | 🔒 lugar decidido (§3.3) |
-| 5 | DOG Supporter (`dog_legend`) | 1.347 | Segunda faixa, **atrás do tier 4** | 🔒 lugar decidido (§3.3) |
+| 4 | Ordinal Believer | 713 | Orla da baía: dedos e praia, **de frente para as mansões** | 🔒 **fechado** (§3.3 lugar, §3.13 forma) |
+| 5 | DOG Supporter (`dog_legend`) | 1.349 | Orla da baía: os quatro anéis de canal, **atrás do tier 4** | 🔒 **fechado** (§3.3 lugar, §3.13 forma) |
 | 6 | Diamond Paws | 19.289 | **Tecido de bairros** (miolo entre a praça e o cinturão) | 🔒 lugar decidido (§3.4) |
 | 7 | HODL Hero | 301 | O Grupo (§3.5) | 🔒 regra decidida |
 | 8 | Steady Holder | 411 | O Grupo (§3.5) | 🔒 regra decidida |
@@ -231,6 +231,11 @@ por cima.
 ⚠️ Escopo desta decisão é **o lugar, não o lote.** Testada, área, gabarito e ordem interna
 ficam para quando o desenho daquela orla for feito. Dono, 2026-09-10: *"não precisamos
 definir posicionamento e tamanho exato dos lotes agora, só onde cada tier vai ficar"*.
+
+➡️ **O desenho foi feito em 21/09 e está na §3.13.** As contagens desta seção (715 e 1.347)
+são de 10/09 e foram superadas pelo snapshot fixado: são **713 e 1.349**. A leitura de
+"12,1 m de testada é casa urbana, e é o ponto" sobreviveu inteira — a mediana entregue é
+15,8 m.
 
 **MEDIDO.** A orla interna, varrendo o relevo com a lâmina em −40:
 
@@ -530,6 +535,12 @@ pedra e ainda multiplicou o airdrop. C na segunda, atrás do boulevard: comprou 
 mercado, com convicção e sem histórico. **MEDIDO:** os dois somam 15,20 km² e a faixa nobre
 tem 20,56 km² livres depois dos tiers 4 e 5.
 
+🚫 **ESTA PARTE CAIU EM 21/09, E NÃO POR MUDANÇA DE IDEIA: A TERRA NÃO EXISTE.** Os
+"20,56 km² livres" vinham de uma orla imaginada sobre a margem natural sinuosa. A orla que
+foi desenhada e gerada (§3.13) tem **2,60 km² no total**, todos comprometidos com os tiers
+4 e 5. Classe A e classe C continuam sem endereço próprio e o assunto está aberto na §4.
+O que sobreviveu intacto desta seção é a **Runestone no quintal**, que não custa terra.
+
 **DECIDIDO. Os 5,36 km² que sobram são do projeto, espalhados irregularmente** ao longo da
 costa, e não num trecho contínuo. Dono, 2026-09-11. Parcela de projeto concentrada num
 pedaço só monopolizaria um setor da orla; espalhada, ela costura a frente de água inteira e
@@ -614,6 +625,113 @@ com pedra E Diamond Paws      18.633  de 19.279   (96,6%)
 Usar o arquivo corrente marcaria 8 carteiras que não tinham pedra às 08:26 e deixaria de
 fora 13 que tinham. O rastreio para trás é por posição de sat e está validado em 9 de 9
 casos de dono inequívoco (ver o cabeçalho do artefato).
+
+### 3.13 — A orla da baía: a FORMA, não só o lugar (🔒 2026-09-21)
+
+A §3.3 fechou **onde** os tiers 4 e 5 moram e disse com todas as letras que testada, área
+e ordem interna ficavam para depois. Isto aqui é o depois. Desenho aprovado pelo fundador
+em 21/09 (*"e se a gente usar um pouco de cada uma das opções?"*, depois *"se for preciso
+crie algumas penínsulas"*, e por fim *"testada curva com ctz"*), implementado no mesmo dia.
+
+**O problema, MEDIDO:** a margem interna da baía varia de r 3.400 a 5.720 no arco. Uma
+margem que serpenteia 2.300 m não dá fileira contínua nem praia. Diagnóstico do fundador:
+*"a margem é sinuosa demais para fileira contínua e praia decente"*.
+
+**DECIDIDO — quatro peças, arco de 100° simétrico no eixo 51,3° (o mesmo eixo da alça):**
+
+| | o quê | por quê |
+|---|---|---|
+| **praia imposta** | círculo de linha d'água em r 4.800, praia de 80 m a 1:8 | o mesmo gesto do `ALCA_R_BAIA` na margem de lá: a linha d'água vira DESENHO, não achado de relevo |
+| **enseada** | 20° no eixo (41,3 a 61,3), a água mergulha até r 3.780 num seno | devolve 1.370 m de aproximação de barco à ilha do mirante (§11.4) contra 350 m se o círculo valesse ali; **zero lote**, é praia pública |
+| **quatro dedos** | penínsulas em 11,3 / 31,3 / 71,3 / 91,3, de r 4.720 à ponta em 6.150, seção de 182 m | passo igual de 20° com o slot central VAGO porque ali é a enseada: excluir em vez de desalinhar |
+| **dois anéis de canal** | eixos em r 4.532 e 4.242, lâmina de 57 m (escala grachten) | transformam UMA fileira de frente d'água em cinco |
+
+**DECIDIDO — a regra de área é a INVERSA da Orla Nobre, e isso foi medição, não gosto.**
+Na alça a testada é fixa e o fundo varia. Aqui não fecha: o maior Ordinal Believer tem
+7.997 m² prometidos e a 24 m de testada isso pediria 330 m de fundo, cinco vezes a seção
+inteira do distrito. Numa faixa estreita entre a praia e o canal quem não pode variar é o
+fundo. Então **fundo travado em 68 m e testada = área ÷ 68**.
+
+⚠️ **O efeito colateral é o melhor resultado do desenho:** cada lote recebe a área
+publicada EXATA, sem piso e sem teto. **MEDIDO na cidade gerada: 2,587 km² entregues
+contra 2,587 km² prometidos, razão 1,000.** Nenhum outro pedaço da cidade entrega isso.
+
+A testada é que varia, e ela conta a história: **13,7 m** no menor DOG Supporter,
+**15,8 m** de mediana do distrito, **117,6 m** no maior Ordinal Believer. A §3.3 já tinha
+antecipado a leitura e vale repetir: *"doze metros é o ponto, não o defeito"* — casa
+urbana de canal, no espírito de Amsterdam, um degrau abaixo do estate da alça.
+
+**DECIDIDO — a ordem de quem fica onde.** Dentro de cada tier, `change_pct` decrescente
+(melhor comportamento primeiro), a mesma régua da Orla Nobre. A fila corre por trechos que
+**avançam juntos**, não um de cada vez: é requisito de desenho, porque enchendo trecho a
+trecho os melhores endereços cairiam todos de um lado da enseada. Ordem dos trechos:
+
+1. os quatro dedos, do par mais perto do eixo para fora (31,3 e 71,3 antes de 11,3 e 91,3),
+   e dentro de cada dedo **da ponta para a base** — a ponta tem água nos três lados;
+2. a praia, abrindo **da enseada para os flancos**;
+3. os quatro anéis de canal, de fora para dentro, cada um também da enseada para o flanco.
+
+⚠️ **O tier 4 transborda para o primeiro anel, e isso é de propósito.** Dedo mais praia dão
+17,3 km de testada e o tier 4 precisa de 16,0: sobra para os melhores DOG Supporter
+pegarem praia. A divisa entre os dois tiers é a fila, não uma linha no mapa.
+
+**MEDIDO — o que rejeita, e os dois defeitos que a medição pegou** (a sondagem conta motivo
+por motivo em `OB_REJ`, no gerador):
+
+```
+1ª rodada   ok 43%   declive 31%   anel 20%   canal 5%   programa 1%   água 0%   -> 1.149 de 2.062
+2ª rodada   ok 88%   declive  0%   anel  2%   canal 5%   programa 4%   água 0%   -> 2.062 de 2.062
+```
+
+- **declive 31%** eram os dedos, todos eles. Eu tinha dado ao dedo a mesma praia de 80 m da
+  costa: numa península de 166 m os 80 m de cada lado se encontram no meio, o dedo inteiro
+  virava rampa de 12,5% e **nenhum lote nascia nos quatro dedos, sem um aviso**. A lateral
+  do dedo é **cais** (15 m de enrocamento), não praia — que é o que a palavra já dizia no
+  desenho aprovado. Seção final 182 m: cais 17 + lote 68 + rua 12 + lote 68 + cais 17.
+- **anel 20%** era a **Avenida do Cinturão (AN4, r 4.450, caixa de 30 m)**, que atravessa o
+  distrito inteiro. A fileira do meio estava em r 4.444, dentro da caixa dela: 6,1 km de
+  testada mortos. Desviar o anel foi descartado (ele é círculo por decisão publicada);
+  **o AN4 virou o bulevar do distrito**, com fileira de cada lado. Toda orla que funciona
+  tem uma arterial atrás dela.
+
+**A seção final, de fora para dentro** (tudo lido de `app/city/plaza/orla-baia.ts` pelo
+gerador; mudar lá muda o loteamento aqui, sem cópia de número):
+
+```
+4.800  linha d'água imposta
+4.720  pé da praia = testada da fileira A   tier 4, olha a baía
+4.652  fundo de A, que encosta no fundo de B
+4.584  testada de B                         tier 5, olha o canal 1
+4.532  eixo do canal 1  (lâmina 57 m, corredor 100)
+4.467  a caixa do AN4 começa
+4.433  a caixa do AN4 acaba
+4.430  testada de C                         tier 5, olha o bulevar
+4.362  fundo de C, que encosta no fundo de D
+4.294  testada de D                         tier 5, olha o canal 2
+4.242  eixo do canal 2
+4.190  testada de E                         tier 5, canal 2 pela outra banda
+4.120  a borda interna do distrito
+```
+
+**MEDIDO — o que a obra move, e uma peça andou:** o **Campo Solar Leste (B01)** estava em
+rumo 100 e caía dentro do distrito. Mover um campo solar é mais barato que aparar o arco
+(aparar para 92° custaria 838 m de praia). Ele foi para **rumo 109**, entre a posição
+antiga e o Reservatório do Cinturão (118), sem tocar em nenhum dos dois.
+
+⚠️ **A BAÍA NÃO CRESCEU, ao contrário do que o estudo previa.** O estudo de 21/09 dizia
++0,414 km². **MEDIDO na cidade gerada: 20,18 km² contra 21,04 km² do §18.4, ou seja −4,1%.**
+Os dedos (mais largos e 100 m mais longos do que o estudo supunha) tiram mais água do que a
+enseada devolve. A lâmina continua sendo a maior da cidade e o canal até a alça continua
+navegável, mas o número do estudo não vale e não deve ser publicado.
+
+⚠️ **ISTO NÃO RESOLVE A §3.9.** A §3.9 (11/09) destinava a orla da baía também às classes A
+e C do cruzamento pedra-mais-DOG, 15,20 km² para 6.393 carteiras, com a conta de que a
+faixa nobre teria 20,56 km² livres. **Essa terra não existe**: o distrito inteiro tem
+2,60 km² e está todo comprometido com os tiers 4 e 5. A decisão de A e C ganharem orla está
+**sem chão** e volta para as pendências (§4) — o prêmio que sobrevive intacto é a
+**Runestone no quintal**, que por construção não custa terra.
+
+---
 
 ### 3.11 — O piso de 40 m² cai; a curva passa a ser geométrica (🔒 2026-09-12)
 
@@ -705,6 +823,26 @@ linkado de lugar nenhum.
 continuam sendo duas definições de distrito. Isso morre sozinho quando o gerador for
 reconstruído a partir do §3 deste arquivo, e não antes.
 
+
+**P10 — Onde moram a classe A e a classe C da §3.9.** REABERTO em 2026-09-21, e não por
+mudança de ideia: a §3.9 destinou a orla da baía aos dois grupos contando com 20,56 km² de
+faixa nobre livre, e a orla que foi desenhada e gerada (§3.13) tem **2,60 km² no total**,
+inteiramente comprometidos com os tiers 4 e 5. São **6.393 carteiras** (2.322 da classe A e
+4.071 da C) pedindo **15,20 km²** que não existem naquela margem.
+
+Três saídas, nenhuma medida ainda:
+
+1. **Nada muda de lugar, e a distinção vira só o prêmio.** A Runestone no quintal já foi
+   decidida (§3.9, fecho da rodada) e não custa terra; classe A e C continuam no tecido,
+   com o monumento marcando quem são. É a saída barata e é coerente com o *"não precisa
+   reposicionar nada"* do próprio fundador naquele dia.
+2. **Um segundo distrito de água**, em outro corpo d'água que não a baía. Precisa medir
+   onde, e a cidade está com razão 0,98 de área: terra nova sai de onde?
+3. **Prioridade dentro do tecido** em vez de endereço próprio: A e C entram na frente na
+   fila do bairro, ou seja ganham posição e não paisagem.
+
+⚠️ Enquanto isto estiver aberto, **a §3.9 não pode ser citada como se a orla fosse de A e
+C**: esse trecho está marcado como caído lá mesmo.
 
 **P9 — Os holders que estão em corretora.** ABERTO, e é o único item desta lista com
 prazo público: o snapshot é amanhã e a landing já diz que saldo em corretora não é lido.

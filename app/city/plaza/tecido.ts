@@ -151,7 +151,26 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
   // `distritos` quando os 12 setores de 7,5° deram lugar a 6 distritos desiguais.
   // `Array.from({length: undefined})` devolve array VAZIO, então `porSetor[s]`
   // era undefined e o módulo morria no primeiro lote: a cidade subia só com ruas.
-  const SET = meta.distritos ?? meta.setores ?? 12
+  const SET_TECIDO = meta.distritos ?? meta.setores ?? 12
+  // ⚠️ OS DISTRITOS ESPECIAIS TÊM BALDE PRÓPRIO, E ATÉ 22/09 NÃO TINHAM.
+  //
+  // O balde de instância existe para uma coisa só: dar a cada malha uma esfera
+  // de corte APERTADA, para o frustum descartar o setor inteiro numa comparação.
+  // O registro, porém, tem setores que não são distrito de tecido: a Orla Nobre
+  // grava setor 7, o Distrito Financeiro 8 e a Orla da Baía 9. Com
+  // `Math.min(SET - 1, setor)` os três caíam TODOS no balde do último distrito,
+  // e a esfera dele passava a envolver a cidade inteira — ou seja o distrito
+  // com mais lotes da cidade deixava de ser cortado, por causa de um punhado de
+  // lotes do outro lado do mapa.
+  //
+  // Enquanto eram 532 lotes (Orla Nobre e Financeiro) isso passou batido. Com a
+  // Orla da Baía são 2.594 lotes espalhados por 130° de arco, e o balde
+  // envenenado é o maior da cidade. O conserto é não amontoar: o número de
+  // baldes sai do MAIOR setor que o arquivo traz, e cada um fica com a esfera
+  // que é de fato a dele.
+  let setorMax = SET_TECIDO - 1
+  for (let i = 0; i < n; i++) setorMax = Math.max(setorMax, dv.getUint8(i * REG + 4))
+  const SET = setorMax + 1
   const porSetor: { m: number[]; c: number[] }[] = Array.from({ length: SET }, () => ({ m: [], c: [] }))
   const m4 = new THREE.Matrix4()
   const cor = new THREE.Color()
@@ -211,7 +230,7 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
     pos.set(x, base, z)
     esc.set(Math.max(3, frente - RECUO * 2), alt, Math.max(3, prof - RECUO * 2))
     m4.compose(pos, q, esc)
-    const sSet = Math.min(SET - 1, setor)
+    const sSet = setor < SET ? setor : SET - 1
     porSetor[sSet].m.push(...m4.elements)
 
     if (pintura === 'idade') cor.set(CORES_COORTE[Math.min(7, coorte)])
@@ -313,7 +332,7 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
       qm.setFromAxisAngle(eixoY, ang)
       pm.set(wx, o.heightAt(wx, wz), wz)
       mm.compose(pm, qm, em)
-      marcosPorSetor[Math.min(SET - 1, setor)].push(...mm.elements)
+      marcosPorSetor[setor < SET ? setor : SET - 1].push(...mm.elements)
     }
     for (let sIdx = 0; sIdx < SET; sIdx++) {
       const arr = marcosPorSetor[sIdx]

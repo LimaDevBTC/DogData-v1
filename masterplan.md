@@ -1802,3 +1802,52 @@ posição (masterplan contra código), a curva de área (landing contra gerador)
 alça (6.950 na cena contra 7.600 no gerador), a baía (real contra faixa de artefato) e agora
 a plataforma (-30 na cena contra +13 no gerador). Nenhum quebra build, nenhum aparece em
 teste, e todos produzem cidade plausível. Só medição cruzada entre as duas pontas pega.
+
+---
+
+## §22 — A Orla da Baía 🔒 (21/09/2026)
+
+A última peça grande do registro. Caderno completo em `tiersposition.md` §3.13; aqui fica
+só o que é lei de plano-diretor.
+
+**O que é.** A margem oposta da baía, arco de 100° simétrico no eixo 51,3° (o mesmo eixo
+da alça), virou distrito residencial dos **tiers 4 e 5**: 2.062 lotes, 2,587 km². A alça é
+a fachada da baía e esta é a arquibancada que a vê.
+
+**As quatro peças:** praia imposta num círculo de r 4.800 (o mesmo gesto do `ALCA_R_BAIA`
+na margem de lá), uma enseada de 20° no eixo onde a água mergulha a r 3.780 e **não nasce
+lote nenhum**, quatro dedos (penínsulas) em 11,3 / 31,3 / 71,3 / 91,3, e dois anéis de
+canal que transformam uma fileira de frente d'água em cinco.
+
+**A lei que sai daqui, e ela é nova:** neste distrito o **fundo é travado em 68 m e a
+testada é a área ÷ 68**, o inverso da Orla Nobre. Não é preferência: o maior Ordinal
+Believer tem 7.997 m² prometidos e a testada fixa isso pediria 330 m de fundo, cinco vezes
+a seção inteira. **Consequência publicável: o distrito entrega 2,587 km² contra 2,587 km²
+prometidos, razão 1,000.** É o único pedaço da cidade que entrega a curva exata.
+
+**A Avenida do Cinturão virou bulevar de bairro.** O AN4 (r 4.450, caixa de 30 m)
+atravessa o distrito. A primeira seção o ignorou e pôs uma fileira dentro da caixa dele:
+6,1 km de testada morreram calados. Desviar o anel foi descartado — ele é círculo por
+decisão publicada. **Regra que fica: quando um anel viário atravessa um distrito novo, o
+distrito se organiza em volta dele, o anel não desvia.**
+
+**⚠️ O DEDO NÃO TEM PRAIA, E ISSO QUASE PASSOU.** Eu dei à península a mesma rampa de
+80 m a 1:8 da costa. Numa faixa de 166 m as duas praias se encontram no meio: o dedo
+inteiro virava rampa de 12,5%, o teto de declive do §15 reprovava tudo e **nenhum lote
+nasceu nos quatro dedos** — sem erro, sem aviso, só 913 carteiras "que não couberam".
+
+A lição não é sobre praia. É que **um perfil de beira tem de ser dimensionado contra a
+LARGURA da terra que ele beira**, e que rejeição silenciosa em laço de plantio é o mesmo
+defeito do `if r:` sem `else` que o §16.3 já tinha catalogado. O conserto que fez os dois
+aparecerem foi contar o motivo: `OB_REJ` separa água, programa, canal, anel e declive, e
+foi a linha `declive 31%` que apontou o dedo. **Laço de plantio sem contador de motivo é
+laço cego.**
+
+**O que o estudo previu e a obra desmentiu:** o estudo de 21/09 dizia que a baía CRESCERIA
+0,414 km². Medido na cidade gerada: **20,18 km², contra 21,04 do §18.4, ou seja −4,1%**. Os
+dedos tiram mais água do que a enseada devolve. Não publicar o número do estudo.
+
+**O que caiu junto:** a §3.9 do caderno (11/09) prometia esta mesma orla às classes A e C
+do cruzamento pedra-mais-DOG, 15,20 km² para 6.393 carteiras. Essa terra nunca existiu — a
+conta vinha de uma orla imaginada sobre a margem natural sinuosa. Está reaberto como P10 no
+caderno. O prêmio que sobrevive é a **Runestone no quintal**, que não custa terra.

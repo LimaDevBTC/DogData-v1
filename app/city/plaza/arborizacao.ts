@@ -60,6 +60,12 @@
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
 import { AVENIDAS, anelRaio, aneisDaCidade, avenidasGeom, emAvenida, naAlcaDeTerra, noArcoDoAnel } from './teia'
+// ⚠️ A ORLA DA BAÍA É A SEGUNDA EXCEÇÃO DA TEIA, irmã da alça: `vias.ts` já
+// removeu o pavimento dela do arco 1,3° a 101,3°, e sem esta máscara a
+// arborização planta canteiro e calçada de avenida sobre asfalto que não
+// existe mais. É exatamente a armadilha que o cabeçalho de `teia.ts` registra:
+// cada módulo corrigindo a própria cópia e nunca a do vizinho.
+import { naOrlaDaBaia } from './orla-baia'
 import { look2 } from './look'
 import type { DistanceCuller } from './perf'
 import {
@@ -359,7 +365,7 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
     if (r < rMin || r > rMax) return false
     if (emPeca(px, pz)) return false
     if (molhado(px, pz)) return false
-    if (naAlcaDeTerra(px, pz)) return false
+    if (naAlcaDeTerra(px, pz) || naOrlaDaBaia(px, pz)) return false
     return !emViaAlheia(px, pz, FOLGA_VIA, propria)
   }
   /** empurra a muda recusada para o ponto legal mais próximo, ao longo da fileira
@@ -397,7 +403,7 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
     // ⚠️ ZERO ÁRVORE DE BAIRRO NO ARCO DA ALÇA, EM NENHUMA PASSADA (cova,
     // canteiro de bulevar, contorno de quarteirão ou travessa passam todos
     // por aqui): a orla nobre é plantada só por `orla.ts`.
-    if (naAlcaDeTerra(x, z)) { rejAlca++; return }
+    if (naAlcaDeTerra(x, z) || naOrlaDaBaia(x, z)) { rejAlca++; return }
     if (evitaVia && (noBulevar(x, z) || noAnel(x, z))) return
     if (emViaAlheia(x, z, FOLGA_VIA, propria)) {
       rejVia++
@@ -559,7 +565,7 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
         // rotatória de acesso: sem este corte a calçada de bulevar planta
         // esfera genérica em fileira reta, perpendicular à avenida circular
         // da orla, os 350 m inteiros. MEDIDO: 1.020 pontos (255 por rumo).
-        if (naAlcaDeTerra(x, z)) { rejAlca++; continue }
+        if (naAlcaDeTerra(x, z) || naOrlaDaBaia(x, z)) { rejAlca++; continue }
         if (mudas.length >= TETO) break
         if (emViaAlheia(x, z, FOLGA_VIA, naSecaoDoBulevar)) {
           rejVia++
@@ -627,7 +633,7 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
       // canteiro sobre o mesmo arco (`naAlcaDeTerra`); fora dele (as duas
       // pontas de acesso, 330° a 346° e 116,5° a 120°) o anel continua
       // plantando normalmente, porque ali é rotatória de verdade, não orla.
-      if (a.circulo && naAlcaDeTerra(x, z)) { rejAlca++; continue }
+      if (a.circulo && (naAlcaDeTerra(x, z) || naOrlaDaBaia(x, z))) { rejAlca++; continue }
       if (Math.hypot(x, z) < rMin || Math.hypot(x, z) > rMax) continue
       if (emPeca(x, z) || molhado(x, z) || noBulevar(x, z)) continue
       // ⚠️ A FILEIRA DO ANEL SÓ TEM DIREITO AO CANTEIRO DO PRÓPRIO ANEL. Fora da

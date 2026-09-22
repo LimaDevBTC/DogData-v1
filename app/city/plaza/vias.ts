@@ -51,6 +51,7 @@ import { corCurta, normalCurta } from './atributos'
 import { LIMIAR_PRACA } from './pracas'
 import type { DistanceCuller } from './perf'
 import { ANEIS, AVENIDAS, HR, N_RAD, aneisDaCidade, anguloDe, avenidasGeom, naAlcaDeTerra, nasceEm, noArcoDoAnel, raioDodeca } from './teia'
+import { ORLA_BAIA_ARCO, ORLA_BAIA_VIAS, naOrlaDaBaia } from './orla-baia'
 import { look2 } from './look'
 import { superficie, vestir, type Superficie } from './materiais'
 
@@ -555,7 +556,13 @@ function noRadialDaTeia(x: number, z: number): boolean {
   // (exatamente o passo dos 168 radiais). Fora do arco da alça (onde a
   // avenida ainda corre mas a rua local existe de verdade) a contagem
   // praticamente zera.
-  if (naAlcaDeTerra(x, z)) return false
+  // ⚠️ E A ORLA DA BAÍA ENTRA NA MESMA PERGUNTA. Esta função estava chamando
+  // `naAlcaDeTerra` DIRETO, sem passar pela const local `naAlca`, que é quem
+  // sabe das duas exceções: dentro do arco da orla ela continuaria abrindo boca
+  // de radial no ombro do AN4 em ~47 rumos, para uma teia fina que não existe
+  // mais ali. É o mesmo "buraco no gramado sem rua nenhuma saindo dali" que o
+  // comentário acima diz ter consertado para a alça.
+  if (naAlcaDeTerra(x, z) || naOrlaDaBaia(x, z)) return false
   // ⚠️ O RADIAL FINO SÓ EXISTE DE ANEIS[13] PARA FORA (`nasceEm`), e abrir a boca
   // dele antes disso rasgaria a berma do Anel Interior e do Anel Médio em 84
   // pontos onde não chega rua nenhuma.
@@ -980,6 +987,17 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   // vértice 7.600 que cai na água em 209 dos 262 rumos do arco. Aqui ela vira o
   // círculo de r 6.950 que segue a alça.
   meta.aneis = aneisDaCidade(meta.aneis ?? []) as Anel[]
+  // ⚠️ AS QUATRO RUAS DA ORLA DA BAÍA ENTRAM AQUI, PELO MESMO CAMINHO DA AN7.
+  // Elas são círculo de verdade limitado a um arco, que é exatamente o par
+  // `circulo` + `arco` que esta interface já aceita — nenhum desenho novo. Sem
+  // elas o distrito fica com 2.062 lotes e nenhuma via: a teia genérica foi
+  // proibida ali (`naOrlaDaBaia`) porque é dodecágono e a fileira é círculo.
+  // A fileira C não precisa de rua própria: a via dela é o AN4, que já está na
+  // lista acima.
+  meta.aneis = meta.aneis.concat(ORLA_BAIA_VIAS.map((v) => ({
+    id: v.id, nome: v.nome, r: v.r, larg: v.larg, circulo: true,
+    arco: [ORLA_BAIA_ARCO[0], ORLA_BAIA_ARCO[1]] as [number, number],
+  })))
 
   const K = malha.constantes
   // ⚠️ `meio` ERA GLOBAL E VALIA 84 PARA A CIDADE INTEIRA. Com o quarteirão
@@ -1097,7 +1115,12 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   // ⚠️ E A CONTA MUDOU DE ENDEREÇO EM 07/09, sem mudar de valor: ela virou
   // `naAlcaDeTerra` em `teia.ts` porque as AUTOPISTAS precisavam da mesma
   // pergunta e não sabiam fazê-la. Ver a nota de `ALCA_R_DENTRO` lá.
-  const naAlca = naAlcaDeTerra
+  // ⚠️ DUAS EXCEÇÕES, UMA PERGUNTA. A alça e a orla da baía têm o mesmo
+  // problema e a mesma resposta: são desenhos de CÍRCULO dentro de uma teia de
+  // DODECÁGONO, e a teia atravessando qualquer uma das duas corta lote em
+  // diagonal. Quem consulta isto é o bulevar, a teia local e a via de orla;
+  // nunca o anel circular, porque os anéis circulares SÃO as vias dos dois.
+  const naAlca = (px: number, pz: number) => naAlcaDeTerra(px, pz) || naOrlaDaBaia(px, pz)
   // Vão máximo de uma face de via, em metros: ver a nota em faixa().
   //
   // ⚠️ DOG GAME MODE, FASE 1 (09/09): 24 m evitava FURO (a via sumindo por
