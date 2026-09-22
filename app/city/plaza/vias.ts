@@ -1602,7 +1602,7 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
       if (paraNaAgua(mx, mz)) continue
       // ⚠️ E A ALÇA SÓ TEM A AVENIDA CENTRAL. A radial entra na rotatória em
       // 6.972 e para ali; sem isto ela seguia até a praia da baía e morria lá.
-      if (naAlca(mx, mz)) continue
+      if (!ignoraExcecao && naAlca(mx, mz)) continue
       // ⚠️ A PARCELA NÃO CORTA A AVENIDA. Auditado por raycast em 31/08: 15
       // interrupções nas 12 avenidas, com vãos de até 600 m, todas onde uma
       // parcela do programa cai em cima da via. A rua é a estrutura primária
@@ -1885,7 +1885,7 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     const r0 = ORLA_BAIA_R_FRENTE - ORLA_BAIA_RUA, r1 = ORLA_BAIA_DEDO_PONTA
     faixa(dirX * r0 - perpX * larg / 2, dirZ * r0 - perpZ * larg / 2,
           dirX * r1 - perpX * larg / 2, dirZ * r1 - perpZ * larg / 2,
-          perpX, perpZ, secao, false)
+          perpX, perpZ, secao, false, 0, 0, false, 0, true)
   }
 
   // ── 2. os 12 bulevares de costura, e só eles ganham marcação ──────────────
