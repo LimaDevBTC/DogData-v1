@@ -57,6 +57,64 @@ def ps(*a):
     os.makedirs(os.path.dirname(destino), exist_ok=True)
     return destino
 
+def _ts_const(caminho, chave):
+    """lê `chave: valor` ou `chave = valor` de um .ts, número ou par [a, b]."""
+    txt = open(p_ts(caminho), encoding='utf-8').read()
+    # ⚠️ O TIPO ENTRA NO MEIO. `export const ALCA_TERRA: [number, number] = [346,
+    # 116.5]` tem anotação entre o nome e o valor, e um regex que exige `=` logo
+    # depois do nome lê o tipo como se fosse o valor, ou não lê nada. O `[^=]*`
+    # abaixo pula a anotação sem atravessar o sinal de igual.
+    m = re.search(rf'\b{chave}\s*(?::[^=\n]*)?[:=]\s*\[\s*(-?[0-9.]+)\s*,\s*(-?[0-9.]+)', txt)
+    if m: return (float(m.group(1)), float(m.group(2)))
+    m = re.search(rf'\b{chave}\s*(?::[^=\n]*)?[:=]\s*(?:[A-Za-z_][A-Za-z0-9_.]*\()?\s*(-?[0-9.]+)', txt)
+    if m: return float(m.group(1))
+    raise SystemExit(f'gerar_cidade: nao achei {chave} em {caminho}. '
+                     'A cena mudou e o gerador tem de acompanhar, nunca adivinhar.')
+
+p_ts = lambda nome: p('app/city/plaza', nome)
+
+def _ts_lista(caminho, chave):
+    """lê `chave ... = [a, b, c, ...]` de um .ts. O `_ts_const` acima só sabe
+    ler par; os quatro rumos dos dedos da orla da baía precisam da lista toda,
+    e ler só dois deles plantaria metade das penínsulas."""
+    txt = open(p_ts(caminho), encoding='utf-8').read()
+    m = re.search(rf'\b{chave}\s*(?::[^=\n]*)?[:=]\s*\[([^\]]*)\]', txt)
+    if not m:
+        raise SystemExit(f'gerar_cidade: nao achei a lista {chave} em {caminho}.')
+    return [float(t) for t in re.findall(r'-?[0-9.]+', m.group(1))]
+
+def _ts_fileiras(caminho, chave):
+    """lê `ORLA_BAIA_FILEIRAS` como (raio, sentido, tier). A seção da orla da
+    baía é DESENHO, e desenho mora na cena: mudar a fileira lá tem de mudar o
+    loteamento aqui sem ninguém copiar número."""
+    txt = open(p_ts(caminho), encoding='utf-8').read()
+    m = re.search(rf'\b{chave}\b[^=]*=\s*\[(.*?)\n\]', txt, re.S)
+    if not m:
+        raise SystemExit(f'gerar_cidade: nao achei {chave} em {caminho}.')
+    out = []
+    for lin in re.finditer(r'\{\s*r:\s*(-?[0-9.]+)\s*,\s*sentido:\s*([+-]?1)\s*,\s*tier:\s*([0-9]+)', m.group(1)):
+        out.append((float(lin.group(1)), int(lin.group(2)), int(lin.group(3))))
+    if not out:
+        raise SystemExit(f'gerar_cidade: {chave} existe mas nenhuma fileira foi lida.')
+    return out
+
+_ALCA_TXT   = open(p_ts('teia.ts'), encoding='utf-8').read()
+_m = re.search(r'AVENIDA_ALCA\s*=\s*\{(.*?)\}', _ALCA_TXT, re.S)
+if not _m: raise SystemExit('gerar_cidade: AVENIDA_ALCA sumiu de teia.ts')
+_bloco = _m.group(1)
+ALCA_R    = float(re.search(r'\br\s*:\s*([0-9.]+)', _bloco).group(1))
+ALCA_LARG = float(re.search(r'\blarg\s*:\s*([0-9.]+)', _bloco).group(1))
+_arco = re.search(r'arco\s*:\s*\[\s*([0-9.]+)\s*,\s*([0-9.]+)', _bloco)
+ALCA_ARCO = (float(_arco.group(1)), float(_arco.group(2)))
+ALCA_TERRA_ARCO = _ts_const('teia.ts', 'ALCA_TERRA')
+ALCA_R_BAIA = _ts_const('alca.ts', 'ALCA_R_BAIA')
+ALCA_R_MAR  = _ts_const('alca.ts', 'ALCA_R_MAR')
+ALCA_PRAIA  = _ts_const('alca.ts', 'ALCA_PRAIA_LARGURA')
+print('alça lida da cena: via r %.0f larg %.0f, arco %.0f a %.0f, terra %.0f a %.0f, '
+      'água de %.0f a %.0f, praia %.0f m'
+      % (ALCA_R, ALCA_LARG, ALCA_ARCO[0], ALCA_ARCO[1], ALCA_TERRA_ARCO[0],
+         ALCA_TERRA_ARCO[1], ALCA_R_BAIA, ALCA_R_MAR, ALCA_PRAIA), file=sys.stderr)
+
 # ── o tabuleiro (plano-diretor.md cap. 6.3) ────────────────────────────────
 # ⚠️ O RAIO É UM NÚMERO SÓ, e ele tem teto de DADO, não de vontade: o heightmap
 # em public/lunar/btc-core-heightmap.json tem 137 células de 59,2 m, ou seja
@@ -1114,6 +1172,146 @@ def podio_peso(x, z):
     t = (r-PODIO_R0)/(PODIO_R1-PODIO_R0) if r < PODIO_R1 else (R3-r)/(R3-PODIO_R2)
     return t*t*(3-2*t)
 
+# ═══════════════════════════════════════════════════════════════════════════
+# O ESCULPIDO DA ALÇA, REPLICADO AQUI PORQUE O GERADOR PRECISA VER O MESMO CHÃO
+#
+# ⚠️ DEFEITO MEDIDO EM 21/09, E ELE É DE 43 METROS. A cena esculpe a alça numa
+# plataforma plana em -30 m (`alcaAlturaAt` em `alca.ts`), e o `altura()` daqui
+# só aplicava platô e pódio: os 511 lotes da Orla Nobre saíram gravados com
+# cota 13 m, que é a do pódio, contra os -30 que a cena desenha. É a mesma
+# classe do erro de 42 m que o spaceport já teve, e no endereço mais valioso
+# da cidade.
+#
+# A doutrina da casa manda LER a cena em vez de copiar, e as constantes são
+# lidas mesmo (ALCA_R_BAIA, ALCA_R_MAR, ALCA_PRAIA, o arco). O que não dá para
+# ler é a FORMA da função, então ela é replicada aqui com o mesmo desenho:
+# plataforma no meio, praia 1:8 de cada lado, rampa espelhada na escavação e
+# franja nas duas pontas do arco, medida em metros de arco e não em graus.
+ALCA_PLATAFORMA_Y = _ts_const('alca.ts', 'ALCA_PLATAFORMA_Y')
+ALCA_AGUA_Y       = _ts_const('alca.ts', 'ALCA_AGUA')
+ALCA_LEITO_Y      = ALCA_AGUA_Y - 4        # `ALCA_LEITO_Y = ALCA_AGUA - 4` em alca.ts
+ALCA_FRANJA       = _ts_const('alca.ts', 'ALCA_FRANJA_PONTAS')
+_ALCA_GATE_DENTRO, _ALCA_GATE_FORA = 5700.0, 7900.0
+_ALCA_LARGURA_ARCO = ((ALCA_TERRA_ARCO[1] - ALCA_TERRA_ARCO[0]) + 360) % 360
+
+def _alca_dist_borda(ang_graus):
+    g = ((ang_graus % 360) + 360) % 360
+    pos = ((g - ALCA_TERRA_ARCO[0]) + 360) % 360
+    if pos <= _ALCA_LARGURA_ARCO: return min(pos, _ALCA_LARGURA_ARCO - pos)
+    return -min(pos - _ALCA_LARGURA_ARCO, 360 - pos)
+
+def alca_altura(x, z, natural):
+    r = math.hypot(x, z)
+    if r <= _ALCA_GATE_DENTRO or r >= _ALCA_GATE_FORA: return natural
+    ang = math.degrees(math.atan2(x, -z)) % 360
+    if _alca_dist_borda(ang) < 0: return natural
+    dist = min(r - ALCA_R_BAIA, ALCA_R_MAR - r)
+    if dist >= ALCA_PRAIA:
+        alvo = ALCA_PLATAFORMA_Y
+    elif dist >= 0:
+        alvo = ALCA_AGUA_Y + (ALCA_PLATAFORMA_Y - ALCA_AGUA_Y) * (dist / ALCA_PRAIA)
+    elif dist >= -ALCA_PRAIA:
+        alvo = ALCA_AGUA_Y + (ALCA_LEITO_Y - ALCA_AGUA_Y) * (-dist / ALCA_PRAIA)
+    else:
+        alvo = ALCA_LEITO_Y
+    _m = _alca_dist_borda(ang) * (math.pi / 180) * r
+    k = 1.0 if _m >= ALCA_FRANJA else (lambda t: t*t*(3-2*t))(_m / ALCA_FRANJA)
+    return natural * (1 - k) + alvo * k
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# A ORLA DA BAÍA, REPLICADA AQUI PELO MESMO MOTIVO QUE A ALÇA
+#
+# ⚠️ A LIÇÃO DO §21 DO masterplan É EXATAMENTE ESTA: em 21/09 a Orla Nobre saiu
+# com cota errada por 43 m porque o gerador não sabia que a cena esculpia a
+# alça. O conferidor não pegou porque amostrava só onde já havia lote, e ali
+# não havia. Então a orla da baía nasce com o espelho no mesmo commit em que
+# nasce o chão — nunca depois.
+#
+# Tudo o que é NÚMERO é lido de `orla-baia.ts`. O que não dá para ler é a FORMA
+# da função, e ela é replicada abaixo zona por zona, na mesma ordem: linha
+# d'água (com a enseada), união com os dedos por máximo da distância assinada,
+# perfil radial (plataforma, praia, rampa espelhada, saia), canais cavando a
+# plataforma, saia para dentro e franja das pontas do arco.
+OB_ARCO      = _ts_const('orla-baia.ts', 'ORLA_BAIA_ARCO')
+OB_ENSEADA   = _ts_const('orla-baia.ts', 'ORLA_BAIA_ENSEADA')
+OB_R_AGUA    = _ts_const('orla-baia.ts', 'ORLA_BAIA_R_AGUA')
+OB_R_ENSEADA = _ts_const('orla-baia.ts', 'ORLA_BAIA_R_ENSEADA')
+OB_PRAIA     = _ts_const('orla-baia.ts', 'ORLA_BAIA_PRAIA')
+OB_R_FRENTE  = OB_R_AGUA - OB_PRAIA
+OB_R_FUNDO   = _ts_const('orla-baia.ts', 'ORLA_BAIA_R_FUNDO')
+OB_PROF      = _ts_const('orla-baia.ts', 'ORLA_BAIA_FILEIRA_PROF')
+OB_DEDO_LARG = _ts_const('orla-baia.ts', 'ORLA_BAIA_DEDO_LARGURA')
+OB_DEDO_PONTA= _ts_const('orla-baia.ts', 'ORLA_BAIA_DEDO_PONTA')
+OB_DEDO_CAIS = _ts_const('orla-baia.ts', 'ORLA_BAIA_DEDO_CAIS')
+OB_TESTADA_MIN = _ts_const('orla-baia.ts', 'ORLA_BAIA_TESTADA_MIN')
+OB_CANAL_FUNDO = _ts_const('orla-baia.ts', 'ORLA_BAIA_CANAL_FUNDO')
+OB_CANAL_TALUDE= _ts_const('orla-baia.ts', 'ORLA_BAIA_CANAL_TALUDE')
+OB_FRANJA    = _ts_const('orla-baia.ts', 'ORLA_BAIA_FRANJA')
+OB_SAIA      = _ts_const('orla-baia.ts', 'ORLA_BAIA_SAIA')
+OB_DEDOS     = _ts_lista('orla-baia.ts', 'ORLA_BAIA_DEDO_RUMOS')
+OB_CANAIS    = _ts_lista('orla-baia.ts', 'ORLA_BAIA_CANAL_EIXOS')
+OB_FILEIRAS  = _ts_fileiras('orla-baia.ts', 'ORLA_BAIA_FILEIRAS')
+OB_PLATAFORMA_Y = ALCA_PLATAFORMA_Y     # `= ALCA_PLATAFORMA_Y` em orla-baia.ts
+OB_AGUA_Y       = ALCA_AGUA_Y           # `= ALCA_AGUA` em orla-baia.ts
+OB_LEITO_Y      = ALCA_AGUA_Y - 4       # `= ALCA_AGUA - 4` em orla-baia.ts
+_OB_GATE_DENTRO, _OB_GATE_FORA = 3400.0, 6600.0
+
+def ob_linha_dagua(ang):
+    e0, e1 = OB_ENSEADA
+    if ang <= e0 or ang >= e1: return OB_R_AGUA
+    t = (ang - e0) / (e1 - e0)
+    return OB_R_AGUA - (OB_R_AGUA - OB_R_ENSEADA) * math.sin(math.pi * t)
+
+def ob_dist_terra(r, ang):
+    d = ob_linha_dagua(ang) - r
+    for rumo in OB_DEDOS:
+        g = ang - rumo
+        if g > 180: g -= 360
+        if g < -180: g += 360
+        if abs(g) > 20: continue
+        perp = abs(math.sin(math.radians(g))) * r
+        d = max(d, min(OB_DEDO_LARG / 2 - perp, OB_DEDO_PONTA - r))
+    return d
+
+def _ob_canal_cota(r):
+    meia_agua = OB_CANAL_FUNDO / 2
+    meia_tudo = meia_agua + OB_CANAL_TALUDE
+    for eixo in OB_CANAIS:
+        dd = abs(r - eixo)
+        if dd >= meia_tudo: continue
+        if dd <= meia_agua: return OB_LEITO_Y
+        return OB_LEITO_Y + (OB_PLATAFORMA_Y - OB_LEITO_Y) * ((dd - meia_agua) / OB_CANAL_TALUDE)
+    return None
+
+def orla_baia_altura(x, z, natural):
+    r = math.hypot(x, z)
+    if r <= _OB_GATE_DENTRO or r >= _OB_GATE_FORA: return natural
+    ang = math.degrees(math.atan2(x, -z)) % 360
+    a0, a1 = OB_ARCO
+    graus_franja = (OB_FRANJA * 180) / (math.pi * r)
+    if ang < a0 - graus_franja or ang > a1 + graus_franja: return natural
+    dist = ob_dist_terra(r, ang)
+    if dist >= OB_PRAIA:
+        alvo = OB_PLATAFORMA_Y
+        canal = _ob_canal_cota(r)
+        if canal is not None: alvo = min(alvo, canal)
+    elif dist >= 0:
+        alvo = OB_AGUA_Y + (OB_PLATAFORMA_Y - OB_AGUA_Y) * (dist / OB_PRAIA)
+    elif dist >= -OB_PRAIA:
+        alvo = OB_AGUA_Y + (OB_LEITO_Y - OB_AGUA_Y) * (-dist / OB_PRAIA)
+    else:
+        k = (lambda t: t*t*(3-2*t))(min(1.0, (-dist - OB_PRAIA) / OB_SAIA))
+        alvo = OB_LEITO_Y * (1 - k) + natural * k
+    r_interno = min(OB_R_FUNDO, ob_linha_dagua(ang) - OB_PRAIA)
+    if r < r_interno:
+        k = (lambda t: t*t*(3-2*t))(min(1.0, (r_interno - r) / OB_SAIA))
+        alvo = alvo * (1 - k) + natural * k
+    m = min(ang - a0, a1 - ang) * (math.pi / 180) * r
+    k = 1.0 if m >= OB_FRANJA else (lambda t: t*t*(3-2*t))(max(0.0, m) / OB_FRANJA)
+    return natural * (1 - k) + alvo * k
+
+
 def altura(x, z):
     b = crua(x, z); r = math.hypot(x, z)
     if r < PLATO_FUNDE:
@@ -1126,7 +1324,10 @@ def altura(x, z):
     # chão É 13 m, não "13 m acima do que havia". Somar deixaria o relevo cru
     # embaixo e a coroa continuaria ondulando 232 m.
     w = podio_peso(x, z)
-    return b*(1.0-w) + PODIO_Y*w
+    # ⚠️ A ORLA DA BAÍA POR FORA DA ALÇA, na MESMA ordem de `terrain.ts`: a
+    # alça cava o leito a -44 em todo o arco dela, que contém o da orla, e
+    # rodando primeiro apagaria as pontas dos dedos.
+    return orla_baia_altura(x, z, alca_altura(x, z, b*(1.0-w) + PODIO_Y*w))
 
 grade = [0.0]*(n*n)
 for j in range(n):
@@ -1419,7 +1620,14 @@ PROGRAMA_MALHA = [
 # de borda com profundidade constante só engrossaria o mesmo círculo.
 # (id, nome, tipo, rumo, raio do centro, meia testada, meia profundidade)
 PROGRAMA_BORDA = [
-  ('B01', 'Campo Solar Leste',        'distribuicao', 100, 4700, 300, 260),
+  # ⚠️ O CAMPO SOLAR ANDOU 9°, E FOI A ORLA DA BAÍA QUE O MOVEU (21/09). Em
+  # rumo 100 ele ocupava de 96,3° a 103,7° entre r 4.440 e 4.960, ou seja caía
+  # DENTRO do distrito da orla (arco 1,3 a 101,3, r 4.100 a 4.720). Mover um
+  # campo solar é mais barato que aparar o arco: aparar para 92° custaria 838 m
+  # de praia e levaria a testada do tier 4 para 23,3 m. Em 109 ele fica entre
+  # B01 e o Reservatório do Cinturão (118, que ocupa 116,1 a 119,9), sem tocar
+  # nem num nem no outro.
+  ('B01', 'Campo Solar Leste',        'distribuicao', 109, 4700, 300, 260),
   ('B02', 'Reservatório do Cinturão', 'distribuicao', 118, 4520, 150, 110),
   ('B03', 'Pátio de Manobra Sudeste', 'distribuicao', 133, 4780, 250,  95),
   ('B04', 'Campo de Radiadores',      'distribuicao', 150, 4880, 340, 190),
@@ -1502,37 +1710,6 @@ ANEIS = [
 # `scripts/city/conferir_terreno.py`: constante copiada diverge em silêncio, e
 # o remédio não é disciplina, é medição. Aqui vai além: o gerador não copia, ele
 # LÊ o arquivo da cena.
-def _ts_const(caminho, chave):
-    """lê `chave: valor` ou `chave = valor` de um .ts, número ou par [a, b]."""
-    txt = open(p_ts(caminho), encoding='utf-8').read()
-    # ⚠️ O TIPO ENTRA NO MEIO. `export const ALCA_TERRA: [number, number] = [346,
-    # 116.5]` tem anotação entre o nome e o valor, e um regex que exige `=` logo
-    # depois do nome lê o tipo como se fosse o valor, ou não lê nada. O `[^=]*`
-    # abaixo pula a anotação sem atravessar o sinal de igual.
-    m = re.search(rf'\b{chave}\s*(?::[^=\n]*)?[:=]\s*\[\s*(-?[0-9.]+)\s*,\s*(-?[0-9.]+)', txt)
-    if m: return (float(m.group(1)), float(m.group(2)))
-    m = re.search(rf'\b{chave}\s*(?::[^=\n]*)?[:=]\s*(?:[A-Za-z_][A-Za-z0-9_.]*\()?\s*(-?[0-9.]+)', txt)
-    if m: return float(m.group(1))
-    raise SystemExit(f'gerar_cidade: nao achei {chave} em {caminho}. '
-                     'A cena mudou e o gerador tem de acompanhar, nunca adivinhar.')
-
-p_ts = lambda nome: p('app/city/plaza', nome)
-_ALCA_TXT   = open(p_ts('teia.ts'), encoding='utf-8').read()
-_m = re.search(r'AVENIDA_ALCA\s*=\s*\{(.*?)\}', _ALCA_TXT, re.S)
-if not _m: raise SystemExit('gerar_cidade: AVENIDA_ALCA sumiu de teia.ts')
-_bloco = _m.group(1)
-ALCA_R    = float(re.search(r'\br\s*:\s*([0-9.]+)', _bloco).group(1))
-ALCA_LARG = float(re.search(r'\blarg\s*:\s*([0-9.]+)', _bloco).group(1))
-_arco = re.search(r'arco\s*:\s*\[\s*([0-9.]+)\s*,\s*([0-9.]+)', _bloco)
-ALCA_ARCO = (float(_arco.group(1)), float(_arco.group(2)))
-ALCA_TERRA_ARCO = _ts_const('teia.ts', 'ALCA_TERRA')
-ALCA_R_BAIA = _ts_const('alca.ts', 'ALCA_R_BAIA')
-ALCA_R_MAR  = _ts_const('alca.ts', 'ALCA_R_MAR')
-ALCA_PRAIA  = _ts_const('alca.ts', 'ALCA_PRAIA_LARGURA')
-print('alça lida da cena: via r %.0f larg %.0f, arco %.0f a %.0f, terra %.0f a %.0f, '
-      'água de %.0f a %.0f, praia %.0f m'
-      % (ALCA_R, ALCA_LARG, ALCA_ARCO[0], ALCA_ARCO[1], ALCA_TERRA_ARCO[0],
-         ALCA_TERRA_ARCO[1], ALCA_R_BAIA, ALCA_R_MAR, ALCA_PRAIA), file=sys.stderr)
 
 # a tabela acima fica com o registro certo, para a máscara e para `cidade-malha.json`
 ANEIS = [(i, ('Avenida da Alça' if i == 'AN7' else n),
@@ -1681,6 +1858,24 @@ def _na_orla_nobre(x, z):
     return ((ang - a0) % 360.0) <= ((a1 - a0) % 360.0)
 
 
+def _na_orla_baia(x, z):
+    """o distrito da orla da baía, MAIS os quatro dedos.
+
+    ⚠️ A MÁSCARA É EM METROS, NUNCA EM φ. O tecido é cortado por φ (a
+    superelipse) e o distrito é desenhado por RAIO, que é o que a cena esculpe.
+    Misturar as duas réguas aqui deslocaria a borda do distrito até 259 m
+    conforme o rumo, que é o mesmo erro que o anel dodecágono já custou.
+
+    A faixa vai da borda interna (4.100) até 120 m além da ponta do dedo: o
+    miolo é quase todo lâmina d'água hoje, e mascarar tudo é o que impede lote
+    de tecido de nascer numa península que vai existir.
+    """
+    r = math.hypot(x, z)
+    if not (OB_R_FUNDO - 20.0 <= r <= OB_DEDO_PONTA + 120.0): return False
+    ang = rumo_de(x, z)
+    return OB_ARCO[0] <= ang <= OB_ARCO[1]
+
+
 def livre(x, z):
     r = math.hypot(x, z)
     if r < R_INICIO: return False
@@ -1702,6 +1897,7 @@ def livre(x, z):
     # vai até φ 6.900: sem esta máscara o lote comum nasce em cima do lote de
     # tier 1, que é o pior defeito possível no endereço mais valioso da cidade.
     if _na_orla_nobre(x, z): return False
+    if _na_orla_baia(x, z): return False
     if em_lago(x, z, 30.0): return False
     # ⚠️ AS QUATRO PONTES DESEMBOCAM AQUI. Antes eram as costuras de setor; agora
     # as costuras de distrito estão em 0/62/108/186/240/308 e só o rumo 0
@@ -3500,6 +3696,163 @@ def planta_orla_nobre():
     return frente + tras
 
 # ═══════════════════════════════════════════════════════════════════════════
+# A ORLA DA BAÍA: OS TIERS 4 E 5 NA MARGEM QUE OLHA A ALÇA
+#
+# Caderno em `tiersposition.md` §3.3 (o lugar, fechado em 10/09) e §3.10 (a
+# forma, fechada em 21/09). Geometria lida de `orla-baia.ts`, que é quem
+# esculpe o chão: fileira, canal, dedo e enseada saem de lá, não daqui.
+#
+# ⚠️ A REGRA DE ÁREA AQUI É A INVERSA DA ORLA NOBRE, e isso está medido no
+# cabeçalho de `ORLA_BAIA_FILEIRA_PROF`. Lá a testada é fixa e o fundo varia;
+# aqui o fundo é travado pela seção (68 m entre a praia e o canal) e a TESTADA
+# é que varia, testada = área ÷ 68. O efeito é que cada lote recebe a área
+# publicada exata: a razão entregue/prometida do distrito é 1,000 por
+# construção, sem piso nem teto.
+#
+# ⚠️ OS TRECHOS AVANÇAM JUNTOS, e isso é requisito de desenho. Enchendo um
+# trecho de cada vez, os melhores endereços caem todos de um lado da enseada e a
+# orla sai assimétrica — e simetria em elemento repetido é regra do fundador.
+# Avançando junto, o melhor Ordinal Believer e o segundo ficam um de cada lado
+# do eixo, e os quatro dedos crescem no mesmo passo.
+S_OB = 8                      # setor 9 no endereço (S09-Q01-B{lote}-L001)
+OB_PASSO_SONDA = 12.0         # o mesmo passo de sondagem do tecido
+_OB_ANG_DEDO = lambda: [math.degrees((OB_DEDO_LARG / 2) / OB_R_FRENTE) for _ in OB_DEDOS]
+
+
+class FitaOrla:
+    """uma frente de testada feita de trechos que avançam no mesmo passo."""
+
+    def __init__(self):
+        self.trechos = []
+
+    def anel(self, r_f, sentido, a_ini, a_fim):
+        """um pedaço de fileira em arco. Corre de `a_ini` para `a_fim`, e é a
+        ORDEM dos dois que diz de que ponta ela enche: sempre da enseada para
+        o flanco."""
+        comp = abs(math.radians(a_fim - a_ini)) * r_f
+        if comp <= 0: return
+        self.trechos.append({'tipo': 'anel', 'comp': comp, 'cur': 0.0,
+                             'r': r_f, 'sentido': sentido, 'a0': a_ini,
+                             'sinal': 1.0 if a_fim > a_ini else -1.0})
+
+    def dedo(self, rumo, lado):
+        """uma banda de dedo, da PONTA para a base: a ponta é o endereço, ela
+        tem água nos três lados."""
+        comp = OB_DEDO_PONTA - OB_R_FRENTE
+        self.trechos.append({'tipo': 'dedo', 'comp': comp, 'cur': 0.0,
+                             'rumo': rumo, 'lado': lado})
+
+    def _geo(self, t, s, w):
+        """(x, z, giro) do lote que ocupa [s, s+w] deste trecho."""
+        if t['tipo'] == 'anel':
+            ang = t['a0'] + t['sinal'] * math.degrees((s + w / 2) / t['r'])
+            r_c = t['r'] + t['sentido'] * OB_PROF / 2
+            a = math.radians(ang)
+            return math.sin(a) * r_c, -math.cos(a) * r_c, ang % 360.0
+        rumo = t['rumo']; lado = t['lado']
+        ao_longo = OB_DEDO_PONTA - (s + w / 2)
+        perp = lado * (OB_DEDO_LARG / 2 - OB_DEDO_CAIS - OB_PROF / 2)
+        a = math.radians(rumo)
+        ux, uz = math.sin(a), -math.cos(a)          # o eixo do dedo, para fora
+        vx, vz = math.cos(a), math.sin(a)           # a perpendicular dele
+        return (ux * ao_longo + vx * perp, uz * ao_longo + vz * perp,
+                (rumo - 90.0) % 360.0)
+
+    def proximo(self, w):
+        """o próximo lote de testada `w`, no trecho menos adiantado. Devolve
+        (x, z, giro) ou None quando nenhum trecho tem mais espaço."""
+        for _ in range(4000):
+            cand = [t for t in self.trechos if t['cur'] + w <= t['comp']]
+            if not cand: return None
+            t = min(cand, key=lambda t: t['cur'] / t['comp'])
+            x, z, giro = self._geo(t, t['cur'], w)
+            if _ob_livre(x, z, giro, w):
+                t['cur'] += w
+                return x, z, giro
+            # ⚠️ ANDA, NÃO DESISTE. É a mesma sondagem de 12 m do tecido: o
+            # pedaço reprovado foi reprovado para ESTE lote, e o canal radial
+            # que atravessa o distrito tem 144 m de corredor — sem andar, o
+            # trecho inteiro morreria na primeira travessia.
+            t['cur'] += OB_PASSO_SONDA
+        return None
+
+    def sobra(self):
+        return sum(max(0.0, t['comp'] - t['cur']) for t in self.trechos)
+
+    def comprimento(self):
+        return sum(t['comp'] for t in self.trechos)
+
+
+def _ob_livre(x, z, giro, w):
+    """a pegada do lote está em terra seca, fora de canal e fora de peça?"""
+    c, sn = math.cos(math.radians(giro)), math.sin(math.radians(giro))
+    for dx, dz in ((0.0, 0.0), (-w/2, -OB_PROF/2), (w/2, -OB_PROF/2),
+                   (w/2, OB_PROF/2), (-w/2, OB_PROF/2)):
+        px, pz = x + dx*c - dz*sn, z + dx*sn + dz*c
+        # ⚠️ A ÁGUA SE TESTA PELA COTA DESENHADA, não pela máscara de lago. A
+        # máscara vem da grade de 59,2 m e o dedo tem 166 m de largura: ela
+        # reprovaria o dedo inteiro por causa da lâmina que passa a 8 m do cais.
+        if altura(px, pz) <= LAGO_COTA + 0.5: return False
+        if em_programa(px, pz) is not None: return False
+        if em_canal(px, pz, CANAL_TALUDE + 2.0): return False
+        if num_anel(px, pz) is not None: return False
+    return declive_lote(x, z, c, sn, 0.0, 0.0, w, OB_PROF) <= DECL_LOTE_MAX
+
+
+def _ob_fita():
+    """os trechos, em ordem de qualidade: dedo primeiro, depois a praia, depois
+    os quatro anéis de canal, cada fileira abrindo da enseada para o flanco."""
+    a0, a1 = OB_ARCO
+    e0, e1 = OB_ENSEADA
+    f = FitaOrla()
+    # 1. os quatro dedos, do par mais perto do eixo para fora
+    for rumo in sorted(OB_DEDOS, key=lambda g: abs(g - (a0 + a1) / 2)):
+        f.dedo(rumo, +1); f.dedo(rumo, -1)
+    # 2. a praia, partida pelos dedos que a atravessam
+    dg = math.degrees((OB_DEDO_LARG / 2) / OB_R_FRENTE)
+    for ini, fim, sentido_enseada in ((a0, e0, -1), (e1, a1, +1)):
+        cortes = sorted(g for g in OB_DEDOS if ini < g < fim)
+        bordas = [ini] + [b for g in cortes for b in (g - dg, g + dg)] + [fim]
+        pares = [(bordas[i], bordas[i+1]) for i in range(0, len(bordas) - 1, 2)]
+        # da enseada para o flanco: o setor de baixo enche de `e0` para `a0`
+        if sentido_enseada < 0: pares = [(b, a) for a, b in reversed(pares)]
+        for aa, bb in pares: f.anel(OB_R_FRENTE, -1, aa, bb)
+    # 3. os quatro anéis de canal, de fora para dentro
+    for r_f, sentido, _tier in OB_FILEIRAS[1:]:
+        f.anel(r_f, sentido, e0, a0)      # setor de baixo, da enseada ao flanco
+        f.anel(r_f, sentido, e1, a1)      # setor de cima, idem
+    return f
+
+
+def planta_orla_baia():
+    """os 2.062 lotes dos tiers 4 e 5, na margem oposta da baía."""
+    if not TIER_DE: return []
+    fila = []
+    for t in ('ordinal_believer', 'dog_legend'):
+        g = [a for a in elig if TIER_DE.get(a) == t]
+        g.sort(key=lambda a: -CHANGE_DE.get(a, -1e9))    # melhor comportamento primeiro
+        fila += g
+    fita = _ob_fita()
+    out, fora = [], []
+    for a in fila:
+        w = max(OB_TESTADA_MIN, elig_area(a) / OB_PROF)
+        pos = fita.proximo(w)
+        if pos is None:
+            fora.append(a); continue
+        out.append((pos[0], pos[1], w, OB_PROF, pos[2], a))
+    print('Orla da Baía: %d lotes (%d tier 4, %d tier 5), %.3f km², testada '
+          '%.1f m mediana | linha %.1f km, sobra %.1f km'
+          % (len(out), sum(1 for l in out if TIER_DE.get(l[5]) == 'ordinal_believer'),
+             sum(1 for l in out if TIER_DE.get(l[5]) == 'dog_legend'),
+             sum(l[2] * l[3] for l in out) / 1e6,
+             sorted(l[2] for l in out)[len(out)//2] if out else 0,
+             fita.comprimento() / 1000, fita.sobra() / 1000), file=sys.stderr)
+    if fora:
+        print('  ⚠️ %d carteiras dos tiers 4 e 5 NÃO couberam na orla e voltam '
+              'para o tecido' % len(fora), file=sys.stderr)
+    return out
+
+# ═══════════════════════════════════════════════════════════════════════════
 # O DISTRITO FINANCEIRO: AS 21 INSTITUCIONAIS DENTRO DA SATOSHI PLAZA
 #
 # Publicado em `/dogcity/docs` §5 e em `custodia-e-distrito-financeiro.md`:
@@ -3560,7 +3913,12 @@ FIN_LOTES = planta_distrito_financeiro()
 # plantar duas vezes daria dois lotes ao mesmo dono, que é o defeito mais grave
 # que um loteamento pode ter.
 ORLA_LOTES = planta_orla_nobre()
-ORLA_DONOS = {l[5] for l in ORLA_LOTES if l[5]}
+ORLA_BAIA_LOTES = planta_orla_baia()
+# ⚠️ A ORLA DA BAÍA SAI DA FILA PELO MESMO MOTIVO QUE A ORLA NOBRE: quem já tem
+# endereço não disputa tecido, e plantar duas vezes daria dois lotes ao mesmo
+# dono. O conjunto é UM só para os dois destinos, senão a checagem de
+# duplicidade lá embaixo teria de saber de dois.
+ORLA_DONOS = {l[5] for l in ORLA_LOTES if l[5]} | {l[5] for l in ORLA_BAIA_LOTES if l[5]}
 # ⚠️ A FILA INTEIRA CONTINUA SENDO A RÉGUA DE POSTO. Quem foi para a orla sai
 # do plantio do tecido mas NÃO sai da fila: `posto` alimenta a coorte gravada
 # em cada registro, e tirar 446 carteiras dele mudava a coorte de todo mundo
@@ -4017,6 +4375,14 @@ def uma_passada():
         COTA[_dono or f'__orla{_i}'] = altura(_x, _z)
         saida.append((_x, _z, S_ORLA, _dono or f'__projeto_orla_{_i:03d}',
                       _fr, _pf, 1, _i, 1))
+    # ⚠️ A ORLA DA BAÍA ENTRA NA MESMA FILA E PELO MESMO CONTRATO: geometria
+    # fixa, dono decidido pelo tier, área pela curva. Setor 9 no endereço, um
+    # quarteirão por lote, porque no dedo o giro é radial e na fileira é
+    # tangente — dois giros diferentes não cabem num quarteirão só.
+    for _i, (_x, _z, _fr, _pf, _gi, _dono) in enumerate(ORLA_BAIA_LOTES, 1):
+        _GIRO_ORLA[(S_OB, 1, _i)] = _gi
+        COTA[_dono] = altura(_x, _z)
+        saida.append((_x, _z, S_OB, _dono, _fr, _pf, 1, _i, 1))
     # ⚠️ O DSC PLANTA PRIMEIRO, E ISSO CONSERTA DOIS DEFEITOS DE UMA VEZ.
     # (1) Ele plantava DEPOIS de todas as 52.953 gerais, quando o setor 3 já
     #     tinha acabado, e (2) o laço dele descartava calado: `if r:` sem else,

@@ -121,6 +121,19 @@ def altura(x, z):
     w = podio_peso(x, z)
     return b*(1.0-w) + PY_*w
 
+# ⚠️ AMOSTRAR SÓ ONDE O LOTE NASCE DEIXOU PASSAR 43 METROS. Até 20/09 nenhum
+# lote ia além de φ 5.500, então a alça inteira ficava fora desta amostra, e o
+# erro de 43 m entre a plataforma que a cena esculpe (-30) e o pódio que o
+# gerador aplicava (+13) atravessou esta conferência sem um aviso (masterplan
+# §21). Conferência que não amostra onde o defeito mora não é conferência.
+#
+# Agora a amostra tem DUAS partes: os lotes gravados, que é onde a cidade está,
+# e uma grade fixa de rumos e raios que cobre o sítio inteiro, inclusive a alça,
+# o cinturão e a coroa, que é onde a cidade AINDA NÃO está mas o chão já é
+# desenhado.
+GRADE_RUMOS = range(0, 360, 5)
+GRADE_RAIOS = list(range(600, 9000, 200))
+
 # ── a amostra: onde o lote de fato nasce ──────────────────────────────────
 FMT = '<hhBBHBHHH'; REG = struct.calcsize(FMT)   # registro v3: 15 B, frente/fundo em dm
 buf = open(p('public/city/cidade-lotes.bin'), 'rb').read()
@@ -132,6 +145,28 @@ for k in range(0, len(buf)//REG, 3):
     c = cena(x, z)
     if c is None: continue
     difs.append(abs(c - altura(x, z)))
+# a segunda metade da amostra: a grade fixa, que cobre onde ainda não há lote
+gdifs, gpior = [], (0.0, 0.0, 0.0)
+for ru in GRADE_RUMOS:
+    for rr in GRADE_RAIOS:
+        a_ = math.radians(ru)
+        x, z = math.sin(a_) * rr, -math.cos(a_) * rr
+        c = cena(x, z)
+        if c is None: continue
+        d = abs(c - altura(x, z))
+        gdifs.append(d)
+        if d > gpior[0]: gpior = (d, ru, rr)
+gdifs.sort()
+if gdifs:
+    print(f'\n{len(gdifs)} pontos da GRADE (rumo a cada 5 graus, raio a cada 200 m), '
+          f'|cena - gerador|:')
+    print(f'   mediana {gdifs[len(gdifs)//2]:.2f} m   p90 {gdifs[int(len(gdifs)*.9)]:.2f} m   '
+          f'max {gdifs[-1]:.2f} m   no rumo {gpior[1]:.0f} raio {gpior[2]:.0f}')
+    _fora = sum(1 for d in gdifs if d > TOL)
+    print(f'   acima de {TOL} m: {_fora} ({100*_fora/len(gdifs):.1f}%)')
+    if _fora > len(gdifs) * 0.02:
+        falhas.append(f'grade: {_fora} pontos acima de {TOL} m, pior {gdifs[-1]:.2f} m')
+
 difs.sort()
 if difs:
     med = difs[len(difs)//2]; p90 = difs[int(len(difs)*.9)]; p99 = difs[int(len(difs)*.99)]

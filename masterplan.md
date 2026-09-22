@@ -1772,3 +1772,33 @@ A cidade continua APROVADA nos dez testes, com os mesmos 46,96 km².
 ⚠️ **As 324 divisas que sobram (0,3%) não são muro, são degrau de terreno entre bancadas**,
 com pior caso de 14,64 m. O tratamento é caso a caso, virando escadaria pública ou trecho
 não lotável, e não mudança da regra: mexer no teto para acomodar 0,3% pioraria os 99,7%.
+
+## §21 — O gerador não enxergava a alça esculpida 🔒 (medido 21/09/2026)
+
+⚠️ **ERRO DE 43 METROS NO ENDEREÇO MAIS VALIOSO DA CIDADE.** A cena esculpe a alça numa
+plataforma plana em -30 m (`alcaAlturaAt` em `alca.ts`, decisão do fundador em 10/09: "a
+praia toda retinha, a via toda circular, esquece isso de seguir o terreno"). O `altura()`
+do gerador aplicava só platô e pódio, então os 511 lotes da Orla Nobre foram gravados com
+**cota 13 m**, que é a do pódio, contra os **-30** que a cena desenha.
+
+E o estrago não parava na cota gravada: `altura()` alimenta o cálculo de declive, o teto de
+12% na pegada, a cota de testada e o socalco. Tudo isso estava sendo medido contra um morro
+que a cena não desenha.
+
+**Corrigido:** `alca_altura()` replica a forma da função da cena (plataforma, praia 1:8 dos
+dois lados, rampa espelhada na escavação, franja nas pontas medida em metros de arco), com
+as constantes LIDAS de `alca.ts`. Depois do conserto: Orla Nobre em cota -30,0 na mediana,
+e a área da cidade subiu de 46,96 para **47,51 km²**, porque a plataforma plana não tem o
+declive falso que reprovava pegada no teto de 12%.
+
+⚠️ **O `conferir_terreno.py` DEVIA ter pego isto e não pegou.** Ele compara o gerador com a
+cena com tolerância de 1,5 m, e deixou passar 43. A causa é a amostragem: ele sorteia 1 de
+cada 3 lotes GRAVADOS, e até 20/09 nenhum lote passava de φ 5.500, ou seja a alça inteira
+estava fora da amostra. Conferência que não amostra onde o defeito mora não é conferência.
+
+**O padrão, que se repetiu CINCO vezes nesta sessão e é a lição mais reaproveitável dela:**
+duas pontas do sistema descrevendo a mesma coisa e discordando em silêncio. A régua de
+posição (masterplan contra código), a curva de área (landing contra gerador), a avenida da
+alça (6.950 na cena contra 7.600 no gerador), a baía (real contra faixa de artefato) e agora
+a plataforma (-30 na cena contra +13 no gerador). Nenhum quebra build, nenhum aparece em
+teste, e todos produzem cidade plausível. Só medição cruzada entre as duas pontas pega.

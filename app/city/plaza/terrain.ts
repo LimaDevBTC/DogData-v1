@@ -33,6 +33,7 @@ import { alturaInvernoAt, zonaEsquiavelAt, fatorRochaAt } from './inverno'
 import { campusAlturaAt } from './campus'
 import { aquaticsAlturaAt } from './aquatics'
 import { alcaAlturaAt, ALCA_R_BAIA, ALCA_R_MAR, ALCA_PRAIA_LARGURA } from './alca'
+import { orlaBaiaAlturaAt } from './orla-baia'
 import { ALCA_TERRA, noArcoDoAnel } from './teia'
 
 export interface TerrainMeta {
@@ -1111,7 +1112,15 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
     // entre r 5.700 e 7.900, bem fora do anel do campus (2.850 a 3.740) e da
     // parcela aquática (r 3.024 a 3.564). Mesma porta rápida por raio ao
     // quadrado, mais um filtro de ângulo pelo arco medido (ver `alca.ts`).
-    return alcaAlturaAt(x, z, bAquatics) + microRelevoAt(x, z) + alturaInvernoAt(x, z)
+    // ⚠️ A ORLA DA BAÍA ENTRA POR FORA DA ALÇA, E A ORDEM É O CONTRATO.
+    // `alcaAlturaAt` cava o leito da baía a −44 em todo r entre 5.700 e 6.500
+    // do arco dela, e o arco dela (346° a 116,5°) CONTÉM o da orla (1,3° a
+    // 101,3°). Se a orla rodasse primeiro, a alça apagaria as pontas dos quatro
+    // dedos, que chegam a 6.050. Aninhada assim, a alça entrega o leito já
+    // escavado e a orla só levanta a terra que é dela. Ver o cabeçalho de
+    // `orla-baia.ts`.
+    const bAlca = alcaAlturaAt(x, z, bAquatics)
+    return orlaBaiaAlturaAt(x, z, bAlca) + microRelevoAt(x, z) + alturaInvernoAt(x, z)
   }
 
   // ⚠️ CONTRATO NOVO, DEPOIS DE A MALHA GROSSA SER MASCARADA (não mais
