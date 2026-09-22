@@ -426,14 +426,23 @@ else:
 # 5. área entregue contra a prometida pelo snapshot
 # ⚠️ só quem recebeu lote entra nesta conta: o nicho não promete metro quadrado
 prom = {r['address']: r['area_m2'] for r in fila if r['area_m2'] > 0}
-# ⚠️ a orla tem regra de área própria (piso de 60 m de fundo, masterplan §16.2 e
-# o caderno §3.2), então ela não entra na conta da curva: ali entregar MAIS que
-# o prometido é a regra, não desvio.
+# ⚠️ A ORLA NOBRE (S07) VOLTOU PARA A CONTA EM 22/09, e a nota que a excluía
+# virou mentira no mesmo dia. Ela dizia "a orla tem regra de área própria (piso
+# de 60 m de fundo)", e o piso CAIU por decisão do fundador: os 446 lotes de lá
+# passaram de razão mediana 1,4423 para 1,0000, ou seja hoje eles são os ÚNICOS
+# que honram a curva exatamente. Deixá-los fora do teste era esconder do portão
+# justamente o pedaço que está certo, e pior: enquanto entregavam 1,44x, a
+# exclusão escondia o excesso, que é o defeito que a página pública desmentia.
+#
+# ⚠️ O QUE CONTINUA FORA É O LOTE SEM DONO. `prom` só tem quem está na fila e
+# recebeu área prometida; lote do projeto não promete metro quadrado a ninguém.
 raz = sorted(float(r['area_m2']) / prom[r['address']] for r in linhas
-             if r['address'] in prom and not r['lot_id'].startswith('S07'))
+             if r['address'] in prom)
 n = len(raz) or 1
 item('área entregue honra a prometida', raz[int(n*0.10)] >= 0.95,
-     f'mediana {raz[n//2]:.2f}, p1 {raz[int(n*0.01)]:.2f}, p10 {raz[int(n*0.10)]:.2f}')
+     f'{n} lotes de carteira (S07 incluída desde 22/09): '
+     f'mediana {raz[n//2]:.2f}, p1 {raz[int(n*0.01)]:.2f}, p10 {raz[int(n*0.10)]:.2f} '
+     f'(piso 0,95); mínimo {raz[0]:.3f}')
 
 # 6. cota dentro da faixa do relevo
 fora = [c for c in cotas if not (-200 <= c <= 300)]

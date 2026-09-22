@@ -4283,7 +4283,14 @@ def area_nominal(dog, s):
 # cresce para fora, rumo à praia dos fundos. As duas olham para dentro, decisão
 # do fundador: "a face externa não olha mar aberto".
 #
-# ⚠️ O PISO DE FUNDO CAIU, E ISSO É DECISÃO DO FUNDADOR (22/09). Havia um piso
+# ⚠️ O PISO DE FUNDO CAIU, E A AUTORIZAÇÃO É DE 22/09, MAS NÃO É A QUE ESTAVA
+# CITADA AQUI. O §18.1 (20/09) grava o piso de 60 m como decisão do fundador, e
+# derrubá-lo exigia decisão nova. Ela existe: em 22/09, perguntado sobre a
+# contradição entre a curva publicada e o que a Orla Nobre entrega, o fundador
+# escolheu "consertar a cauda E devolver o excesso da Orla Nobre", sabendo que
+# isso troca privilégio de 446 carteiras por área para as outras 69.549. Um
+# agente tinha atribuído isso ao §16.2, que trata de gradiente e não autoriza
+# nada aqui. Havia um piso
 # de 60 m de fundo aqui, e ele fazia a Orla Nobre entregar 1,44x a curva: medido
 # no registro selado, 388.212 m² a mais do que a landing promete às 446
 # carteiras, razão mediana 1,4423 contra 0,9629 do resto da cidade. A página
@@ -4292,10 +4299,22 @@ def area_nominal(dog, s):
 # fileira) e o fundo é a curva, ponto. Medido antes de aplicar: sem o piso
 # nenhum lote vira fatia rasa, o fundo mínimo é 32,8 m na frente e 33,9 m atrás,
 # e os 446 entregam razão 1,000.
-# ⚠️ OS 388.212 m² VOLTAM AO TECIDO, e é assim que este conserto se mede: são
-# 5,58 m² para cada um dos outros 69.549 lotes de carteira, o que leva a razão
-# mediana da cidade de 0,9629 para perto de 0,972. O caminho é a bisseção de
-# `K_AREA`, que passa a ter mais folga de área para distribuir.
+# ⚠️ E OS 388.212 m² **NÃO** VOLTAM AO TECIDO SOZINHOS. Este comentário afirmava
+# o contrário, e a primeira rodada com o conserto mediu o oposto: a razão da
+# cidade CAIU em vez de subir. A causa é a máscara, não o lote.
+#
+# A Orla Nobre mora no anel da alça, e a terra que ela tira do tecido é uma
+# FAIXA FIXA (`ORLA_FUNDO_MAX_FRENTE/TRAS`, 214 e 246 m) que não encolhe quando
+# o lote encolhe. Tirar o piso fez o fundo real cair para 176,7 m na frente e
+# 128,9 atrás, mas o tecido continuou vendo os 214 e 246: o lote devolveu a
+# área e a máscara ficou com a terra.
+#
+# O que o conserto ENTREGOU, e era o que o fundador pediu: os 446 lotes passam
+# de razão mediana 1,4423 para 1,0000, e a frase da página pública sobre o
+# Genesis Badge volta a ser verdadeira. O que ele NÃO entregou é terra para o
+# resto da cidade. Apertar `_na_orla_nobre` é o caminho para que entregue, e é
+# decisão de projeto com risco próprio: a faixa larga existe para caber mansão
+# funda, e lote plantado ali dentro fecha essa porta.
 def elig_area(addr):
     """a área que a LANDING promete a esta carteira: clamp(0,986443·√DOG, 1, 40.000)."""
     return max(1.0, min(40000.0, K_PUBLICADA * math.sqrt(max(0.0, elig.get(addr, 0.0)))))
@@ -4305,10 +4324,20 @@ def elig_area(addr):
 # são land bank) e a pegada representativa com que o bloqueio de peça de
 # programa é testado.
 ORLA_FUNDO_PROJETO = 60.0
-# ⚠️ 18/47 -> 20/45 EM BLOCOS DE 5, e não é ajuste fino: é o §3.2 do caderno com
-# o §10 do masterplan. Ver a nota do trecho contínuo dentro de `fila()`.
-ORLA_PROJETO_FRENTE, ORLA_PROJETO_TRAS = 20, 45   # land bank do §6, §3.2
-ORLA_PROJETO_BLOCO = 5
+# ⚠️ BLOCO DE 3, E ISSO É DECISÃO DO FUNDADOR DE 19/09, NÃO ESCOLHA DE DESENHO.
+# Palavras dele: *"5 acho que pode criar um bloco muito grande"*. O caderno grava
+# em `tiersposition.md` §3.1 item 4, com a medição que justifica: na frente, 4
+# blocos de 5 põem um destino público a cada 3,88 km andando pela orla, e 6
+# blocos de 3 põem a cada 2,58 km.
+#
+# ⚠️ E ISSO JÁ FOI REVERTIDO UMA VEZ POR ENGANO, EM 22/09. Um agente leu o §3.2
+# do caderno (10/09), que de fato manda 20/45 em blocos de 5, e não viu que o
+# §3.1 item 4 (19/09), NOVE DIAS MAIS NOVO e no MESMO arquivo, derruba aquilo.
+# Ele reverteu exatamente o que o fundador tinha rejeitado com uma frase. Quem
+# mexer aqui de novo: a seção com a data MAIS NOVA manda, e neste arquivo ela
+# não é a de número maior.
+ORLA_PROJETO_FRENTE, ORLA_PROJETO_TRAS = 18, 47   # land bank do §6, ritmo do §3.1 item 4
+ORLA_PROJETO_BLOCO = 3
 ORLA_FUNDO_MAX_FRENTE, ORLA_FUNDO_MAX_TRAS = 214.0, 246.0
 
 def _tier_de():
@@ -5100,7 +5129,7 @@ def coloca(s, dog, addr, escala=1.0, exige=0.0):
         prof_real = min(PROF_MAX, area / frente)
         # ⚠️ E ERA AQUI QUE A PROMESSA MORRIA CALADA. `frente x 50` vira o teto do
         # que o lote entrega: numa sobra de 6,15 m uma carteira de 889.806 DOG
-        # recebe 307 m² dos 930,51 que a API promete a ela — e 889.806 DOG é o
+        # recebe 307 m² dos 930,51 que a API promete a ela, e 889.806 DOG é o
         # EXEMPLO IMPRESSO na página pública. Medido no registro selado de 22/09:
         # 85 lotes abaixo de 0,90 da área prometida e 21 abaixo de 0,50; 82 deles
         # no distrito 4, TODOS com fundo travado em 50 m e testada entre 5,0 e

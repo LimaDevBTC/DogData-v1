@@ -2493,6 +2493,25 @@ que a própria página anuncia.
 Não é erro de arredondamento, é uma soma que não fecha na cara de quem ler, e ela vive em
 `LOTES_DE_CARTEIRA`, que outras seções também leem.
 
+### A volta atrás, se a rodada nova for pior que a selada
+
+⚠️ **A REGERAÇÃO SOBRESCREVE O REGISTRO NO REPOSITÓRIO**, e o bot de auto-commit empurra a
+cidade nova dentro de uma hora. A partir daí o `HEAD` deixa de ser a cidade aprovada, e quem
+procurar "a última versão boa" não a encontra pelo git log.
+
+**A cidade aprovada em 22/09 (merkle `9c16f4bd…f4c4`, 15 de 15 no §29) vive no commit
+`632621bc32`.** Voltar a ela é uma linha:
+
+```
+git checkout 632621bc32 -- data/dogcity_lotes.csv data/dogcity_cemiterio.csv \
+    public/city/cidade-lotes.bin public/city/cidade.json public/city/cidade-malha.json \
+    data/dogcity_merkle.json
+```
+
+⚠️ **E OS QUATRO SELOS SÃO A PROVA, NÃO O COMMIT.** `data/dogcity_merkle.json` carrega o
+sha256 dos quatro artefatos: depois de voltar, confira os quatro antes de acreditar. Commit
+se reescreve; sha256 de conteúdo, não.
+
 ### A trava que impede a receita errada de voltar
 
 `PHI_LOTE` e `RESERVA_PCT` continuam vindo de variável de ambiente, porque experimento tem
