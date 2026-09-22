@@ -31,39 +31,47 @@ export function onDiagonal(q: Quadrant, r: number, side = 0): [number, number] {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// AS TRÊS QUE FICAM, EM CIMA DO DECK, A 120° UMA DA OUTRA (22/09/2026)
+// AS QUATRO QUE FICAM, EM CIMA DO DECK, A 90° UMA DA OUTRA (22/09/2026)
 //
 // Decisão do fundador: o jardim clássico saiu (ver a bandeira `JARDIM` em
-// precinct.ts) e só três peças continuam na Satoshi Plaza, mudando-se para
-// cima do deck, debaixo da torre: a Pata de Diamante com a estátua do
-// Leônidas, o Jardim do White Paper e o painel do Dog Social Club. "120° pra
-// cada", palavras dele.
+// precinct.ts) e só as peças com significado continuam na Satoshi Plaza,
+// mudando-se para cima do deck, debaixo da torre: a Pata de Diamante com a
+// estátua do Leônidas, o Jardim do White Paper e o painel do Dog Social Club.
+// Horas depois entrou a quarta — o TELÃO do Vincent, que era a fachada da
+// Cryptolution House e foi separada da casa a pedido dele — e o pente passou de
+// 120° para 90°: "prefiro integrar o telão com as outras três peças e quebrar
+// cada um em 90°".
 //
-// ⚠️ O DESLOCAMENTO DO PENTE NÃO É ESCOLHA LIVRE, E ELE TEM DONO. Com passo de
-// 120° qualquer pente cai em cima de um dos quatro bulevares cardeais, exceto
-// os que saem de 45 em 45. E entre os que servem, um tem significado: **68,7°
-// é o rumo do condomínio do Dog Social Club na cidade externa** (`DSC_RUMO` em
+// ⚠️ O DESLOCAMENTO DO PENTE NÃO É ESCOLHA LIVRE, E ELE TEM DONO. **68,7° é o
+// rumo do condomínio do Dog Social Club na cidade externa** (`DSC_RUMO` em
 // `scripts/gerar_cidade.py`, que decide o setor cujos lotes mais internos são
-// reservados a eles), e é exatamente o rumo em que o painel já está hoje.
-// Ancorando o pente nele, o painel continua apontando para o condomínio e
-// nenhum dos três braços encosta em bulevar:
+// reservados a eles), e é exatamente o rumo em que o painel já estava. O pente
+// fica ancorado nele com qualquer passo, para o painel não parar de apontar
+// para o condomínio.
 //
-//   68,7°   painel do Dog Social Club   (fica onde está, só muda de raio)
-//  188,7°   Pata de Diamante + Leônidas (gira 53,7° do SE de hoje)
-//  308,7°   Jardim do White Paper       (gira 96,3° do NE de hoje)
+// ⚠️ E O PASSO DE 90° NÃO CAI EM BULEVAR, ao contrário do que esta nota dizia
+// quando o pente era de 120°. Um pente de 90° só encosta nos quatro bulevares
+// cardeais se COMEÇAR num deles (deslocamento múltiplo de 90); ancorado em 68,7
+// ele passa a 21,3° do bulevar mais próximo. De quebra também não cai nas
+// quatro DIAGONAIS, que é onde moram os braseiros de r 150: cada braço fica a
+// 23,7° delas, 62 m de folga no raio do braseiro.
+//
+//   68,7°   painel do Dog Social Club   (nunca se mexeu de rumo)
+//  158,7°   Pata de Diamante + Leônidas
+//  248,7°   Telão da Cryptolution       (ver telao.ts)
+//  338,7°   Jardim do White Paper
 //
 // ⚠️ A FAIXA LIVRE DO DECK É r 85 A 245, MEDIDA, NÃO SUPOSTA: por dentro o
 // pedestal da Agulha vai a 56 e o Círculo dos Fundadores fecha em 77; por fora
-// a colunata dórica está em 250. Os braseiros ocupam r 150 nas quatro
-// diagonais e as caixas de BTC r 196 perto do norte — os três rumos acima
-// passam a 26° ou mais de qualquer um deles.
+// a colunata dórica está em 250. As caixas de BTC ocupam r 196 perto do norte,
+// em 355,9° e 4,1° — o braço do White Paper passa a 17,2° delas.
 //
-// ⚠️ E A COTA É A ARMADILHA DESTA MUDANÇA. As três peças se assentam hoje por
+// ⚠️ E A COTA É A ARMADILHA DESTA MUDANÇA. As peças se assentam por
 // `yAt(x, z)`, que é o regolito; o piso do deck está `DECK_Y` (39,95 m) ACIMA
-// disso. Mudar só o (x, z) enterra as três quarenta metros abaixo do piso. Ver
-// a nota de `DECK_Y` mais abaixo, que já documenta a mesma armadilha para
+// disso. Mudar só o (x, z) enterra as quatro quarenta metros abaixo do piso.
+// Ver a nota de `DECK_Y` mais abaixo, que já documenta a mesma armadilha para
 // `props-table.ts` e para a Calçada dos Fundadores.
-export const DECK_RUMO = { dsc: 68.7, pata: 188.7, paper: 308.7 } as const
+export const DECK_RUMO = { dsc: 68.7, pata: 158.7, telao: 248.7, paper: 338.7 } as const
 
 /** ponto no deck: rumo de BÚSSOLA da cidade (x leste, z sul), raio, e `side`
  *  metros para a esquerda de quem olha para fora. É o irmão de `onDiagonal`
@@ -74,7 +82,47 @@ export function noDeck(rumoGraus: number, r: number, side = 0): [number, number]
   return [ux * r + Math.cos(b) * side, uz * r + Math.sin(b) * side]
 }
 
-// ── Jardim do White Paper (NE): nove estelas alternando os lados da alameda ──
+// ── O Telão da Cryptolution: a fachada saiu da casa e virou peça da praça ───
+// O telão era a FACHADA da Cryptolution House (cryptolution-house.ts): o vão que
+// o Blender abriu no modelo, com a thumbnail do vídeo do dia do Vincent e o
+// clique que levanta o player. A casa nunca chegou a entrar na cena, e o
+// fundador decidiu separar as duas coisas: "colocar o telão passando o vídeo
+// dele na praça principal e deixar a mansão dele separada". O telão virou a
+// quarta peça do pente; a casa continua existindo como módulo, sem telão.
+//
+/** ⚠️ O TELÃO ENTRA NA MESMA ESCALA DA PATA (0,60), E ISSO É O ASSUNTO DA PEÇA.
+ *  O vão do Blender tem 96 × 54 m. Em tamanho cheio, no deck, ele não seria a
+ *  quarta peça do conjunto: a palma da pata mede 57,6 m de diâmetro depois do
+ *  conserto de hoje, e uma placa de 96 m ao lado dela faz as outras três lerem
+ *  como detalhe. Em 0,60 o telão fica com 57,6 m de largura, exatamente a
+ *  palma, e as quatro peças passam a ter a mesma escala. Do centro da laje ele
+ *  ainda preenche 14° do campo de visão, que é tela de cinema grande. */
+export const TELAO_ESCALA = 0.6
+export const TELAO_W = 96 * TELAO_ESCALA          // 57,6
+export const TELAO_H = 54 * TELAO_ESCALA          // 32,4
+/** o peitoril: a tela não começa no piso, senão a primeira fila de gente tapa o
+ *  rodapé do vídeo de quem está atrás. 7 m é a altura do pódio do Leônidas mais
+ *  o pedestal, para as duas peças terem a mesma linha de base na chapa. */
+export const TELAO_PEITORIL = 7
+/** ⚠️ r 224 É O PLANO DA TELA, E QUEM MANDA NA FOLGA É O CANTO, NÃO O CENTRO.
+ *  A peça inteira é um retângulo TANGENTE de 79,6 m de largura (a saia do
+ *  pódio) por 20 de fundo, do degrau da frente (z +4 local) ao fundo do pódio
+ *  (z −12). O canto de um retângulo tangente não fica em `r + fundo`: fica em
+ *  √((r + fundo)² + meia largura²) — a mesma aritmética do §23 do masterplan,
+ *  que custou 210 lotes sobrepostos na Orla da Baía.
+ *
+ *  Com a face em 224 o canto mede **239,3 m**, 10,7 m antes da colunata dórica
+ *  de 250; o Leônidas fecha em 237 do outro lado, que é a mesma ordem de folga.
+ *  Em 230, que foi o primeiro número que escrevi, o canto ia a 245,2 e sobrava
+ *  4,8 m para uma colunata cujas colunas têm raio próprio. */
+export const TELAO_POS = noDeck(DECK_RUMO.telao, 224)
+/** ⚠️ ISTO É RAIO DE PLANTIO, NÃO EXTENSÃO RADIAL. Entra em `RESERVED`, que é
+ *  uma lista de CÍRCULOS para o plantio evitar, e por isso cobre a meia largura
+ *  do pódio (39,8) mais folga. Lido como alcance radial ele diria que a peça
+ *  vai a 266 e fura a colunata, o que é falso: ver a nota de `TELAO_POS`. */
+export const TELAO_R = 42
+
+// ── Jardim do White Paper (rumo 338,7): nove estelas alternando os lados da alameda ──
 /** ⚠️ A ALAMEDA ESTREITOU DE 13 PARA 7 m, E É ARITMÉTICA, NÃO GOSTO. As estelas
  *  alternam os lados, então a alameda tem 2×STELA_SIDE de largura e o passo
  *  entre duas estelas seguidas é o vão radial. Enquanto o passo era 25,75 m
@@ -121,27 +169,52 @@ export const SATOSHI_CYPRESSES: [number, number][] = (() => {
 /** dois bancos de pedra ladeando a alameda que vem do Anel, de frente para a figura */
 export const SATOSHI_BENCHES: [number, number][] = [onDiagonal('NW', 500, 14), onDiagonal('NW', 500, -14)]
 
-// ── A Pata de Diamante (SE): a palma é o espelho da diagonal, quatro dedos abrem para fora ──
-/** ⚠️ A PALMA DESCEU DE r 560 PARA r 140 e mudou de rumo: ela está no deck
- *  agora. O espelho tem 96 m de diâmetro (POOL_R 48), então ocupa r 92 a 188,
- *  dentro da faixa livre de 85 a 245. */
-export const PAW_PALM = noDeck(DECK_RUMO.pata, 140)
-export const PAW_TOE_R = 17
-/** ⚠️ OS DEDOS ENCURTARAM DE 80/92 PARA 52/62 m do centro da palma, pelo mesmo
- *  motivo das estelas: com 80/92 a pata inteira mede 227 m e a faixa do deck
- *  tem 160. Os ângulos de abertura não mudaram, então a FORMA da pata é a
- *  mesma, só a escala. */
+// ── A Pata de Diamante (rumo 158,7): a palma é o espelho da diagonal, quatro dedos abrem para fora ──
+/** ⚠️ A PATA INTEIRA EM 0,60, E O FATOR É ÚNICO DE PROPÓSITO.
+ *
+ *  O erro que isto conserta: ao trazer a peça da diagonal para o deck eu
+ *  encolhi a DISTÂNCIA dos dedos (80/92 para 52/62) e deixei os RAIOS como
+ *  estavam (palma 48, dedo 17). Com 52 − 17 = 35 contra 48 de palma, cada dedo
+ *  entrava 13 m dentro dela. Seis pares ficaram negativos e o fundador viu na
+ *  chapa: "está uma várzea, tudo sobreposto".
+ *
+ *  Agora o fator 0,60 multiplica TUDO: palma, dedo, emblema, distâncias e o
+ *  recuo do Leônidas. A forma é idêntica à do desenho que funcionava (os quatro
+ *  ângulos de abertura não mudaram e todas as razões internas se conservam), e
+ *  a menor folga entre peças de verdade é +2,71 m.
+ *
+ *  ⚠️ E A PALMA GANHOU RAIO PRÓPRIO EM VEZ DE USAR `POOL_R`. POOL_R é
+ *  compartilhado: ele desenha também o Espelho de Satoshi em r 560 e os
+ *  passeios de `precinct.ts`. Encolher POOL_R para caber a pata encolheria o
+ *  Satoshi junto, que é a mesma família de erro que esta nota conserta. */
+export const PAW_SCALE = 0.6
+export const PAW_PALM_R = 48 * PAW_SCALE          // 28,8
+export const PAW_MARK_R = 30 * PAW_SCALE          // 18,0, era 30 cravado em monuments.ts
+export const PAW_PALM = noDeck(DECK_RUMO.pata, 120)
+export const PAW_TOE_R = 17 * PAW_SCALE           // 10,2
+/** ⚠️ O PASSEIO DO DEDO CAI DE 4,5 PARA 1,0 m, E ISSO NÃO É EFEITO DA ESCALA:
+ *  É DEFEITO DO DESENHO ORIGINAL, achado agora. O vão entre dois dedos vizinhos
+ *  vale 4,53 m na escala cheia; dois passeios de 4,5 somam 9. Os quatro anéis de
+ *  passeio já se sobrepunham 4,47 m na diagonal, coplanares na mesma cota, ou
+ *  seja z-fighting garantido desde sempre. Se um dia o passeio largo voltar, ele
+ *  tem de ser UM contorno só (a união das quatro bordas), nunca quatro anéis. */
+export const PAW_TOE_WALK = 1.0
 export const PAW_TOES: [number, number][] = (() => {
   const [cx, cz] = PAW_PALM
   const b = (DECK_RUMO.pata * Math.PI) / 180
   const a0 = Math.atan2(-Math.cos(b), Math.sin(b))   // o rumo, na convenção atan2(z,x) deste arquivo
-  return ([[-0.66, 52], [-0.23, 62], [0.23, 62], [0.66, 52]] as const).map(([da, r]) => [cx + Math.cos(a0 + da) * r, cz + Math.sin(a0 + da) * r] as [number, number])
+  return ([[-0.66, 80], [-0.23, 92], [0.23, 92], [0.66, 80]] as const)
+    .map(([da, r]) => [cx + Math.cos(a0 + da) * r * PAW_SCALE,
+                       cz + Math.sin(a0 + da) * r * PAW_SCALE] as [number, number])
 })()
-export const PAW_PLAQUE = noDeck(DECK_RUMO.pata, 95, 12)
+/** a placa sai de dentro da água (ela estava a 46,57 m do centro de uma palma
+ *  de raio 48) e vai para o lado por onde se chega, o bulevar sul */
+export const PAW_PLAQUE = noDeck(DECK_RUMO.pata, 120, -40)
 /** Leonidas, o fundador do DOG: no eixo, atrás dos dedos da pata, de frente
- *  para a Agulha. Em r 228 o pedestal (8 m) mais o passeio (7 m) chegam a 243,
- *  sete metros antes da colunata dórica. */
-export const LEONIDAS_POS = noDeck(DECK_RUMO.pata, 228)
+ *  para a Agulha. 102 m atrás do centro da palma, que é os 170 do desenho
+ *  original vezes o mesmo 0,60. Com pedestal (8) e passeio (7) ele fecha em
+ *  r 237, oito metros antes da colunata dórica. */
+export const LEONIDAS_POS = noDeck(DECK_RUMO.pata, 222)
 export const LEONIDAS_PLINTH_R = 8
 /** A casa do LeonidasNFT ("The Block"): o cubo fecha a vista da alameda SE
  *  atrás da estátua, como o Gênese fecha a NE. Fachada olhando o deck.
@@ -253,6 +326,7 @@ export const RESERVED: [number, number, number][] = [
   [PAW_PLAQUE[0], PAW_PLAQUE[1], 6],
   [LEONIDAS_POS[0], LEONIDAS_POS[1], LEONIDAS_PLINTH_R + 10],
   [BLOCK_POS[0], BLOCK_POS[1], BLOCK_R],
+  [TELAO_POS[0], TELAO_POS[1], TELAO_R],
   ...PAW_BLOSSOMS.map(([x, z]) => [x, z, 5] as [number, number, number]),
   [ORDINAL_CENTER[0], ORDINAL_CENTER[1], ORDINAL_RING_R + 14],
   ...ORDINAL_PLAQUES.map(([x, z]) => [x, z, 5] as [number, number, number]),

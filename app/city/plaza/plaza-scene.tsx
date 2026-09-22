@@ -33,7 +33,7 @@ import { buildPrecinct, ANCHORS, type Precinct } from './precinct'
 import { loadPark, parkComoTrabalho, PARK_CENTER, type Park } from './park'
 import { buildMonuments, monumentosEmObra, type Monuments } from './monuments'
 import { buildLunarEnvironment, LUNAR_ENV_INTENSITY } from './lunar-env'
-import { onDiagonal, DECK_Y, GENESIS_POS, SATOSHI_POOL, PAW_PALM, ORDINAL_CENTER, LEONIDAS_POS, BUST_POS } from './garden-plan'
+import { onDiagonal, noDeck, DECK_RUMO, DECK_Y, GENESIS_POS, SATOSHI_POOL, PAW_PALM, ORDINAL_CENTER, LEONIDAS_POS, BUST_POS, TELAO_POS, TELAO_PEITORIL, TELAO_H } from './garden-plan'
 import { TEMPLE_WORLD } from './park-site'
 import { CAVE_YAW, CAVE_LAYER } from './leonidas-cave'
 import { buildFoundersWalk, type FoundersWalk, type FoundersData } from './founders-walk'
@@ -180,15 +180,14 @@ export const PLACES: ReadonlyArray<{ key: string; label: string; hint: string }>
   { key: 'deck', label: 'The deck', hint: 'the Needle, up close' },
   { key: 'mark', label: 'The Bitcoin Mark', hint: 'the seal on the deck, north axis' },
   { key: 'founders', label: "Founders' Circle", hint: 'the donors, at the tower foot' },
-  { key: 'whitepaper', label: 'Whitepaper Garden', hint: 'nine pages, north-east' },
+  { key: 'whitepaper', label: 'Whitepaper Garden', hint: 'nine pages, on the deck' },
   { key: 'genesis', label: 'The Genesis Block', hint: 'end of the whitepaper walk' },
-  { key: 'satoshi', label: "Satoshi's Mirror", hint: 'north-west pool' },
   { key: 'bust', label: 'The Bronze Satoshi', hint: 'gate of the mirror garden' },
   { key: 'temple', label: 'Leonidas Temple', hint: 'hidden in the massif' },
-  { key: 'paw', label: 'The Diamond Paw', hint: '$DOG, south-east' },
+  { key: 'paw', label: 'The Diamond Paw', hint: '$DOG, on the deck' },
   { key: 'leonidas', label: 'Leonidas', hint: 'founder of DOG, behind the paw' },
-  { key: 'ordinal', label: 'Ordinal Garden', hint: 'runestones, south-west' },
-  { key: 'dsc', label: 'Dog Social Club', hint: 'the collection, beside Kray' },
+  { key: 'dsc', label: 'Dog Social Club', hint: 'the whole collection, on the deck' },
+  { key: 'telao', label: 'Cryptolution screen', hint: "the daily dispatch, tap it to watch" },
   { key: 'chalet', label: 'OrdCards Chalet', hint: 'south anchor' },
   { key: 'kray', label: 'Kray Tower', hint: 'east anchor' },
   { key: 'bitflow', label: 'BitFlow HQ', hint: 'west anchor' },
@@ -207,7 +206,8 @@ export const TOUR: ReadonlyArray<{ key: string; text: string }> = [
   { key: 'founders', text: "The Founders' Circle at the tower foot: one plaque for every wallet that funded the city." },
   { key: 'paw', text: 'The Diamond Paw: $DOG written into the ground, thirty metres across.' },
   { key: 'leonidas', text: 'Leonidas, founder of DOG: a yellow skull under a black hood, with the bitcoin mark on his chest.' },
-  { key: 'dsc', text: 'Beside Kray Tower, the Dog Social Club: the whole collection, in the order the chain wrote it.' },
+  { key: 'dsc', text: 'On the deck, the Dog Social Club: the whole collection, in the order the chain wrote it.' },
+  { key: 'telao', text: 'And the screen: Cryptolution files a dispatch on $DOG almost every day. Tap it and it plays, right here.' },
   { key: 'padtour', text: 'The spaceport: the strongback, the tank farm, the dishes. When a block lands, the ships come down on this apron.' },
   { key: 'park', text: 'Runestone Park, five kilometres north-east: the ordinal range, in black crystal.' },
   { key: 'temple', text: 'And, hidden among the monarch stones, a temple nobody was meant to find.' },
@@ -259,11 +259,28 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
     // subindo atrás: é o enquadramento para o qual a peça foi desenhada.
     case 'mark':
       return { pos: new THREE.Vector3(0, 40 + PY + 16, -228), target: new THREE.Vector3(0, 40 + PY + 12, -150) }
-    case 'whitepaper': { const [x, z] = onDiagonal('NE', 598, 4); const [tx, tz] = onDiagonal('NE', 690); return { pos: new THREE.Vector3(x, 7 + PY, z), target: new THREE.Vector3(tx, 4 + PY, tz) } }
-    case 'genesis': { const [x, z] = onDiagonal('NE', 838, 9); return { pos: new THREE.Vector3(x, 6 + PY, z), target: new THREE.Vector3(GENESIS_POS[0], 4.5 + PY, GENESIS_POS[1]) } }
+    // ⚠️ AS QUATRO VISTAS DO DECK FORAM REFEITAS EM 22/09, E ELAS ESTAVAM
+    // QUEBRADAS DESDE A MUDANÇA DO DIA ANTERIOR. As peças se mudaram para cima
+    // da laje (r 105 a 240, nos rumos de `DECK_RUMO`) e estas vistas continuaram
+    // chamando `onDiagonal(…, 430)`, `598`, `700`, `838`: o menu Places e a
+    // visita guiada voavam para o regolito vazio onde o jardim tinha sido, a
+    // 400 ou 600 m do assunto, e no rumo errado. Elas agora são função de
+    // `DECK_RUMO`, como as peças, e acompanham sozinhas se o pente girar de
+    // novo. O piso é `PY + DECK_Y` = 4,95; o olho, 1,7 acima dele.
+    //
+    // `whitepaper`: da boca da alameda, olhando para DENTRO, que é o sentido em
+    // que as nove páginas se leem.
+    case 'whitepaper': { const [x, z] = noDeck(DECK_RUMO.paper, 262); const [tx, tz] = noDeck(DECK_RUMO.paper, 150); return { pos: new THREE.Vector3(x, DECK_Y + 7 + PY, z), target: new THREE.Vector3(tx, DECK_Y + 3 + PY, tz) } }
+    case 'genesis': { const [x, z] = noDeck(DECK_RUMO.paper, 212, 16); return { pos: new THREE.Vector3(x, DECK_Y + 5.5 + PY, z), target: new THREE.Vector3(GENESIS_POS[0], DECK_Y + 5 + PY, GENESIS_POS[1]) } }
     case 'satoshi': { const [x, z] = onDiagonal('NW', 492, 3); return { pos: new THREE.Vector3(x, 6 + PY, z), target: new THREE.Vector3(SATOSHI_POOL[0], 9 + PY, SATOSHI_POOL[1]) } }
-    case 'paw': { const [x, z] = onDiagonal('SE', 430, -30); return { pos: new THREE.Vector3(x, 95 + PY, z), target: new THREE.Vector3(PAW_PALM[0], 0 + PY, PAW_PALM[1]) } }
-    case 'leonidas': { const [x, z] = onDiagonal('SE', 700, 5); return { pos: new THREE.Vector3(x, 4 + PY, z), target: new THREE.Vector3(LEONIDAS_POS[0], 8 + PY, LEONIDAS_POS[1]) } }
+    // `paw`: de cima e de fora, que é o único ângulo em que uma PEGADA se lê
+    // como pegada — de pé no chão ela é um espelho com quatro espelhos em volta.
+    case 'paw': { const [x, z] = noDeck(DECK_RUMO.pata, 252); return { pos: new THREE.Vector3(x, DECK_Y + 78 + PY, z), target: new THREE.Vector3(PAW_PALM[0], DECK_Y + PY, PAW_PALM[1]) } }
+    // `leonidas`: entre a palma e a estátua, na altura do olho, olhando o peito
+    case 'leonidas': { const [x, z] = noDeck(DECK_RUMO.pata, 178, 7); return { pos: new THREE.Vector3(x, DECK_Y + 1.7 + PY, z), target: new THREE.Vector3(LEONIDAS_POS[0], DECK_Y + 9 + PY, LEONIDAS_POS[1]) } }
+    // `telao`: no eixo da tela, na altura do olho, à distância em que ela
+    // preenche o quadro sem o proscênio sair dele
+    case 'telao': { const [x, z] = noDeck(DECK_RUMO.telao, 118); return { pos: new THREE.Vector3(x, DECK_Y + 1.7 + PY, z), target: new THREE.Vector3(TELAO_POS[0], DECK_Y + TELAO_PEITORIL + TELAO_H / 2 + PY, TELAO_POS[1]) } }
     case 'satoshiside': { const [x, z] = onDiagonal('NW', 560, 62); return { pos: new THREE.Vector3(x, 8 + PY, z), target: new THREE.Vector3(SATOSHI_POOL[0], 6 + PY, SATOSHI_POOL[1]) } }
     case 'bust': { const [x, z] = onDiagonal('NW', 462, 8); return { pos: new THREE.Vector3(x, 4.5 + PY, z), target: new THREE.Vector3(BUST_POS[0], 4 + PY, BUST_POS[1]) } }
     case 'temple': {
@@ -315,9 +332,13 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
     case 'satoshiclose': { const [x, z] = onDiagonal('NW', 536, 1); return { pos: new THREE.Vector3(x, 5 + PY, z), target: new THREE.Vector3(SATOSHI_POOL[0], 6.5 + PY, SATOSHI_POOL[1]) } }
     case 'satoshisideclose': { const [x, z] = onDiagonal('NW', 560, 26); return { pos: new THREE.Vector3(x, 6 + PY, z), target: new THREE.Vector3(SATOSHI_POOL[0], 6 + PY, SATOSHI_POOL[1]) } }
     case 'leonidasclose': { const [x, z] = onDiagonal('SE', 714, 4); return { pos: new THREE.Vector3(x, 5 + PY, z), target: new THREE.Vector3(LEONIDAS_POS[0], 9 + PY, LEONIDAS_POS[1]) } }
-    // ⚠️ 'dsc' NÃO SOMA PY: a ilha do Dog Social Club vive na LÂMINA da baía
-    // (DSC_CENTER, ver dsc-gallery.ts), e a água da baía não desceu nesta
-    // rodada, só a bacia da praça.
+    // ⚠️ 'dsc' NÃO SOMA PY, E O MOTIVO MUDOU EM 22/09. Antes era porque o muro
+    // vivia na lâmina da baía, que não desceu com a bacia da praça. Agora ele
+    // está EM CIMA DO DECK (r 200, rumo 68,7), e a cota do deck é
+    // `PRACA_Y + DECK_Y` = −35 + 39,95 = **4,95 absolutos**: as cotas 20 e 11
+    // desta vista continuam certas por serem absolutas, não por sorte. Se
+    // `PRACA_Y` ou `DECK_Y` mudarem, ESTA VISTA NÃO ACOMPANHA e tem de ser
+    // reescrita como as quatro acima.
     case 'dsc': {
       const d = DSC_CENTER
       const f = Math.atan2(-d.x, -d.z)
@@ -1204,6 +1225,13 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
   // atualiza por textContent justamente para não re-renderizar React com a
   // cena de 2,6M de triângulos rodando; a legenda é a exceção porque tem
   // dezenas de campos e abre por escolha do usuário. Fechada, custa zero.
+  // ── O PLAYER DO TELÃO (22/09/2026) ────────────────────────────────────
+  // O telão da Cryptolution mostra um PÔSTER, não um player: sampler de vídeo
+  // do YouTube em WebGL não existe, e os Termos exigem tocar no player deles.
+  // Clicar na tela levanta este overlay com o <iframe> oficial por cima da
+  // cena, e o visitante assiste sem sair da cidade. Fechado, custa zero: nada
+  // é montado até haver vídeo.
+  const [telaoVideo, setTelaoVideo] = useState<{ id: string; title: string } | null>(null)
   const [legendaAberta, setLegendaAberta] = useState(false)
   const legendaAbertaRef = useRef(false)
   const [legendaDados, setLegendaDados] = useState<Parameters<typeof WarLegend>[0]['dados']>(null)
@@ -5032,6 +5060,17 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         return
       }
       if (luneta.on) { abreLuneta(false); return }
+      // ⚠️ O TELÃO ENTRA ANTES DO PICK DE TRANSAÇÃO e depois da luneta: ele é
+      // uma placa opaca de 57,6 × 32,4 m no deck, então qualquer órbita atrás
+      // dela está escondida de qualquer jeito, e deixar o pick ganhar faria o
+      // clique na tela abrir o cartão de uma transação invisível. Procura pelo
+      // nome porque a peça nasce tarde (monuments.ts a constrói em fatias) e
+      // não existe quando este efeito monta.
+      const telao = scene.getObjectByName('CryptolutionScreen')
+      if (telao && ray.intersectObject(telao, false).length) {
+        const v = telao.userData.video as { id?: string; title?: string } | undefined
+        if (v?.id) { setTelaoVideo({ id: v.id, title: v.title ?? '' }); return }
+      }
       const tx = orbit.pick(ray)
       setHud((h) => ({ ...h, picked: tx }))
     }
@@ -6221,6 +6260,54 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       </div>
 
       <WarLegend aberto={legendaAberta} onFechar={() => setLegendaAberta(false)} dados={legendaDados} />
+
+      {/* ── O PLAYER DO TELÃO ──────────────────────────────────────────────
+             O <iframe> oficial do YouTube por cima da cena. `autoplay=1` só é
+             honrado porque a abertura veio de um gesto do usuário (o clique na
+             tela); `rel=0` evita o YouTube sugerir canal alheio no fim. O
+             backdrop fecha ao clique, e a cena continua rodando atrás — o
+             visitante volta exatamente de onde parou. */}
+      {telaoVideo && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+          onClick={() => setTelaoVideo(null)}
+        >
+          <div className="w-full max-w-5xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-2 flex items-end justify-between gap-4">
+              <div className="min-w-0">
+                <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#F56E0F]">Daily dispatch</div>
+                <div className="truncate text-sm text-white/85">{telaoVideo.title}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTelaoVideo(null)}
+                className="shrink-0 rounded border border-white/15 px-3 py-1 font-mono text-[11px] text-white/60 hover:border-white/35 hover:text-white"
+              >
+                Close
+              </button>
+            </div>
+            <div className="relative w-full overflow-hidden rounded-lg border border-white/12 bg-black" style={{ paddingTop: '56.25%' }}>
+              <iframe
+                className="absolute inset-0 h-full w-full"
+                src={`https://www.youtube-nocookie.com/embed/${telaoVideo.id}?autoplay=1&rel=0&modestbranding=1`}
+                title={telaoVideo.title || 'Cryptolution'}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+            <div className="mt-2 text-right">
+              <a
+                href={`https://www.youtube.com/watch?v=${telaoVideo.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-[11px] text-white/45 underline-offset-4 hover:text-white/80 hover:underline"
+              >
+                Watch on YouTube
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── A FITA DE TRADES REAIS, coluna à direita ────────────────────────
              Cada linha é uma negociação que a Kraken serviu e que virou tiro na

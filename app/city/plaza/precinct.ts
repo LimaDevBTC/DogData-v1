@@ -407,7 +407,12 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
     }
   }
   // e o passeio em volta de cada espelho d'água, onde as alamedas param e retomam
-  for (let i = 0; i < 4; i++) {
+  // ⚠️ ESTES QUATRO PASSEIOS CIRCULAVAM OS ESPELHOS D'ÁGUA, E OS ESPELHOS
+  // SAÍRAM EM 22/09. Sem o `JARDIM` eles ficaram desenhados em r 560 EM VOLTA
+  // DE NADA: quatro anéis de pavimento de 96 m de diâmetro boiando no gramado,
+  // um em cada diagonal. É a mesma lição da árvore que veio por dois caminhos:
+  // desligar uma camada não desliga o que foi construído para servir a ela.
+  for (let i = 0; JARDIM && i < 4; i++) {
     const a = Math.PI / 4 + (i * Math.PI) / 2
     const cx = Math.cos(a) * 560, cz = Math.sin(a) * 560
     const p = new THREE.Mesh(track(new THREE.RingGeometry(POOL_R + 2, POOL_R + 8, 96)), paveMat)

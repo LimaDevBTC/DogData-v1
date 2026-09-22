@@ -50,7 +50,8 @@ import {
   STELAE, GENESIS_POS, SATOSHI_POOL, PAW_PALM, PAW_TOES, PAW_TOE_R, PAW_PLAQUE, LEONIDAS_POS, LEONIDAS_PLINTH_R,
   ORDINAL_CENTER, ORDINAL_RING_R, ORDINAL_STONES, ORDINAL_PLAQUES, QUADRANT_ANGLE, POOL_R,
   BUST_POS, HERO_PALMS,
-  DECK_RUMO, DECK_Y,
+  DECK_RUMO, DECK_Y, PAW_PALM_R, PAW_MARK_R, PAW_TOE_WALK,
+  TELAO_POS,
 } from './garden-plan'
 import { SF, loadSf, dressSf, firstGeometry, podarMapasSecundarios } from './sf-assets'
 import { TIERS, crystalMaterialFor, loadCrystalTextures } from './park'
@@ -58,6 +59,7 @@ import { buildLeonidas } from './statues'
 import type { PerfProfile, DistanceCuller } from './perf'
 import { makeGlowTexture, makeGroundPool, POOL_SPREAD, type PoolDisc, type Pool } from './light-pool'
 import { emFatias, type Tarefa, type Trabalho } from './obra'
+import { buildTelao, TELAO_VIDEO_EMBUTIDO, type CryptolutionVideo, type Telao } from './telao'
 
 const WARM = new THREE.Color('#FFB35C')
 
@@ -364,6 +366,21 @@ export function monumentosEmObra(opts: MonumentsOpts): MonumentosEmObra {
     return null
   }))))
   const cxLeo = caixa(Promise.all([carregaCena('/city/leonidas-skull.glb'), carregaCena('/city/leonidas-body.glb')]))
+  // ⚠️ A CAIXA DO TELÃO PARTE AQUI, com as outras, e a peça NÃO ESPERA por ela.
+  // `/api/cryptolution` é o feed do canal do Vincent, e ele pode estar fora do
+  // ar, lento ou inexistente em localhost. O telão nasce com o retrato embutido
+  // (`TELAO_VIDEO_EMBUTIDO`) e troca o pôster se e quando a caixa chegar — que é
+  // o contrário de `while (!cx.pronta) yield`, e de propósito: esta peça não tem
+  // por que segurar a fila de construção por causa do YouTube.
+  const cxTelao = caixa(
+    fetch('/api/cryptolution', { signal: AbortSignal.timeout(10_000) })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((f: { videos?: CryptolutionVideo[]; latest?: CryptolutionVideo } | null) => {
+        const vs = f?.videos?.length ? f.videos : f?.latest ? [f.latest] : null
+        return vs
+      })
+      .catch(() => null),
+  )
   const cxOrdinal = caixa(Promise.all([
     new Promise<THREE.Group>((res, rej) => gl.load('/city/park/crystals.glb', (g) => res(g.scene), undefined, rej)),
     loadCrystalTextures(),
@@ -686,7 +703,25 @@ export function monumentosEmObra(opts: MonumentsOpts): MonumentosEmObra {
     while (!passoMarca.done) { yield; passoMarca = itMarca.next() }
     const markTex = track(passoMarca.value)
     rel.reinicia()
-    const MARK_R = 30 // era 14: o emblema agora ocupa a palma inteira
+    // ⚠️ A PALMA PASSA A DESENHAR A PRÓPRIA ÁGUA, e isto é conserto de um
+    // estrago colateral de 22/09. O disco dos quatro espelhos d'água era
+    // desenhado por `precinct.ts`, atrás da bandeira `JARDIM`; quando o jardim
+    // saiu, sobrou no deck o aro de latão e o emblema boiando no piso seco, com
+    // quatro poças pretas de dedo por cima. A pata dependia de um vizinho para
+    // ter água, e vizinho desligado não avisa.
+    const [ppx, ppz] = PAW_PALM
+    const pY = yAt(ppx, ppz)
+    const agua = new THREE.Mesh(track(new THREE.CircleGeometry(PAW_PALM_R, 96)), waterMat)
+    agua.rotation.x = -Math.PI / 2
+    agua.position.set(ppx, pY + 0.25, ppz)
+    agua.receiveShadow = true
+    group.add(agua)
+    const aroPalma = new THREE.Mesh(
+      track(new THREE.RingGeometry(PAW_PALM_R - 0.6, PAW_PALM_R + 0.6, 96)), warmRimMat)
+    aroPalma.rotation.x = -Math.PI / 2
+    aroPalma.position.set(ppx, pY + 0.32, ppz)
+    group.add(aroPalma)
+    const MARK_R = PAW_MARK_R // 0,625 da palma, "a palma inteira", como no desenho
     const mark = new THREE.Mesh(track(new THREE.CircleGeometry(MARK_R, 96)), track(new THREE.MeshStandardMaterial({
       map: markTex, transparent: true, roughness: 0.25, metalness: 0.5, envMapIntensity: 1.2,
       emissive: 0xffffff, emissiveMap: markTex, emissiveIntensity: 0.5 * LIT,
@@ -711,7 +746,7 @@ export function monumentosEmObra(opts: MonumentsOpts): MonumentosEmObra {
     // os quatro dedos: espelhos menores, água preta, borda de luz quente
     const toeGeo = track(new THREE.CircleGeometry(PAW_TOE_R, 48))
     const toeRimGeo = track(new THREE.RingGeometry(PAW_TOE_R - 0.5, PAW_TOE_R + 0.5, 64))
-    const toeWalkGeo = track(new THREE.RingGeometry(PAW_TOE_R + 0.6, PAW_TOE_R + 4.5, 64))
+    const toeWalkGeo = track(new THREE.RingGeometry(PAW_TOE_R + 0.6, PAW_TOE_R + PAW_TOE_WALK, 64))
     const walkMat = track(new THREE.MeshStandardMaterial({ color: 0x17181d, roughness: 0.75, metalness: 0.15 }))
     const itDedos = emFatias(PAW_TOES, ([tx, tz]) => {
       const y = yAt(tx, tz)
@@ -720,15 +755,17 @@ export function monumentosEmObra(opts: MonumentsOpts): MonumentosEmObra {
       const wk = new THREE.Mesh(toeWalkGeo, walkMat); wk.rotation.x = -Math.PI / 2; wk.position.set(tx, y + 0.34, tz); wk.receiveShadow = true; group.add(wk)
       // uma poça por dedo no lugar da luz única que cobria os quatro: o raio é o
       // do passeio em volta do espelho, e a borda quente do dedo já é emissiva
-      wash(tx, tz, PAW_TOE_R + 4.5)
+      wash(tx, tz, PAW_TOE_R + PAW_TOE_WALK)
     }, FATIA_MS, 1)
     while (!itDedos.next().done) yield
     rel.reinicia()
-    // a borda quente da palma também (a dos outros espelhos é branca): a pata é uma só
-    const palmRim = new THREE.Mesh(track(new THREE.RingGeometry(POOL_R - 0.6, POOL_R + 0.6, 96)), warmRimMat)
-    palmRim.rotation.x = -Math.PI / 2
-    palmRim.position.set(px, yAt(px, pz) + 0.33, pz)
-    group.add(palmRim)
+    // ⚠️ AQUI HAVIA UM SEGUNDO ARO, DE RAIO 48, E ELE ERA DEFEITO. Quando a pata
+    // passou a desenhar a própria água (a `JARDIM = false` tirou os espelhos de
+    // precinct.ts, que eram quem desenhava antes), `aroPalma` nasceu no raio
+    // certo, `PAW_PALM_R` = 28,8. Esta linha continuou no raio antigo, `POOL_R`
+    // = 48, que é o do Espelho de Satoshi: um anel quente de 48 m flutuando
+    // vinte metros fora da palma, sobre o piso do deck. Um aro só, no raio da
+    // peça.
     // Cessão INCONDICIONAL antes de uma placa: `makePlaque` desenha um canvas de
     // 1024×560 com título, corpo quebrado em linhas e rodapé, e é indivisível
     // daqui (é uma função, não um gerador). Não medi o custo dela; cedo por
@@ -980,6 +1017,42 @@ export function monumentosEmObra(opts: MonumentsOpts): MonumentosEmObra {
     g.add(bust)
   }
 
+  // ═══ O TELÃO DA CRYPTOLUTION, o quarto braço do pente do deck ═════════════
+  // A fachada da Cryptolution House, separada da casa por decisão do fundador e
+  // trazida para cima do deck em 0,60 da escala do Blender, para ter a mesma
+  // largura da palma da pata. O desenho inteiro mora em telao.ts; aqui só se
+  // decide ONDE ele assenta e para onde olha.
+  let telao: Telao | null = null
+  function* fTelao(): Tarefa {
+    const [tx, tz] = TELAO_POS
+    const ty = yAt(tx, tz)
+    yield // fatia própria: a peça desenha um canvas de 1024×576 antes de existir
+    const t = buildTelao(TELAO_VIDEO_EMBUTIDO, { profile: opts.profile })
+    t.group.position.set(tx, ty, tz)
+    // ⚠️ `rotation.y = −rumo` PÕE A FACE OLHANDO PARA A AGULHA, e é a mesma
+    // conta que o muro do DSC faz (`FACE` em dsc-gallery.ts): um giro de θ em
+    // torno de Y leva o +Z local para (sen θ, cos θ), e a direção daqui até a
+    // origem é (−sen rumo, cos rumo).
+    t.group.rotation.y = -(DECK_RUMO.telao * Math.PI / 180)
+    group.add(t.group)
+    telao = t
+    // ⚠️ O CULL DELE É LONGO DE PROPÓSITO. A peça tem 73,6 m de largura e 43 de
+    // altura: sumir a 1.300 m (o corte das placas) apagaria um prédio da linha
+    // do horizonte da praça, que é justamente o que ele é de longe.
+    opts.culler?.add(t.group, 3000, new THREE.Vector3(tx, ty, tz))
+    // e agora, se o feed já chegou, o pôster do dia entra no lugar do embutido
+    if (cxTelao.pronta && cxTelao.valor) t.setVideos(cxTelao.valor)
+    else {
+      // a caixa ainda não fechou: o pôster troca sozinho quando ela fechar, sem
+      // segurar a fila (a peça já está na cena e completa)
+      const espera = () => {
+        if (!cxTelao.pronta) { setTimeout(espera, 400); return }
+        if (cxTelao.valor && telao === t) t.setVideos(cxTelao.valor)
+      }
+      setTimeout(espera, 400)
+    }
+  }
+
   // ═══ as poças dos quatro jardins numa malha só ════════════════════════════
   // uma chamada de desenho para tudo o que substituiu as oito luzes.
   // TEM DE SER O ÚLTIMO: `pools` só está completo depois que todas as peças
@@ -1007,6 +1080,7 @@ export function monumentosEmObra(opts: MonumentsOpts): MonumentosEmObra {
     // reescrita se o fundador mudar de ideia.
     { nome: 'The Diamond Paw', peso: 10, faixa: 2, fatia: fPata },
     { nome: 'Leonidas', peso: 6, faixa: 2, fatia: fLeonidas },
+    { nome: 'The Cryptolution screen', peso: 6, faixa: 2, fatia: fTelao },
     { nome: 'The Satoshi bust', peso: 3, faixa: 2, fatia: fBusto },
     { nome: 'Monument lights', peso: 1, faixa: 2, fatia: fPocas },
   ]
@@ -1021,8 +1095,9 @@ export function monumentosEmObra(opts: MonumentsOpts): MonumentosEmObra {
       // fica acesa mas parada, e é o movimento que faz parecer instalação viva
       // (só depois que ela existe: `update` roda com a obra pela metade)
       if (pool) pool.material.opacity = poolBase * (0.94 + 0.06 * Math.sin(t * 1.3))
+      telao?.update(t)
     },
-    dispose() { for (const d of disposables) d.dispose() },
+    dispose() { telao?.dispose(); telao = null; for (const d of disposables) d.dispose() },
   }
 }
 

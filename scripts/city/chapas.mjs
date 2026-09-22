@@ -81,13 +81,22 @@ const VISTAS = {
   //            É o quadro que responde "o canal chega na água?".
   cr01foz:  [1479, 60, -3172, 2198, -38, -4713, 45],
   // `deck`: EM CIMA DA LAJE da Satoshi Plaza, na altura do olho (piso em
-  //         PRACA_Y + DECK_Y = 4,95, olho em 6,65), do lado oposto ao painel do
-  //         DSC, olhando a Agulha. É o quadro que julga as três peças que
-  //         ficaram e o arranjo de 120° entre elas.
-  // `deckalto`: de fora da laje, 120 m acima, o único quadro que pega as TRÊS
-  //             peças do pente de 120° de uma vez, com a Agulha no meio.
-  deckalto: [-401, 120, 156, 0, 10, 0, 50],
-  deck:     [-225, 6.65, 88, 0, 22, 0, 55],
+  //         PRACA_Y + DECK_Y = 4,95, olho em 6,65), olhando a Agulha. É o
+  //         quadro que julga as peças do deck e o arranjo entre elas.
+  // `deckalto`: de fora da laje, 120 m acima, o único quadro que pega as QUATRO
+  //             peças do pente de 90° de uma vez, com a Agulha no meio.
+  // `telao`: de frente para o telão da Cryptolution, no eixo dele, na altura do
+  //          olho. É o quadro que julga a escala da tela contra as outras peças.
+  //
+  // ⚠️ OS DOIS PRIMEIROS MUDARAM DE LUGAR EM 22/09, E NÃO FOI GOSTO. Ambos
+  // estavam no rumo 248,7 (o `deck` em r 241,6, o `deckalto` em r 430), que era
+  // um vão do pente de 120°. Com o pente de 90° esse rumo virou o BRAÇO DO
+  // TELÃO: a câmera do `deck` nascia dentro da tela e a do `deckalto` tinha a
+  // peça de 73,6 m tapando as outras três. Agora as duas ficam nos vãos do
+  // pente novo — 203,7 e 23,7 — que é o que um vão é para uma câmera.
+  deckalto: [173, 120, -394, 0, 10, 0, 50],
+  deck:     [-97, 6.65, 221, 0, 22, 0, 55],
+  telao:    [-102, 6.65, 40, -209, 28, 82, 55],
   orlaalto: [2806, 420, -5752, 1929, -30, -3955, 45],
   orlacanal:[1411, -28.3, -4343, 2226, -29.5, -3856, 50],
   foz:      [1100, 95, -2650, 1620, -35, -3260, 42],

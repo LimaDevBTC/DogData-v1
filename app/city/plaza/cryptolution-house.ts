@@ -12,148 +12,38 @@
 // parâmetro (o retrato embutido de lib/cryptolution/feed.ts), então a casa nasce
 // certa mesmo em localhost sem rede.
 //
-// ⚠️ O TELÃO É UM PÔSTER, NÃO O PLAYER. Sampler de vídeo do YouTube em WebGL não
-// existe (e os Termos exigem tocar no player deles). Então a face mostra a
-// thumbnail real do vídeo (i.ytimg.com serve com CORS liberado — ver feed.ts) com
-// o play e o título por cima; o play de verdade é o overlay <iframe> que a cena
-// levanta ao clicar (plaza-scene.tsx), e o visitante nunca sai da cidade.
+// ⚠️ O TELÃO SAIU DAQUI EM 22/09/2026, E A CASA NUNCA CHEGOU A ENTRAR NA CENA.
+// Este módulo estava completo e ninguém o chamava. O fundador decidiu separar as
+// duas coisas — "colocar o telão passando o vídeo dele na praça principal e
+// deixar a mansão dele separada" — e o telão virou peça própria da Satoshi
+// Plaza, em `telao.ts`, a 248,7° no pente do deck. A casa continua aqui,
+// dormente, e nasce SEM telão: o vão da fachada fica como o Blender o abriu.
+//
+// ⚠️ SE UM DIA A CASA ENTRAR COM TELÃO PRÓPRIO, é só passar `{ telao: true }`.
+// O desenho do pôster é um só e mora em `telao.ts` (`makeScreenTexture`), para
+// não existirem dois pôsteres divergindo com o tempo.
 import * as THREE from 'three'
+import { makeScreenTexture, type CryptolutionVideo } from './telao'
 
 // A paleta agora vive no modelo do Blender (public/city/cryptolution-house.glb);
 // aqui só resta o telão dinâmico, que desenha suas próprias cores no canvas.
 
-export interface CryptolutionHouseVideo {
-  id: string
-  title: string
-  /** thumbnail hqdefault, i.ytimg.com (CORS liberado) */
-  thumb: string
-}
+/** ⚠️ O TIPO E O DESENHO DO PÔSTER MUDARAM-SE PARA `telao.ts` em 22/09/2026,
+ *  quando o fundador separou o telão da casa. O apelido continua exportado para
+ *  quem já importava daqui. */
+export type CryptolutionHouseVideo = CryptolutionVideo
 
 export interface CryptolutionHouse {
   group: THREE.Group
-  /** o mesh do telão — quem clica nele abre o vídeo (raycast em plaza-scene) */
-  screen: THREE.Mesh
+  /** o mesh do telão, quando a casa é construída com ele; `null` por padrão,
+   *  desde que o telão virou peça da praça (ver `telao.ts`) */
+  screen: THREE.Mesh | null
   /** o vídeo que está no telão agora */
   video: CryptolutionHouseVideo
   /** altura do topo da chaminé, pra quem quiser mirar a câmera */
   apexY: number
   update: (t: number) => void
   dispose: () => void
-}
-
-// ── o telão desenhado num canvas ─────────────────────────────────────────────
-// Desenha o pôster do vídeo do dia: fundo escuro, a thumbnail real quando ela
-// chega, o degradê, a pílula "DAILY DISPATCH", o botão de play e o título. Roda
-// uma vez na hora certa e de novo quando a imagem do YouTube carrega.
-function makeScreenTexture(video: CryptolutionHouseVideo): {
-  texture: THREE.CanvasTexture
-  dispose: () => void
-} {
-  const W = 1024, H = 576 // 16:9
-  const canvas = document.createElement('canvas')
-  canvas.width = W
-  canvas.height = H
-  const ctx = canvas.getContext('2d')!
-  const texture = new THREE.CanvasTexture(canvas)
-  texture.colorSpace = THREE.SRGBColorSpace
-  texture.anisotropy = 8
-
-  let img: HTMLImageElement | null = null
-
-  const wrap = (text: string, maxW: number, font: string): string[] => {
-    ctx.font = font
-    const words = text.split(/\s+/)
-    const lines: string[] = []
-    let line = ''
-    for (const w of words) {
-      const test = line ? line + ' ' + w : w
-      if (ctx.measureText(test).width > maxW && line) {
-        lines.push(line)
-        line = w
-      } else line = test
-    }
-    if (line) lines.push(line)
-    return lines.slice(0, 2)
-  }
-
-  const draw = () => {
-    // fundo
-    ctx.fillStyle = '#07070b'
-    ctx.fillRect(0, 0, W, H)
-    // a thumbnail, se já chegou (cobre a tela, recorte "cover")
-    if (img && img.complete && img.naturalWidth) {
-      const ir = img.naturalWidth / img.naturalHeight
-      const cr = W / H
-      let dw = W, dh = H, dx = 0, dy = 0
-      if (ir > cr) { dh = H; dw = H * ir; dx = (W - dw) / 2 }
-      else { dw = W; dh = W / ir; dy = (H - dh) / 2 }
-      try { ctx.drawImage(img, dx, dy, dw, dh) } catch { /* taint improvável: i.ytimg tem CORS */ }
-    }
-    // degradê pra assentar o texto (como a chapa da landing)
-    const g = ctx.createLinearGradient(0, 0, 0, H)
-    g.addColorStop(0, 'rgba(0,0,0,0.45)')
-    g.addColorStop(0.45, 'rgba(0,0,0,0.05)')
-    g.addColorStop(1, 'rgba(0,0,0,0.9)')
-    ctx.fillStyle = g
-    ctx.fillRect(0, 0, W, H)
-
-    // pílula "DAILY DISPATCH" com o ponto pulsando
-    ctx.font = '600 22px ui-monospace, monospace'
-    const pill = 'DAILY DISPATCH'
-    const pw = ctx.measureText(pill).width
-    ctx.fillStyle = 'rgba(0,0,0,0.6)'
-    ctx.fillRect(28, 28, pw + 58, 40)
-    ctx.fillStyle = '#F56E0F'
-    ctx.beginPath()
-    ctx.arc(50, 48, 7, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.textBaseline = 'middle'
-    ctx.fillText(pill, 68, 50)
-
-    // botão de play, centro
-    ctx.fillStyle = '#F5B02B'
-    ctx.beginPath()
-    ctx.arc(W / 2, H / 2, 58, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.fillStyle = '#08070b'
-    ctx.beginPath()
-    ctx.moveTo(W / 2 - 20, H / 2 - 30)
-    ctx.lineTo(W / 2 - 20, H / 2 + 30)
-    ctx.lineTo(W / 2 + 34, H / 2)
-    ctx.closePath()
-    ctx.fill()
-
-    // título do vídeo, embaixo
-    ctx.fillStyle = '#F4F4F6'
-    const titleFont = '700 30px ui-sans-serif, system-ui, sans-serif'
-    const lines = wrap(video.title, W - 72, titleFont)
-    ctx.font = titleFont
-    ctx.textBaseline = 'alphabetic'
-    let ty = H - 40 - (lines.length - 1) * 36
-    for (const l of lines) { ctx.fillText(l, 36, ty); ty += 36 }
-
-    texture.needsUpdate = true
-  }
-
-  draw()
-
-  // busca a thumbnail real (CORS liberado no i.ytimg — feed.ts); ao chegar,
-  // redesenha com a imagem. Se falhar, o pôster segue com o fundo escuro.
-  if (video.thumb) {
-    img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = draw
-    img.onerror = () => { img = null }
-    img.src = video.thumb
-  }
-
-  return {
-    texture,
-    dispose: () => {
-      if (img) { img.onload = null; img.onerror = null; img = null }
-      texture.dispose()
-    },
-  }
 }
 
 // ── a casa: a carcaça vem do Blender, o telão continua vivo aqui ──────────────
@@ -165,7 +55,7 @@ function makeScreenTexture(video: CryptolutionHouseVideo): {
 // TELÃO dinâmico (a thumb do vídeo do dia) encaixado no recesso, e o clique→play.
 //
 // `shell` é o group já carregado do GLB (quem chama usa o loadGlb da cena).
-export function buildCryptolutionHouse(video: CryptolutionHouseVideo, shell: THREE.Object3D): CryptolutionHouse {
+export function buildCryptolutionHouse(video: CryptolutionHouseVideo, shell: THREE.Object3D, opts?: { telao?: boolean }): CryptolutionHouse {
   const group = new THREE.Group()
   group.name = 'CryptolutionHouse'
   const disposables: { dispose: () => void }[] = []
@@ -224,20 +114,24 @@ export function buildCryptolutionHouse(video: CryptolutionHouseVideo, shell: THR
   const beaconLight = addLight(0xf56e0f, 46, 320, 56, 140, -12) // o farol
   const beaconBase = beaconLight.intensity
 
-  // ── o telão dinâmico (o vídeo do dia), encaixado no recesso da fachada ──────
+  // ── o telão dinâmico, SÓ SE PEDIDO ─────────────────────────────────────────
   // Posição LOCAL medida do modelo do Blender (build_house.py): o vão do telão
   // tem centro em (0, 42, 30.7) e a face olha para +Z — a frente que, com o group
   // sem rotação, aponta para a praça. Tamanho 96×54, igual ao que o Blender abriu.
-  const screenTex = track(makeScreenTexture(video))
-  const SCREEN_W = 96, SCREEN_H = 54
-  const screen = new THREE.Mesh(
-    track(new THREE.PlaneGeometry(SCREEN_W, SCREEN_H)),
-    track(new THREE.MeshBasicMaterial({ map: screenTex.texture, toneMapped: false })),
-  )
-  screen.position.set(0, 42, 30.7)
-  screen.name = 'CryptolutionScreen'
-  screen.userData.cryptolution = true // marca pro raycast do clique→vídeo
-  group.add(screen)
+  // Por padrão a casa nasce sem ele: o telão é peça da praça agora.
+  let screen: THREE.Mesh | null = null
+  if (opts?.telao) {
+    const screenTex = track(makeScreenTexture(video))
+    const SCREEN_W = 96, SCREEN_H = 54
+    screen = new THREE.Mesh(
+      track(new THREE.PlaneGeometry(SCREEN_W, SCREEN_H)),
+      track(new THREE.MeshBasicMaterial({ map: screenTex.texture, toneMapped: false })),
+    )
+    screen.position.set(0, 42, 30.7)
+    screen.name = 'CryptolutionScreen'
+    screen.userData.cryptolution = true // marca pro raycast do clique→vídeo
+    group.add(screen)
+  }
 
   return {
     group,

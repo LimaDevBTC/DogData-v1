@@ -2117,6 +2117,19 @@ Leônidas e as nove estelas quarenta metros abaixo do chão que se pisa. O conse
 numa linha só, onde o módulo lê o terreno, e **por raio** (250, a colunata), para o busto
 do Satoshi, que fica fora do deck, não subir junto.
 
+⚠️ **A PATA QUEBROU PELA MESMA FAMÍLIA DE ERRO, E PIOR.** Ao trazê-la da diagonal para o
+deck eu encolhi a DISTÂNCIA dos dedos (de 80/92 para 52/62 do centro da palma) e não
+encolhi nem o raio do dedo (17) nem o da palma (48). Com 52 − 17 = 35 contra os 48 da
+palma, **cada dedo entra 13 m dentro dela**: antes havia 15 m de folga. O fundador viu na
+chapa antes de eu medir: *"o monumento da pata da DOG com a estátua do Leônidas está uma
+várzea, tudo sobreposto"*.
+
+**A lei, e ela vale para toda peça composta:** mudar de escala é multiplicar **todas** as
+medidas pelo mesmo fator, inclusive as que não aparecem no nome do problema. Distância sem
+raio, ou raio sem distância, não é escala, é deformação. Quando a peça tem partes que se
+tocam, a prova é aritmética e obrigatória: para cada par vizinho, distância entre centros
+menos soma dos raios, e nenhum resultado pode ser negativo.
+
 ⚠️ **E A PROPORÇÃO DA ALAMEDA NÃO SOBREVIVE A UMA MUDANÇA DE ESCALA SOZINHA.** As estelas
 alternam os lados, então a alameda tem `2 × STELA_SIDE` de largura contra o passo radial de
 vão. Com 13 m de lado e passo de 25,75 a fileira lia como nave; encolhido o passo para 15 e
@@ -2127,3 +2140,106 @@ muda junto ou o desenho inverte de significado.**
 **O que não saiu de propósito:** os geradores `fEspelho` e `fOrdinal` continuam escritos em
 `monuments.ts`, fora da fila `trabalhos`. Tirar da fila é o que desliga; deixar o código é
 para a peça voltar sem ser reescrita.
+
+---
+
+## §28 — O telão entra e o pente vira 90° 🔒 (22/09/2026)
+
+**A pergunta, do fundador:** *"por acaso tem um telão que fica passando vídeos do Vincent
+Cryptolution dentro da praça? O Vavá eu acho que ia criar um telão... só que eu não vi esse
+telão ainda, nem sei se ele existe"*.
+
+**Existia e não existia.** `app/city/plaza/cryptolution-house.ts` estava **completo** — casa
+modelada no Blender, telão dinâmico com a thumbnail do vídeo do dia, marcação de raycast
+para o clique abrir o player — e **ninguém o chamava**. O módulo nunca foi instanciado pela
+cena: um prédio inteiro escrito, testado no papel e invisível. A landing (`/dogcity`,
+`sections/broadcast.tsx`) mostrava a casa; a cidade, não.
+
+**DECIDIDO, em duas etapas, as duas do fundador.** Primeiro: *"a gente podia separar isso,
+colocar o telão passando o vídeo dele na praça principal e deixar a mansão dele separada"*.
+Depois, sobre o arranjo: *"prefiro integrar o telão com as outras três peças e quebrar cada
+um em 90°"*.
+
+### O passo de 90° não cai em bulevar, e o §27 estava errado sobre isso
+
+O §27 afirma que "qualquer pente cai em cima de um dos quatro bulevares cardeais, exceto os
+que saem de 45 em 45". **Isso vale para o passo de 120°, não para o de 90°.** Um pente de
+90° é `{o, o+90, o+180, o+270}`, e ele só encosta nos cardeais `{0, 90, 180, 270}` se o
+deslocamento `o` for múltiplo de 90. Ancorado nos mesmos **68,7°** (o `DSC_RUMO`, que
+continua sendo quem manda), o pente novo passa a 21,3° do bulevar mais próximo — e, de
+quebra, a 23,7° das quatro **diagonais**, que é onde moram os braseiros de r 150. O pedido
+do fundador não custava nada; a objeção era minha e era falsa.
+
+```
+ 68,7°  painel do Dog Social Club    r 200     (nunca girou de rumo)
+158,7°  Pata de Diamante + Leônidas  palma 120, estátua 222   (girou 30°)
+248,7°  Telão da Cryptolution        face 224, canto 239,3    (novo)
+338,7°  Jardim do White Paper        estelas 105 a 225, Gênese 240   (girou 30°)
+```
+
+Duas peças giraram 30°; o painel do DSC não se mexeu; o telão pegou o braço livre.
+
+### A escala do telão é 0,60, o mesmo fator da pata, e é o assunto da peça
+
+O vão que o Blender abriu na fachada da casa tem **96 × 54 m**. Em tamanho cheio, no deck,
+ele não seria a quarta peça de um conjunto: a palma da pata mede 57,6 m de diâmetro depois
+do conserto do §27, e uma placa de 96 m ao lado dela faz as outras três lerem como detalhe.
+**Em 0,60 o telão fica com 57,6 m de largura, exatamente a palma**, e as quatro peças têm a
+mesma escala. Do centro da laje a tela ainda preenche 14° do campo de visão.
+
+⚠️ **O CANTO DE UM RETÂNGULO TANGENTE NÃO FICA EM `r + meia largura`.** A peça inteira
+(pódio, peitoril, dois pilares, verga, marquise e parede de trás) é um retângulo tangente de
+**79,6 × 20 m**. Lido como círculo de raio 42, ele diria que a peça vai a 266 e fura a
+colunata dórica de 250. Medido como retângulo — `√((r + fundo)² + meia largura²)` — com a
+face em 224 o canto fica em **239,3 m**, 10,7 m antes da colunata, a mesma ordem de folga
+que o Leônidas tem em 237 do outro lado. É o **§23** de novo, agora dentro da praça: o
+mesmo erro que custou 210 lotes sobrepostos na Orla da Baía.
+
+⚠️ **E A PRIMEIRA ESCRITA DO PROSCÊNIO TINHA OS PILARES ATRÁS DA TELA.** Eu pus os pilares
+em z −3,5 e a tela em z +3,55 no quadro local: de frente eles sumiam por trás dela e não
+emolduravam nada. O quadro local agora é explícito — **z = 0 é o plano da tela**, estrutura
+em z negativo, e só a marquise avança para z positivo.
+
+### "Passando vídeos" é a fila, não o play
+
+O fundador falou em *"um telão que fica passando os vídeos dele"*. Um telão que **toca**
+vídeo do YouTube não existe em WebGL: não há sampler de vídeo do YouTube, e os Termos
+exigem que o play aconteça no player deles. O que se entrega é a tela **nunca parada**: o
+`/api/cryptolution` devolve os últimos seis despachos, o pôster troca a cada 14 s começando
+pelo do dia, e o clique levanta o `<iframe>` oficial por cima da cena com o vídeo **que
+estiver na tela naquele instante**. O visitante assiste sem sair da cidade.
+
+⚠️ **A troca anda pelo relógio da cena (`t` do `update`), não por `setInterval`.** Com a
+aba em segundo plano o laço de render para, e a fila para junto — em vez de acumular trocas
+e dar um salto ao voltar.
+
+### Duas consequências medidas, nenhuma das duas é defeito
+
+1. **Num pente de 90° toda peça tem outra peça às costas, do outro lado do centro.** O
+   telão (248,7) fica exatamente de frente para o painel do DSC (68,7), e a pata (158,7)
+   para o White Paper (338,7). Com 120° isso não acontecia. Para uma tela é o melhor
+   arranjo possível: ela olha para a travessia inteira da praça e tem gente parada no ponto
+   oposto. Para as outras três é pano de fundo, não obstrução — a Agulha fica no meio.
+2. **As duas câmeras de chapa do deck estavam no rumo 248,7** (`deck` em r 241,6,
+   `deckalto` em r 430), porque 248,7 era um VÃO do pente de 120°. Com o pente novo esse
+   rumo virou braço: a câmera do `deck` nascia dentro da tela. As duas se mudaram para os
+   vãos novos (203,7 e 23,7), e entrou uma terceira, `telao`, de frente para a peça.
+
+### O aro de 48 m que sobrou do espelho antigo
+
+Achado ao medir isto. Quando a pata passou a desenhar a própria água (o `JARDIM = false`
+tirou os espelhos de `precinct.ts`, que eram quem desenhava antes), o aro quente novo
+nasceu no raio certo, `PAW_PALM_R` = 28,8 — mas a **linha antiga continuou no arquivo**,
+com `POOL_R` = 48, que é o raio do Espelho de Satoshi. Resultado: um anel emissivo de 48 m
+flutuando vinte metros fora da palma, sobre o piso do deck. Removido.
+
+**A regra:** quando uma peça passa a desenhar o que outra desenhava, a busca não é pelo
+nome da peça, é pelo **raio antigo**. `POOL_R` é compartilhado, e todo compartilhado
+sobrevive à mudança que devia tê-lo levado junto.
+
+### O que a casa virou
+
+`cryptolution-house.ts` continua no repositório, **dormente e sem telão** (`{ telao: true }`
+o devolve). O desenho do pôster — `makeScreenTexture` — mudou-se para `telao.ts` e é um só,
+para não existirem dois pôsteres divergindo com o tempo. **Pendente, e é do fundador:** o
+que preenche o recesso de 96 × 54 da fachada da mansão quando ela for para o chão liberado.
