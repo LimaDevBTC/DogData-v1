@@ -860,15 +860,19 @@ export default function DogCityDocsPage() {
               </P>
               <P>
                 That right only works because the project holds a standing reserve everywhere it
-                might be needed. The project keeps 2% of the lots in every neighborhood in the city,
+                might be needed. The project keeps 1% of the lots in every neighborhood in the city,
                 scattered throughout each one rather than gathered into a single block, so that a
                 lot of comparable standing is always available near wherever an appeal happens to
-                land. Across the whole city that reserve totals 1,389 lots, alongside 69,995 wallet
-                lots and 15,802 headstones. The measurement in section 4 flagged 21 wallets, so the
-                reserve covers every possible appeal 64 times over. It was 15% while the project
-                still thought it had land to spare: every point of reserve costs a point of area for
-                everyone else, and the large land bank the project wants for itself belongs in the
-                expansion ring, not in the middle of Ring 1.
+                land. The measurement in section 4 flagged 21 wallets, and the reserve covers every
+                possible appeal many times over.
+              </P>
+              <P>
+                It was 15% while the project still thought it had land to spare, then 2%, and now 1%.
+                The reason it keeps shrinking is worth stating plainly, because it is the same reason
+                every time: every point of reserve costs a point of area for everyone else. The large
+                land bank the project wants for itself belongs in the expansion ring, not in the
+                middle of Ring 1, and the reserve inside the neighborhoods exists for one job only,
+                which is to back the right of appeal.
               </P>
             </Section>
 

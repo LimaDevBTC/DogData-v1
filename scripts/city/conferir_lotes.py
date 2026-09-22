@@ -210,6 +210,89 @@ else:
     item('giro do CSV bate com o do .bin', True,
          'PULADO: este CSV é anterior à coluna giro_graus (22/09)')
 
+# 4f. O MURO DE DIVISA OBEDECE AO TETO DE 3 m?
+# ⚠️ O §15 promete que a cidade paga o talude entre vizinhos e que ele não passa
+# de 3 m. O socalco cumpre isso DENTRO da fileira e entre fileiras pareadas, mas
+# nada media o degrau entre lotes de QUARTEIRÕES diferentes que se encostam, e é
+# lá que ele estoura. Medido em 22/09: 530 divisas de 105.445 acima de 3 m
+# (0,50%), a pior com 14,66 m, quase todas em divisa de quarto.
+#
+# O teste não exige zero, porque zero exigiria acoplar o socalco através de
+# quarteirão e isso é obra grande. Ele exige que a EXCEÇÃO continue exceção, e
+# grita o número em toda rodada para ela não crescer calada.
+_TETO_DIVISA = 3.0
+_MAX_FORA = 0.01          # 1% das divisas
+_cant = []
+for _i, _r in enumerate(linhas):
+    _w = max(1.0, float(_r['frente_m'])); _d = max(1.0, float(_r['prof_m']))
+    _cant.append((float(_r['x_m']), float(_r['z_m']), max(_w, _d) / 2,
+                  cantos(float(_r['x_m']), float(_r['z_m']), _w, _d, math.radians(lotes[_i][8] / 100)),
+                  float(_r['cota_m']), _r['lot_id']))
+def _folga(A, B_):
+    pior = -1e9
+    for P_, Q_ in ((A, B_), (B_, A)):
+        for k in range(4):
+            ex, ez = P_[(k+1) % 4][0]-P_[k][0], P_[(k+1) % 4][1]-P_[k][1]
+            L = math.hypot(ex, ez) or 1; nx, nz = -ez/L, ex/L
+            pa = [q[0]*nx+q[1]*nz for q in P_]; pb = [q[0]*nx+q[1]*nz for q in Q_]
+            g = max(min(pb)-max(pa), min(pa)-max(pb))
+            if g > pior: pior = g
+    return pior
+_CELD = 80.0
+_bd = collections.defaultdict(list)
+for _i, _p in enumerate(_cant): _bd[(int(_p[0]//_CELD), int(_p[1]//_CELD))].append(_i)
+_div, _vis = [], set()
+for (_bi, _bj), _ix in _bd.items():
+    _cd = []
+    for _di in (-1, 0, 1):
+        for _dj in (-1, 0, 1): _cd += _bd.get((_bi+_di, _bj+_dj), [])
+    for _i in _ix:
+        for _j in _cd:
+            if _j <= _i or (_i, _j) in _vis: continue
+            _a, _b = _cant[_i], _cant[_j]
+            if (_a[0]-_b[0])**2 + (_a[1]-_b[1])**2 > (_a[2]+_b[2]+3)**2: continue
+            _vis.add((_i, _j))
+            if _folga(_a[3], _b[3]) <= 1.5: _div.append((abs(_a[4]-_b[4]), _a[5], _b[5]))
+_div.sort(reverse=True)
+_nd = len(_div) or 1
+_fora = sum(1 for d in _div if d[0] > _TETO_DIVISA)
+item('muro de divisa dentro do teto de 3 m', _fora <= _nd * _MAX_FORA,
+     f'{_nd} divisas medidas, {_fora} acima de {_TETO_DIVISA:.0f} m ({100*_fora/_nd:.2f}%, teto {_MAX_FORA*100:.0f}%)'
+     + (f', pior {_div[0][0]:.2f} m em {_div[0][1]} x {_div[0][2]}' if _div else ''))
+
+# 4e. NENHUM LOTE TEM COTA DE OUTRO LUGAR
+# ⚠️ O teste 6 só exige que a cota caia na FAIXA do relevo do sítio, e por isso
+# um zero inventado passa: zero está dentro da faixa. Medido em 22/09, os 65
+# lotes de projeto da Orla Nobre saíram com cota 0,0 (a chave do dicionário não
+# batia com o endereço gravado) contra os −30 da plataforma da alça, criando
+# 130 divisas de exatamente 30,00 m entre mansões vizinhas.
+#
+# Aqui a cota é conferida contra a dos VIZINHOS geométricos: um lote cuja cota
+# se afasta demais de todos os lotes encostados nele está com cota de outro
+# lugar. É barato e pega a família inteira desse defeito.
+_pt = [(float(r['x_m']), float(r['z_m']), float(r['cota_m']), r['lot_id']) for r in linhas]
+_CEL = 90.0
+_bal = collections.defaultdict(list)
+for _i, (_x, _z, _c, _id) in enumerate(_pt):
+    _bal[(int(_x // _CEL), int(_z // _CEL))].append(_i)
+_orfaos = []
+for (_bi, _bj), _idx in _bal.items():
+    _viz = []
+    for _di in (-1, 0, 1):
+        for _dj in (-1, 0, 1): _viz += _bal.get((_bi + _di, _bj + _dj), [])
+    for _i in _idx:
+        _x, _z, _c, _id = _pt[_i]
+        _perto = [_pt[_j][2] for _j in _viz
+                  if _j != _i and (_pt[_j][0]-_x)**2 + (_pt[_j][1]-_z)**2 < 120*120]
+        if len(_perto) < 4: continue
+        _perto.sort()
+        _med = _perto[len(_perto)//2]
+        if abs(_c - _med) > 25.0: _orfaos.append((abs(_c - _med), _id, _c, _med))
+_orfaos.sort(reverse=True)
+item('nenhum lote com cota de outro lugar', not _orfaos,
+     f'{len(_pt)} lotes contra a mediana dos vizinhos em 120 m; {len(_orfaos)} acima de 25 m'
+     + (f', pior {_orfaos[0][0]:.1f} m em {_orfaos[0][1]} (cota {_orfaos[0][2]:.1f} contra {_orfaos[0][3]:.1f})' if _orfaos else ''))
+
 # 4d. O CEMITÉRIO OBEDECE À REGRA QUE O PRÓPRIO MANIFESTO PUBLICA?
 # ⚠️ Nenhum teste cruzava o destino "lápide" com o motivo dele. O portão sabia
 # que toda carteira tem UM destino, mas não que o destino é o CERTO: uma

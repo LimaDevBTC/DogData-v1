@@ -54,17 +54,23 @@ import { SNAPSHOT } from "../dogcity-data"
  *  DOG-tempo ordena todo mundo.
  *
  *  ⚠️ A ARTE `public/landing/citymap-1600-v2.webp` ainda pinta os anéis do
- *  caderno e precisa ser repintada. Pendência aberta em 21/09. */
+ *  caderno e precisa ser repintada. Pendência aberta em 21/09, e ela CRESCEU em
+ *  22/09: os tiers 4 e 5 agora têm um distrito desenhado de verdade na margem
+ *  oposta da baía (masterplan §22), com praia, enseada, duas penínsulas e dois
+ *  canais. A arte não mostra nada disso.
+ *
+ *  ⚠️ E "oldest UTXO" saiu daqui junto com o resto: a régua é DOG-tempo desde
+ *  12/09 (masterplan §12), saldo vezes idade somado moeda a moeda. */
 const BASE_RELEVO = "#6F5C45"
 export const TIERS_MAPA: { cor: string; op: number; nome: string; onde: string }[] = [
   { cor: "#FFCE7A", op: 0.86, nome: "1 · Satoshi Visionary", onde: "the spit, front row, centre of the arc" },
   { cor: "#F79B34", op: 0.86, nome: "2 · BTC Maximalist", onde: "the spit, front row, both flanks" },
   { cor: "#DE6A18", op: 0.86, nome: "3 · Rune Master", onde: "the spit, back row" },
-  { cor: "#B4501C", op: 0.8, nome: "4 · Ordinal Believer", onde: "waterfront, facing the water" },
-  { cor: "#87452A", op: 0.78, nome: "5 · DOG Supporter", onde: "waterfront, behind the shore road" },
+  { cor: "#B4501C", op: 0.8, nome: "4 · Ordinal Believer", onde: "bay shore: the beach row and the two peninsulas" },
+  { cor: "#87452A", op: 0.78, nome: "5 · DOG Supporter", onde: "bay shore: the five rows along the canals" },
   { cor: "#9C8F79", op: 0.66, nome: "6 · Diamond Paws", onde: "inner fabric, by how the wallet is used" },
-  { cor: "#6A6E72", op: 0.68, nome: "7 to 12 · The Group", onde: "from 20k DOG, oldest UTXO sits closer in" },
-  { cor: "#414750", op: 0.7, nome: "Every other holder", onde: "under 20k DOG, toward the edge" },
+  { cor: "#6A6E72", op: 0.68, nome: "7 to 12 · The Group", onde: "more DOG-time sits closer in" },
+  { cor: "#414750", op: 0.7, nome: "Every other holder", onde: "less DOG-time, toward the edge" },
 ]
 
 function Amostra({ cor, op }: { cor: string; op: number }) {

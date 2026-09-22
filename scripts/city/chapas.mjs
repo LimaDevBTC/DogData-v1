@@ -55,6 +55,21 @@ const VISTAS = {
   longe:    [1500, 220, 2600, 200, 0, 900, 45],
   aerea:    [0, 1400, 2200, 0, 0, 0, 45],
   orla:     [2000, 70, -1500, 2900, -35, -2500, 45],
+  // ⚠️ AS TRÊS DA ORLA DA BAÍA (22/09), E ELAS SÃO NA ALTURA DO OLHO. O
+  // distrito dos tiers 4 e 5 nasceu sem nenhum enquadramento: uma zenital não
+  // julga praia, cais nem enseada, e a regra da casa é que toda peça precisa de
+  // chapa de fora a 1,70 m. A plataforma está em −30, então o olho fica em
+  // −28,3. Coordenadas derivadas dos rumos e raios de `orla-baia.ts`, não
+  // medidas à mão: se a seção mudar, estas três têm de ser recalculadas.
+  //
+  // `orlabaia`: da Rua da Praia (r 4.714, rumo 21,3) olhando a alça do outro
+  //             lado da água, que é o quadro que o distrito inteiro vende.
+  // `dedo`:     no meio da península de 11,3 (r 5.500), olhando a ponta.
+  // `enseada`:  na praia pública da enseada (rumo 51,3, r 3.700), olhando a
+  //             Ilha Norte, que é o que a enseada existe para abrir.
+  orlabaia: [1712, -28.3, -4392, 2434, -26, -6242, 45],
+  dedo:     [1078, -28.3, -5393, 1234, -30, -6178, 45],
+  enseada:  [2888, -28.3, -2313, 4875, -12, -3316, 45],
   foz:      [1100, 95, -2650, 1620, -35, -3260, 42],
   // ⚠️ ATUALIZADO EM 02/09: o pátio saiu de r 9.200 para r 11.200 quando a casca
   // foi a 9.050. O enquadramento antigo apontava para o lugar vazio, e a primeira

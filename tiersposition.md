@@ -859,6 +859,33 @@ continuam sendo duas definições de distrito. Isso morre sozinho quando o gerad
 reconstruído a partir do §3 deste arquivo, e não antes.
 
 
+**P11 — O preço da orla, e ele é uma transferência.** MEDIDO em 22/09 comparando a cidade
+com e sem o distrito, na mesma máquina e com o mesmo snapshot:
+
+```
+                        sem a orla      com a orla
+dentro da pegada        1,506 km²       2,587 km²    (+1,08, o distrito rende 3x mais)
+resto da cidade        45,997 km²      43,185 km²    (-2,81)
+total                  47,503 km²      45,772 km²    (-1,73)
+razão entregue/prometida  0,99            0,95
+```
+
+A causa não é desperdício: a orla consome **355 km de prateleira** do tecido (13,8% do
+total) para aliviar 2.062 carteiras (3,0% da fila). É transferência, não perda por
+descuido: os tiers 4 e 5 passam a receber **100% do prometido** e o resto da cidade cai
+quatro pontos.
+
+**Fechado em 22/09 pelo fundador:** a reserva do projeto cai de 2% para **1%**, o que
+devolve cerca de 0,4 km² ao tecido e recoloca a razão acima do portão. Ela já tinha caído
+de 15% para 2% no dia anterior, e o motivo é sempre o mesmo: cada ponto de reserva custa
+um ponto de área de todo mundo.
+
+⚠️ **A opção que fica guardada é ampliar o tecido para fora.** O fundador a pré-autorizou
+("chegamos em estado ótimo no empacotamento, aí a gente avalia ampliar o anel"), e o
+empacotamento chegou: 88% de testada usada contra 84% antes. Subir `PHI_LOTE` de 6.500 em
+direção a `R_ABOBADA` (8.900) abre bandas novas, mas invade o cinturão produtivo. Não foi
+feito; é a próxima alavanca se a razão voltar a cair.
+
 **P10 — Onde moram a classe A e a classe C da §3.9.** REABERTO em 2026-09-21, e não por
 mudança de ideia: a §3.9 destinou a orla da baía aos dois grupos contando com 20,56 km² de
 faixa nobre livre, e a orla que foi desenhada e gerada (§3.13) tem **2,60 km² no total**,

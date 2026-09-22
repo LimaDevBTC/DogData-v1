@@ -4620,9 +4620,16 @@ def uma_passada():
         saida.append((_x, _z, S_FIN, _a, _fr, _pf, 1, _i, 1))
     for _i, (_x, _z, _fr, _pf, _gi, _dono) in enumerate(ORLA_LOTES, 1):
         _GIRO_ORLA[(S_ORLA, 1, _i)] = _gi
-        COTA[_dono or f'__orla{_i}'] = altura(_x, _z)
-        saida.append((_x, _z, S_ORLA, _dono or f'__projeto_orla_{_i:03d}',
-                      _fr, _pf, 1, _i, 1))
+        # ⚠️ A CHAVE DA COTA TEM DE SER O ENDEREÇO GRAVADO, E NÃO ERA. Ela era
+        # `__orla{i}` e o registro sai como `__projeto_orla_{i:03d}`: para os 65
+        # lotes de projeto da Orla Nobre o `COTA.get(a, 0.0)` da gravação não
+        # achava nada e escrevia **cota 0,0** onde o chão é −30. Medido em 22/09
+        # pelo censo de divisas: 130 divisas de exatamente 30,00 m entre mansões
+        # vizinhas, que é a plataforma da alça contra um zero inventado. O
+        # portão não pegava porque 0 está dentro da faixa do relevo.
+        _a = _dono or f'__projeto_orla_{_i:03d}'
+        COTA[_a] = altura(_x, _z)
+        saida.append((_x, _z, S_ORLA, _a, _fr, _pf, 1, _i, 1))
     # ⚠️ A ORLA DA BAÍA ENTRA NA MESMA FILA E PELO MESMO CONTRATO: geometria
     # fixa, dono decidido pelo tier, área pela curva. Setor 9 no endereço, um
     # quarteirão por lote, porque no dedo o giro é radial e na fileira é
@@ -4672,7 +4679,14 @@ def uma_passada():
     # deles chamadas frágeis), e o land bank do projeto, que é produto.
     # Dentro do bairro fica só o que serve ao apelo, com folga de cem vezes;
     # o land bank grande sai da coroa externa, onde não tira metro de ninguém.
-    _pct = float(os.environ.get('RESERVA_PCT', '2')) / 100.0
+    # ⚠️ 1%, E FOI DECISÃO DO FUNDADOR EM 22/09, contra número medido. A reserva
+    # saiu de 15% para 2% em 21/09 ("15% foi um número que surgiu quando
+    # parecíamos ter terra sobrando") e agora para 1%, porque a Orla da Baía
+    # consumiu 355 km de prateleira do tecido e a razão entregue/prometida caiu
+    # de 0,99 para 0,95, reprovando no portão. Cada ponto de reserva custa um
+    # ponto de área de TODO MUNDO, e 1% ainda cobre as 21 carteiras marcadas com
+    # direito de apelo dezenas de vezes.
+    _pct = float(os.environ.get('RESERVA_PCT', '1')) / 100.0
     _reserva_passo = _pct / max(1e-9, 1.0 - _pct)
     _reserva_conta, _reserva_n = 0.0, 0
     for c, s in zip(gerais, destino):
