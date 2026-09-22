@@ -214,21 +214,32 @@ export function buildTelao(video: CryptolutionVideo, opts?: { profile?: PerfProf
   // da tela e não emolduravam nada — de frente eles sumiam por trás dela.
   const MEIA = TELAO_W / 2                 // 28,8
   const PIL_L = 7                          // largura do pilar
-  const PIL_P = 10                         // profundidade do pilar
-  const PIL_Z = -4                         // centro do pilar: vai de −9 a +1
+  // ⚠️ O PILAR AVANÇA 4 m À FRENTE DA TELA, E É ELE QUE CRIA O RELEVO. Na
+  // primeira chapa o proscênio inteiro estava num plano só, 1 m à frente da
+  // tela: de frente a peça lia como uma placa chapada de 73,6 m, sem moldura
+  // nenhuma. Com o pilar em z +4 e o peitoril/verga recuados para +1, o sol
+  // lunar joga sombra de pilar sobre o recuo, e é a sombra que desenha a
+  // moldura — não a cor, que aqui é uma só.
+  const PIL_P = 14                         // profundidade do pilar
+  const PIL_Z = -3                         // centro do pilar: vai de −10 a +4
+  const REC_P = 10                         // peitoril e verga: recuados, −9 a +1
+  const REC_Z = -4
   const PIL_X = MEIA + PIL_L / 2 + 1       // 33,3: 1 m de junta entre tela e pilar
   const TOPO = TELAO_PEITORIL + TELAO_H    // 39,4: o topo da tela
   const PIL_H = TOPO + 4                   // 43,4: o pilar passa da tela
   const LARG = PIL_X * 2 + PIL_L           // 73,6: a largura total da peça
 
-  // pedra do proscênio: o taupe quente-escuro da praça, já LEVANTADO (a pedra
-  // crua a ~4% de cinza vira silhueta preta no sol lunar; ao lado de uma tela
-  // acesa, pior ainda)
+  // ⚠️ A PEDRA É ESCURA, E O NÚMERO É LINEAR, NÃO sRGB. `Color.setRGB` escreve
+  // no espaço de TRABALHO, que é linear: os 0,115 que eu copiei da Cryptolution
+  // House valem ~#9A9088 na tela, e na primeira chapa a peça saiu mais CLARA
+  // que o piso do deck — um retângulo bege de 73,6 m. Aqui a pedra é um terço
+  // disso, o que a põe claramente abaixo do piso sem ir a silhueta (o sol
+  // lunar é forte e a tela acesa ao lado levanta o contraste sozinha).
   const pedra = track(new THREE.MeshStandardMaterial({
-    color: new THREE.Color().setRGB(0.115, 0.10, 0.088), roughness: 0.9, metalness: 0.05, envMapIntensity: 0.5,
+    color: new THREE.Color().setRGB(0.040, 0.035, 0.030), roughness: 0.92, metalness: 0.05, envMapIntensity: 0.35,
   }))
   const metal = track(new THREE.MeshStandardMaterial({
-    color: new THREE.Color().setRGB(0.085, 0.085, 0.095), metalness: 0.9, roughness: 0.4, envMapIntensity: 0.5,
+    color: new THREE.Color().setRGB(0.030, 0.030, 0.034), metalness: 0.9, roughness: 0.4, envMapIntensity: 0.45,
   }))
   const quente = track(new THREE.MeshBasicMaterial({ color: 0xffb35c, toneMapped: false }))
   const laranja = track(new THREE.MeshBasicMaterial({ color: 0xf56e0f, toneMapped: false }))
@@ -245,30 +256,35 @@ export function buildTelao(video: CryptolutionVideo, opts?: { profile?: PerfProf
   // o pódio: a peça assenta 2 m acima do piso do deck, como o pedestal do
   // Leônidas, para as duas terem a mesma linha de base na chapa. Ele avança 4 m
   // à frente da tela, que é o degrau onde se para para assistir.
-  caixa(LARG + 6, 2, 16, 0, 0, PIL_Z, pedra)
-  // o peitoril, do pódio até a base da tela, 1 m à frente dela
-  caixa(LARG, TELAO_PEITORIL - 2, PIL_P, 0, 2, PIL_Z, pedra)
+  caixa(LARG + 6, 2, 18, 0, 0, PIL_Z, pedra)
+  // o peitoril, do pódio até a base da tela, RECUADO atrás dos pilares
+  caixa(LARG, TELAO_PEITORIL - 2, REC_P, 0, 2, REC_Z, pedra)
   // os dois pilares do proscênio, emoldurando a tela pelos lados
   caixa(PIL_L, PIL_H - 2, PIL_P, -PIL_X, 2, PIL_Z, pedra)
   caixa(PIL_L, PIL_H - 2, PIL_P, +PIL_X, 2, PIL_Z, pedra)
   // a parede de trás, que fecha a vista de quem olha de fora do deck
-  caixa(LARG, PIL_H - 2, 1.6, 0, 2, PIL_Z - PIL_P / 2 - 0.8, pedra)
-  // a verga e a marquise projetada, que dá sombra própria à tela
-  caixa(LARG, 4, PIL_P, 0, TOPO, PIL_Z, pedra)
-  caixa(LARG, 1.2, 8, 0, TOPO + 2.8, 4, metal)
+  caixa(LARG, PIL_H - 2, 1.6, 0, 2, -10.8, pedra)
+  // a verga, recuada como o peitoril, e a marquise de metal projetada sobre a
+  // tela: é ela que faz a sombra que separa a tela do céu
+  caixa(LARG, 4, REC_P, 0, TOPO, REC_Z, pedra)
+  caixa(LARG, 1.2, 10, 0, TOPO + 2.8, 6, metal)
 
   // ── o que faz as vezes de luz, sem ser luz ────────────────────────────────
   // o soffit da marquise: uma faixa quente virada para baixo (a normal do plano
   // vai de +Z para −Y com o giro de +90° em X), lavando o topo da tela e a testa
   // dos pilares
-  const soffit = new THREE.Mesh(track(new THREE.PlaneGeometry(LARG - 4, 7.2)), quente)
+  const soffit = new THREE.Mesh(track(new THREE.PlaneGeometry(LARG - 4, 9.2)), quente)
   soffit.rotation.x = Math.PI / 2
-  soffit.position.set(0, TOPO + 2.75, 4)
+  soffit.position.set(0, TOPO + 2.75, 6)
   group.add(soffit)
   // o rodapé laranja no peitoril: a linha de base da peça, e é ele que se vê de
-  // 600 m, não o vídeo
+  // 600 m, não o vídeo.
+  // ⚠️ ELE MORA NA FACE DO PEITORIL, NÃO NO PLANO DA TELA. Eu o deixei em
+  // z 0,06 quando o peitoril ainda era raso; com o recuo de +1 ele ficou 94 cm
+  // DENTRO da pedra e sumiu da chapa. Toda faixa colada numa face anda junto
+  // com a face, não com a peça.
   const rodape = new THREE.Mesh(track(new THREE.PlaneGeometry(TELAO_W, 0.9)), laranja)
-  rodape.position.set(0, TELAO_PEITORIL - 1.1, 0.06)
+  rodape.position.set(0, TELAO_PEITORIL - 1.1, REC_Z + REC_P / 2 + 0.06)
   group.add(rodape)
 
   // ── a tela: o plano z = 0 ─────────────────────────────────────────────────

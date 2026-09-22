@@ -2189,7 +2189,7 @@ mesma escala. Do centro da laje a tela ainda preenche 14° do campo de visão.
 
 ⚠️ **O CANTO DE UM RETÂNGULO TANGENTE NÃO FICA EM `r + meia largura`.** A peça inteira
 (pódio, peitoril, dois pilares, verga, marquise e parede de trás) é um retângulo tangente de
-**79,6 × 20 m**. Lido como círculo de raio 42, ele diria que a peça vai a 266 e fura a
+**79,6 × 23 m**. Lido como círculo de raio 42, ele diria que a peça vai a 266 e fura a
 colunata dórica de 250. Medido como retângulo — `√((r + fundo)² + meia largura²)` — com a
 face em 224 o canto fica em **239,3 m**, 10,7 m antes da colunata, a mesma ordem de folga
 que o Leônidas tem em 237 do outro lado. É o **§23** de novo, agora dentro da praça: o
@@ -2212,6 +2212,20 @@ estiver na tela naquele instante**. O visitante assiste sem sair da cidade.
 ⚠️ **A troca anda pelo relógio da cena (`t` do `update`), não por `setInterval`.** Com a
 aba em segundo plano o laço de render para, e a fila para junto — em vez de acumular trocas
 e dar um salto ao voltar.
+
+### Os dois defeitos que a primeira chapa mostrou
+
+⚠️ **A PEDRA SAIU MAIS CLARA QUE O PISO DO DECK.** Copiei o taupe da Cryptolution House,
+`setRGB(0.115, 0.10, 0.088)`, sem lembrar que **`Color.setRGB` escreve no espaço de
+trabalho, que é LINEAR**: 0,115 linear é ~#9A9088 na tela. O resultado foi um retângulo
+bege de 73,6 m, mais claro que o chão em que assenta. A pedra passou para um terço disso
+(0,040 linear), que a põe claramente abaixo do piso sem ir a silhueta.
+
+⚠️ **O PROSCÊNIO ESTAVA NUM PLANO SÓ.** Pilares em z −3,5 e tela em z +3,55: os pilares
+ficavam ATRÁS da tela. Corrigido o sinal, ainda sobrava 1 m de relevo numa parede de 73,6 m,
+e de frente a peça lia chapada. Agora o pilar avança para z +4 e o peitoril e a verga
+recuam para +1: **quem desenha a moldura é a sombra do pilar sobre o recuo**, não a cor,
+que é uma só na peça inteira.
 
 ### Duas consequências medidas, nenhuma das duas é defeito
 
