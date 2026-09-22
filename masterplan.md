@@ -2318,3 +2318,116 @@ as duas são mensuráveis dentro do próprio artefato:
 regerar → portar → selar → publicar, nunca publicar antes de regerar. Quem publicar o root
 de hoje numa superfície pública estará selando uma cidade que já se sabe uma revisão
 atrasada.
+
+---
+
+## §30 — O gerador parou de replicar o chão 🔒 (22/09/2026)
+
+**O que este capítulo conserta não é um número, é um MÉTODO.** O §29 registrou um
+APROVADO de 15 de 15 sobre uma cidade com 15.834 lotes de cota errada. O portão não
+mentiu: ele não olhava. Este capítulo é sobre por que ele não olhava, e sobre a coisa que
+fazia o defeito nascer de novo a cada rodada.
+
+### A réplica sempre divergiu, e o arquivo já sabia disso
+
+`gerar_cidade.py` tinha a própria `altura()`, uma réplica em Python do `heightAt` da cena.
+O histórico das divergências está escrito nos comentários do próprio arquivo:
+
+| quando | o que divergiu | custo medido |
+|---|---|---|
+| 03/09 | o exagero vertical do `vex.ts` | 484 lotes afogados, 411 só pelo exagero |
+| 03/09 | o pódio da abóbada | os dois erros se cancelavam, ninguém via |
+| 22/09 | o platô (1.470/1.830 contra 2.400/2.760) | 930 m de diferença por 19 dias |
+| 22/09 | a bacia do Lago da Praça | nunca existiu do lado do gerador |
+| 22/09 | a vala dos canais radiais | nunca existiu do lado do gerador |
+
+E o antídoto estava escrito na linha 1131, desde 03/09: *"O antídoto é medição, não
+disciplina: `conferir_terreno.py` compara `altura()` daqui com a superfície que a cena
+publica e reprova se elas divergirem."* **Esse conferidor está desligado desde 05/09.** O
+remédio foi receitado, escrito e não tomado.
+
+⚠️ **E A COTA ENTRA NA FOLHA DO MERKLE.** Então nada disso era defeito de desenho. A cena
+desenhava certo o tempo todo (`tecido.ts` pousa o lote em `heightAt`, e
+`public/city/cidade-cotas.bin` não tem um consumidor sequer em `app/`). O que estava errado
+era o **TÍTULO**: a escritura afirmava um número que o chão desmente, e o root de 22/09
+assinava. Medido ponto a ponto contra a cena, nos 70.720 lotes selados:
+
+```
+|erro| mediana ......  0,63 m        acima de  10 m ......  4.474 lotes
+acima de 1,5 m ......  15.834 (22,4%)  acima de  30 m ......  1.647
+pior caso ...........  56,72 m       chão abaixo da lâmina    73 lotes
+   (S04-Q05-B004-L001: a escritura afirmava +42,21 m onde a cidade desenha −14,51 m)
+```
+
+### A tentação errada era portar a fórmula pela quarta vez
+
+Havia três cópias (cena, gerador, `conferir_terreno.py`) e as três divergiram entre si.
+Portar a vala do canal faria a quarta. `plaza-scene.tsx` já registra, sobre a sonda
+`__plazaGrade`, que replicar o terreno fora da cena **"já errou por 75 m uma vez"**.
+
+**DECIDIDO: o gerador pergunta à cena.** `scripts/city/assar_superficie.mjs` extrai a
+superfície pela sonda `__plazaPerfil`, que é a MESMA função que assenta lote, rua, praia e
+peça, e grava `data/superficie.f32`. `altura()` lê esse arquivo; a réplica analítica virou
+`_altura_analitica` e só serve de socorro explícito.
+
+| | réplica analítica | grade assada de 15 m |
+|---|---|---|
+| erro mediano | 0,63 m | **0,005 m** |
+| p99 | 36,47 m | **0,212 m** |
+| pior caso | 56,72 m | **0,864 m** |
+| lotes acima de 1,5 m | 15.834 | **0** |
+
+O pior caso restante fica na quina da praia da Orla da Baía, onde a malha da cena é
+refinada e a grade de 15 m não alcança. Nenhum lote passa de 1 m.
+
+### O cadeado, que é a metade que importa
+
+⚠️ **ASSAR UMA VEZ NÃO RESOLVE NADA se o arquivo puder envelhecer em silêncio**, que é
+exatamente como o platô divergiu. A assadura grava o **sha256 de todo módulo que entra em
+`heightAt`**, e o gerador recalcula e **ABORTA** se divergir. Não existe modo "continua
+assim mesmo": a única saída é `SEM_SUPERFICIE=1`, que imprime que serve para experimento e
+nunca para a rodada que vai ser selada.
+
+⚠️ **E A LISTA DE MÓDULOS SE DESCOBRE SOZINHA, porque a primeira versão dela já envelheceu
+em trinta minutos.** Eu escrevi treze nomes à mão. Meia hora depois entrou um módulo novo
+de chão (`margem-agua.ts`, o §16.6), fora da lista, e a digital não teria mudado. Era o
+mesmo defeito que eu tinha acabado de consertar, plantado com data futura. A varredura
+agora parte de `terrain.ts` e segue os imports transitivamente: são 26 módulos, e um módulo
+novo entra na conta no mesmo commit em que nasce.
+
+### O portão foi de 15 para 20 testes, e os 5 novos reprovam a cidade de ontem
+
+Isso é a prova de que funcionam. Os 15 velhos continuam passando, ou seja nenhum falso
+positivo.
+
+```
+FALHA  nenhum lote sobre peça de programa ........ 917 lotes, 78,06 ha
+FALHA  nenhum lote abaixo da lâmina d'água ....... 36 lotes, pior −45,07 m
+FALHA  cota gravada cai dentro do chão .......... p99 34,89 m, pior 54,72 m
+FALHA  dog/utxo/forma batem com a fonte .......... 21 institucionais zeradas
+FALHA  malha viária conexa ...................... 409 grupos, 14,0% de ilha
+PASSA  a superfície assada é fiel à cena ........ pior 0,864 m
+```
+
+⚠️ **O ÚLTIMO EXISTE PARA O ANTERIOR NÃO SER CIRCULAR.** O gerador planta sobre a grade
+assada e o teste da cota julga contra a mesma grade: sozinhos, os dois concordariam mesmo
+que a grade inteira estivesse errada. O teste da fidelidade sonda a CENA ponto a ponto, no
+centro de cada lote, e é ele que fecha o circuito.
+
+### As três cegueiras que deixaram o 15 de 15 acontecer
+
+1. **Comparar com o VIZINHO.** O teste de cota mede contra a mediana dos vizinhos em 120 m.
+   Um bairro inteiro 35 m fora do lugar tem vizinhos igualmente errados: o teste aplaude.
+   **Defeito de chão nunca é uniforme, ele mora na FEIÇÃO**, e por isso quem julga é a
+   cauda (p99 e pior), nunca a mediana.
+2. **Julgar pela MEDIANA.** `conferir_terreno.py` reprovava pela mediana da amostra, que
+   valia 0,03 m enquanto o p99 valia 35,90 m. Passou com nota cheia.
+3. **Não ler a coluna.** O portão não lia `dog`, `utxo_count`, `forma` nem `coorte`. Foi
+   por isso que 725 lotes com tudo zerado passaram, entre eles os 21 do Distrito
+   Financeiro, onde uma carteira com 3,03 bilhões de DOG e 20.008 UTXOs era gravada como
+   **forma 0, "massa única, casa no centro"**.
+
+**A regra que sai daqui, e ela vale para todo portão deste projeto:** teste que compara uma
+coisa com o vizinho dela não pega erro sistemático; teste que julga pela mediana não pega
+defeito de feição; e coluna que ninguém lê é coluna que pode mentir. Quando um portão
+aprova uma cidade que se sabe errada, o defeito é do portão, não da cidade.
