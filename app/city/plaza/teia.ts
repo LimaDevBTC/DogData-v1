@@ -19,6 +19,21 @@
 /** o anel viário interno, onde a teia começa */
 export const R_DENTRO = 1450
 /** a borda do tecido, onde ela termina */
+// ⚠️ 7.150 FOI TENTADO EM 22/09 E REPROVOU NA MEDIÇÃO, VOLTOU PARA 6.900. A
+// hipótese era boa e o diagnóstico continua de pé: o tecido para em φ 6.500, e
+// φ não é raio, então em 89 de 360 rumos o lote passa do último anel desta teia,
+// até 407 m além, numa franja sem radial desenhado. Mas acrescentar o anel de
+// 7.025 PIOROU a conectividade medida, de 637 grupos e 20,4% de ilha para 728 e
+// 22,1%. Anel novo sem radial que o alcance é pavimento novo desconexo: ele
+// soma ilha em vez de costurar. O conserto da franja existe, mas não é este.
+// O texto antigo do diagnóstico fica abaixo, porque ele continua verdadeiro.
+//
+// O tecido
+// para em φ 6.500, e φ não é raio: medido, o raio métrico de φ 6.500 vai de
+// 5.689 a 7.134 m conforme o rumo. Em 89 dos 360 rumos ele passa dos 6.727 m do
+// último anel desta teia, até 407 m além. Nessa franja não existe radial
+// desenhado, então a ponta da travessa continua ilha mesmo com a divisa caindo
+// na grade certa. 7.150 acrescenta um anel em 7.025 e cobre os 89 rumos.
 export const R_FORA = 6900
 /** meia largura da rua da teia (a seção inteira tem 12 m) */
 export const HR = 6

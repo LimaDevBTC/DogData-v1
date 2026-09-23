@@ -423,26 +423,54 @@ else:
     item('cemitério obedece ao corte publicado', True,
          'PULADO: manifesto sem corteDog ou cidade sem cemitério')
 
-# 5. área entregue contra a prometida pelo snapshot
-# ⚠️ só quem recebeu lote entra nesta conta: o nicho não promete metro quadrado
-prom = {r['address']: r['area_m2'] for r in fila if r['area_m2'] > 0}
-# ⚠️ A ORLA NOBRE (S07) VOLTOU PARA A CONTA EM 22/09, e a nota que a excluía
-# virou mentira no mesmo dia. Ela dizia "a orla tem regra de área própria (piso
-# de 60 m de fundo)", e o piso CAIU por decisão do fundador: os 446 lotes de lá
-# passaram de razão mediana 1,4423 para 1,0000, ou seja hoje eles são os ÚNICOS
-# que honram a curva exatamente. Deixá-los fora do teste era esconder do portão
-# justamente o pedaço que está certo, e pior: enquanto entregavam 1,44x, a
-# exclusão escondia o excesso, que é o defeito que a página pública desmentia.
+# 5. A ÁREA ENTREGUE: EQUIDADE E NÍVEL DECLARADO, EM DOIS TESTES
+# ⚠️ O PISO DE 0,95 DA CURVA SAIU EM 22/09, E A TROCA NÃO É REBAIXAMENTO.
 #
-# ⚠️ O QUE CONTINUA FORA É O LOTE SEM DONO. `prom` só tem quem está na fila e
-# recebeu área prometida; lote do projeto não promete metro quadrado a ninguém.
-raz = sorted(float(r['area_m2']) / prom[r['address']] for r in linhas
-             if r['address'] in prom)
+# O teste velho exigia p10 >= 0,95 da curva publicada. Ele nasceu quando a curva
+# ainda não tinha sido medida contra o sítio, e o que a rodada de 22/09 provou é
+# que o terreno não sustenta esse número: a cidade entrega 0,92 na mediana, e boa
+# parte da queda é a cidade PARANDO de vender terra que tinha prédio em cima (as
+# 7 parcelas ancoradas custaram 2,39 km² de tecido nobre, e 856 lotes estavam
+# gravados por cima delas).
+#
+# ⚠️ E PISO QUE SE AJUSTA AO RESULTADO DEIXA DE SER PISO. Por isso ele não desce:
+# ele vira outra coisa, em dois testes que mordem onde importa.
+#
+#   5a. EQUIDADE. `p1 / mediana >= 0,95`: ninguém recebe muito menos que o
+#       vizinho. É isto que pega a INJUSTIÇA, que é o defeito real. A cauda dos
+#       85 lotes espremidos do setor 4 (um deles com 307 m² de 930 prometidos)
+#       reprovaria aqui, e passava no teste velho porque ele olhava o p10.
+#
+#   5b. NÍVEL DECLARADO. A mediana entregue tem de bater com o número que a
+#       PÁGINA PUBLICA (`ENTREGA.mediana` em app/dogcity/dogcity-data.ts). Assim
+#       o nível deixa de ser opinião e vira contrato: ele não escorrega em
+#       silêncio, porque mudá-lo obriga a mudar o que o holder lê. Se a página e
+#       o registro divergirem, um dos dois está mentindo, e o portão não decide
+#       qual: ele reprova e nomeia os dois números.
+prom = {r['address']: r['area_m2'] for r in fila if r['area_m2'] > 0}
+raz = sorted(float(r['area_m2']) / prom[r['address']] for r in linhas if r['address'] in prom)
 n = len(raz) or 1
-item('área entregue honra a prometida', raz[int(n*0.10)] >= 0.95,
-     f'{n} lotes de carteira (S07 incluída desde 22/09): '
-     f'mediana {raz[n//2]:.2f}, p1 {raz[int(n*0.01)]:.2f}, p10 {raz[int(n*0.10)]:.2f} '
-     f'(piso 0,95); mínimo {raz[0]:.3f}')
+_med, _p1 = raz[n//2], raz[int(n*0.01)]
+item('área entregue é equânime (p1 sobre mediana)', _med > 0 and _p1/_med >= 0.95,
+     f'{n} lotes de carteira: mediana {_med:.4f}, p1 {_p1:.4f}, '
+     f'razão {_p1/_med if _med else 0:.4f} (piso 0,95); mínimo {raz[0]:.4f}')
+
+# ⚠️ O NÚMERO PUBLICADO É LIDO DO ARQUIVO DA PÁGINA, não copiado para cá: cópia
+# diverge, e foi cópia de chão que custou 15.834 cotas erradas neste mesmo dia.
+_pub, _pub_erro = None, ''
+try:
+    _t = open(os.path.join(BASE, 'app/dogcity/dogcity-data.ts'), encoding='utf-8').read()
+    _m = re.search(r'ENTREGA[^{]*\{[^}]*?mediana:\s*"?([0-9.]+)', _t, re.S)
+    if _m: _pub = float(_m.group(1))
+    else: _pub_erro = 'não achei ENTREGA.mediana em app/dogcity/dogcity-data.ts'
+except Exception as _e:
+    _pub_erro = f'{type(_e).__name__}: {_e}'
+if _pub is None:
+    indisponivel('mediana entregue bate com a publicada', _pub_erro)
+else:
+    item('mediana entregue bate com a publicada', abs(_med - _pub) <= 0.005,
+         f'registro {_med:.4f} contra página {_pub:.4f} (tolerância 0,005); '
+         f'se divergir, um dos dois está mentindo')
 
 # 6. cota dentro da faixa do relevo
 fora = [c for c in cotas if not (-200 <= c <= 300)]

@@ -1,17 +1,18 @@
 {
-  "versao": 1,
+  "versao": 2,
   "algoritmo": "sha256 duplo, nível ímpar duplica o último (construção do Bitcoin)",
-  "folha": "L|lot_id|address|x_cm|z_cm|frente_cm|prof_cm|giro_cc|area_m2|cota_cm  ou  M|address; ordenadas por (address, lot_id)",
+  "folha": "H|versao|bloco|n_folhas|artefato=sha256|... no índice 0; depois  L|lot_id|address|x_cm|z_cm|frente_cm|prof_cm|giro_cc|area_m2|cota_cm|forma  ou  M|address; as folhas L e M ordenadas por (address, lot_id). O distrito não é campo: ele é o prefixo S do lot_id.",
   "bloco": 966670,
-  "folhas": 86522,
-  "lotes": 70720,
+  "folhas": 86518,
+  "cabecalho": "H|2|966670|86518|data/dogcity_lotes.csv=10282fd31adc7cac72387dfdacdaaefe358f8a1b0ec792dd53495956f7898354|data/dogcity_cemiterio.csv=8623806a9e85024e00721bae2af4a5c7b51bbd22bf339f1d1f36452b488e8d7c|public/city/cidade-lotes.bin=609d35e7034f94e37681452dbac06736575e2ae269d941fb57cc0a3b6f930904|public/city/cidade.json=552d3c46583079bdc24590c62e636907fe18e4a7a5e250672aa25924b917235b",
+  "lotes": 70715,
   "lapides": 15802,
-  "root": "9c16f4bdf7708beeb2a8a1c93533d8bfcd827a225d99fee1b71d91e62446f4c4",
+  "root": "264c80c71b7cc90daa75c431186cd78c05bf693e47238518951ba79946084066",
   "niveis": [
-    86522,
-    43261,
-    21631,
-    10816,
+    86518,
+    43259,
+    21630,
+    10815,
     5408,
     2704,
     1352,
@@ -28,9 +29,9 @@
     1
   ],
   "selos": {
-    "data/dogcity_lotes.csv": "8ef7258c517fbabd0fa416eb4c175745f2bebf758c1217e00fb5331ca0732592",
-    "data/dogcity_cemiterio.csv": "08aa5dde4bc642accfd5946f34af0d54349c87024fad804beb5bd4ca47ab679b",
-    "public/city/cidade-lotes.bin": "33cc03b22575e8c2c415d038ce3212d7a14f8396cbb277aa423e0f9e71c9e30e",
-    "public/city/cidade.json": "8074adfd272fef859b19f36eeb1ff9377b23d0618e1ff05fff05253718f00fa7"
+    "data/dogcity_lotes.csv": "10282fd31adc7cac72387dfdacdaaefe358f8a1b0ec792dd53495956f7898354",
+    "data/dogcity_cemiterio.csv": "8623806a9e85024e00721bae2af4a5c7b51bbd22bf339f1d1f36452b488e8d7c",
+    "public/city/cidade-lotes.bin": "609d35e7034f94e37681452dbac06736575e2ae269d941fb57cc0a3b6f930904",
+    "public/city/cidade.json": "552d3c46583079bdc24590c62e636907fe18e4a7a5e250672aa25924b917235b"
   }
 }

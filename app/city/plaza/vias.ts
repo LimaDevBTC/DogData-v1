@@ -1990,6 +1990,25 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
         // radial estiver longe demais, o teto de `SOBRA_MAX` corta — melhor
         // travessa curta do que asfalto em cima de lote.
         const bx = q.x + perpX * z0, bz = q.z + perpZ * z0
+        // ⚠️ 90 -> 16 EM 22/09, E O NÚMERO É MEDIDO, NÃO ESCOLHIDO. Enquanto a
+        // divisa do quarteirão nascia numa grade própria (64/128/256) e a rua
+        // noutra (84/168), a ponta da travessa precisava de 146 m de mediana
+        // para achar um radial, e 68,9% delas morriam cortadas aqui. Agora a
+        // divisa nasce NO radial ativo da teia e a sobra necessária é de 8,69 m
+        // de mediana, p90 11,38, MÁXIMA 14,49 (a fileira mais externa é quem
+        // precisa da folga maior, porque a testada virou corda na borda
+        // interna). 16 dá zero ponta cortada; 12 deixaria 6,41%.
+        // ⚠️ E O 16 FOI TENTADO EM 22/09 E REPROVOU NA MEDIÇÃO. A conta do
+        // agente (sobra necessária de 8,69 m de mediana, máx 14,49) foi feita
+        // contra o MANIFESTO (`cidade-malha.json`), não contra a rua que o
+        // navegador desenha. Medido com a varredura, que é o instrumento certo:
+        // com 90 a cidade nova dá 637 grupos e 20,4% de ilha; com 16 dá 833 e
+        // 21,3%, e as ilhas novas ficam a 54 m de mediana da rede, ou seja são
+        // exatamente as pontas que o teto curto amputou.
+        // ⚠️ A LIÇÃO, e ela é a mesma do dia inteiro: medir contra o manifesto
+        // não é medir contra o que existe. Quem for baixar este número de novo
+        // tem de provar com `vias-varredura.mjs --cel=6 --dilata=1`, e não com
+        // aritmética sobre a tabela de quarteirões.
         const SOBRA_MAX = 90
         const passoR = passoNoRaio(Math.hypot(q.x, q.z))
         const ateORadial = (sgn: number) => {

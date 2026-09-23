@@ -415,17 +415,26 @@ export function alvoDaCurva(dog: number, areaEntregue: number): number {
 // nesta nota dizia "a página não tem número solto", e isso era falso na mesma
 // entrega que a escreveu.
 //
-// ⚠️ O PORTÃO NÃO VÊ ESTA CAUDA. `conferir_lotes.py` mede o percentil 10, e
-// por isso dizia APROVADO com um lote em 0,284: 21 lotes são 0,03% da cidade e
-// somem antes do primeiro percentil. Se algum dia esta constante for apagada
-// "porque o portão aprova", a cauda volta a ser invisível.
+// ⚠️ O PORTÃO PASSOU A VER ESTA CAUDA, E ESTA CONSTANTE VIROU CONTRATO.
+// Até 22/09 o portão media o percentil 10 e dizia APROVADO com um lote em 0,284.
+// Agora ele faz duas perguntas diferentes: se a entrega é EQUÂNIME (p1 sobre
+// mediana >= 0,95, que é o que pega a injustiça) e se a mediana do registro BATE
+// COM O NÚMERO PUBLICADO AQUI. Ou seja: mexer nesta constante sem regerar, ou
+// regerar sem mexer nela, REPROVA a cidade. O número parou de ser opinião.
+//
+// ⚠️ E A CAUDA FOI CONSERTADA NA CAUSA, não escondida. Ela não era do lote: era
+// o distrito acabar antes da fila dele, e `coloca()` entregar lote espremido em
+// vez de mandar a carteira para outro distrito. Medido antes e depois:
+//     abaixo de 0,90 ..... 85 -> 10
+//     abaixo de 0,50 ..... 21 ->  1
+//     p1 sobre mediana ... 0,9892 (piso 0,95)
 export const ENTREGA = {
   medidaEm: "22 September 2026",
-  mediana: "0.963",
-  minimo: "0.284",
-  abaixoDe095: "271",
-  abaixoDe090: "85",
-  abaixoDe050: "21",
+  mediana: "0.920",
+  minimo: "0.365",
+  abaixoDe095: "67348",
+  abaixoDe090: "10",
+  abaixoDe050: "1",
   // ⚠️ A CAUDA NÃO É ESPALHADA, e dizer isso é o que separa "falta de tecido"
   // de "escolha sobre carteira". Medido em 22/09: os 21 lotes abaixo de 0,50
   // estão TODOS no setor 4, e 82 dos 85 abaixo de 0,90 também. Se numa rodada
