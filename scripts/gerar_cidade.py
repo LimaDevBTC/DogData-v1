@@ -4952,8 +4952,8 @@ class FitaOrla:
             if not cand: return None
             t = min(cand, key=lambda t: t['cur'] / t['comp'])
             x, z, giro = self._geo(t, t['cur'], w * t['fator'])
-            if _ob_livre(x, z, giro, w):
-                g = self._forma(t, t['cur'], w * t['fator'])
+            g = self._forma(t, t['cur'], w * t['fator'])
+            if _ob_livre(x, z, giro, w) and not _sobre_avenida(g):
                 t['cur'] += w * t['fator']
                 t['n'] = t.get('n', 0) + 1
                 return x, z, giro, t['q'], t['n'], g
@@ -4974,6 +4974,34 @@ class FitaOrla:
 # ⚠️ O MOTIVO DA REJEIÇÃO SE CONTA, NÃO SE ADIVINHA. Na primeira rodada
 # (21/09) só 1.149 dos 2.062 couberam e a linha inteira foi consumida: sem
 # separar os motivos, "não coube" é diagnóstico vazio e o conserto vira chute.
+def _sobre_avenida(g, folga=2.0):
+    """§42: a forma cai em cima de uma das 12 avenidas que a CENA desenha (a cada 30°,
+    44 m nos cardeais e 34 nas demais, de AV_R_INICIO a AV_R_FIM)? A Orla da Baía não
+    perguntava, e 31 lotes dela nasciam em cima de A2 e A3 (medido no palco, 23/09)."""
+    C = g['cantos']
+    rs = [math.hypot(x, z) for x, z in C]
+    if max(rs) < 1420.0 or min(rs) > 7050.0: return False
+    for _j, _m in _AV_MEIA.items():
+        a = 2 * math.pi * _j / TEIA_N_RAD
+        ca, sa = math.cos(a), math.sin(a)
+        dx, dz = math.sin(a), -math.cos(a)
+        if g['geo'] == 1:
+            t0 = math.atan2(C[0][0], -C[0][1]); t1 = math.atan2(C[1][0], -C[1][1])
+            span = ((t1 - t0) + math.pi) % (2 * math.pi) - math.pi
+            meio = t0 + span / 2
+            dang = abs(((a - meio) + math.pi) % (2 * math.pi) - math.pi)
+            if dang <= abs(span) / 2 + math.asin(min(0.99, (_m + folga) / max(1.0, min(rs)))):
+                return True
+            continue
+        pts = list(C) + [((C[0][0] + C[2][0]) / 2, (C[0][1] + C[2][1]) / 2)]
+        lados = [x * ca + z * sa for x, z in pts]
+        frente = [x * dx + z * dz for x, z in pts]
+        if max(frente) <= 0: continue
+        if min(lados) < _m + folga and max(lados) > -(_m + folga) and \
+                (min(lados) <= 0 <= max(lados) or min(abs(v) for v in lados) < _m + folga):
+            return True
+    return False
+
 OB_REJ = {'agua': 0, 'ilha': 0, 'programa': 0, 'canal': 0, 'anel': 0, 'declive': 0, 'ok': 0}
 
 def _ob_livre(x, z, giro, w):
@@ -5373,6 +5401,7 @@ def socalca():
     A cota da bancada é a MEDIANA das cotas naturais dela, não a média: mediana
     não é puxada pelo lote de ponta que pegou uma reentrância do relevo.
     """
+    _NAT = {a: COTA.get(a, 0.0) for a in PRAT}     # a cota natural, antes de qualquer bancada
     porFila = {}
     for a, (s_, i_, x_) in PRAT.items():
         porFila.setdefault((s_, i_), []).append((x_, a))
@@ -5453,6 +5482,21 @@ def socalca():
                     cotaBanc[u] -= passo; cotaBanc[v] += passo
                     pior = max(pior, abs(d))
         if pior <= SOCALCO_TETO + 0.01: break
+    # ⚠️ §42: A BANCADA NÃO SAI DO CHÃO DOS PRÓPRIOS LOTES. O relaxamento acima limita
+    # o degrau entre bancadas vizinhas a 3 m puxando as duas uma para a outra, e numa
+    # encosta a cadeia de vizinhas arrastava bancada inteira para longe do chão: medido
+    # no palco de 23/09, um lote de 410 m² com o chão a −3 m gravou cota +16 m. Aqui a
+    # bancada volta para no máximo 5 m de cada lote dela; onde isso quebra o teto de
+    # 3 m do degrau, o muro fica (o portão tolera 1% de divisas acima de 3 m).
+    _membros = {}
+    for a, g in grupoDe.items(): _membros.setdefault(g, []).append(_NAT.get(a, COTA.get(a, 0.0)))
+    _presas = 0
+    for g, nat in _membros.items():
+        lo, hi = max(nat) - 5.0, min(nat) + 5.0
+        if cotaBanc[g] < lo or cotaBanc[g] > hi:
+            cotaBanc[g] = min(max(cotaBanc[g], lo), hi); _presas += 1
+    if _presas:
+        print('  socalco: %d bancadas presas a 5 m do próprio chão' % _presas, file=sys.stderr)
     for a, g in grupoDe.items():
         desloc.append(abs(COTA.get(a, 0.0) - cotaBanc[g]))
         COTA[a] = cotaBanc[g]

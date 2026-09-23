@@ -98,6 +98,20 @@ const alturaEm = (x, z) => {
 const COTA_AGUA = -40      // lagos.ts: `cota`, a lâmina única da cidade
 const LIMIAR_PONTE = 150   // app/city/plaza/lagos.ts:250, a régua de anel e teia
 const naAgua = (x, z) => alturaEm(x, z) < COTA_AGUA
+// ⚠️ A AVENIDA TAMBÉM NÃO É DESENHADA NA TERRA DA ALÇA (`faixa()` pula `naAlca` em
+// vias.ts), e o dump gravava o cordão inteiro: os pedaços A0b a A3b (r 6.580 a 7.050)
+// eram avenida fantasma em cima da Orla Nobre. A regra é a de `naAlcaDeTerra`, com os
+// números LIDOS de teia.ts.
+const _teiaTs = readFileSync(resolve(RAIZ, 'app/city/plaza/teia.ts'), 'utf8')
+const _mR = _teiaTs.match(/export const ALCA_R_DENTRO\s*=\s*([0-9.]+)/)
+const _mT = _teiaTs.match(/export const ALCA_TERRA[^=]*=\s*\[\s*([0-9.]+)\s*,\s*([0-9.]+)\s*\]/)
+if (!_mR || !_mT) throw new Error('assar-vias: ALCA_R_DENTRO ou ALCA_TERRA mudou de forma em teia.ts')
+const ALCA_R_DENTRO = Number(_mR[1]), ALCA_A0 = Number(_mT[1]), ALCA_A1 = Number(_mT[2])
+const naAlca = (x, z) => {
+  if (Math.hypot(x, z) < ALCA_R_DENTRO) return false
+  const a = ((Math.atan2(x, -z) * 180) / Math.PI + 360) % 360
+  return ALCA_A0 <= ALCA_A1 ? a >= ALCA_A0 && a <= ALCA_A1 : a >= ALCA_A0 || a <= ALCA_A1
+}
 
 /** reamostra cada avenida a cada 10 m contra `naAgua` e corta onde o vão de
  *  água passa de `LIMIAR_PONTE` (ver a doutrina grande no cabeçalho). Um vão
@@ -118,7 +132,7 @@ function corrigirAvenidas(bruto) {
       const t = k / n
       return [x0 + (x1 - x0) * t, z0 + (z1 - z0) * t]
     })
-    const molhado = pts.map(([x, z]) => naAgua(x, z))
+    const molhado = pts.map(([x, z]) => naAgua(x, z) || naAlca(x, z))
     if (!molhado.includes(true)) { saida.push(seg); continue }
     avenidasTocadas++
 
