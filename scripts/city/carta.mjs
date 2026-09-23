@@ -84,7 +84,6 @@ const pt = (x, z) => `${mPx(x).toFixed(1)} ${mPx(z).toFixed(1)}`
 // rumo de bússola: 0 = norte (-z), cresce para leste (+x)
 const doRumo = (r, rumo) => [r * Math.sin(rumo * DEG), -r * Math.cos(rumo * DEG)]
 const rumoDe = (x, z) => ((Math.atan2(x, -z) / DEG) + 360) % 360
-const noArco = (rumo, [a, b]) => (a <= b ? rumo >= a && rumo <= b : rumo >= a || rumo <= b)
 
 // ── as fontes ───────────────────────────────────────────────────────────────
 const ler = (p) => JSON.parse(readFileSync(resolve(RAIZ, p), 'utf8'))
@@ -92,6 +91,18 @@ const cidade = ler('public/city/cidade.json')
 const malha = ler('public/city/cidade-malha.json')
 const mapa = ler('public/city/mapa-v1.json')
 const merkle = ler('data/dogcity_merkle.json')
+// ⚠️ A REDE VIÁRIA VEM DE public/city/mapa/vias.json, NÃO MAIS DE mapa-v1.json
+// (a doutrina inteira mora na CAMADA 4, mais abaixo, onde a malha entra em
+// uso). mapa-v1 continua sendo a fonte para tudo que NÃO é rua: alça (arco de
+// terra, usado só para posicionar o rótulo da Orla Nobre), canais, programa,
+// âncoras, Founders Club.
+const VIAS_PATH = 'public/city/mapa/vias.json'
+const viasExiste = existsSync(resolve(RAIZ, VIAS_PATH))
+if (!viasExiste) {
+  console.warn(`AVISO: ${VIAS_PATH} ausente. Rode scripts/city/mapa/assar-vias.mjs antes de gerar a `
+    + `carta selada; esta folha sai SEM malha viária (nenhuma avenida, anel ou alça).`)
+}
+const vias = viasExiste ? ler(VIAS_PATH) : []
 
 const SUP = (() => {
   const meta = ler('data/superficie.json')
@@ -513,13 +524,31 @@ if (FC?.crescentes) {
 // ═══════════════════════════════════════════════════════════════════════════
 // CAMADA 4: CANAIS, AVENIDAS, ANÉIS (DODECÁGONOS) E A AN7 (CÍRCULO)
 // ═══════════════════════════════════════════════════════════════════════════
-// ⚠️ VIA SÓ ONDE HÁ TERRA. As avenidas de rumo 30 e 60 cruzam 3 km de baía até a
-// alça, e não há ponte ali: o acesso à alça é pela AN7, a partir das radiais de
-// 330 e 120 (teia.ts). A polilinha é amostrada a cada 12 m e partida em trechos
-// de terra; um trecho de água CURTO (canal, lago da praça: < 150 m, o mesmo
-// limiar que separa ponte de desvio na cena) é ponte e sai tracejado.
-const PONTE_MAX = 150
-function tracaSobreTerra(pontos) {
+// ⚠️ AVENIDA, ANEL E AN7 VÊM DE public/city/mapa/vias.json, NÃO MAIS DA FÓRMULA
+// DE mapa-v1.json. Até 23/09 esta camada recalculava a malha a partir de
+// `mapa.avenidas`/`mapa.aneisViarios`/`mapa.alca` (dodecágono por `doRumo`,
+// água testada por amostragem própria) e chegava a um resultado que a cena 3D
+// já tinha corrigido meses antes: a AN7 é círculo (não o dodecágono de vértice
+// 7.600 que uma nota antiga de `AVENIDA_ALCA` em teia.ts chama de "o valor
+// ABANDONADO"), e a teia para na água desde 03/09. `vias.json` é um DUMP do que
+// a cena 3D (`app/city/plaza/vias.ts`) desenha de verdade, já cortado por
+// água/alça/orla; esta camada só agrupa por `tipo`+`larg` e desenha, nunca
+// recalcula geometria de anel ou avenida. RÉPLICA DIVERGE; A FONTE NÃO.
+//
+// ⚠️ MESMO ASSIM A AVENIDA PRECISA DE SUBAMOSTRAGEM, O ANEL NÃO. As 12
+// avenidas chegam como UM segmento de ponta a ponta (ex.: r 1.420 a r 7.050),
+// porque `vias.ts` as constrói inteiras "por construção" (nunca há gap: as de
+// rumo 30/60/120/150/210/240/300/330, papel `ponte`, são causeway sobre a
+// baía o trecho inteiro, medido em 23/09: a de rumo 30 fica abaixo de -40 m
+// de r 4.520 a r 6.520, 2 km de água). Sem reamostrar esse segmento único ele
+// sairia sólido por cima da baía inteira; com `amostraReta` a cada 12 m (como
+// antes) e SEM limite de comprimento de ponte (a avenida nunca abre buraco,
+// só estilo), o trecho sobre água sai tracejado, o resto sólido. Já os
+// segmentos de anel chegam PRÉ-FRAGMENTADOS pelo próprio dump (cada um um
+// trecho curto que `vias.ts` decidiu desenhar, ver `paraNaAgua` em vias.ts): a
+// lacuna entre dois trechos JÁ É a decisão da cena, e reamostrar por cima só
+// reintroduziria a régua grosseira que este conserto veio tirar.
+function tracaSobreTerra(pontos, ponteMax = Infinity) {
   const terra = [], ponte = []
   let atual = [], emAgua = false, aguaDesde = 0, aguaPts = []
   const fecha = () => { if (atual.length > 1) terra.push(atual); atual = [] }
@@ -531,7 +560,7 @@ function tracaSobreTerra(pontos) {
     if (emAgua) {
       emAgua = false
       const comp = Math.hypot(x - pontos[aguaDesde][0], z - pontos[aguaDesde][1])
-      if (comp <= PONTE_MAX && atual.length) { aguaPts.push([x, z]); ponte.push(aguaPts); atual.push([x, z]); continue }
+      if (comp <= ponteMax && atual.length) { aguaPts.push([x, z]); ponte.push(aguaPts); atual.push([x, z]); continue }
       fecha()
     }
     atual.push([x, z])
@@ -544,6 +573,19 @@ const amostraReta = (x0, z0, x1, z1, passo = 12) => {
   const n = Math.max(2, Math.ceil(Math.hypot(x1 - x0, z1 - z0) / passo)), pts = []
   for (let k = 0; k <= n; k++) pts.push([x0 + (x1 - x0) * k / n, z0 + (z1 - z0) * k / n])
   return pts
+}
+/** os segmentos de anel/AN7 já chegam curtos e pré-cortados pelo dump (ver a
+ *  doutrina acima): aqui é só classificar cada um, ponta e meio, terra ou
+ *  ponte, sem reamostrar e sem fechar/abrir trecho. O buraco entre dois
+ *  trechos é a própria decisão da cena, nunca desta função. */
+function classificaSegmentos(segs) {
+  let terra = '', ponte = ''
+  for (const { pontos: [[x0, z0], [x1, z1]] } of segs) {
+    const d = `M${pt(x0, z0)}L${pt(x1, z1)}`
+    if (naAgua((x0 + x1) / 2, (z0 + z1) / 2) || naAgua(x0, z0) || naAgua(x1, z1)) ponte += d
+    else terra += d
+  }
+  return { terra, ponte }
 }
 const via = (tracado, largM, o = {}) => {
   let s = ''
@@ -578,38 +620,49 @@ for (const c of CANAIS) {
 }
 corpo += canais
 
-// as 12 avenidas, de r 1.420 a 7.050, nunca dentro da alça de terra
-const ALCA_TERRA = mapa.alca.terra, ALCA_R_DENTRO = mapa.alca.rDentro
-const AV = mapa.avenidas
+// a alça (arco de terra) ainda vem de mapa-v1: não é rua, é onde rotular a
+// Orla Nobre mais abaixo (CAMADA 5)
+const ALCA_TERRA = mapa.alca.terra
+
+// ⚠️ "ANEL" NO DUMP COBRE DUAS COISAS (mesma doutrina de app/city/mapa/malha.ts):
+// os sete anéis viários arteriais (26 a 44 m, a AN7 inclusive) E os arcos finos
+// da teia (12 m). `larg` é o único sinal que separa os dois; nenhum anel
+// viário publicado tem menos de 20 m e nenhum arco de teia tem mais. A carta
+// nunca desenhou a teia (ela é símbolo demais para a escala da folha, ver o
+// aviso de "LARGURA SIMBÓLICA" no cabeçalho), então aqui ela simplesmente
+// nunca entra no filtro.
+const LARG_ANEL_ESTRUTURAL = 20
+const viasAvenida = vias.filter((v) => v.tipo === 'avenida')
+const viasAnelEstrutural = vias.filter((v) => v.tipo === 'anel' && v.larg >= LARG_ANEL_ESTRUTURAL)
+// a AN7 é o único anel de 44 m (os seis dodecágonos vão de 26 a 34); os quatro
+// avenidas de 44 m são tipo `avenida`, não `anel`, então não colidem aqui.
+const viasAN7 = viasAnelEstrutural.filter((v) => v.larg >= 40)
+const viasAneisComuns = viasAnelEstrutural.filter((v) => v.larg < 40)
+
+// as 12 avenidas: um segmento inteiro cada (ver a doutrina acima), reamostrado
+// a cada 12 m para o trecho sobre a baía sair tracejado sem nunca abrir buraco
 let avenidas = ''
-for (const a of AV.lista) {
-  const pts = amostraReta(...doRumo(AV.rInicio, a.rumo), ...doRumo(AV.rFim, a.rumo))
-    .filter(([x, z]) => !(Math.hypot(x, z) >= ALCA_R_DENTRO && noArco(rumoDe(x, z), ALCA_TERRA)))
-  avenidas += via(tracaSobreTerra(pts), a.papel === 'distrito' ? 13 : 10)
+for (const v of viasAvenida) {
+  const [[x0, z0], [x1, z1]] = v.pontos
+  avenidas += via(tracaSobreTerra(amostraReta(x0, z0, x1, z1)), v.larg >= 40 ? 13 : 10)
 }
-// os anéis: seis dodecágonos com vértice em r nas 12 avenidas, e a AN7 circular
+// os anéis comuns: seis dodecágonos, já pré-fragmentados pelo dump; cada larg
+// agrupa um deles (26 = AN1-3, 30 = AN4, 34 = AN5-6), a largura de traço é a
+// mesma hierarquia de sempre
 let aneis = ''
-let an7Path = ''
-let AN7_R = 0
-for (const an of mapa.aneisViarios) {
-  if (an.circulo) {
-    const [a0, a1] = an.arco
-    const pts = []
-    for (let g = 0; g <= ((a1 - a0 + 360) % 360); g += 0.25) pts.push(doRumo(an.r, a0 + g))
-    an7Path = tracaSobreTerra(pts)
-    AN7_R = an.r
-    continue
-  }
-  const pts = []
-  for (let k = 0; k < 12; k++) {
-    const [x0, z0] = doRumo(an.r, k * 30), [x1, z1] = doRumo(an.r, (k + 1) * 30)
-    pts.push(...amostraReta(x0, z0, x1, z1).slice(k ? 1 : 0))
-  }
-  // dentro da alça de terra não há outra rua além da AN7 (fundador, 07/09)
-  const filt = pts.filter(([x, z]) => !(Math.hypot(x, z) >= ALCA_R_DENTRO && noArco(rumoDe(x, z), ALCA_TERRA)))
-  aneis += via(tracaSobreTerra(filt), an.larg >= 34 ? 12 : 10)
+for (const larg of [...new Set(viasAneisComuns.map((v) => v.larg))].sort((a, b) => a - b)) {
+  const grupo = viasAneisComuns.filter((v) => v.larg === larg)
+  aneis += via(classificaSegmentos(grupo), larg >= 34 ? 12 : 10)
 }
 corpo += avenidas + aneis
+// a AN7: classifica os segmentos pré-fragmentados do dump (mesmo raciocínio
+// dos anéis comuns) e mede o próprio raio médio a partir deles, em vez de
+// confiar no `r` publicado em mapa-v1 (reserva: se vias.json faltar, cai no
+// valor publicado, só para a folha não quebrar sem malha viária)
+const an7Path = classificaSegmentos(viasAN7)
+const AN7_R = viasAN7.length
+  ? viasAN7.reduce((s, v) => s + Math.hypot(...v.pontos[0]) + Math.hypot(...v.pontos[1]), 0) / (viasAN7.length * 2)
+  : mapa.alca.avenida.r
 // a AN7, laranja da marca: a única cor quente saturada da folha, a assinatura.
 // ⚠️ BANDA LARGA COM DEGRADÊ, NÃO FIO. A versão anterior desenhava só uma
 // linha de 26 m simbólicos (~3 px no 1600); a v2, que vendeu, tinha uma faixa

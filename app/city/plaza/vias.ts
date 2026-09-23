@@ -2587,6 +2587,20 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
           if (paraNaAgua((ax + cx) / 2, (az + cz) / 2)
             || paraNaAgua(ax, az) || paraNaAgua(bx, bz)
             || paraNaAgua(cx, cz) || paraNaAgua(dx, dz)) continue
+          // ⚠️ RAIO_TEIA_DETALHE, TAMBÉM NO ANEL (23/09): mesmo corte de
+          // `teiaBraco`/`faixa` (ver a nota grande no topo de `buildVias`), a
+          // mesma peça que faltava. Os 7 anéis vivem inteiros além de 1.750 m
+          // (`AN1`, o mais perto do centro), ou seja SEMPRE além de
+          // `RAIO_TEIA_DETALHE` (1.200): no celular a PAREDE do meio-fio nunca
+          // nasce em anel nenhum, nas duas seções que o anel usa (`SEC_ANEL`
+          // com canteiro, e a rampa/travessia dele mais abaixo). A banda
+          // (calçada, pista, canteiro) continua cada uma no seu próprio quad,
+          // na própria cota: só a face vertical do degrau é que some, pelo
+          // MESMO motivo já provado no bulevar da teia — fundir bandas em cota
+          // diferente é que dá z-fight, não tirar a parede. O anel NUNCA
+          // devolve `Trilho` (isso é só de `faixa`, a avenida), então não há
+          // eixo tracejado nem faixa de pedestre que dependa da parede aqui.
+          const longeDaPracaAnel = MOBILE_LOD && Math.hypot((ax + dx) / 2, (az + dz) / 2) > RAIO_TEIA_DETALHE
           // ⚠️ ORDEM ANTI-HORÁRIA VISTA DE CIMA: ângulo primeiro, raio depois. A
           // ordem natural de escrever (raio, depois ângulo) dá normal para BAIXO
           // e o backface culling apaga o anel inteiro. Mesma armadilha de
@@ -2612,7 +2626,9 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
               bx, cotaVia(bx, bz) + b.alt, bz)
           if (mascaravel(b.alvo)) marcarVia(codigoDe(b.alvo), ax, az, dx, dz, cx, cz, bx, bz)
           const prox = secao[i + 1]
-          if (prox && prox.alt !== b.alt) {
+          // ⚠️ `!longeDaPracaAnel`: ver a nota grande acima, no teste de água. A
+          // superfície não muda, só a parede.
+          if (prox && prox.alt !== b.alt && !longeDaPracaAnel) {
             const alto = Math.max(b.alt, prox.alt), baixo = Math.min(b.alt, prox.alt)
             if (look2) {
               // ⚠️ A PERPENDICULAR DO ANEL É O RAIO, e ela é tomada no MEIO do
@@ -3413,6 +3429,16 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     }
     if (m < 2) return
     const ftC = fitaDe('calcada')
+    // ⚠️ RAIO_TEIA_DETALHE TAMBÉM NA ESQUINA (23/09): mesmo corte de
+    // `teiaBraco`/`faixa`/`anel` (nota grande no topo de `buildVias`) — no
+    // celular, fora do raio da Praça, a esquina não ganha a parede vertical do
+    // meio-fio. O leque de pista e o quadrilátero de calçada (o `ftC.add`
+    // abaixo, dentro do laço) continuam saindo SEMPRE, em qualquer distância:
+    // é pavimento de verdade, e a rede fecharia com buraco sem ele. Só a face
+    // é opcional, e por isso o `if` fica FORA do laço de braços (`no.x/no.z`
+    // não muda por braço) — um `return` aqui dentro do laço abaixo cortaria a
+    // calçada dos braços seguintes, não só a parede.
+    const longeDaPracaEsquina = MOBILE_LOD && Math.hypot(no.x, no.z) > RAIO_TEIA_DETALHE
     for (let k = 0; k < m; k++) {
       const b1 = br[k], b2 = br[(k + 1) % m]
       ftC.comCruzamento().add(COR.calcada,
@@ -3422,6 +3448,7 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
         b1.ke[0], yC(b1.ke[0], b1.ke[1]), b1.ke[1])
       marcarVia(codigoDe('calcada'), b2.pd[0], b2.pd[1], b1.ce[0], b1.ce[1],
                 b1.pe[0], b1.pe[1], b1.ke[0], b1.ke[1])
+      if (longeDaPracaEsquina) continue
       // as duas faces de meio-fio da esquina, cada uma olhando para o asfalto do
       // braço que ela margeia
       const face = (ax: number, az: number, bx2: number, bz2: number, nx: number, nz: number) => {

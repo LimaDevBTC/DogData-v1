@@ -31,10 +31,35 @@
 // script não decide nada: se um trecho sair errado, o defeito está em
 // `vias.ts`, não aqui.
 //
+// ⚠️ RODADA 2, 23/09: A AVENIDA É A EXCEÇÃO A ESSA REGRA, E ELA MESMA PRECISA
+// DE CONSERTO AQUI. `dumpSeg('avenida', ...)` (vias.ts:2289) grava o cordão
+// NOMINAL inteiro de cada bulevar (o comentário ali diz "nunca cruza água por
+// construção", o que só vale para o RAIO do sítio, não para o terreno no meio
+// do caminho); mas o laço que de fato desenha o asfalto (`faixa`, mesmo
+// arquivo, `if (paraNaAgua(mx, mz)) continue`, vias.ts:1844) não desenha pista
+// sobre água larga. Anel, radial e travessa não têm este problema porque o
+// `dumpSeg` deles mora DENTRO desse laço (só grava o que sobreviveu ao mesmo
+// teste); o da avenida foi escrito ANTES dele rodar.
+//
+// Visto na chapa `mar` de `scripts/city/chapas.mjs`: a avenida de rumo ~50
+// vira um cais reto que MORRE no meio da baía, sem alcançar a AN7 — o "radial
+// em cima da água" que o fundador apontou, só que desta vez na avenida, não na
+// teia (que já tinha sido corrigida em 03/09). `corrigirAvenidas`, abaixo,
+// reaplica sobre o dump a MESMA régua que a cena usa para as outras vias: a
+// mesma lâmina d'água (-40 m, `lagos.ts` `cota`) e o mesmo `LIMIAR_PONTE`
+// (150 m, `app/city/plaza/lagos.ts:250`) que decide anel e teia. Não é uma
+// segunda regra: é a regra da cena, medida aqui porque só aqui ela nunca tinha
+// sido consultada.
+//
 // Uso:  node scripts/city/mapa/assar-vias.mjs [--porta=3000] [--saida=public/city/mapa/vias.json] [--prazo=900000]
 // ═══════════════════════════════════════════════════════════════════════════
 import { chromium } from '/home/bitmax/.npm/_npx/705bc6b22212b352/node_modules/playwright/index.mjs'
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const AQUI = dirname(fileURLToPath(import.meta.url))
+const RAIZ = resolve(AQUI, '../../..')
 
 const arg = (k, d) => (process.argv.find((a) => a.startsWith(`--${k}=`)) || `--${k}=${d}`).split('=')[1]
 const PORTA = arg('porta', 3000)
@@ -43,6 +68,88 @@ const PRAZO = +arg('prazo', 900000)
 const TETO_BYTES = 3 * 1024 * 1024
 
 mkdirSync(SAIDA.split('/').slice(0, -1).join('/') || '.', { recursive: true })
+
+// ── a MESMA superfície que a cena consulta para desenhar (`superficieAt`),
+// assada offline em data/superficie.f32 (doutrina igual à de scripts/city/
+// carta.mjs, que já usa este par de arquivos para o mesmo fim). Lida em Node
+// puro, sem depender do navegador: é só leitura de grade, não classificação
+// de corpo d'água (essa continua vindo de dentro da cena, para tudo que não é
+// avenida — ver o cabeçalho).
+function carregarSuperficie() {
+  const meta = JSON.parse(readFileSync(resolve(RAIZ, 'data/superficie.json'), 'utf8'))
+  const buf = readFileSync(resolve(RAIZ, 'data/superficie.f32'))
+  const H = new Float32Array(buf.buffer.slice(buf.byteOffset, buf.byteOffset + meta.n * meta.n * 4))
+  return { H, n: meta.n, R: meta.raio, cel: (2 * meta.raio) / (meta.n - 1) }
+}
+const SUP = carregarSuperficie()
+const alturaEm = (x, z) => {
+  const { H, n, R, cel } = SUP
+  const fi = (x + R) / cel, fj = (z + R) / cel
+  const i = Math.max(0, Math.min(n - 2, Math.floor(fi))), j = Math.max(0, Math.min(n - 2, Math.floor(fj)))
+  const u = fi - i, v = fj - j
+  return H[j * n + i] * (1 - u) * (1 - v) + H[j * n + i + 1] * u * (1 - v)
+    + H[(j + 1) * n + i] * (1 - u) * v + H[(j + 1) * n + i + 1] * u * v
+}
+const COTA_AGUA = -40      // lagos.ts: `cota`, a lâmina única da cidade
+const LIMIAR_PONTE = 150   // app/city/plaza/lagos.ts:250, a régua de anel e teia
+const naAgua = (x, z) => alturaEm(x, z) < COTA_AGUA
+
+/** reamostra cada avenida a cada 10 m contra `naAgua` e corta onde o vão de
+ *  água passa de `LIMIAR_PONTE` (ver a doutrina grande no cabeçalho). Um vão
+ *  curto (ponte) não muda nada: a avenida é reta, então o cordão de 2 pontos
+ *  já cobre ponte e terra dos dois lados sem precisar marcar nada à parte. Um
+ *  vão longo (bloqueio) fecha o pedaço na última terra antes dele e abre um
+ *  novo pedaço (`id` com sufixo de letra) na primeira terra depois. */
+function corrigirAvenidas(bruto) {
+  const PASSO = 10
+  const saida = []
+  let avenidasTocadas = 0, cortesTotal = 0, metrosCortados = 0
+  for (const seg of bruto) {
+    if (seg.tipo !== 'avenida') { saida.push(seg); continue }
+    const [[x0, z0], [x1, z1]] = seg.pontos
+    const comp = Math.hypot(x1 - x0, z1 - z0)
+    const n = Math.max(1, Math.round(comp / PASSO))
+    const pts = Array.from({ length: n + 1 }, (_, k) => {
+      const t = k / n
+      return [x0 + (x1 - x0) * t, z0 + (z1 - z0) * t]
+    })
+    const molhado = pts.map(([x, z]) => naAgua(x, z))
+    if (!molhado.includes(true)) { saida.push(seg); continue }
+    avenidasTocadas++
+
+    // runs contíguas de água, [inicio, fimExclusivo)
+    const runs = []
+    for (let i = 0; i <= n;) {
+      if (molhado[i]) { let j = i; while (j <= n && molhado[j]) j++; runs.push([i, j]); i = j } else i++
+    }
+    // só os vãos REAIS (ponta seca antes -> ponta seca depois) acima do limiar
+    const cortes = []
+    for (const [ini, fim] of runs) {
+      const a = pts[Math.max(0, ini - 1)], b = pts[Math.min(n, fim)]
+      const vao = Math.hypot(b[0] - a[0], b[1] - a[1])
+      if (vao > LIMIAR_PONTE) cortes.push([ini, fim, vao])
+    }
+    if (!cortes.length) { saida.push(seg); continue }   // só pontes curtas: sem mudar nada
+
+    let inicioPedaco = 0
+    const pedacos = []
+    for (const [ini, fim, vao] of cortes) {
+      const fimPedaco = Math.max(0, ini - 1)
+      if (fimPedaco > inicioPedaco) pedacos.push([pts[inicioPedaco], pts[fimPedaco]])
+      cortesTotal++
+      metrosCortados += vao
+      inicioPedaco = Math.min(n, fim)
+    }
+    if (inicioPedaco < n) pedacos.push([pts[inicioPedaco], pts[n]])
+
+    pedacos.forEach((p, k) => {
+      saida.push({ ...seg, id: pedacos.length > 1 ? `${seg.id}${String.fromCharCode(97 + k)}` : seg.id, pontos: p })
+    })
+  }
+  console.log(`[avenidas] ${avenidasTocadas} avenida(s) tocam água; ${cortesTotal} vão(s) > ${LIMIAR_PONTE} m `
+    + `cortado(s) (${metrosCortados.toFixed(0)} m de vão removidos no total)`)
+  return saida
+}
 
 // ── Douglas-Peucker, só usado se o dump cru estourar o teto de 3 MB ─────────
 // (ver a doutrina no cabeçalho: o dump normal já sai em atômicos de 2 pontos,
@@ -151,7 +258,7 @@ try {
   }
   console.log(`dump cru: ${bruto.length.toLocaleString('pt-BR')} segmentos`)
 
-  let saida = bruto
+  let saida = corrigirAvenidas(bruto)
   let cru = JSON.stringify(saida)
   console.log(`tamanho cru: ${(cru.length / 1024).toFixed(1)} KB`)
 

@@ -5589,10 +5589,25 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       // não baixa memória nenhuma: os dois níveis são baixados e ficam
       // residentes. Por isso o censo conta os dois, que é o que o aparelho paga.
       ;(window as unknown as { __plazaGeometria?: () => unknown }).__plazaGeometria = () => {
-        // ⚠️ A CHAVE É O `uuid` DA GEOMETRIA, pela mesma razão que o censo de
-        // textura usa o da textura: geometria compartilhada (toda instância, todo
-        // poste repetido) é alocada UMA vez e contá-la por malha infla o total.
-        const vistas = new Set<string>()
+        // ⚠️ A CHAVE É O `uuid` DO ATRIBUTO, NÃO O DA GEOMETRIA (conserto de
+        // 23/09/2026). A ideia original era certa: geometria compartilhada (toda
+        // instância, todo poste repetido) é alocada UMA vez e contá-la por malha
+        // infla o total. Mas dedup por `g.uuid` (a `THREE.BufferGeometry`
+        // INTEIRA) só funciona enquanto a peça reusa o MESMO objeto de
+        // geometria. `terrain.ts` passou a fatiar o sítio em blocos
+        // (`chunkarTerreno`, frustum culling por bloco): cada bloco é uma
+        // `THREE.BufferGeometry` NOVA (uuid novo) que aponta para os MESMOS
+        // objetos `position`/`color`/`uv`/`normal` da malha original, só o
+        // `index` é próprio do bloco. Com dedup por `g.uuid` o censo contava o
+        // MESMO buffer de vértice uma vez POR BLOCO — 37 vezes, no terreno — e
+        // um terreno de 119 MiB reais aparecia como 2,5 GiB. Dedup por
+        // IDENTIDADE DO OBJETO `THREE.BufferAttribute` (nesta versão do three
+        // ele não publica `.uuid`) é a granularidade certa: é exatamente o que
+        // vira UM `WebGLBuffer` no driver, com ou sem bloco. O índice de cada
+        // bloco É de fato um array próprio (não compartilhado), então ele
+        // nunca bate o dedup e continua contando inteiro, bloco a bloco, o
+        // que é correto.
+        const vistasAttr = new WeakSet<object>()
         const por = new Map<string, { tris: number; bytes: number; malhas: number; verts: number
           attrs: Map<string, { bytes: number; tipo: string }> }>()
         // o dono é o ancestral NOMEADO mais alto, que é como a peça se chama na
@@ -5603,11 +5618,15 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           return n
         }
         let totTris = 0, totBytes = 0
+        const geosVistas = new Set<string>()
         scene.traverse((o) => {
           const g = (o as THREE.Mesh).geometry as THREE.BufferGeometry | undefined
           if (!g || !g.attributes?.position) return
-          if (vistas.has(g.uuid)) return
-          vistas.add(g.uuid)
+          geosVistas.add(g.uuid)
+          // ⚠️ TRIS E MALHAS SOMAM POR OCORRÊNCIA, SEMPRE (não dedup): cada bloco
+          // tem o SEU PRÓPRIO índice, desenhando uma fatia diferente do mesmo
+          // atributo de vértice, então somar os triângulos de cada bloco dá o
+          // total real da malha (nunca infla: partição, não repetição).
           const tris = Math.floor((g.index ? g.index.count : g.attributes.position.count) / 3)
           const n = dono(o)
           const r = por.get(n) || { tris: 0, bytes: 0, malhas: 0, verts: 0, attrs: new Map() }
@@ -5619,20 +5638,24 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             j.bytes += arr.byteLength
             r.attrs.set(nome, j)
           }
-          let bytes = 0
-          if (g.index) {
+          let bytes = 0, vertsNovo = 0
+          if (g.index && !vistasAttr.has(g.index)) {
+            vistasAttr.add(g.index)
             const arr = g.index.array as unknown as { byteLength: number; constructor: { name: string } }
             bytes += arr.byteLength
             anotaAttr('(index)', arr)
           }
           for (const k in g.attributes) {
             const at = g.attributes[k] as THREE.BufferAttribute
+            if (vistasAttr.has(at)) continue
+            vistasAttr.add(at)
             const arr = at.array as unknown as { byteLength: number; constructor: { name: string } }
             bytes += arr.byteLength
             anotaAttr(`${k}x${at.itemSize}`, arr)
+            if (k === 'position') vertsNovo = at.count
           }
           r.tris += tris; r.bytes += bytes; r.malhas++
-          r.verts += g.attributes.position.count
+          r.verts += vertsNovo
           por.set(n, r)
           totTris += tris; totBytes += bytes
         })
@@ -5641,7 +5664,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           mibResidente: +((totBytes * 2) / 1048576).toFixed(2),
           mibAtributo: +(totBytes / 1048576).toFixed(2),
           triangulos: totTris,
-          geometrias: vistas.size,
+          geometrias: geosVistas.size,
           pecas: lista.length,
           maiores: lista.slice(0, 40).map((l) => ({
             peca: l.nome, mib: +((l.bytes * 2) / 1048576).toFixed(2), tris: l.tris, malhas: l.malhas,

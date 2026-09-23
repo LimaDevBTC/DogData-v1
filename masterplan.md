@@ -2737,6 +2737,15 @@ terra de uma pessoa. Ferramenta: `scripts/city/tag_institucional.py`.
 
 **Decisão do fundador, nas palavras dele:** *"O mint com certeza abre pro mint
 independentemente de ter licença ou não. A licença é pra construir."*
+6. **Cais para lugar nenhum (23/09):** cinco avenidas (A0 a A4) cruzam a baía no traçado
+   nominal; `faixa()` pula o asfalto onde `paraNaAgua()` (vão > 150 m), mas o `dumpSeg` da
+   avenida rodava ANTES do laço e exportava o cordão inteiro, e por isso o mapa 2D e a carta
+   mostravam "radial em cima da água". `assar-vias.mjs` agora recorta a avenida contra a
+   superfície assada com a régua de `lagos.ts` (cota -40, `LIMIAR_PONTE` 150): 5 vãos, 7.490 m
+   removidos, pedaços `A1a`/`A1b`. Fica aberto na CENA: o pedaço externo sai da AN7 e morre em
+   água aberta algumas centenas de metros adiante, com meio-fio e faixa de pedestre terminando
+   num cais reto (chapa `--vistas=mar`); o critério de água da cena (`naBaia`, largura do corpo)
+   e o da régua (-40 m num ponto) divergem nesse raso. Tratar quando a teia for revista.
 
 Isto **revoga a leitura do §4** onde ele diz "Gate: mint requer Personal License". O gate
 da licença passa a valer para o **Kit de construção** (o catálogo de prédio da §4.1), não
@@ -2793,3 +2802,73 @@ sendo o chão; `PHI_LOTE=6500` e `RESERVA_PCT=1` continuam o padrão.
 🔓 **Consequência de ordem:** esta regeração invalida o root `2178966f…` do §34, a carta v3,
 o índice `escrituras.bin` (que confere os selos e se recusa sozinho) e o `vias.json` da
 cena. Tudo isso se refaz DEPOIS da rodada, nunca antes. Resultado da rodada entra aqui.
+
+**Implementado em 23/09 (gerador + portão), medido antes de regerar:** `_teia_face_raio()` espelha
+`anelRaio()` de teia.ts; `_casa_aneis_teia()` casa cada fronteira de banda em φ com um anel real
+da teia (sempre avançando, duas bandas vizinhas compartilham a face de divisa); `tecido()` planta
+entre `r_face(R0)+VIA_CONTORNO/2` e `r_face(R1)-VIA_CONTORNO/2`, e a profundidade do quarteirão
+virou medida (o dodecágono respira 3,5% entre vértice e meio de face). Portão ganhou o teste 23,
+"quarteirão obedece o dodecágono da teia (§36)", teto 2% dos lotes cruzados por face de anel.
+**Antes (registro selado):** 3.329 de 58.706 lotes do tecido cruzados (5,67%); **1.976 de 2.071
+quarteirões (95,4%)** com face de anel por dentro. **Depois (amostra de 5.000 carteiras,
+PHI_LOTE=3010):** 1,17% dos lotes, **0 de 1.752 quarteirões**. Risco aberto: a banda Horizonte
+(k=6) pede vão de 357 m e a teia não tem anel mais largo que 298 m além de r 5.000; o quarteirão
+nasce mais raso que o nominal. Conferir na rodada real a linha "por vão menor que o anel" e a
+mediana da banda contra a promessa. A rodada completa ficou para depois do §37, que muda a
+geometria do próprio lote.
+
+---
+
+## §37 — O lote é célula, não retângulo com giro 🔒 (23/09/2026)
+
+**Decisão do fundador, nas palavras dele:** *"Os lotes devem ter o formato de células que se
+encaixem, não serem forçados a entrar numa grade num formato diferente, veja esse modelo
+antigo."* O modelo antigo é a carta v2 (`public/landing/citymap-1600-v2.webp`): malha polar em
+que cada célula é o encontro de dois radiais com dois anéis, e tudo se encaixa.
+
+**A regra:** a célula da teia é a unidade. Célula = trapézio entre as faces de dois anéis
+consecutivos (retas paralelas dentro do mesmo setor de 30°) e dois radiais. O lote é uma fração
+da célula: frente e fundo sobre as faces (ou sobre a divisa interna paralela às faces, quando a
+célula tem uma fileira para cada rua), laterais sobre radiais ou divisas que passam pelo centro.
+Nenhum lote nasce fora da célula; nada sobra entre lote e rua; nada se sobrepõe. Todo canto de
+lote sai de UMA fórmula (reta radial em θ × reta de face a distância d), a mesma em Python e em
+TypeScript, sobre as constantes de teia.ts.
+
+**O que isso mata:** o registro v3 (`x, z, frente, prof, giro`: 15 bytes) não descreve um
+trapézio. Nasce o **registro v4**, e com ele se refazem gerador, cena, escritura, mapa 2D, carta,
+merkle, lookup e portão. O §36 (quarteirão entre faces) é pré-requisito e fica.
+
+**O que não muda:** curva de área publicada e equidade (a fração de célula é comprada pela curva),
+regras 1 e 3 da fundação, toda fileira com rua, os três distritos especiais (a alça continua
+círculo: célula de arco), as sete ancoradas, K01, a tag de 27, blocos de 3 na Orla do Projeto,
+a superfície assada como chão.
+
+🔓 **Projeto em curso (23/09):** inventário de consumidores + 3 propostas de registro (endereço de
+célula derivado; 4 cantos explícitos; híbrido por família) + 2 juízes. A escolha e o layout
+entram aqui antes de qualquer código.
+
+
+---
+
+## §38 — Orçamento do celular, corte 2 (23/09/2026)
+
+**Régua consertada antes de medir:** `window.__plazaGeometria()` (plaza-scene.tsx) deduplicava
+bytes por `geometry.uuid`; com o terreno em 37 blocos que compartilham os mesmos atributos, o
+censo contava o mesmo buffer 37 vezes (terreno "2.521 MiB", cena "2.893 MiB"). Agora deduplica
+por identidade do `BufferAttribute`. Sem isso qualquer antes/depois seria falso.
+
+**Medido (perfil mobile, iPhone 13 emulado, `scripts/city/geometria.mjs --mobile`):**
+483,76 MiB / 5,02 M tris antes → **435,94 MiB / 4,63 M tris** depois. Vias 191,85 → 144,03 MiB
+(era 362 no diagnóstico original); terreno 111,37 MiB (coroa externa em meia resolução além de
+r 8.000, compactação, 36+1 blocos com frustum culling, tudo ligado por `coroaMetade` no perfil
+mobile); postes 0,05 MiB (são InstancedMesh; o custo deles é taxa de desenho, e o corte por célula
+de 700 m com `CULL_MOBILE_M=1.500` já existia desde 03:29).
+
+**O que fecha a conta de 300 MiB e ainda não foi feito:** ~180 MiB são torres, parques, monumentos
+e lagos (RunestonePark, BitFlow, Kray, Needle, Geode, DOG ARENA, orla nobre), fora de vias e
+terreno; a fusão calçada+pista num quad só (um agente tentou e reverteu por z-fight: `Y_CALCADA`
+0,33 > `Y_PISTA` 0,18) só entra com prova visual no perfil mobile, que `chapas.mjs` não tira
+(força desktop/high). Meio-fio das avenidas ficou de fora de propósito (devolvem `Trilho`).
+
+**Superfície:** re-assada depois das edições e **byte-idêntica** (`cmp` do f32); só a
+`digitalDoChao` mudou, como esperado. Desktop não muda uma linha (tudo atrás de `MOBILE_LOD`).

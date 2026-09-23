@@ -273,3 +273,37 @@ Piso de sanidade: o ritmo dos últimos 7 dias anualizado dá US$ 19,6 mil só em
 3. As baleias vêm mais rápido do que o modelo assumiu (1 a cada 1,5 semana desde julho, não a cada 6) e saem de um clube identificável: 859 carteiras com 10M+, das quais 5 já viraram patron. É lista, não funil.
 4. Duas linhas do modelo não existem sob as regras publicadas: venda de lote do projeto (§6) e margem no mint sem reescrever a promessa "paying only BTC network fees" que está no ar em `app/dogcity/`. Ambas são decisões do fundador antes de qualquer código.
 5. O custo de inscrever não é meio centavo, é 17 a 44 centavos; irrelevante para a margem enquanto o comprador paga, decisivo se o projeto absorver a taxa "at cost" para 70 mil deeds (US$ 12 mil a 31 mil só em rede, PREMISSA de tamanho, a 1,13 sat/vB).
+---
+
+# REVISÃO 2: O MINT É ABERTO E A LICENÇA COMPRA ANTECEDÊNCIA
+
+Data: 23/09/2026, 07h40 UTC. Premissas travadas pelo fundador em `masterplan.md` §35, que revogam a leitura do §4 usada nas duas partes acima:
+
+1. **O mint abre para todo lote do registro selado (69.989 carteiras), com ou sem licença.** A licença passa a ser pré-requisito do Kit de construção, não da escritura.
+2. **Janela dos fundadores:** quem tem licença abre o mint e fica **3 dias em exclusividade**; depois abre para todos.
+3. **Preço ao holder:** US$ 2 para a casa + fee de rede + postage, 100% dos US$ 2 para a casa. Postage de 1 sat só com o cliente DOG MODE no ar (até lá 546 sats, e é a casa que adianta: 0,382 BTC para 70 mil deeds).
+
+## 1. O que muda na tabela
+
+A linha do mint deixa de ser teto das licenças (105) e vira **conversão sobre 69.989 carteiras × US$ 2**. Os três cenários usam as mesmas taxas de conversão do modelo original para carteira que descobre o próprio lote (2% / 7,5% / 20%); a racionalidade por faixa de saldo já está embutida nelas (para quem tem 1.000 DOG a fee vale mais que o saldo, e essa faixa é a maior do snapshot).
+
+| Linha | P | B | O | Como |
+|---|---:|---:|---:|---|
+| Mint (aberto, US$ 2 líquidos) | 2.800 | 10.500 | 28.000 | 1.400 / 5.249 / 13.998 deeds × US$ 2 |
+| Licenças | 10.700 | 46.000 | 128.100 | igual à tabela corrigida da parte 2 |
+| Itens | 0 | 3.400 | 17.500 | PREMISSA, sem SKU |
+| Parcerias | 0 | 8.000 | 20.000 | PREMISSA |
+| Lotes do projeto | 0 | 0 | 0 | §6 veda |
+| **Total 12 meses** | **13.500** | **67.900** | **193.600** | |
+
+Contra a tabela corrigida da parte 2 (12.100 / 60.400 / 172.600): o mint aberto acrescenta US$ 1,4 mil no pessimista e US$ 21 mil no otimista. O mint continua sendo a menor linha em dinheiro e a maior em alcance: 14 mil deeds no otimista são 14 mil carteiras com um ordinal da DogCity no bolso, e cada uma é candidata a licença e a item.
+
+## 2. A janela dos fundadores não está na tabela, de propósito
+
+É a primeira vez que a licença tem valor ANTES do mint ("compre a licença e minte 3 dias antes de todo mundo"), e é a alavanca de pré-venda que faltava. Não há dado histórico para precificar isso: nenhuma das 117 doações foi feita por antecedência. O que dá para medir hoje é o tamanho do público que a janela endereça: 859 carteiras com 10M+ DOG (5 já patron) e o ritmo de 1 patron a cada 1,5 semana desde julho. A primeira janela de 3 dias vai dar o número; até lá, tratá-la como upside da linha de licenças, não como receita.
+
+## 3. As três condições do modelo, em ordem
+
+1. **DOG MODE no ar antes do mint.** Sem ele a casa adianta 0,382 BTC de postage; com ele, US$ 60. Não é otimização, é condição de caixa.
+2. **Mensagem individual a 69.989 carteiras** ("your lot is this one"), em calendário de lançamentos em sequência, porque cada pico dura 3 dias (parte 1, §2.4).
+3. **Reescrever a promessa publicada** em `app/dogcity/` ("paying only BTC network fees") antes de cobrar os US$ 2. Duas strings de produção, decididas, não só codadas.

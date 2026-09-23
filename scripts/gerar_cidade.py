@@ -708,6 +708,18 @@ def raio_em_phi(ang, alvo):
         else: hi = m
     return (lo + hi) / 2
 
+# ⚠️ §36 DO masterplan.md: A DIVISA RADIAL NASCE DA FACE DO ANEL, NÃO DE φ.
+# `anelRaio()` em app/city/plaza/teia.ts é a fórmula que DESENHA a rua: dado o
+# raio do VÉRTICE `r`, a FACE do dodecágono no rumo `ang` está em
+# `r·cos15° / cos(t)`, com `t` a distância angular ao vértice mais perto
+# (vértices a cada 30°, faces centradas 15° adiante). Espelhada aqui porque o
+# gerador não lê JS: se a cena mudar a fórmula, mude aqui também, do mesmo
+# jeito que `anelRaio` é a única verdade da rua (comentário dela em teia.ts).
+def _teia_face_raio(r_vertice, ang):
+    PASSO = math.pi / 6
+    rel = ((ang % PASSO) + PASSO) % PASSO - PASSO / 2
+    return (r_vertice * math.cos(PASSO / 2)) / math.cos(rel)
+
 def _aneis():
     """Os anéis, com o passo saindo do grão da banda.
 
@@ -731,6 +743,29 @@ def _aneis():
     return out
 
 _ANEIS_PHI = sorted({a[0] for a in _aneis()} | {a[1] for a in _aneis()})
+
+# ⚠️ §36: CADA FRONTEIRA DE BANDA (φ) ESCOLHE UM ANEL DA TEIA (metros), E A
+# ESCOLHA É MONOTÔNICA. As duas grades quase coincidem por desenho (BANDAS usa
+# `_lado(k)+VIA_CONTORNO` = 121/180/239/298, `vaoDoAnel` da teia devolve
+# 122/180/239/298: a mesma escada, com Núcleo 1 m mais estreita), então do
+# Núcleo à Borda o casamento é 1 para 1 quase exato. Onde elas divergem (a
+# banda Horizonte pede 357 m e a teia não tem anel mais largo que 298 além de
+# 5.000 m) o ponteiro da teia avança mais devagar que o das bandas, e o
+# quarteirão daquele trecho nasce mais raso que o nominal da classe, medido
+# e registrado no relatório da rodada (`_ref['vao']` abaixo), nunca escondido.
+# ⚠️ NUNCA RETROCEDE E NUNCA REPETE ANEL. Repetir colapsaria a divisa a zero
+# (dois limites de banda na mesma face); retroceder cruzaria duas fronteiras
+# na mesma face, ou seja um quarteirão comendo o vizinho. Como as duas listas
+# são crescentes, o ponteiro só anda para frente.
+def _casa_aneis_teia(fronteiras, aneis):
+    out, j = {}, 0
+    for p in fronteiras:
+        while j + 1 < len(aneis) and abs(aneis[j+1] - p) <= abs(aneis[j] - p):
+            j += 1
+        out[p] = aneis[j]
+        if j + 1 < len(aneis): j += 1
+    return out
+_FRONTEIRA_ANEL = _casa_aneis_teia(_ANEIS_PHI, TEIA_ANEIS)
 
 # ── A DOBRA DA TEIA TRADUZIDA PARA φ, E POR QUE ELA É O MÁXIMO E NÃO A MÉDIA ──
 #
@@ -2927,20 +2962,29 @@ print(f'Portão do Parque em r {_pr:.0f} (rumo {_PORTAO_RUMO}), '
       f'{4*430*145/1e4:.1f} ha', file=sys.stderr)
 
 # ── o tecido: quartos, quarteirões, lotes, por setor ───────────────────────
-def _z_das_filas(k):
+def _z_das_filas(k, lado=None):
     """As 2k fileiras do quarteirão, cada uma com a sua frente.
 
     ⚠️ REGRA DO FUNDADOR: TODA FILEIRA DÁ FRENTE PARA VIA. O quarteirão é k
     faixas de 50 m separadas por travessas de 9 m, e cada faixa são DUAS fileiras
     de 25 m costas com costas. Na teia este eixo é o RADIAL: a fileira corre
     paralela ao anel e abre para o anel ou para a travessa.
+
+    ⚠️ §36: `lado` deixou de ser sempre o nominal da classe (109/168/227...).
+    A divisa radial agora nasce na FACE do anel da teia, e o vão real entre
+    duas faces respira com o rumo (o dodecágono encolhe até 3,5% do vértice ao
+    meio da face). Quem chama para um quarteirão de verdade passa o vão MEDIDO
+    daquele quarteirão; as fileiras escalam por ele, senão a última passaria da
+    face em alguns rumos, que é o defeito exato que o §36 fecha. `lado=None`
+    mantém o nominal, para quem só quer a tabela genérica por classe.
     """
-    lado = _lado(k)
+    lado_nom = _lado(k)
+    esc = (lado / lado_nom) if lado is not None else 1.0
     out = []
     for i in range(k):
-        zc = -lado/2 + i*(FAIXA + TRAVESSA) + FAIXA/2
-        out.append((zc - LOTE_D/2, zc - FAIXA/2, +1))
-        out.append((zc + LOTE_D/2, zc + FAIXA/2, -1))
+        zc = (-lado_nom/2 + i*(FAIXA + TRAVESSA) + FAIXA/2) * esc
+        out.append((zc - (LOTE_D*esc)/2, zc - (FAIXA*esc)/2, +1))
+        out.append((zc + (LOTE_D*esc)/2, zc + (FAIXA*esc)/2, -1))
     return out
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -3757,19 +3801,25 @@ for _i in range(8):
 print(f'cadeia de suprimento: {_ni} plantas no cinturão + {len(EXTRACAO)} campos de '
       f'extração fora da abóbada ({sum(e["ha"] for e in EXTRACAO):.0f} ha)', file=sys.stderr)
 
-def _bloco(wx, wz, giro, k, frente, d, banda, nome):
+def _bloco(wx, wz, giro, k, frente, d, banda, nome, prof):
     """Monta um quarteirão da teia e sonda quais lotes dele sobrevivem.
 
     ⚠️ O QUARTEIRÃO DA TEIA NÃO É QUADRADO: a TESTADA é o arco (tangencial,
     variável, 95 a 150 m) e a PROFUNDIDADE é o vão entre anéis (radial, 109/168/
     227 conforme a banda). Publicar um `lado` só faria a cena desenhar contorno
     quadrado sobre trapézio.
+
+    ⚠️ §36: `prof` DEIXOU DE SER `_lado(k)` E PASSOU A SER PARÂMETRO. Ele
+    chega já medido por `tecido()` como o vão real entre as duas FACES de anel
+    da teia que fecham este quarteirão específico, no rumo `giro`. Calcular
+    `_lado(k)` aqui de novo (o valor nominal da classe) ignoraria o rumo e
+    voltaria a publicar um quarteirão que pode ser maior que o vão, cruzando a
+    rua da teia.
     """
-    prof = _lado(k)
     ca, sa = math.cos(giro), math.sin(giro)
     cols = max(1, int(frente // LOTE_W))
     lotes = []
-    for zlote, _b, _s in _z_das_filas(k):
+    for zlote, _b, _s in _z_das_filas(k, prof):
         for rx in range(cols):
             ox = (rx - (cols-1)/2) * LOTE_W
             fx = wx + ox*ca - zlote*sa
@@ -3790,7 +3840,13 @@ def tecido():
     # abaixo do piso, quarteirão abaixo do mínimo de 8 lotes.
     _ref = collections.Counter()
     for ia, (p0, p1, nome, k) in enumerate(_aneis()):
-        pm = (p0 + p1) / 2
+        # ⚠️ §36: R0/R1 SÃO OS DOIS ANEIS DA TEIA QUE FECHAM ESTE QUARTEIRÃO,
+        # não mais o meio de φ. `_FRONTEIRA_ANEL` casa cada fronteira de banda
+        # com um anel da teia (ver o comentário da função), e como p0/p1 são
+        # compartilhados entre quarteirões vizinhos (a banda seguinte começa
+        # onde esta termina), o anel escolhido também é: nenhuma costura nasce
+        # entre dois quarteirões da mesma sequência radial.
+        R0, R1 = _FRONTEIRA_ANEL[p0], _FRONTEIRA_ANEL[p1]
         # ⚠️ A DIVISA NASCE NO RADIAL DA TEIA, E ESTE É O CONSERTO ESTRUTURAL DO
         # §25.1. Com `n_raios(pm)` (64/128/256) a divisa caía a 63,2 m de mediana
         # do radial ATIVO mais próximo e 68,9% das pontas de travessa morriam
@@ -3821,7 +3877,25 @@ def tecido():
             if (ia, (j * N_RAIOS0) // n) in _ocupado:
                 _ref['peça'] += 1; continue
             am = ((j + 0.5) / n) * 2*math.pi
-            rm = raio_em_phi(am, pm)
+            # ⚠️ §36: A FACE DO ANEL FECHA O QUARTEIRÃO, NÃO A CURVA DE NÍVEL
+            # DE φ. `_teia_face_raio(R, am)` é o raio do dodecágono de vértice R
+            # no rumo `am` (fórmula de `anelRaio` em teia.ts); o vão da rua
+            # (VIA_CONTORNO) fica centrado exatamente nessa face, dos dois
+            # lados. Antes disto o quarteirão nascia entre duas curvas de φ
+            # (redondas, ou superelipse fora do núcleo) e a rua desenhada, que
+            # é dodecágono desde o primeiro anel, cortava por dentro em 85,7%
+            # dos 2.071 quarteirões medidos em 22/09.
+            r_in = _teia_face_raio(R0, am) + VIA_CONTORNO / 2
+            r_out = _teia_face_raio(R1, am) - VIA_CONTORNO / 2
+            prof = r_out - r_in
+            # ⚠️ VÃO MENOR QUE O QUARTEIRÃO MAIS RASO NÃO VIRA TECIDO. Isto só
+            # dispara onde as duas grades divergem mais (nota de `_casa_aneis_
+            # teia`, banda Horizonte) ou numa extrapolação fora do alcance da
+            # teia; contado à parte para nunca ficar invisível dentro de
+            # 'testada' ou 'poucos'.
+            if prof < _lado(2) * 0.6:
+                _ref['vão'] += 1; continue
+            rm = (r_in + r_out) / 2
             cx, cz = math.sin(am)*rm, -math.cos(am)*rm
             d = distrito_de(cx, cz)
             # ⚠️ A TESTADA É A CORDA NA BORDA DE DENTRO, NÃO O ARCO NO MEIO, e
@@ -3833,20 +3907,24 @@ def tecido():
             # 1,96 m do eixo do radial, dentro da pista de 7 m, com mediana de
             # 3,40 m. Com a corda na borda de dentro o mínimo é 6,00 m e nenhum
             # canto entra na seção.
-            frente = 2*((rm - _lado(k)/2) * math.tan(math.pi/n) - VIA_CONTORNO/2)
+            # ⚠️ §36: `r_in` JÁ É A BORDA DE DENTRO MEDIDA (a face do anel R0
+            # menos meia rua), então entra direto onde antes entrava
+            # `rm - _lado(k)/2`, que era a mesma borda só que aproximada por φ.
+            frente = 2*(r_in * math.tan(math.pi/n) - VIA_CONTORNO/2)
             if frente < 3 * LOTE_W:
                 _ref['testada'] += 1; continue
             # ⚠️ O GIRO É A TANGENTE, e a conta certa é `giro = am`. A versão da
             # Cinta usava `atan2(cos am, sin am)`, que não é tangente nem radial:
             # é o espelho, e girava a faixa externa inteira errado em silêncio.
-            b = _bloco(cx, cz, am, k, frente, d, ia + 1, nome)
+            b = _bloco(cx, cz, am, k, frente, d, ia + 1, nome, prof)
             if b: baldes[d].setdefault(ia + 1, []).append(b)
             else: _ref['poucos'] += 1
     print('tecido: %d células varridas, %d viraram quarteirão; rejeitadas %d por peça, '
-          '%d por testada abaixo de 3 lotes, %d por menos de 8 lotes vivos'
+          '%d por testada abaixo de 3 lotes, %d por menos de 8 lotes vivos, %d por vão '
+          'menor que o anel da teia permite'
           % (sum(_ref.values()) + sum(len(v) for b in baldes for v in b.values()),
              sum(len(v) for b in baldes for v in b.values()),
-             _ref['peça'], _ref['testada'], _ref['poucos']), file=sys.stderr)
+             _ref['peça'], _ref['testada'], _ref['poucos'], _ref['vão']), file=sys.stderr)
     for d in range(N_DIST):
         for banda in sorted(baldes[d]):
             bl = baldes[d][banda]
@@ -4180,7 +4258,12 @@ def prateleiras_de(s):
             frac = len(b['lotes']) / max(1, b['cap'])
             util = b['lado'] * frac
             ca, sa = math.cos(b['giro']), math.sin(b['giro'])
-            for _zl, borda_z, sentido in _z_das_filas(b['k']):
+            # ⚠️ §36: `b['prof']` ENTRA JUNTO, senão a prateleira reconstrói as
+            # fileiras pelo vão NOMINAL da classe enquanto `_bloco()` as
+            # plantou pelo vão MEDIDO daquele quarteirão, e as duas se
+            # descolam (a checagem de `erro_fila_max`, mais abaixo, é quem
+            # pegaria isso e abortaria a rodada em vez de publicar calado).
+            for _zl, borda_z, sentido in _z_das_filas(b['k'], b['prof']):
                 # ⚠️ O ENDEREÇO NASCE AQUI. Sem carregar banda e quarteirão pela
                 # prateleira não há como compor S{distrito}-Q{banda}-B{quarteirão}
                 # -L{lote} na hora de plantar, e sem endereço o lote não é de
@@ -6071,24 +6154,33 @@ print('gravado public/city/cidade.{json} + cidade-lotes.bin', file=sys.stderr)
 # (109, 168, 227 e o que a Cinta pedir), a tabela vira FUNÇÃO de k, e é a mesma
 # `_z_das_filas` que o tecido usa para gerar: uma fonte só, senão as duas versões
 # divergem sem avisar.
-def _fileiras_de(k):
+def _fileiras_de(k, lado=None):
     out = []
-    for i, (_zl, borda, sentido) in enumerate(_z_das_filas(k)):
+    for i, (_zl, borda, sentido) in enumerate(_z_das_filas(k, lado)):
         abre = 'contorno' if i == 0 or i == 2*k - 1 else f'travessa{(i+1)//2}'
         out.append({'fila': i, 'borda': borda, 'sentido': sentido, 'abre': abre})
     return out
-_FILEIRAS = _fileiras_de(3)      # a tabela do quarteirão de 168 m, publicada por compatibilidade
+_FILEIRAS = _fileiras_de(3)      # a tabela NOMINAL do quarteirão de 168 m, publicada por
+                                  # compatibilidade; §36 não muda ela, só a reconstrução por
+                                  # quarteirão específico abaixo, que passa o vão medido
 
-def _fila_do_lote(ox, oz, prof, k=3):
+def _fila_do_lote(ox, oz, prof, k=3, bloco_lado=None):
     """Reconstrói a fileira a partir do centro local e da profundidade.
     ⚠️ Reconstrução, não registro: coloca() não devolve a fileira e mudar a
     tupla de `saida` mexeria em nove desempacotamentos. Como oz = borda +
     sentido·prof/2 é exato em float (o mesmo cálculo de coloca()), a fileira
     cujo oz previsto bate com o gravado é única, exceto o caso prof = 50 nas
     duas fileiras do meio, que dão oz = 0 as duas; aí o empate fica com a
-    primeira e não altera a contagem (as duas abrem para a mesma travessa)."""
+    primeira e não altera a contagem (as duas abrem para a mesma travessa).
+
+    ⚠️ §36: `prof` AQUI É A PROFUNDIDADE DO LOTE (perto de 25 m); o vão do
+    QUARTEIRÃO que gerou as fileiras é outro número e chega em `bloco_lado`,
+    porque `_bloco()` não planta mais pelo nominal de `k` e sim pelo vão
+    medido daquele quarteirão contra a teia. Confundir os dois nomes foi como
+    este comentário quase saiu errado na primeira versão.
+    """
     melhor, erro = 0, 1e18
-    for f in _fileiras_de(k):
+    for f in _fileiras_de(k, bloco_lado):
         e = abs(oz - (f['borda'] + f['sentido'] * prof / 2))
         if e < erro: erro, melhor = e, f['fila']
     return melhor, erro
@@ -6135,18 +6227,23 @@ for s in range(N_DIST):
     centros = {}
     for q in T[s]:
         for ib, b in enumerate(sorted(q['quarteiroes'], key=lambda b: b['r'])):
+            # ⚠️ §36: `b['prof']` ENTRA NO MAPA. É o vão medido daquele
+            # quarteirão contra a teia, e sem ele `_fila_do_lote` reconstrói
+            # pelo nominal da classe enquanto `_bloco()` plantou pelo medido:
+            # os dois se descolam e `erro_fila_max` estoura (de propósito).
             centros[(s, q['banda'], ib+1)] = (b['x'], b['z'],
-                                              math.cos(b['giro']), math.sin(b['giro']), b['k'])
+                                              math.cos(b['giro']), math.sin(b['giro']),
+                                              b['k'], b['prof'])
     for x, z, ss, a, fr, pf, q_, b_, n_ in saida:
         if ss != s or pf > PROF_MAX: continue
         if (s, q_, b_) not in centros: continue
-        bx, bz, ca, sa, kk = centros[(s, q_, b_)]
+        bx, bz, ca, sa, kk, ladob = centros[(s, q_, b_)]
         dx, dz = x - bx, z - bz
         ox = dx*ca + dz*sa
         oz = -dx*sa + dz*ca
-        fila, e = _fila_do_lote(ox, oz, pf, kk)
+        fila, e = _fila_do_lote(ox, oz, pf, kk, ladob)
         if e > erro_fila_max:
-            _pior = (s, q_, b_, kk, round(ox,2), round(oz,2), round(pf,2), round(e,2))
+            _pior = (s, q_, b_, kk, round(ox,2), round(oz,2), round(pf,2), round(e,2), round(ladob,2))
         erro_fila_max = max(erro_fila_max, e)
         ocup[(s, q_, b_)][fila] += 1
 # ⚠️ CONFERÊNCIA: se a reconstrução da fileira errar por mais de meio metro é
@@ -6154,9 +6251,10 @@ for s in range(N_DIST):
 if erro_fila_max > 0.5:
     print(f'ERRO: fileira reconstruída com erro de {erro_fila_max:.2f} m; malha não gravada',
           file=sys.stderr)
-    print(f'  pior caso (s,q,b,k,ox,oz,pf,erro) = {_pior}', file=sys.stderr)
-    print(f'  fileiras previstas para k={_pior[3]}: '
-          f'{[(round(f["borda"],1), f["sentido"]) for f in _fileiras_de(_pior[3])]}', file=sys.stderr)
+    print(f'  pior caso (s,q,b,k,ox,oz,pf,erro,ladoDoBloco) = {_pior}', file=sys.stderr)
+    print(f'  fileiras previstas para k={_pior[3]}, lado={_pior[8]}: '
+          f'{[(round(f["borda"],1), f["sentido"]) for f in _fileiras_de(_pior[3], _pior[8])]}',
+          file=sys.stderr)
     sys.exit(1)
 
 # ⚠️ A PRAÇA DE QUARTO MORREU AQUI, E DE PROPÓSITO. `_sonda_praca` media quanto

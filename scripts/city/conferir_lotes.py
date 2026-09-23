@@ -377,6 +377,108 @@ item('nenhum lote sobre peça de programa', not _sob,
      f'{len(_sob)} lotes sobrepostos, {_ha_sob:.2f} ha, {_cart_sob} de carteira'
      + ('; pior: ' + ', '.join(f'{k} {v}' for k, v in _por_peca.most_common(4)) if _sob else ''))
 
+# 4h. O QUARTEIRÃO OBEDECE O DODECÁGONO (masterplan §36, 23/09/2026)
+#
+# ⚠️ POR QUE ISTO EXISTE. O fundador, nas palavras dele: "a geração dos lotes
+# está circular... ela deveria seguir o modelo do dodecaedro". Medido em 22/09
+# contra o registro selado (masterplan §36): 85,7% dos 2.071 quarteirões
+# residenciais tinham a rua de anel da teia, que É um dodecágono (`vias.ts`
+# desenha com o vértice em `an.r` e a face em 96,6% dele), passando POR DENTRO
+# da própria pegada. A causa era a divisa radial nascer da curva de nível de φ
+# (redonda, ou superelipse fora do núcleo), nunca da FACE do anel desenhado.
+#
+# ⚠️ A FÓRMULA VEM DE app/city/plaza/teia.ts, NUNCA É COPIADA. `anelRaio()`
+# devolve o raio da FACE do anel de vértice R no rumo `ang`:
+#   r_face(ang) = R·cos(15°) / cos(t), t = distância angular ao vértice mais
+#   perto, limitada a [-15°, 15°] (os vértices caem a cada 30°, 7 passos de
+#   360/84, e por isso coincidem com o radial ativo da costura de 22/09).
+# Se a cena mudar a fórmula, este teste lê a nova: o regex abaixo é o mesmo de
+# `_teia_num`/`vaoDoAnel` em `scripts/gerar_cidade.py`, nunca reimplementado à
+# mão. Lido de RAIZ (o repositório), não de BASE (a saída de `--cidade=`):
+# fonte não se move com a rodada, só o registro gerado por ela.
+#
+# ⚠️ SÓ OS DISTRITOS COMUNS ENTRAM (setor 1 a 6). Orla Nobre (S07), Distrito
+# Financeiro (S08) e Orla da Baía (S09) não nascem do alocador de tecido (nota
+# do teste 4b, acima: "gravam UM QUARTEIRÃO POR LOTE... não nascem do
+# alocador"), e a AN7 da Orla Nobre é CÍRCULO por decisão do fundador: o
+# próprio §36 diz que ela é a única exceção. Cobrar dodecágono dela reprovaria
+# uma forma que está certa por definição. As sete parcelas ancoradas, o K01 e
+# a tag institucional também ficam de fora: são `PROGRAMA_GEO`, e não passam
+# pela divisa de banda em φ que este teste audita.
+#
+# ⚠️ POR LOTE, NÃO POR QUARTEIRÃO (o texto do §36: "para cada lote
+# residencial"). Um lote no MEIO do quarteirão nunca é alcançado por anel
+# nenhum (a próxima face fica uma banda inteira, 120 a 300 m, adiante); só os
+# lotes da fileira de fora ou de dentro do quarteirão estão perto o bastante
+# para a rua cortar. Testar por lote pega exatamente esses e não infla o
+# denominador com quem nunca corre risco.
+_cam_teia_h = os.path.join(RAIZ, 'app/city/plaza/teia.ts')
+_cam_ger_h = os.path.join(RAIZ, 'scripts/gerar_cidade.py')
+_TETO_DODECA = 0.02      # no máximo 2% dos lotes cruzados (era 85,7% dos quarteirões)
+if not os.path.exists(_cam_teia_h):
+    indisponivel('quarteirão obedece o dodecágono da teia (§36)', 'app/city/plaza/teia.ts não existe')
+elif not os.path.exists(_cam_ger_h):
+    indisponivel('quarteirão obedece o dodecágono da teia (§36)', 'scripts/gerar_cidade.py não existe')
+else:
+    try:
+        _txt_teia_h = open(_cam_teia_h, encoding='utf-8').read()
+        _txt_ger_h = open(_cam_ger_h, encoding='utf-8').read()
+        _m = re.search(r'export const R_DENTRO\s*=\s*([0-9.]+)', _txt_teia_h)
+        if not _m: raise ValueError('R_DENTRO sumiu de teia.ts')
+        _R_DENTRO_H = float(_m.group(1))
+        _m = re.search(r'export const R_FORA\s*=\s*([0-9.]+)', _txt_teia_h)
+        if not _m: raise ValueError('R_FORA sumiu de teia.ts')
+        _R_FORA_H = float(_m.group(1))
+        _vt_h = re.search(r'vaoDoAnel\(r: number\): number \{\s*return\s*(.+?)\n\}', _txt_teia_h, re.S)
+        if not _vt_h: raise ValueError('vaoDoAnel sumiu ou mudou de forma em teia.ts')
+        _VAO_H = [(float(a), float(b)) for a, b in
+                  re.findall(r'r\s*<\s*([0-9.]+)\s*\?\s*([0-9.]+)', _vt_h.group(1))]
+        _ELSE_H = re.findall(r':\s*([0-9.]+)', _vt_h.group(1))
+        if not _VAO_H or not _ELSE_H: raise ValueError('vaoDoAnel deixou de ser escada de ternários')
+        _VAO_FIM_H = float(_ELSE_H[-1])
+        def _vao_h(r):
+            for _lim, _v in _VAO_H:
+                if r < _lim: return _v
+            return _VAO_FIM_H
+        _TEIA_ANEIS_H = []
+        _rt_h = _R_DENTRO_H
+        while _rt_h <= _R_FORA_H:
+            _TEIA_ANEIS_H.append(_rt_h); _rt_h += _vao_h(_rt_h)
+        _m = re.search(r'^VIA_CONTORNO\s*=\s*([0-9.]+)', _txt_ger_h, re.M)
+        if not _m: raise ValueError('VIA_CONTORNO sumiu de gerar_cidade.py')
+        _VIA_CONTORNO_H = float(_m.group(1))
+        def _teia_face_h(r_vertice, ang):
+            _PASSO = math.pi / 6
+            _rel = ((ang % _PASSO) + _PASSO) % _PASSO - _PASSO / 2
+            return (r_vertice * math.cos(_PASSO / 2)) / math.cos(_rel)
+        _cruzados_h, _n_h = [], 0
+        for _r in linhas:
+            if int(_r['setor']) >= 7: continue
+            _x, _z = float(_r['x_m']), float(_r['z_m'])
+            _meio = max(1.0, float(_r['prof_m'])) / 2.0
+            _rc = math.hypot(_x, _z)
+            _r_in, _r_out = _rc - _meio, _rc + _meio
+            _lo, _hi = _r_in + _VIA_CONTORNO_H / 2, _r_out - _VIA_CONTORNO_H / 2
+            if _hi <= _lo: continue      # lote mais raso que a própria rua: sem zona interna a cruzar
+            _n_h += 1
+            _ang_h = math.atan2(_x, -_z)
+            for _R in _TEIA_ANEIS_H:
+                _rf = _teia_face_h(_R, _ang_h)
+                if _lo < _rf < _hi:
+                    _cruzados_h.append((min(_rf - _lo, _hi - _rf), _r['lot_id']))
+                    break
+        _cruzados_h.sort(reverse=True)
+        _n_h = _n_h or 1
+        _frac_h = len(_cruzados_h) / _n_h
+        item('quarteirão obedece o dodecágono da teia (§36)', _frac_h <= _TETO_DODECA,
+             f'{_n_h} lotes testados (setor 1 a 6, {len(_TEIA_ANEIS_H)} anéis da teia), '
+             f'{len(_cruzados_h)} cruzados por face de anel ({100*_frac_h:.2f}%, '
+             f'teto {_TETO_DODECA*100:.0f}%)'
+             + (f'; pior {_cruzados_h[0][0]:.1f} m de profundidade em {_cruzados_h[0][1]}'
+                if _cruzados_h else ''))
+    except Exception as _e:
+        indisponivel('quarteirão obedece o dodecágono da teia (§36)', f'{type(_e).__name__}: {_e}')
+
 # 4e. NENHUM LOTE TEM COTA DE OUTRO LUGAR
 # ⚠️ O teste 6 só exige que a cota caia na FAIXA do relevo do sítio, e por isso
 # um zero inventado passa: zero está dentro da faixa. Medido em 22/09, os 65
