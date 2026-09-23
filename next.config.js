@@ -70,6 +70,12 @@ const nextConfig = {
       '/api/runestone/stats': [
         './data/runestone_dossier.json',
       ],
+      // a escritura da landing: endereco -> posicao do lote, lido do registro
+      // selado. Vive em public/ para tambem ser servido pela CDN (o leitor em
+      // lib/city/escrituras.ts cai para a URL publica se o fs nao achar).
+      '/api/dogcity/lookup': [
+        './public/city/escrituras.bin',
+      ],
     },
     outputFileTracingExcludes: {
       '*': [

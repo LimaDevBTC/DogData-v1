@@ -30,6 +30,12 @@
 //      root sela, e a curva aparece
 //      ao lado como "CURVE TARGET", que é o que ela sempre foi: o alvo
 //      publicado na §3 dos docs. As duas linhas juntas, nunca só a boa.
+//
+//      ⚠️ DESDE 23/09 A ÁREA VEM DO ARQUIVO SELADO, NÃO DA TABELA. A rota
+//      mediu que a tabela ainda servia a curva (34 de 36 lotes amostrados),
+//      o que fazia as duas linhas acima saírem IGUAIS, e passou a ler a área
+//      de public/city/escrituras.bin quando o índice responde. Esta tela não
+//      muda por isso: `area_m2` continua sendo "YOUR LOT".
 //   2. memorial:        a carteira estava no bloco e não alcança o menor lote
 //                       da cidade (24 m²). Recebe lápide no cemitério, não
 //                       lote, e a tela não anuncia metro quadrado para ela.
@@ -41,10 +47,15 @@
 //                       momento exato do erro (moeda em corretora) e dá a
 //                       ação certa (sacar).
 //
-// ⚠️ NUNCA POSIÇÃO. A tabela não tem bairro, distrito, vizinho nem tag
-// institucional, só as sete colunas públicas (dog, area_m2, destino, genesis,
-// runestones, utxo_count, bloco). Este componente não pode inventar nenhuma
-// das que faltam.
+// A POSIÇÃO ENTROU EM 23/09/2026. Até aí a regra era "nunca posição", porque
+// a tabela só tem as sete colunas públicas e o lote nominal não podia ir a
+// público. A cidade fechou e selou (70.709 lotes, merkle 2178966f…0ebe) e o
+// CSV inteiro é público, então a rota passou a devolver `lot` (lot_id, setor,
+// bairro, tipologia, link do mapa) lido de public/city/escrituras.bin, e
+// `headstone` para quem recebe lápide. Este componente IMPRIME o que veio e
+// não deduz nada: bairro e tipologia chegam como texto pronto da rota, e quando
+// `position` vem "unavailable" a tela diz isso em vez de inventar um lote.
+// Coordenada crua não entra aqui (a rota só a dá com ?full=1, para o mapa).
 //
 // DOIS USOS DO MESMO MOTOR: `variant="hero"` é a dobra 1 inteira (mapa de
 // fundo escurecido, campo grande). `variant="repeat"` é a dobra 7 (o mesmo
@@ -75,9 +86,14 @@ function dataDoBloco(iso: string): string {
 }
 
 // ── o contrato da rota ───────────────────────────────────────────────────────
+// `position` diz se a escritura achou o endereço no índice; `lot`/`headstone`
+// só existem quando ela achou. `district` é null no tecido (setores 1 a 6):
+// só o Spit, o Financial District e o Bay Shore têm nome publicado.
+type Lote = { lot_id: string; sector: number; district: string | null; typology: string | null; map: string }
+type Lapide = { id: string; place: string; map: string }
 type Resultado =
-  | { status: "in_snapshot"; address: string; dog: number; area_m2: number; genesis: boolean; runestones: number; utxo_count: number; block: number }
-  | { status: "memorial"; address: string; dog: number; corte_dog: number; lapides: number; genesis: boolean; runestones: number; utxo_count: number; block: number }
+  | { status: "in_snapshot"; address: string; dog: number; area_m2: number; area_m2_table?: number; genesis: boolean; runestones: number; utxo_count: number; block: number; position?: "ok" | "unavailable"; lot?: Lote }
+  | { status: "memorial"; address: string; dog: number; corte_dog: number; lapides: number; genesis: boolean; runestones: number; utxo_count: number; block: number; position?: "ok" | "unavailable"; headstone?: Lapide }
   | { status: "not_in_snapshot"; address: string }
   | { status: "exchange"; address: string; identity_name: string; identity_kind: string | null }
 
@@ -87,6 +103,26 @@ function linhaDoc(rotulo: string, valor: React.ReactNode) {
       <span className="font-mono text-[10px] md:text-[11px] tracking-[0.16em] text-dusty">{rotulo}</span>
       <span className="font-mono text-sm md:text-base text-snow text-right tabular-nums">{valor}</span>
     </div>
+  )
+}
+
+// ⚠️ A FALTA É DITA, NÃO ESCONDIDA. Quando o índice não está ao alcance a rota
+// manda `position: "unavailable"` e a linha do lote fica, com este texto, em
+// vez de sumir: um documento que ora tem linha de lote e ora não tem pareceria
+// dois documentos, e o holder não saberia se o lote dele existe.
+const SEM_POSICAO = <span className="text-dusty">not available right now</span>
+
+// o botão secundário: contorno da marca, nunca chapado, para não disputar com
+// o CTA da licença (que é o único bloco cheio do cartão)
+function BotaoMapa({ href }: { href: string }) {
+  return (
+    <a
+      href={href}
+      className="inline-flex items-center justify-center h-11 px-6 font-mono font-bold text-[12px] tracking-[0.1em]
+                 border border-lava/60 text-lava hover:bg-lava/[0.12] transition-colors duration-200"
+    >
+      SEE IT ON THE MAP
+    </a>
   )
 }
 
@@ -265,7 +301,10 @@ function Documento({ r }: { r: Resultado }) {
       <div className={`border ${HAIR} bg-[#08080A] px-5 py-6 md:px-7 md:py-7`}>
         <p className="font-mono text-[10px] tracking-[0.2em] text-dusty">DECIDED AT THE FOUNDING</p>
         <div className="mt-3">
-          {linhaDoc("YOUR PLACE", "a headstone in the city cemetery")}
+          {/* com o índice: a lápide tem número e lugar; sem ele, a frase de sempre */}
+          {linhaDoc("YOUR PLACE", r.headstone
+            ? `Headstone ${r.headstone.id} at ${r.headstone.place}`
+            : "a headstone in the city cemetery")}
           {linhaDoc(`$DOG AT BLOCK ${r.block.toLocaleString("en-US")}`, dogExato(r.dog))}
           {linhaDoc("SMALLEST LOT THE CITY BUILDS", `${PISO_LOTE_M2} m2`)}
           {linhaDoc("BALANCE A LOT THAT SIZE TAKES", `${r.corte_dog.toLocaleString("en-US", { minimumFractionDigits: 2 })} $DOG`)}
@@ -284,6 +323,11 @@ function Documento({ r }: { r: Resultado }) {
           the expansion ring, at a future block that has not been announced yet. Ring 1 froze at
           the snapshot and nobody moves into it afterward.
         </p>
+        {r.headstone && (
+          <div className="mt-5">
+            <BotaoMapa href={r.headstone.map} />
+          </div>
+        )}
       </div>
     )
   }
@@ -302,6 +346,12 @@ function Documento({ r }: { r: Resultado }) {
       <p className="font-mono text-[10px] tracking-[0.2em] text-lava">DECIDED AT THE FOUNDING</p>
       <div className="mt-3">
         {linhaDoc("YOUR LOT", `${areaExata(r.area_m2)} m2`)}
+        {/* onde fica: três linhas curtas em vez de uma longa, porque no
+            celular "Lot S07-Q01-B001-L001, Sector 7, The Spit" não cabe na
+            coluna da direita sem quebrar no meio do id */}
+        {linhaDoc("LOT", r.lot ? r.lot.lot_id : SEM_POSICAO)}
+        {r.lot && linhaDoc("SECTOR", r.lot.district ? `${r.lot.sector} · ${r.lot.district}` : String(r.lot.sector))}
+        {r.lot?.typology && linhaDoc("TYPOLOGY", r.lot.typology)}
         {linhaDoc("CURVE TARGET", `${areaExata(Math.round(alvo))} m2`)}
         {linhaDoc(`$DOG AT BLOCK ${r.block.toLocaleString("en-US")}`, dogExato(r.dog))}
         {linhaDoc("GENESIS BADGE", r.genesis ? "yes, original airdrop wallet" : "no")}
@@ -327,13 +377,18 @@ function Documento({ r }: { r: Resultado }) {
           How far the whole city lands from the curve
         </a>.
       </p>
-      <a
-        href="/dogcity/founders"
-        className="mt-4 inline-flex items-center justify-center h-11 px-6 font-mono font-bold text-[12px] tracking-[0.1em]
-                   bg-lava text-void hover:bg-lava-light transition-colors duration-200"
-      >
-        GET THE LICENCE TO BUILD ON IT
-      </a>
+      {/* os dois botões na mesma linha, cheio e contorno; no celular quebram
+          em duas linhas com o mesmo vão, nunca um sobre o outro colado */}
+      <div className="mt-4 flex flex-wrap gap-3">
+        <a
+          href="/dogcity/founders"
+          className="inline-flex items-center justify-center h-11 px-6 font-mono font-bold text-[12px] tracking-[0.1em]
+                     bg-lava text-void hover:bg-lava-light transition-colors duration-200"
+        >
+          GET THE LICENCE TO BUILD ON IT
+        </a>
+        {r.lot && <BotaoMapa href={r.lot.map} />}
+      </div>
     </div>
   )
 }

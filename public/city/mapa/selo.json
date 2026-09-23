@@ -1,0 +1,40 @@
+{
+ "versao": 1,
+ "geradoEm": "2026-09-23T05:03:56.737Z",
+ "nota": "derivados do registro selado para /city/mapa; gerado por scripts/city/mapa/gerar-derivados.mjs",
+ "bloco": 966670,
+ "merkleRoot": "2178966f498f35b6d42bcdb4ac375fe7654269c791501aa7f3807baf335c0ebe",
+ "lotes": 70709,
+ "lapides": 15802,
+ "carteiras": 69989,
+ "registroVersao": 3,
+ "fontes": {
+  "public/city/cidade-lotes.bin": "d18be38bab956134d8f3146472628b6ed2cd11bf735ed421134d20bb0fa3f51f",
+  "data/dogcity_lotes.csv": "b580f5aa09219b7a2a80e5bf045ebb06f9eacb4774686ad72f49bd72cdddfc0b",
+  "data/superficie.f32": "b19ff8084fd8d60adf24192180c6fcc6403f5528076fde318387fc181922d0a4",
+  "data/dogcity_merkle.json": "607a0167d2ef95bf0942ba03adf5de9c38d5f2ad9d47763afc8bf6cf296e6953"
+ },
+ "indice": {
+  "arquivo": "lotes-indice.bin",
+  "cabecalhoBytes": 12,
+  "registroBytes": 4,
+  "lotes": 70709,
+  "esquema": "uint32 LE: bits 0-8 lote, 9-17 quarteirao, 18-22 quarto, 23-30 (area_csv - round(frente*fundo)) + 128"
+ },
+ "fundo": {
+  "arquivo": "fundo.webp",
+  "n": 1280,
+  "x0": -9598.499061913695,
+  "z0": -9598.499061913695,
+  "celula": 15.0093808630394,
+  "nivelAgua": -39.9,
+  "rCasca": 9050,
+  "nota": "pixel (i,j) cobre o mundo [x0 + (i-0,5)·celula, x0 + (i+0,5)·celula]; x leste, z sul"
+ },
+ "agua": {
+  "arquivo": "agua.bin",
+  "n": 512,
+  "extensao": 9600,
+  "cabecalhoBytes": 12
+ }
+}

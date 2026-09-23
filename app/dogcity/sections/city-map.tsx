@@ -53,11 +53,16 @@ import { SNAPSHOT } from "../dogcity-data"
  *  fronteira. Dizer "no ranking" para quem tem menos de 20k era falso: o
  *  DOG-tempo ordena todo mundo.
  *
- *  ⚠️ A ARTE `public/landing/citymap-1600-v2.webp` ainda pinta os anéis do
- *  caderno e precisa ser repintada. Pendência aberta em 21/09, e ela CRESCEU em
- *  22/09: os tiers 4 e 5 agora têm um distrito desenhado de verdade na margem
- *  oposta da baía (masterplan §22), com praia, enseada, duas penínsulas e dois
- *  canais. A arte não mostra nada disso.
+ *  ⚠️ RESOLVIDO EM 23/09: a arte trocou para `citymap-1600-v3.webp`, a carta
+ *  cadastral desenhada do registro selado (bloco 966.670), e não pinta mais
+ *  anel de tier nenhum. Ela colore QUARTEIRÃO POR SETOR (S01 a S09), que é uma
+ *  informação diferente de tier: mesmo setor mistura holder de todo tier. Como
+ *  <Snapshot /> está desmontada (ver app/dogcity/page.tsx, import comentado),
+ *  esta <ChaveTiers /> de cor-por-tier não aparece ao lado de imagem nenhuma
+ *  hoje; se `snapshot.tsx` voltar a ser montada, a chave que faz sentido ao
+ *  lado da v3 é uma de DISTRITO (a mesma do painel "DISTRICTS" já embutido na
+ *  carta), não esta de tier. Repintar a chave é decisão de quem remontar a
+ *  seção, não deste patch de caminho de imagem.
  *
  *  ⚠️ E "oldest UTXO" saiu daqui junto com o resto: a régua é DOG-tempo desde
  *  12/09 (masterplan §12), saldo vezes idade somado moeda a moeda. */
@@ -105,15 +110,15 @@ export function CityMap() {
             countdown é quem tem de pintar primeiro. Ela carrega logo em
             seguida, sem disputar a primeira dobra com o número. */}
         <Image
-          src="/landing/citymap-1600.webp"
-          alt="City plan of DogCity: concentric districts around Satoshi Plaza, the spit along the bay, and the AN7 ring expressway. Each tier of holder is a different colour."
+          src="/landing/citymap-1600-v3.webp"
+          alt="Cadastral chart of DogCity: nine districts around Satoshi Plaza, the spit along the bay, and the AN7 ring expressway, each district a different colour."
           width={1600}
           height={1600}
           sizes="(min-width: 1024px) 44vw, 100vw"
           className="w-full h-auto"
         />
         <a
-          href="/city/dogcity-map.svg"
+          href="/city/carta.svg"
           target="_blank"
           rel="noopener"
           className={`absolute bottom-0 right-0 border-l border-t ${HAIR} bg-void/85 backdrop-blur-sm
@@ -123,9 +128,9 @@ export function CityMap() {
         </a>
       </div>
       <figcaption className={`mt-3 border-t ${HAIR_SOFT} pt-3 font-mono text-[9px] md:text-[10px] tracking-[0.14em] text-mist leading-relaxed`}>
-        DRAWN BEFORE THE SNAPSHOT · EVERY WALLET WAS PLACED AT BLOCK{" "}
+        SEALED AT BLOCK{" "}
         <span className="tabular-nums text-lava">{SNAPSHOT.block.toLocaleString("en-US")}</span>{" "}
-        · THE BANDS READ AS A GRADIENT, NOT AS FENCES
+        · EVERY WALLET WAS PLACED · COLOUR READS BY DISTRICT, NOT BY TIER
       </figcaption>
     </figure>
   )

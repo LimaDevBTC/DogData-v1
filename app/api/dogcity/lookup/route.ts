@@ -2,18 +2,37 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { isValidAddress } from '@/app/api/holders/tree/_shared'
 import { resolveIdentity } from '@/lib/dog/identity'
-import { CORTE_CEMITERIO_DOG, CORTE_CEMITERIO_PUBLICADO, LAPIDES } from '@/app/dogcity/dogcity-data'
+import { escrituras, buscarEscritura } from '@/lib/city/escrituras'
+import {
+  CORTE_CEMITERIO_DOG, CORTE_CEMITERIO_PUBLICADO, LAPIDES,
+  BAIRRO_DO_SETOR, TIPOLOGIA_DA_FORMA, COLUMBARIO_NOME, linkDoMapa,
+} from '@/app/dogcity/dogcity-data'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // A ROTA DA DOBRA 1 (marketing/LANDING-V3-DESENHO.md). Devolve o que a carteira
-// do visitante já é, a partir da tabela pública `dog_snapshot_lookup`.
+// do visitante já é, a partir da tabela pública `dog_snapshot_lookup`, e DESDE
+// 23/09/2026 também ONDE o lote fica, a partir do registro selado.
 //
-// ⚠️ NÃO É `/api/plot`. Aquela rota lê `data/snapshots/` com `fs` (que não
-// existe no build da Vercel, clonado do GitHub) e importa `lib/city/zones`
-// para devolver POSIÇÃO (bairro, distrito, vizinho, tag institucional), que
-// não pode ir a público (masterplan.md §3.12, §14). Esta rota só lê as sete
-// colunas públicas de `dog_snapshot_lookup`: dog, area_m2, destino, genesis,
-// runestones, utxo_count, bloco. Nada de posição sai daqui, nunca.
+// DUAS FONTES, E CADA UMA RESPONDE UMA COISA:
+//   * `dog_snapshot_lookup` (Supabase): as sete colunas públicas: dog, area_m2,
+//     destino, genesis, runestones, utxo_count, bloco. É quem decide o STATUS.
+//   * `public/city/escrituras.bin` (arquivo servido pelo próprio app, gerado por
+//     scripts/city/gerar_escrituras.mjs a partir de data/dogcity_lotes.csv e
+//     data/dogcity_cemiterio.csv): lot_id, setor, forma, coordenada, cota. É
+//     quem responde a POSIÇÃO. Nunca banco: a cidade está fechada e selada
+//     (merkle 2178966f…0ebe) e o CSV que ela lê é o mesmo que o root sela.
+//
+// ⚠️ A POSIÇÃO ERA PROIBIDA AQUI ATÉ 22/09 (masterplan §3.12, §14: "só entra o
+// que pode ser público"). O argumento morreu quando a cidade fechou: o CSV
+// inteiro está público no GitHub com endereço, lot_id e coordenada, então esta
+// rota devolver lot_id e setor não vaza nada novo. O que ela NÃO devolve por
+// padrão é a coordenada crua: só com `?full=1`, para quem for desenhar.
+//
+// ⚠️ SE O ARQUIVO FALTAR, A ROTA CONTINUA. `position: "unavailable"` no JSON e
+// o resto igual ao que sempre foi. Nunca inventa lot_id; nunca cai em 503 por
+// causa da posição. A carga do índice tem teto próprio (POSICAO_MS) e roda em
+// paralelo com o Supabase: se não estiver pronta a tempo, esta resposta sai sem
+// posição e a próxima já acha o índice em cache.
 //
 // 🔒 DECISÃO DO FUNDADOR, 22/09/2026: A RESPOSTA É A ESCRITURA, NÃO A CURVA.
 // `area_m2` deixou de ser `clamp(0,986443 × √DOG, 24, 40.000)` e passou a ser
@@ -25,11 +44,21 @@ import { CORTE_CEMITERIO_DOG, CORTE_CEMITERIO_PUBLICADO, LAPIDES } from '@/app/d
 // como ALVO (docs §3), e quem calcula o alvo é a tela, a partir de `dog` e da
 // própria `area_m2` (`alvoDaCurva` em app/dogcity/dogcity-data.ts).
 //
+// ⚠️ E A TABELA NÃO CUMPRIU ESSA DECISÃO. Medido em 23/09/2026, amostra de 36
+// lotes de carteira pela própria rota: em 34 o `area_m2` da tabela era a CURVA
+// (igual ao alvo até o centésimo), não a área gravada; o registro selado dava
+// 859 m² onde a tabela dizia 930,51. Ou a recarga de 22/09 nunca subiu, ou a
+// regeneração de 23/09 01:04 a deixou para trás. Por isso, desde 23/09, quando
+// o índice responde `area_m2` SAI DO REGISTRO SELADO e o valor da tabela só
+// aparece como `area_m2_table`, e só quando diverge, para quem for conferir.
+// A tabela continua sendo quem decide o STATUS (destino, dog, genesis...).
+//
 // ⚠️ QUEM ENCHE A TABELA É `scripts/city/sobe_lookup.py`, E SÓ O FUNDADOR RODA.
-// Se aquele script voltar a sair da curva, esta rota não tem como perceber.
+// Esta rota não escreve no banco, nunca. Enquanto a tabela não for recarregada
+// do CSV selado, `area_m2_table` é o alarme visível da defasagem.
 //
 // QUATRO RESPOSTAS, e a ordem de checagem importa:
-//   1. exchange   — o endereço bate com `dog_labels` (o que a casa deduziu da
+//   1. exchange:  o endereço bate com `dog_labels` (o que a casa deduziu da
 //                   cadeia) ou com `verified_addresses.json` (o que a própria
 //                   entidade confirmou). Checada PRIMEIRO: uma corretora que
 //                   por acaso também está no snapshot (custódia agregada tem
@@ -38,12 +67,18 @@ import { CORTE_CEMITERIO_DOG, CORTE_CEMITERIO_PUBLICADO, LAPIDES } from '@/app/d
 //                LOTE da cidade (24 m², masterplan §17). Ela recebe lápide no
 //                cemitério, não lote, e a tela não pode anunciar metro quadrado
 //                para ela. Checada antes de `in_snapshot` porque as duas leem a
-//                mesma linha da tabela.
+//                mesma linha da tabela. Ganha `headstone` (id e link do mapa).
 //   3. in_snapshot: a carteira está em `dog_snapshot_lookup` e alcança o lote.
+//                Ganha `lot` (lot_id, setor, bairro, tipologia, link do mapa).
 //   4. not_in_snapshot: nenhuma das anteriores.
 //
+// ⚠️ QUEM DECIDE O RAMO É A TABELA, NÃO O ÍNDICE. Se um dia os dois divergirem
+// (a tabela diz lápide e o índice diz lote, ou vice-versa), a posição sai como
+// indisponível em vez de a rota escolher um lado: os dois nascem do mesmo CSV
+// e divergência é defeito de carga, não empate a desempatar aqui.
+//
 // ⚠️ A MENSAGEM NÃO DIZ SÓ "exchange". `dog_labels` também classifica bridge,
-// marketplace, swap_pool, desk e treasury (lib/dog/taxonomy.ts) — chamar uma
+// marketplace, swap_pool, desk e treasury (lib/dog/taxonomy.ts); chamar uma
 // tesouraria de "corretora" seria inventar. A rota devolve o NOME e a CLASSE
 // que a casa realmente tem (ex.: "Merlin Chain", kind "bridge"), e a seção que
 // consome isto escreve a frase em cima do que veio, nunca hardcoded.
@@ -56,6 +91,13 @@ export const runtime = 'nodejs'
 // é pequena (85.818 linhas, chave primária = address) e a consulta é um
 // único eq(), então 5s já é folgado.
 const BUDGET_MS = 5000
+
+// teto só da posição: o índice carrega em paralelo com o Supabase e, se não
+// chegar até aqui, a resposta sai sem posição e a próxima já o acha em cache.
+// Medido em 23/09: leitura local do .bin de 3 MiB fica abaixo de 10 ms; o
+// fallback pela rede (cold start na Vercel sem o arquivo rastreado) é que
+// pode passar de 1 s, e é para ele que este teto existe.
+const POSICAO_MS = 1500
 
 interface LookupRow {
   address: string
@@ -72,6 +114,7 @@ interface LookupRow {
 
 export async function GET(req: NextRequest) {
   const raw = req.nextUrl.searchParams.get('address')?.trim() ?? ''
+  const full = req.nextUrl.searchParams.get('full') === '1'
 
   // bech32 é insensível a caixa mas canonicamente minúsculo; base58 (1.../3...)
   // É sensível a caixa e não pode ser normalizado. Mesma regra de
@@ -81,6 +124,11 @@ export async function GET(req: NextRequest) {
   if (!isValidAddress(address)) {
     return NextResponse.json({ error: 'invalid Bitcoin address' }, { status: 400 })
   }
+
+  // a origem serve só para o plano B do leitor (buscar o .bin pela URL pública
+  // quando o fs não o alcança); VERCEL_URL cobre o caso de nextUrl vir sem host
+  const origin = req.nextUrl.origin || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
+  const indicePromise = escrituras(origin)
 
   const timeout = new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), BUDGET_MS))
 
@@ -118,6 +166,15 @@ export async function GET(req: NextRequest) {
       })
     }
 
+    // a posição, com teto próprio; null = indisponível agora, nunca erro
+    const indice = row
+      ? await Promise.race([
+          indicePromise.catch(() => null),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), POSICAO_MS)),
+        ])
+      : null
+    const escritura = indice && row ? buscarEscritura(indice, address) : null
+
     // checagem 2: a carteira está no bloco e recebeu lápide, não lote
     // ⚠️ SEM ESTA CHECAGEM A PÁGINA MENTE PARA 15.802 CARTEIRAS. Elas estão no
     // snapshot, então caíam em `in_snapshot` e a tela imprimia "YOUR LOT: X m2"
@@ -133,6 +190,7 @@ export async function GET(req: NextRequest) {
     const lapide = row && (row.destino === 'lapide'
       || (row.destino == null && Number(row.dog) < CORTE_CEMITERIO_DOG))
     if (row && lapide) {
+      const h = escritura?.kind === 'lapide' ? escritura : null
       return NextResponse.json({
         status: 'memorial',
         address,
@@ -143,20 +201,50 @@ export async function GET(req: NextRequest) {
         runestones: row.runestones,
         utxo_count: row.utxo_count,
         block: row.bloco,
+        position: h ? 'ok' : 'unavailable',
+        ...(h && {
+          headstone: {
+            id: h.id,
+            place: COLUMBARIO_NOME,
+            map: linkDoMapa(h.id),
+            ...(full && { x_m: h.x_m, z_m: h.z_m }),
+          },
+        }),
       })
     }
 
     // checagem 3: a carteira já tem lote
     if (row) {
+      const l = escritura?.kind === 'lote' ? escritura : null
+      // a área é a do registro selado quando ele responde (ver o cabeçalho:
+      // a tabela ainda serve a curva); a da tabela fica como alarme se divergir
+      const areaTabela = Number(row.area_m2)
+      const area = l ? l.area_m2 : areaTabela
+      const diverge = l !== null && Math.abs(l.area_m2 - areaTabela) >= 1
       return NextResponse.json({
         status: 'in_snapshot',
         address,
         dog: row.dog,
-        area_m2: row.area_m2,
+        area_m2: area,
+        ...(diverge && { area_m2_table: areaTabela }),
         genesis: row.genesis,
         runestones: row.runestones,
         utxo_count: row.utxo_count,
         block: row.bloco,
+        position: l ? 'ok' : 'unavailable',
+        ...(l && {
+          lot: {
+            lot_id: l.lotId,
+            sector: l.setor,
+            // só três setores têm nome publicado; o tecido é só o número
+            district: BAIRRO_DO_SETOR[l.setor] ?? null,
+            typology: TIPOLOGIA_DA_FORMA[l.forma] ?? null,
+            form: l.forma,
+            dsc: l.dsc,
+            map: linkDoMapa(l.lotId),
+            ...(full && { x_m: l.x_m, z_m: l.z_m, elevation_m: l.cota_m }),
+          },
+        }),
       })
     }
 

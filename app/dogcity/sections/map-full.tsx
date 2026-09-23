@@ -9,9 +9,12 @@
 // inteira da página, porque a alegação central da seção ("isto é terreno
 // lunar real, não paisagem procedural") só convence em tamanho grande.
 //
-// ⚠️ MESMO ARQUIVO DE IMAGEM de ./city-map.tsx (/landing/citymap-1600-v2.webp,
-// 1.600px, 365 KB) — não existe versão maior versionada; a resolução real
-// mora atrás do link para o SVG, que é onde ela pesa.
+// ⚠️ MESMO ARQUIVO DE IMAGEM de ./city-map.tsx (/landing/citymap-1600-v3.webp,
+// 1.600px, 387 KB). Trocado em 23/09: a v2 (13/09) pintava anéis de tier que o
+// masterplan §19 já tinha descartado e não existia Orla da Baía nem columbário.
+// A v3 é a carta cadastral, desenhada do registro selado (public/city/cidade*),
+// não existe versão maior versionada; a resolução real mora atrás do link para
+// o SVG (public/city/carta.svg, ~1 MB), que é onde ela pesa.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import Image from "next/image"
@@ -31,13 +34,13 @@ export default function MapFull() {
         </h2>
 
         <a
-          href="/city/dogcity-map.svg"
+          href="/city/carta.svg"
           target="_blank"
           rel="noopener"
           className={`group relative mt-7 block border ${HAIR} bg-white/[0.02] overflow-hidden`}
         >
           <Image
-            src="/landing/citymap-1600-v2.webp"
+            src="/landing/citymap-1600-v3.webp"
             alt="City plan of DogCity: concentric districts around Satoshi Plaza, the spit along the bay, and the AN7 ring expressway, drawn over the real elevation of Mare Tranquillitatis."
             width={1600}
             height={1600}

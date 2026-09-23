@@ -442,3 +442,38 @@ export const ENTREGA = {
   // números e a §3 tem de perder a afirmação, não só trocar o dígito.
   abaixoDe090NoPiorSetor: "82",
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ONDE O LOTE FICA: OS NOMES QUE A ESCRITURA USA (23/09/2026)
+//
+// A cidade fechou e o CSV inteiro é público, então a posição passou a sair da
+// rota (lida de public/city/escrituras.bin, nunca do banco). Estes são os
+// únicos nomes que a tela pode escrever; qualquer outro seria inventado.
+//
+// ⚠️ SÓ TRÊS SETORES TÊM NOME PRÓPRIO, e os nomes são os PUBLICADOS na §3 dos
+// docs (feedback_contrato_publico_manda): o setor 7 é "the Spit" para o holder
+// (Orla Nobre é o nome interno, em português, e não vai para a tela), o 9 é
+// "Bay Shore" e o 8 é "Financial District". Os setores 1 a 6 são tecido e se
+// identificam só pelo número. O distrito é o prefixo S do lot_id.
+export const BAIRRO_DO_SETOR: Readonly<Record<number, string>> = {
+  7: "The Spit",
+  8: "Financial District",
+  9: "Bay Shore",
+}
+
+// ⚠️ A TIPOLOGIA É SAÍDA DE `forma_de(utxo_count)` em scripts/gerar_cidade.py
+// (masterplan §9, regra 3), e o índice aqui é o código gravado no registro:
+//   0 massa única (casa no centro, fazenda na borda)   1 pátio, geminada
+//   2 condomínio baixo   3 torre   4 quarteirão com várias torres
+// Uma palavra cada, porque é linha de escritura, não aula.
+export const TIPOLOGIA_DA_FORMA: readonly string[] = ["House", "Courtyard", "Low-rise", "Tower", "Towers"]
+
+// o campo do cemitério (peça K01 do programa, "Campo do Columbário")
+export const COLUMBARIO_NOME = "the Columbarium"
+
+// ⚠️ O MAPA NAVEGÁVEL É /city/mapa E RECEBE `?lot=<id>`. Um id de lote é
+// S03-Q12-B004-L017; uma lápide é L01234. A rota e o cartão montam o link por
+// esta função para o parâmetro não divergir entre os dois.
+export function linkDoMapa(id: string): string {
+  return `/city/mapa?lot=${encodeURIComponent(id)}`
+}
