@@ -3173,7 +3173,12 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   }
 
   const TEIA_VIV: (number[] | null)[] = new Array(teiaArestas.length).fill(null)
-  const teiaPai = new Int32Array(teiaNos.length)
+  // ⚠️ O NÓ VIRTUAL DA ARTERIAL. Ver a nota grande abaixo: a avenida, o anel, a
+  // rotatória e a orla são VIA, não muro. Um eixo da teia que morre encostado num
+  // deles continua ligado à cidade por ele, e sem este nó o grafo é partido pelas
+  // próprias vias que o costuram.
+  const TEIA_ART = teiaNos.length
+  const teiaPai = new Int32Array(teiaNos.length + 1)
   for (let i = 0; i < teiaPai.length; i++) teiaPai[i] = i
   const teiaAcha = (x: number): number => {
     while (teiaPai[x] !== x) { teiaPai[x] = teiaPai[teiaPai[x]]; x = teiaPai[x] }
@@ -3195,9 +3200,31 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     const ei = teiaEixo(e)
     if (!ei) continue
     const ar = teiaArestas[e]
-    const v = teiaVivos(ei.cax, ei.caz, ei.dx, ei.dz, ei.comp, ar.arco ? ei.meia : 0)
+    const folga = ar.arco ? ei.meia : 0
+    const v = teiaVivos(ei.cax, ei.caz, ei.dx, ei.dz, ei.comp, folga)
     TEIA_VIV[e] = v
-    if (v.length === 2 && v[0] <= 0.05 && v[1] >= ei.comp - 0.05) teiaUne(ar.a, ar.b)
+    if (!v.length) continue
+    if (v.length === 2 && v[0] <= 0.05 && v[1] >= ei.comp - 0.05) { teiaUne(ar.a, ar.b); continue }
+    // ⚠️ QUEM CORTOU A PONTA DECIDE SE ELA AINDA É REDE. Um toco que morre na
+    // água ou fora do sítio é ponta cega; um toco que morre ENCOSTADO no
+    // pavimento da avenida, do anel viário, da rotatória ou da via de orla é um
+    // T de verdade, e o carro sai dele pela arterial. Medido em 22/09: com a
+    // regra antiga (só aresta inteira une) a teia dava 1.294 componentes, os
+    // oito maiores com 19 a 21,35 km cada, porque as 12 avenidas e os 7 anéis
+    // a picam em células de 12 setores por 8 faixas; a poda guardava UMA célula
+    // e apagava 768,92 km, 97% da teia viva. Com a arterial contando como nó,
+    // o maior componente vai a 704,61 km dos 793,83 vivos (88,8%).
+    const tocoServido = (s: number): boolean => {
+      const px = ei.cax + ei.dx * s, pz = ei.caz + ei.dz * s
+      if (Math.hypot(px, pz) > rMax) return false
+      if (paraNaAgua(px, pz)) return false
+      if (naAlca(px, pz)) return false
+      return naOrlaPav(px, pz, folga) || emCorredorAvenida(px, pz, 0)
+        || emAnelPav(px, pz, folga) || naRotatoriaPav(px, pz, folga)
+    }
+    const L = v.length
+    if (v[0] <= 0.05 && tocoServido(Math.min(ei.comp, v[1] + 1))) teiaUne(ar.a, TEIA_ART)
+    if (v[L - 1] >= ei.comp - 0.05 && tocoServido(Math.max(0, v[L - 2] - 1))) teiaUne(ar.b, TEIA_ART)
   }
   const teiaSoma = new Map<number, number>()
   for (let e = 0; e < teiaArestas.length; e++) {
@@ -3205,8 +3232,13 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     const r = teiaAcha(teiaArestas[e].a)
     teiaSoma.set(r, (teiaSoma.get(r) ?? 0) + teiaComp(e))
   }
-  let teiaRede = -1, teiaRedeM = -1
-  for (const [r, L] of teiaSoma) if (L > teiaRedeM) { teiaRedeM = L; teiaRede = r }
+  // ⚠️ A REDE É O COMPONENTE DA ARTERIAL, NÃO O MAIOR. Enquanto era o maior, a
+  // escolha entre oito células de 21 km empatadas era sorteio: a cidade ficava
+  // com um pedaço de um setor e perdia os outros onze.
+  let teiaRede = teiaAcha(TEIA_ART), teiaRedeM = teiaSoma.get(teiaRede) ?? 0
+  if (teiaRedeM <= 0) {
+    for (const [r, L] of teiaSoma) if (L > teiaRedeM) { teiaRedeM = L; teiaRede = r }
+  }
   const teiaServido = new Uint8Array(teiaNos.length)
   let teiaSoltas = 0, teiaSoltasM = 0
   for (let e = 0; e < teiaArestas.length; e++) {

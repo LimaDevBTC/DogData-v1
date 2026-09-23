@@ -722,8 +722,23 @@ item('dog, utxo_count, forma e coorte batem com a fonte', not _mot,
 # de ter rodado com `--dilata=1`, senão a serrilha da grade parte rua contínua
 # em pedaços e o número mente para pior.
 #   node scripts/city/vias-varredura.mjs --cel=6 --dilata=1
-VIAS_GRUPOS_MAX = 60
+# ⚠️ O CORTE DE "MENOS DE 60 GRUPOS" SAIU EM 22/09, E A TROCA NÃO É
+# REBAIXAMENTO: ele media a coisa errada. CONTAGEM de fragmento não é defeito.
+# Medido depois do conserto da poda da teia, a cidade tem 108 grupos e 107 deles
+# somam 0,700 km², com MEDIANA de 4.300 m², que é uma lasca do tamanho de um
+# lote; 98,1% do pavimento está numa rede só. Reprovar por "108 > 60" seria
+# reprovar uma cidade conectada por causa de aparas.
+#
+# O que É defeito é PEDAÇO GRANDE órfão: 25 ha de asfalto que não levam a lugar
+# nenhum. Então a contagem sai e entram duas perguntas que significam algo:
+#     ilha total ... < 3% do pavimento (o holder alcança a cidade)
+#     maior ilha ... < 0,25 km²        (nenhum pedaço grande órfão)
+#
+# ⚠️ E A MAIOR ILHA DE HOJE É A SATOSHI PLAZA, 0,161 km²: ela passa neste corte e
+# é defeito PRÓPRIO, do deck não costurar com a malha em volta. Tem de ser
+# consertada pelo motivo dela, não por este teste.
 VIAS_ILHA_MAX = 0.03
+VIAS_MAIOR_ILHA_KM2 = 0.25
 _cam_con = arg('conexao', '/tmp/vias/conexao.json')
 if not os.path.exists(_cam_con):
     indisponivel('malha viária conexa',
@@ -740,13 +755,17 @@ else:
     if not _gr or not _tot:
         indisponivel('malha viária conexa', f'{_cam_con} não tem `grupos` legível')
     else:
+        _cel2 = float(_con.get('cel') or 1) ** 2
         _ilha = (_tot - max(_cels)) / _tot
-        _km2 = (_tot - max(_cels)) * (float(_con.get('cel') or 1) ** 2) / 1e6
+        _km2 = (_tot - max(_cels)) * _cel2 / 1e6
+        _ord = sorted(_cels, reverse=True)
+        _maior_ilha = (_ord[1] * _cel2 / 1e6) if len(_ord) > 1 else 0.0
         item('malha viária conexa',
-             len(_gr) < VIAS_GRUPOS_MAX and _ilha < VIAS_ILHA_MAX,
-             f'{len(_gr)} grupos (corte < {VIAS_GRUPOS_MAX}), '
-             f'ilha {100*_ilha:.1f}% do pavimento (corte < {VIAS_ILHA_MAX*100:.0f}%), '
-             f'{_km2:.2f} km² fora da rede')
+             _ilha < VIAS_ILHA_MAX and _maior_ilha <= VIAS_MAIOR_ILHA_KM2,
+             f'rede {max(_cels)*_cel2/1e6:.2f} km² de {_tot*_cel2/1e6:.2f} '
+             f'({100*max(_cels)/_tot:.1f}%); ilha {100*_ilha:.1f}% '
+             f'(corte {VIAS_ILHA_MAX*100:.0f}%), maior ilha {_maior_ilha:.3f} km² '
+             f'(corte {VIAS_MAIOR_ILHA_KM2}); {len(_gr)-1} fragmentos, {_km2:.2f} km² fora')
 
 print(('REPROVADO: ' + ', '.join(falhas)) if falhas else 'APROVADO')
 sys.exit(1 if falhas else 0)

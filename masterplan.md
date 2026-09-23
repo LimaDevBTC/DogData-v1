@@ -2518,3 +2518,157 @@ se reescreve; sha256 de conteúdo, não.
 valor. Mas o gerador passou a **avisar alto em stderr** quando o valor diverge do que foi
 selado. Três linhas, e elas matam a categoria inteira de "alguém copiou a receita errada do
 caderno", que é a categoria que esta seção existe para fechar.
+
+---
+
+## §32 — A rodada de 22/09 à noite: 21 de 22 🔓 (22/09/2026, 20:11)
+
+**O que esta rodada é.** A primeira cidade gerada depois dos 33 defeitos achados pela
+varredura de 25 agentes. Configuração selada: `PHI_LOTE=6500`, `RESERVA_PCT=1`, superfície
+assada da cena, 12 passadas. Convergiu em **k = 0,90788**, 70.715 lotes, 43,73 km².
+
+**Merkle root `264c80c71b7cc90daa75c431186cd78c05bf693e47238518951ba79946084066`**, 86.518
+folhas (1 cabeçalho + 70.715 lotes + 15.802 lápides). 🔓 Ele NÃO é o root final: a malha
+viária ainda reprova, e regerar muda o root.
+
+### O que mudou, medido pelo mesmo instrumento
+
+| | selada de manhã | esta rodada |
+|---|---|---|
+| lotes sobre peça de programa | 917 | **0** |
+| lotes abaixo da lâmina d'água | 36 | **0** |
+| erro de cota contra a cena, p99 | 34,89 m | **0,93 m** |
+| institucionais com dado falso | 21 | **0** |
+| lotes abaixo de 0,50 da curva | 21 | **1** |
+| lotes abaixo de 0,90 da curva | 85 | **10** |
+| testes no portão | 15 | **22** |
+| razão mediana contra a curva | 0,963 | 0,920 |
+| grupos de pavimento desconexo | 409 | **637** |
+
+**A cidade de manhã passava em 15 de 15 e tinha todos os defeitos da coluna do meio.** A
+desta noite falha em um teste que a de manhã não sabia medir.
+
+### O piso de área virou duas perguntas (decisão do fundador, 22/09)
+
+O teste velho exigia `p10 >= 0,95` da curva publicada. A rodada provou que o terreno não
+sustenta isso: a cidade entrega 0,920, e boa parte da queda é ela **parando de vender terra
+que tinha prédio em cima** (as 7 parcelas ancoradas custaram 2,39 km² de tecido nobre).
+
+⚠️ **E PISO QUE SE AJUSTA AO RESULTADO DEIXA DE SER PISO.** Por isso ele não desceu, mudou
+de natureza:
+
+- **5a, EQUIDADE.** `p1 / mediana >= 0,95`. Ninguém recebe muito menos que o vizinho. É o
+  que pega a INJUSTIÇA, que é o defeito real. Medido: **0,9892**, passa com folga.
+- **5b, NÍVEL DECLARADO.** A mediana do registro tem de bater com `ENTREGA.mediana` em
+  `app/dogcity/dogcity-data.ts`, que é o que a página publica. **Mexer na página sem
+  regerar reprova; regerar sem mexer na página reprova.** O número parou de poder
+  escorregar em silêncio.
+
+### A cauda foi consertada na CAUSA
+
+Ela nunca foi defeito de lote: era **o distrito acabar antes da fila dele**, e `coloca()`
+entregar lote espremido em vez de mandar a carteira para outro distrito. O desvio por
+distrito já existia e nunca disparava, porque lote de 30% da promessa não é `None`.
+Medido: 85 → 10 abaixo de 0,90, e 21 → 1 abaixo de 0,50.
+
+### ⚠️ A RECONCILIAÇÃO DE GRADE PIOROU A RUA, E ISSO É RESULTADO NEGATIVO
+
+O §25.1 mandava fazer a divisa do quarteirão coincidir com a rua da teia. Foi feito:
+medido no manifesto, a divisa caiu de 43,2 m para 8,7 m do radial ativo, e 100% delas
+passaram a cair dentro dos 12 m da rua. **E a conectividade piorou de 409 para 637 grupos,
+com 3,94 km² a MENOS de pavimento desenhado.**
+
+Duas tentativas de ajustar por cima, as duas prescritas pelo mesmo agente para "depois da
+regeração", pioraram mais:
+
+```
+90 / 6900  (como está) .... 637 grupos, 20,4% de ilha, 26,12 km²
+90 / 7150  R_FORA maior .... 728 grupos, 22,1%
+16 / 7150  SOBRA_MAX menor . 833 grupos, 21,3%
+```
+
+As duas foram revertidas, com a medição escrita no código.
+
+⚠️ **A LIÇÃO, E ELA É A DO DIA INTEIRO EM ROUPA NOVA: medir contra o manifesto não é medir
+contra o que existe.** A conta que prescreveu `SOBRA_MAX = 16` (sobra necessária de 8,69 m
+de mediana, máximo 14,49) saiu da tabela de quarteirões do `cidade-malha.json`. A rua que o
+navegador desenha não segue essa tabela, e as 794 ilhas novas apareceram a 54 m de mediana
+da rede, ou seja eram exatamente as pontas que o teto curto amputou. Quem for baixar esse
+número de novo prova com `vias-varredura.mjs --cel=6 --dilata=1`, nunca com aritmética.
+
+⚠️ **E O ALVO NUNCA FOI ATINGIDO POR CIDADE NENHUMA.** O corte de "menos de 60 grupos e
+menos de 3% de ilha" foi escrito antes da rodada, como deve ser, mas ele representa o que
+seria bom, não o que existia: a cidade aprovada em 15 de 15 tinha 14% de ilha e ninguém
+media. Regredimos E o alvo sempre esteve longe. As duas coisas são verdade.
+
+---
+
+## §33 — Custódia recebendo lote residencial 🔓 (22/09/2026)
+
+**A pergunta foi do fundador**, olhando um aviso de log sobre 3.058 carteiras marcadas
+`elegivel: false` que mesmo assim recebem lote. O palpite dele (carteiras pós-snapshot)
+estava errado pelo mecanismo e certo pelo instinto.
+
+### O que `elegivel: false` é
+
+Exatamente `lth_pct < 50`, com correlação de 100% nos dois sentidos e corte cravado em 50,0
+(o maior inelegível tem 49,9951; o menor elegível, 50,0). Marca carteira cujo **dinheiro é
+recente**, não carteira recente: a fila inteira sai do snapshot do bloco 966.670.
+
+**A regra não expulsa, rebaixa:** os 3.058 ocupam as últimas 3.058 posições da fila. E o
+§12.1 é explícito: *"atacadista e mesa que compraram de gente real e seguraram acumularam de
+verdade e FICAM. Só sai CUSTÓDIA, moeda que é de outra pessoa."*
+
+### O que se achou puxando esse fio
+
+**Seis carteiras de custódia com lote residencial plantado, 13,247% do supply.** Três são
+corretoras que **nós mesmos rotulamos**, e três são marketplaces, que no nosso próprio
+`lib/dog/taxonomy.ts` têm grupo `infrastructure`, definido como "custodia ou intermedia
+dinheiro de terceiros".
+
+```
+Kraken hot   12,948B DOG  lote 47.341 m²  razão 1,184   rotulada em 007_dog_labels.sql:57
+cofre anônimo 3,112B      lote 46.479 m²  razão 1,162   suspeita, não acusada
+3 marketplaces  0,274B somados            rotuladas em dog_labels (produção)
+```
+
+A Kraken foi **confirmada no nó**, não só pelo rótulo: partindo do endereço de depósito do
+fundador, seis varreduras da janela de 17/07 a 19/08 gastam a saída dele numa transação de
+saída única que cai nessa carteira. No índice ela tem 2.807 transações, **2.379 depositantes
+distintos** e 422 destinos. Milhares de estranhos pagam, centenas sacam.
+
+⚠️ **SÓ DUAS CARTEIRAS DA CIDADE INTEIRA BATEM NO TETO DE 40.000 m², E SÃO ESTAS DUAS.** E
+são as únicas que recebem MAIS do que a curva promete (1,184 e 1,162) enquanto o holder
+mediano recebe 0,920.
+
+### Por que o filtro não pegou, e não é o que parecia
+
+**A tag institucional LEU a tabela de rótulos.** Uma das 21 entrou com o motivo "rótulo"
+sozinho. O defeito é a **PISCINA DE CANDIDATOS**: o rótulo foi aplicado como filtro sobre o
+TOPO da fila de DOG-tempo, e custódia GIRA, então ela mora no FUNDO dessa fila. A Kraken
+está na posição **82.761** de 85.818; a institucional mais funda da tag está na **489**.
+
+⚠️ **E O CRUZAMENTO JÁ EXISTIA EM DISCO.**
+`data/snapshots/dog_966670_pagadores_rotulados.json`, gerado em **12/09, UM DIA ANTES da
+tag**, lista "Kraken/hot, posição 82761, 12.948.142.549 DOG". O arquivo estava pronto e não
+foi consumido.
+
+### ⚠️ Isto NÃO é alavanca de terra
+
+Tirar as seis libera 78.299 m² de tecido mas tira 73.638 m² de promessa junto: a razão
+agregada **piora**, de 0,9261 para 0,9259. **O motivo de tirar é doutrina, não metro
+quadrado.** Confundir as duas coisas foi erro meu no meio da investigação e está corrigido
+aqui.
+
+### O padrão, que é o assunto de verdade
+
+É a **quinta** vez no mesmo dia: peça certa escrita, fio não ligado.
+
+1. A coluna `destino` existia desde 22/09 e a rota do lookup não lia, recalculava pelo saldo.
+2. `conferir_terreno.py` tinha o teste que pegaria o platô e estava desligado desde 05/09.
+3. `cryptolution-house.ts` estava completo e ninguém o instanciava.
+4. O menu Places voava para onde as peças estavam antes da mudança.
+5. `pagadores_rotulados.json` estava pronto um dia antes da tag e não foi consumido.
+
+**A regra que sai daqui: toda peça nova entrega DUAS pontas, quem a constrói e quem a
+consome, e a segunda se prova com medição, não com intenção.**

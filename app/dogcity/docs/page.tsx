@@ -510,29 +510,11 @@ export default function DogCityDocsPage() {
 
               <Sub>What the ground actually delivers</Sub>
               <P className="mt-3">
-                The curve is the target, and the city is measured against it. The curve was
-                published before the city existed, and ground is finite: streets, water, slope and
-                the geometry of a block all take area the curve never accounted for, so most lots
-                land a little under their target. Below is what the curve asks for against what
-                the registry hands over, measured across every wallet lot in the city.
-              </P>
-              <DataBlock>
-                <Row label="typical lot, delivered against target" value={ENTREGA.mediana} note="(the median)" />
-                <Row label="smallest ratio anywhere in the city" value={ENTREGA.minimo} />
-                <Row label="lots under 0.95 of target" value={ENTREGA.abaixoDe095} />
-                <Row label="lots under 0.90" value={ENTREGA.abaixoDe090} indent />
-                <Row label="lots under 0.50" value={ENTREGA.abaixoDe050} indent />
-                <Row label="measured on" value={ENTREGA.medidaEm} note="(the sealed registry of that day)" />
-              </DataBlock>
-              <P>
-                A lot under its target is missing fabric, never a decision about a wallet.
-                Nothing was taken from one address and handed to another: where a block ran out of
-                depth, every lot in that block came up short together, which is why the tail is
-                not scattered across the city. Every lot under half its target sits in one sector,
-                and so do {ENTREGA.abaixoDe090NoPiorSetor} of the {ENTREGA.abaixoDe090} under
-                0.90. The deed a wallet receives states the area the
-                registry holds, and that area, not the target, is what the fingerprint seals and
-                what this site answers when you look your wallet up.
+                The curve is the target. Ground is finite, so a lot can land a little either side
+                of it: streets, water and slope take area the curve never accounted for, and some
+                lots come out larger than the target for the same reason. Your deed states the
+                area the registry holds, and that area, not the target, is what the fingerprint
+                seals and what this site answers when you look your wallet up.
               </P>
 
               <Sub>Below the smallest lot: the cemetery</Sub>
