@@ -377,6 +377,81 @@ export async function loadTerrain(cava?: CanalCava, refino?: RefinoTerreno): Pro
 export type RefinoTerreno = {
   /** refina a quina de `R_CIDADE_SECA` (longe da água). Falso no celular. */
   faixaSeca?: boolean
+  /** ⚠️ A COROA EXTERNA EM MEIA RESOLUÇÃO, SÓ NO CELULAR (Bloco de 23/09/2026).
+   *  Ver a nota grande em `TERRENO_COROA_R` logo abaixo para a régua completa
+   *  (por que r > 8.000 m, como a costura fica sem trinca, o que foi medido).
+   *  `true` no perfil `mobile` (ver a chamada em `plaza-scene.tsx`), ausente/
+   *  falso em qualquer outro perfil: o desktop (inclusive HIGH) não lê este
+   *  campo, então o caminho de código dele fica bit a bit como estava. */
+  coroaMetade?: boolean
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ⚠️ A COROA EXTERNA DO SÍTIO, EM MEIA RESOLUÇÃO NO CELULAR (23/09/2026).
+//
+// MEDIDO HOJE (protocolo do harness, Chrome real, 390×844 dpr3, UA iPhone,
+// `/city?stats=1&intro=0&live=0`, `__plazaGeometria()`): a malha "terreno" é
+// UMA BufferGeometry só, sem chunk e sem LOD, 118,72 MiB residentes,
+// 2.094.462 triângulos, 1.159.642 vértices — e é o maior item de GEOMETRIA da
+// cena (55% do total de vias à parte). `superficieAt` sonda a GRADE, não a
+// malha desenhada (ver o comentário grande dela acima); nada deste bloco toca
+// nela, e é isso que a nota do gerente de rodada pediu para conferir.
+//
+// ⚠️ POR QUE r > 8.000 m: é o raio onde a cidade de verdade acaba. A abóbada
+// funde no natural em `PODIO_R3` = 8.300 (dome.ts), a alça (a testada mais
+// nobre do mapa) não passa de `ALCA_R_MAR` ≈ 7.316, e nenhuma faixa fina de
+// `naFaixa`/`refina` (lago, praça, as quatro quinas da alça) mede além de
+// ALCA_R_MAR+50 ≈ 7.366. Fora de 8.000 m não há lote, não há rua, não há
+// água desenhada com precisão — só o relevo caindo para o horizonte, que já
+// era mostrado por um triângulo de 59 m antes de qualquer trabalho aqui.
+//
+// ⚠️ A COSTURA NÃO TRINCA PORQUE A COROA NÃO "PULA CÉLULA": ela reduz o passo
+// só no EIXO que já não tem conteúdo, mantendo o OUTRO eixo inteiro onde ele
+// ainda importa. Formalmente: cada eixo (i e j) tem sua própria lista de
+// índices "ativos" (`eixoCoroa`, abaixo) — de 2 em 2 fora do quadrado central,
+// de 1 em 1 dentro — e a malha é o PRODUTO CARTESIANO das duas listas. Isso é
+// uma grade regular de espaçamento IRREGULAR, não um quadtree remendado: toda
+// aresta é compartilhada por exatamente duas células vizinhas com a MESMA
+// contagem de vértices naquela aresta (nenhum lado tem ponto médio que o outro
+// ignora), então não existe junta em T em lugar nenhum, por construção, e sem
+// precisar de leque de triângulos de emenda. A prova está em como as duas
+// listas são cruzadas: uma célula é "grossa" (passo 2 num eixo, ou nos dois)
+// só quando ELA MESMA cai fora do quadrado central; a aresta entre uma célula
+// fina e uma grossa está sempre no limite exato do quadrado, onde as duas
+// listas concordam no mesmo índice.
+//
+// ⚠️ A MARGEM É MEDIDA, NÃO ARREDONDADA A OLHO: `TERRENO_COROA_R` = 8.000 e o
+// quadrado fino real vai a `F·cell` ≈ 136 × 59,225 ≈ 8.054,6 m de meia-largura
+// (F arredondado para CIMA e para PAR, nunca para baixo, então a folga só
+// cresce). Como um quadrado de meia-largura R contém por inteiro o círculo de
+// raio R, todo ponto com r ≤ 8.000 m — logo toda faixa fina, toda água, todo
+// lote de teste — sobra dentro do quadrado fino com uns 55 m de sobra, mesmo
+// na pior direção (ao longo dos eixos, onde quadrado e círculo quase colam).
+// `coroaSegura` (dentro de `buildTerrain`) confere isso em tempo de execução
+// contra `FAIXA_MAX` antes de ligar a coroa, e desiste (sem quebrar nada) se a
+// grade um dia mudar de forma a violar a folga.
+//
+// ⚠️ E DEPOIS VEM A COMPACTAÇÃO, sem a qual a coroa economizaria triângulo
+// DESENHADO mas nenhum byte de VRAM: os vértices "pulados" continuavam
+// existindo no buffer, só sem nenhum triângulo apontando pra eles. Por isso
+// `buildTerrain` termina reescrevendo posição/cor/UV só com os vértices que
+// alguma aresta ainda referencia (todo o cálculo de `heightAt`/cor continua
+// rodando exatamente igual; é só o QUE SOBE PRA GPU que fica menor).
+export const TERRENO_COROA_R = 8000
+
+/**
+ * As listas de índice "ativas" de um eixo: de 2 em 2 fora de [lo, hi], de 1 em
+ * 1 dentro. `lo` e `hi` têm de ser pares (garantido por quem chama, com
+ * `coroaSegura`) para a sequência bater exatamente em 0 e em `nTotal - 1`.
+ * Ver o cabeçalho de `TERRENO_COROA_R` para a prova de que isso nunca cria
+ * junta em T.
+ */
+function eixoCoroa(lo: number, hi: number, nTotal: number): number[] {
+  const out: number[] = []
+  for (let k = 0; k <= lo; k += 2) out.push(k)
+  for (let k = lo + 1; k < hi; k++) out.push(k)
+  for (let k = hi; k <= nTotal - 1; k += 2) out.push(k)
+  return out
 }
 
 export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: CanalCava, refino?: RefinoTerreno): Terrain {
@@ -1391,11 +1466,47 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
       }
     }
   }
-  for (let j = 0; j < n - 1; j++) {
-    for (let i = 0; i < n - 1; i++) {
-      if (naFaixa(i, j)) { refina(i, j); continue }
-      const a = j * n + i, b = a + 1, c = a + n, d = c + 1
-      indices.push(a, c, b, b, c, d)
+  // ⚠️ A COROA EXTERNA EM MEIA RESOLUÇÃO (SÓ NO CELULAR). Ver o cabeçalho de
+  // `TERRENO_COROA_R`, acima, para o porquê e a prova de que a costura não
+  // tranca. `coroaSegura` é a conferência em tempo de execução: só liga a
+  // malha grossa fora do quadrado fino se a geometria de hoje (par central,
+  // paridade da grade) ainda sustenta a garantia; se a grade mudar de forma
+  // um dia, isto desiste sozinho e volta ao caminho de sempre, sem trincar.
+  const _meioColunas = Math.ceil(TERRENO_COROA_R / cell)
+  const _F = _meioColunas % 2 === 0 ? _meioColunas : _meioColunas + 1
+  const _coroaLo = half - _F, _coroaHi = half + _F
+  const coroaSegura = refino?.coroaMetade === true
+    && Number.isInteger(half)
+    && _coroaLo > 0 && _coroaLo % 2 === 0
+    && (n - 1 - _coroaHi) % 2 === 0
+    && _coroaHi < n - 1
+    && FAIXA_MAX <= _F * cell
+  if (coroaSegura) {
+    const AI = eixoCoroa(_coroaLo, _coroaHi, n)
+    for (let jj = 0; jj < AI.length - 1; jj++) {
+      const j0 = AI[jj], j1 = AI[jj + 1]
+      for (let ii = 0; ii < AI.length - 1; ii++) {
+        const i0 = AI[ii], i1 = AI[ii + 1]
+        if (i1 - i0 === 1 && j1 - j0 === 1) {
+          // dentro do quadrado fino: bit a bit o mesmo caminho de sempre
+          if (naFaixa(i0, j0)) { refina(i0, j0); continue }
+          const a = j0 * n + i0, b = a + 1, c = a + n, d = c + 1
+          indices.push(a, c, b, b, c, d)
+        } else {
+          // célula grossa da coroa: só os 4 cantos (garantidamente fora de
+          // qualquer faixa fina, ver `FAIXA_MAX` na conferência acima)
+          const a = j0 * n + i0, b = j0 * n + i1, c = j1 * n + i0, d = j1 * n + i1
+          indices.push(a, c, b, b, c, d)
+        }
+      }
+    }
+  } else {
+    for (let j = 0; j < n - 1; j++) {
+      for (let i = 0; i < n - 1; i++) {
+        if (naFaixa(i, j)) { refina(i, j); continue }
+        const a = j * n + i, b = a + 1, c = a + n, d = c + 1
+        indices.push(a, c, b, b, c, d)
+      }
     }
   }
   if (typeof window !== 'undefined') (window as unknown as { __lagoFinas?: number }).__lagoFinas = celulasFinas
@@ -1454,6 +1565,16 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
     idx.needsUpdate = true
     geo.computeVertexNormals()
   }
+  // ⚠️ A COMPACTAÇÃO: SEM ELA A COROA CORTA TRIÂNGULO DESENHADO E NENHUM BYTE
+  // DE VRAM. `eixoCoroa` só deixa de EMITIR ÍNDICE para os vértices "pulados"
+  // da coroa; eles continuam existindo no array de posição/cor/UV até este
+  // ponto (a mesma malha grossa que hoje já deixa órfão todo vértice cercado
+  // só por células de `naFaixa`, sem que ninguém tivesse limpado). Esta função
+  // varre o índice FINAL (já com a inversão de sentido acima resolvida),
+  // descobre quem ainda é referenciado e reescreve os atributos só com esses,
+  // remapeando o índice. Roda só quando a coroa está ligada: no desktop
+  // `coroaSegura` é falso e este bloco não toca em nada.
+  if (coroaSegura) compactarGeometria(geo)
   // ⚠️ DEPOIS DA ÚLTIMA `computeVertexNormals`, NUNCA ANTES: ela escreve um
   // Float32 novo por cima e desfaz a compressão em silêncio. O terreno é a maior
   // peça da cidade (172 MiB residentes medidos em 10/09, 35% de tudo) e estes
@@ -1487,17 +1608,39 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
     mat.color = new THREE.Color(TINTA_REGOLITO)
     vestir(mat, 'regolito', UV_ESCALA, { metros: 14, normal: 0.55, macroMetros: 1400 })
   }
-  const mesh = new THREE.Mesh(geo, mat)
-  mesh.receiveShadow = true
-  mesh.name = 'Regolith'
-  mesh.frustumCulled = false
-
   const group = new THREE.Group()
   // nome pra medir (10/09/2026): sem isto o terreno (2,47 milhões de
   // triângulos nesta rodada) aparecia em `window.__plazaDump()` como "Group"
   // genérico, indistinguível de qualquer outro grupo sem nome da cena.
   group.name = 'terreno'
-  group.add(mesh)
+  // ⚠️ SÓ NO CELULAR (`coroaSegura`) A MALHA VIRA VÁRIAS: no desktop este
+  // `if` é falso e o `else` é a MESMA malha única de sempre, `mesh` incluído,
+  // byte a byte — é o que garante que o HIGH do desktop não muda.
+  //
+  // ⚠️ POR QUE QUEBRAR EM BLOCOS: uma malha só, do tamanho da cidade inteira,
+  // nunca vale a pena testar contra o frustum (a esfera que a envolve quase
+  // sempre contém a câmera), e por isso ela nascia com `frustumCulled = false`
+  // (não é bug, é a mesma conclusão a que se chega aqui). Recortando o sítio
+  // em blocos, cada um com a própria esfera pequena, o `frustumCulled = true`
+  // PADRÃO do Three passa a ter o que cortar: bloco atrás da câmera ou fora do
+  // campo de visão para de desenhar sozinho, sem culler nenhum escrito à mão
+  // (nenhuma bandeira nova: é o culler que o motor já tem).
+  //
+  // ⚠️ OS BLOCOS COMPARTILHAM O MESMO ATRIBUTO, NÃO CLONAM. Cada `THREE.Mesh`
+  // novo aponta para os MESMOS objetos `position`/`color`/`uv`/`normal` de
+  // `geo` (só o `index` é um recorte por bloco); o Three sobe o buffer de
+  // vértice UMA VEZ para a GPU e reusa entre os desenhos, então recortar em
+  // blocos não duplica memória de vértice — só o índice, que já é pequeno
+  // perto do atributo.
+  if (coroaSegura) {
+    for (const m of chunkarTerreno(geo, mat, halfExtent, saiaIdx)) group.add(m)
+  } else {
+    const mesh = new THREE.Mesh(geo, mat)
+    mesh.receiveShadow = true
+    mesh.name = 'Regolith'
+    mesh.frustumCulled = false
+    group.add(mesh)
+  }
   return { group, heightAt, horizonAt: heightAt, superficieAt, baseAt, fozCanal, meanHeight: mean, halfExtent,
            lago: { r0: LAGO_R0, r1: LAGO_R1, agua: LAGO_AGUA_Y, fundo: -LAGO_FUNDO },
            corAt: corVertice, uvEscala: UV_ESCALA, material: mat }
@@ -1508,6 +1651,113 @@ function flipWinding(geo: THREE.BufferGeometry) {
   for (let k = 0; k < idx.count; k += 3) { const b = idx.getX(k + 1); idx.setX(k + 1, idx.getX(k + 2)); idx.setX(k + 2, b) }
   idx.needsUpdate = true
   geo.computeVertexNormals()
+}
+
+/**
+ * ⚠️ REMOVE OS VÉRTICES QUE NENHUM TRIÂNGULO MAIS REFERENCIA, sem mudar UM
+ * MILÍMETRO da malha desenhada (o conjunto de triângulos é o mesmo antes e
+ * depois; só os vértices sem nenhum triângulo apontando pra eles somem do
+ * buffer, e o índice é remapeado para a nova numeração). Ver o cabeçalho de
+ * `TERRENO_COROA_R` para quem chama isto e por quê.
+ *
+ * MEDIDO (23/09/2026, harness Playwright, perfil mobile): terreno de
+ * 118,72 MiB / 2.094.462 tri / 1.159.642 vértices para
+ * `__TERRENO_DEPOIS_MIB__` MiB / `__TERRENO_DEPOIS_TRI__` tri /
+ * `__TERRENO_DEPOIS_VERT__` vértices — números exatos no comentário de
+ * `plaza-scene.tsx` onde `coroaMetade` é ligado, escritos depois da medição.
+ */
+function compactarGeometria(geo: THREE.BufferGeometry): { antes: number; depois: number } {
+  const idx = geo.getIndex()
+  const pos = geo.attributes.position as THREE.BufferAttribute | undefined
+  if (!idx || !pos) return { antes: 0, depois: 0 }
+  const total = pos.count
+  const usado = new Uint8Array(total)
+  for (let k = 0; k < idx.count; k++) usado[idx.getX(k)] = 1
+  let sobrou = 0
+  for (let v = 0; v < total; v++) if (usado[v]) sobrou++
+  if (sobrou === total) return { antes: total, depois: total } // nada pra tirar (coroa não achou órfão nenhum)
+  const novo = new Int32Array(total).fill(-1)
+  const nomes = ['position', 'color', 'uv', 'normal'] as const
+  const origem = nomes
+    .map((nome) => [nome, geo.attributes[nome] as THREE.BufferAttribute | undefined] as const)
+    .filter((par): par is [typeof nomes[number], THREE.BufferAttribute] => par[1] !== undefined)
+  const destino = new Map<string, Float32Array>()
+  for (const [nome, a] of origem) destino.set(nome, new Float32Array(sobrou * a.itemSize))
+  let cursor = 0
+  for (let v = 0; v < total; v++) {
+    if (!usado[v]) continue
+    novo[v] = cursor
+    for (const [nome, a] of origem) {
+      const alvo = destino.get(nome)!, sz = a.itemSize
+      for (let c = 0; c < sz; c++) alvo[cursor * sz + c] = a.getComponent(v, c)
+    }
+    cursor++
+  }
+  for (const [nome, a] of origem) geo.setAttribute(nome, new THREE.Float32BufferAttribute(destino.get(nome)!, a.itemSize))
+  const idxNovo = new Uint32Array(idx.count)
+  for (let k = 0; k < idx.count; k++) idxNovo[k] = novo[idx.getX(k)]
+  geo.setIndex(new THREE.BufferAttribute(idxNovo, 1))
+  if (typeof window !== 'undefined') {
+    (window as unknown as { __terrenoCompactado?: { antes: number; depois: number } }).__terrenoCompactado = { antes: total, depois: sobrou }
+  }
+  return { antes: total, depois: sobrou }
+}
+
+/**
+ * Recorta a malha do sítio (índice 0..`saiaIdx`) numa grade `NB × NB` de
+ * blocos, mais UM bloco à parte para a saia (`saiaIdx` em diante, que já
+ * nascia com `frustumCulled = false` e continua assim: ela precisa aparecer
+ * até o horizonte, não há o que uma esfera pequena cortaria ali). Todo bloco
+ * aponta para os MESMOS atributos de `geo` (ver a nota no chamador); só o
+ * índice é novo por bloco, e `computeBoundingSphere` de cada um é o que dá ao
+ * `frustumCulled` padrão do Three algo pequeno pra testar.
+ */
+function chunkarTerreno(geo: THREE.BufferGeometry, mat: THREE.Material, halfExtent: number, saiaIdx: number): THREE.Mesh[] {
+  const idx = geo.getIndex()
+  const pos = geo.attributes.position as THREE.BufferAttribute | undefined
+  if (!idx || !pos) return []
+  const NB = 6
+  const baldes: number[][] = Array.from({ length: NB * NB }, () => [])
+  const saia: number[] = []
+  for (let k = 0; k < idx.count; k += 3) {
+    const a = idx.getX(k), b = idx.getX(k + 1), c = idx.getX(k + 2)
+    if (k >= saiaIdx) { saia.push(a, b, c); continue }
+    const x = pos.getX(a), z = pos.getZ(a)
+    const u = (x + halfExtent) / (2 * halfExtent), v = (z + halfExtent) / (2 * halfExtent)
+    const bx = Math.min(NB - 1, Math.max(0, Math.floor(u * NB)))
+    const bz = Math.min(NB - 1, Math.max(0, Math.floor(v * NB)))
+    baldes[bz * NB + bx].push(a, b, c)
+  }
+  const meshes: THREE.Mesh[] = []
+  const atributos = ['position', 'color', 'uv', 'normal'] as const
+  for (let b = 0; b < baldes.length; b++) {
+    if (!baldes[b].length) continue
+    const g = new THREE.BufferGeometry()
+    for (const nome of atributos) {
+      const a = geo.attributes[nome]
+      if (a) g.setAttribute(nome, a)
+    }
+    g.setIndex(baldes[b])
+    g.computeBoundingSphere()
+    const m = new THREE.Mesh(g, mat)
+    m.receiveShadow = true
+    m.name = `Regolith_${b}`
+    meshes.push(m)
+  }
+  if (saia.length) {
+    const g = new THREE.BufferGeometry()
+    for (const nome of atributos) {
+      const a = geo.attributes[nome]
+      if (a) g.setAttribute(nome, a)
+    }
+    g.setIndex(saia)
+    const m = new THREE.Mesh(g, mat)
+    m.receiveShadow = true
+    m.name = 'RegolithSaia'
+    m.frustumCulled = false
+    meshes.push(m)
+  }
+  return meshes
 }
 
 function fract(v: number) {

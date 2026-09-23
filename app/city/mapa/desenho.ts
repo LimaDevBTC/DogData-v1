@@ -12,8 +12,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 import type { Camera, Nivel } from './camera'
 import { mundoParaTela, retanguloVisivel } from './camera'
-import type { Malha, Selo, Agua } from './malha'
-import { ehAgua } from './malha'
+import type { Malha, Selo, Agua, Via } from './malha'
 import type { Registro } from './registro'
 import { consultarGrade, cantosDoLote } from './registro'
 import { COR_SETOR, TIPO_PROGRAMA, NOME_PECA_EN, FUNDO, LARANJA, CIANO_DSC } from './estilo'
@@ -35,19 +34,19 @@ export interface Contexto {
 const escalaLinha = (metros: number, escala: number, min = 0.75, max = 16) =>
   Math.max(min, Math.min(max, metros * escala))
 
-/** desenha um caminho poligonal (não fechado) pulando trechos sobre água:
- *  é o uso documentado de agua.bin, não riscar via em cima da baía. Todas as
- *  vias passam por aqui, então a checagem é feita num lugar só. */
-function tracarSemAgua(ctx: CanvasRenderingContext2D, cam: Camera, cw: number, ch: number, agua: Agua, pontos: readonly [number, number][]) {
+/** desenha uma polilinha em coordenadas de mundo. Nenhum corte de água aqui:
+ *  cada `Via` que chega em `malha.vias` já saiu VIVA do dump de
+ *  `app/city/plaza/vias.ts` (ver a doutrina em `malha.ts`), ou seja já passou
+ *  por água, alça, orla e (na teia) pela poda de conectividade. Recortar de
+ *  novo contra `agua.bin` aqui seria aplicar uma SEGUNDA régua, mais grosseira
+ *  (célula de agua.bin contra o corte analítico da cena) e sobre uma ponte de
+ *  verdade ela cortaria certo o pavimento que a cena decidiu manter. */
+function tracarPoligonal(ctx: CanvasRenderingContext2D, cam: Camera, cw: number, ch: number, pontos: readonly (readonly [number, number])[]) {
+  if (pontos.length < 2) return
   ctx.beginPath()
-  let precisaMover = true
-  for (let i = 0; i < pontos.length - 1; i++) {
-    const [ax, az] = pontos[i], [bx, bz] = pontos[i + 1]
-    if (ehAgua(agua, (ax + bx) / 2, (az + bz) / 2)) { precisaMover = true; continue }
-    const [sx0, sy0] = mundoParaTela(cam, cw, ch, ax, az)
-    const [sx1, sy1] = mundoParaTela(cam, cw, ch, bx, bz)
-    if (precisaMover) { ctx.moveTo(sx0, sy0); precisaMover = false }
-    ctx.lineTo(sx1, sy1)
+  for (let i = 0; i < pontos.length; i++) {
+    const [sx, sy] = mundoParaTela(cam, cw, ch, pontos[i][0], pontos[i][1])
+    if (i === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy)
   }
   ctx.stroke()
 }
@@ -105,51 +104,39 @@ function quarteiroes(c: Contexto) {
   }
 }
 
+// ⚠️ "ANEL" COBRE DUAS COISAS (ver a doutrina em `malha.ts`, tipo `Via`): o
+// anel viário arterial (26-44 m, inclui a AN7 em círculo) e o arco fino da
+// teia (12 m). Nenhum anel viário publicado tem menos de 20 m; nenhuma via da
+// teia tem mais. A largura é o único sinal que sobrou para separar os dois
+// traços, porque o dump não inventa um sétimo `tipo` só para isto.
+const LARG_ANEL_ESTRUTURAL = 20
+const ehEstrutural = (v: Via) => v.tipo === 'avenida' || (v.tipo === 'anel' && v.larg >= LARG_ANEL_ESTRUTURAL)
+
 function vias(c: Contexto) {
-  const { ctx, cw, ch, cam, malha, agua, nivel } = c
+  const { ctx, cw, ch, cam, malha, nivel } = c
+  const lista = malha.vias
+  // ⚠️ SEM REDE, SEM REDESENHO — NUNCA REDERIVAÇÃO. `malha.vias` só é `null`
+  // quando `public/city/mapa/vias.json` faltou ou veio malformado; o mapa
+  // continua funcionando (quarteirão, programa e lote não dependem de via) e
+  // `mapa-client.tsx` avisa no canto. A tentação de "se faltar, calcule você
+  // mesmo" é exatamente a regressão que esta tarefa veio consertar.
+  if (!lista) return
+
+  // estrutural: avenida e anel viário, em TODOS os níveis de zoom.
   ctx.strokeStyle = '#847C6C'
-  for (const b of malha.bulevares) {
-    ctx.lineWidth = escalaLinha(b.larguraM, cam.escala)
-    tracarSemAgua(ctx, cam, cw, ch, agua, [[b.x0, b.z0], [b.x1, b.z1]])
-  }
-  for (const a of malha.avenidas) {
-    ctx.lineWidth = escalaLinha(a.larguraM, cam.escala, 0.75, 14)
-    tracarSemAgua(ctx, cam, cw, ch, agua, [[a.x0, a.z0], [a.x1, a.z1]])
-  }
-  for (const an of malha.aneisViarios) {
-    ctx.lineWidth = escalaLinha(an.larguraM, cam.escala)
-    const v = an.vertices
-    const pontos: [number, number][] = []
-    for (let k = 0; k <= 12; k++) pontos.push([v[(k % 12) * 2], v[(k % 12) * 2 + 1]])
-    tracarSemAgua(ctx, cam, cw, ch, agua, pontos)
-  }
-  // a alça: arco verdadeiro (não dodecágono), rumo 330°→120° passando por 0°
-  {
-    const passos = 48
-    const alca = malha.alca
-    const de = alca.rumoIni, ate = alca.rumoFim + 360
-    const pontos: [number, number][] = []
-    for (let k = 0; k <= passos; k++) {
-      const rumo = de + ((ate - de) * k) / passos
-      const a = (rumo * Math.PI) / 180
-      pontos.push([Math.sin(a) * alca.r, -Math.cos(a) * alca.r])
-    }
-    ctx.lineWidth = escalaLinha(alca.larguraM, cam.escala)
-    tracarSemAgua(ctx, cam, cw, ch, agua, pontos)
+  for (const v of lista) {
+    if (!ehEstrutural(v)) continue
+    ctx.lineWidth = escalaLinha(v.larg, cam.escala, 0.75, 16)
+    tracarPoligonal(ctx, cam, cw, ch, v.pontos)
   }
   if (nivel === 'longe') return
-  // teia: fina, só a partir de 'medio' (168 radiais + 27 anéis, ainda barato)
+  // local: teia (radial/travessa/arco fino) e via de orla, translúcida e só a
+  // partir de 'medio' — mesmo corte de sempre, ainda barato neste zoom.
   ctx.strokeStyle = 'rgba(132,124,108,0.55)'
   ctx.lineWidth = escalaLinha(2.5, cam.escala, 0.5, 3)
-  for (const r of malha.teiaRadiais) tracarSemAgua(ctx, cam, cw, ch, agua, [[r.x0, r.z0], [r.x1, r.z1]])
-  const passosAnel = 72
-  for (const raio of malha.teiaAneis) {
-    const pontos: [number, number][] = []
-    for (let k = 0; k <= passosAnel; k++) {
-      const a = (2 * Math.PI * k) / passosAnel
-      pontos.push([Math.sin(a) * raio, -Math.cos(a) * raio])
-    }
-    tracarSemAgua(ctx, cam, cw, ch, agua, pontos)
+  for (const v of lista) {
+    if (ehEstrutural(v)) continue
+    tracarPoligonal(ctx, cam, cw, ch, v.pontos)
   }
 }
 

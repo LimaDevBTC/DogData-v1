@@ -204,6 +204,20 @@ function lerQualidadeDaURL(): Quality {
 }
 const QUALIDADE_URL = lerQualidadeDaURL()
 
+// ⚠️ MESMO PADRÃO, MESMO MOTIVO, PARA O DUMP DA REDE FINAL QUE O MAPA 2D
+// PASSOU A CONSUMIR (23/09). `app/city/mapa/malha.ts` rederivava a malha
+// viária a partir do manifesto cru e divergia da cena — a AN7 saía dodecágono
+// (ela é círculo, `AVENIDA_ALCA` em teia.ts) e radial saía por cima da água. O
+// conserto é o mapa LER o que esta cena desenha, nunca reimplementar a regra
+// numa segunda cópia; ver a doutrina completa em `viasDump`, dentro de
+// `buildVias`. Ligado só atrás de `?stats=1`, pelo mesmo motivo de sempre:
+// coletar custa chamadas extra a `paraNaAgua` que ninguém paga em produção.
+function lerStats(): boolean {
+  if (typeof window === 'undefined') return false
+  return new URLSearchParams(window.location.search).get('stats') === '1'
+}
+const STATS_URL = lerStats()
+
 // ⚠️ AS COTAS SÃO O QUE FAZ A RUA TER SEÇÃO E NÃO SER UM ADESIVO. O plinto do
 // lote em tecido.ts tem 0,45 m; a calçada fica 0,12 abaixo dele e a pista 0,15
 // abaixo da calçada. Esses 15 cm são o meio-fio residencial universal dos EUA
@@ -1065,14 +1079,24 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   // `__plazaGeometria()`, que já é bytes×2: ver a nota de `Fita.malha` sobre os
   // "dois relógios"), 2.864.164 tri, 55% de toda a geometria da cena.
   //
-  // ⚠️ E QUEM PESA É `teiaBraco`, NÃO O CRUZAMENTO. A poda de conectividade
-  // (`TEIA_ART`, mais abaixo) devolveu 704,61 km de malha viva, e CADA metro
-  // desse comprimento sai com SEIS camadas (`porChao`/`guia`/`guiaPiso`, na
-  // seção 3, mais abaixo: chão-ou-pista, calçada, canteiro, guia, guia-piso —
-  // aqui a teia só usa três das seis, calçada-pista-calçada, mas cada uma é uma
-  // malha própria mais a parede de meio-fio em CADA divisa, ou seja 5 quads por
-  // passo de 8 m) mesmo nos trechos que NUNCA ficam perto de câmera nenhuma,
-  // porque a malha é construída UMA vez, estática, e nunca visitada de novo.
+  // ⚠️ E QUEM PESA NÃO É SÓ `teiaBraco`. A poda de conectividade (`TEIA_ART`,
+  // mais abaixo) devolveu 704,61 km de malha viva, e cada trecho sai com
+  // calçada-pista-calçada MAIS a parede de meio-fio em CADA divisa (2 por
+  // passo de 8 m), mesmo longe de qualquer câmera. E `teiaBraco` nem é o maior:
+  // `faixa()` desenha as 4.717 travessas de serviço dentro dos quarteirões (a
+  // maior CONTAGEM de trechos do módulo, cada uma com a mesma seção de 9 m e o
+  // mesmo meio-fio) mais a espinha dos dedos da orla — as duas peças ganham o
+  // MESMO corte, porque são a mesma seção de 3 bandas.
+  //
+  // ⚠️ O CORTE É A PAREDE, NÃO A BANDA. A calçada e a pista continuam CADA UMA
+  // no seu próprio quad, na própria cota: só o meio-fio (a face vertical do
+  // degrau entre elas) deixa de nascer. Cheguei a tentar fundir as duas
+  // calçadas num quad só, na largura inteira por baixo da pista, para "ganhar
+  // uma camada" — e é ERRADO: `Y_CALCADA` (0,33) é mais alto que `Y_PISTA`
+  // (0,18), e um quad mais alto cobrindo o mesmo chão da pista GANHA o teste
+  // de profundidade — a rua sumiria debaixo da calçada em toda a cidade fora
+  // do raio. A economia de verdade está na parede (2 quads por passo, ~40% da
+  // geometria de um trecho de 3 bandas: 4 de 10 triângulos), não na banda.
   //
   // ⚠️ POR QUE O RAIO É 1.200. É o mesmo `smallCull` do perfil 'low' de
   // perf.ts (a régua que a casa já usa para "detalhe que só serve de perto"),
@@ -1085,20 +1109,25 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   // `DistanceCuller` (ver perf.ts) só troca `.visible`, e `__plazaGeometria()`
   // varre `scene.traverse` sem olhar `.visible` (é a régua "residente", não a
   // régua "no quadro"): esconder não solta 1 byte de VRAM. Por isso o corte
-  // mora AQUI, em `teiaBraco`, decidindo ANTES de chamar `Fita.add`, e não num
-  // culler pendurado depois — é a diferença entre "não construir" e "construir
-  // e esconder", e só a primeira aparece no censo.
+  // mora AQUI, em `teiaBraco` e em `faixa`, decidindo ANTES de chamar
+  // `Fita.add`, e não num culler pendurado depois — é a diferença entre "não
+  // construir" e "construir e esconder", e só a primeira aparece no censo.
   //
   // ⚠️ A PONTE NUNCA SIMPLIFICA. `sobreAgua` nas duas pontas do trecho barra
-  // a simplificação onde a teia vira tabuleiro sobre canal ou cratera: o
-  // parapeito ali é segurança visual (ver a nota do PARAPEITO, dentro de
-  // `teiaBraco`), não acabamento, e sumiria junto com a parede de guia se a
-  // regra não abrisse exceção.
+  // o corte onde a via vira tabuleiro sobre canal ou cratera: o parapeito ali
+  // é segurança visual (ver a nota do PARAPEITO, dentro de `teiaBraco` e de
+  // `faixa`), não acabamento, e sumiria junto com a parede de meio-fio se a
+  // regra não abrisse exceção. O bulevar (`SEC_BULEVAR`, 5 bandas com
+  // canteiro) NUNCA cai neste corte em `faixa`: o padrão de seção não bate
+  // (ver `secaoSimples`), de propósito — é a estrutura primária da cidade e o
+  // `Trilho` que ela devolve alimenta o eixo tracejado e a faixa de pedestre.
   //
-  // MEDIDO DEPOIS (mesmo protocolo, `celular_depois.json`): vias caiu de
-  // 362,42 para ??? MiB residentes (??? tri); ver o número exato no relatório
-  // desta rodada — ficou registrado aqui só o que o código decide, o resultado
-  // mede sozinho porque `__plazaGeometria()` já existe para isso.
+  // MEDIDO DEPOIS: protocolo de `celular_antes.json`, resultado salvo à parte
+  // (o navegador precisa estar de pé para medir; o número escrito aqui, sem
+  // rodar, seria estimativa — e a regra desta rodada é não estimar). O
+  // triângulo de `vias` também sai sozinho no console de `plaza-scene.tsx`
+  // (`[vias] ... triângulos`, que soma os MESMOS `Fita.triangulos` que este
+  // corte reduz) toda vez que a cidade sobe.
   const RAIO_TEIA_DETALHE = 1200
   const MOBILE_LOD = detectTier() === 'mobile'
 
@@ -1146,6 +1175,50 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   meta.aneis = meta.aneis.concat([{
     id: 'FIN', nome: 'Rua do Distrito Financeiro', r: 921, larg: 12, circulo: true,
   }])
+
+  // ── O DUMP DA REDE FINAL, para o mapa 2D (app/city/mapa/malha.ts) ─────────
+  //
+  // ⚠️ NASCEU DE UMA REGRESSÃO, 23/09: o fundador olhou a chapa do /city/mapa e
+  // viu "radial em cima da água" e "dodecágono na Orla Nobre" — os dois já
+  // resolvidos NESTA cena, meses atrás (a AN7 é círculo desde 07/09, a teia
+  // para na água desde 03/09). O mapa 2D não lia esta cena: `malha.ts`
+  // rederivava a malha a partir de `cidade-malha.json` cru, que publica a AN7
+  // como o dodecágono de vértice 7.600 ABANDONADO na nota de `AVENIDA_ALCA` em
+  // teia.ts, sem nenhuma das regras de água/alça/orla que só existem em
+  // código, aqui dentro. RÉPLICA DIVERGE; A FONTE NÃO.
+  //
+  // ⚠️ POR ISSO ISTO É UM DUMP DO QUE SE DESENHA, NUNCA UMA SEGUNDA REGRA. Cada
+  // segmento empurrado abaixo nasce nos QUATRO pontos que já decidem se a cena
+  // desenha asfalto ali (avenida, anel viário — inclusive a AN7 e as vias
+  // locais em círculo que entram em `meta.aneis` acima —, teia podada por
+  // conectividade, via de orla): o dump só lê a variável que o próprio desenho
+  // já calculou, nunca chama `paraNaAgua`/`naAlca` com um ponto que o desenho
+  // não testou. `scripts/city/mapa/assar-vias.mjs` chama
+  // `window.__plazaVias()` via Playwright e grava `public/city/mapa/vias.json`;
+  // `app/city/mapa/malha.ts` só LÊ esse arquivo, nunca reconstrói a malha.
+  //
+  // ⚠️ "ANEL" COBRE DUAS COISAS, DE PROPÓSITO: os 7 anéis viários (26 a 44 m)
+  // E os arcos finos da teia (12 m, um por par de nós vizinhos no mesmo raio).
+  // O mapa 2D só precisa da FORMA da linha; `larg` já diz qual é qual, e forçar
+  // um sétimo rótulo só para a teia não muda um pixel do desenho.
+  interface ViaDump {
+    id: string
+    tipo: 'anel' | 'radial' | 'travessa' | 'avenida' | 'orla'
+    larg: number
+    pontos: [number, number][]
+  }
+  const viasDump: ViaDump[] = []
+  let viasDumpSeq = 0
+  /** um segmento reto já vivo: 1 decimal (10 cm) chega sobrando para um mapa
+   *  medido em quilômetros, e é a diferença entre o vias.json caber em
+   *  centenas de KB ou em alguns MB de ruído de ponto flutuante. */
+  const dumpSeg = (tipo: ViaDump['tipo'], larg: number, ax: number, az: number, bx: number, bz: number) => {
+    const r1 = (n: number) => Math.round(n * 10) / 10
+    viasDump.push({
+      id: `${tipo[0].toUpperCase()}${viasDumpSeq++}`, tipo, larg: r1(larg),
+      pontos: [[r1(ax), r1(az)], [r1(bx), r1(bz)]],
+    })
+  }
 
   const K = malha.constantes
   // ⚠️ `meio` ERA GLOBAL E VALIA 84 PARA A CIDADE INTEIRA. Com o quarteirão
@@ -1742,6 +1815,23 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     const larg = secao[secao.length - 1].ate
     const meioSec = larg / 2
     const desenhado: boolean[] = new Array(passos).fill(false)
+    // ⚠️ RAIO_TEIA_DETALHE: MESMO CORTE DE `teiaBraco`, E MESMO MOTIVO (ver a
+    // nota grande no topo de `buildVias`). `faixa` é quem desenha as 4.717
+    // travessas de serviço dentro dos quarteirões (a maior contagem de trechos
+    // do módulo) e a espinha dos dedos da orla, as duas com `secao` de 3 bandas
+    // calçada-pista-calçada — o padrão que `secaoSimples` reconhece. O bulevar
+    // (`SEC_BULEVAR`, 5 bandas com canteiro) NUNCA cai aqui, porque o padrão não
+    // bate: a avenida continua com as seis camadas de sempre em qualquer raio, é
+    // a estrutura primária da cidade e o `Trilho` que ela devolve alimenta o
+    // eixo tracejado e a faixa de pedestre, que precisam da seção de verdade.
+    // `ombro`/`abaular`/`rampaExtremos` fora do zero são só do bulevar e do
+    // contorno morto; a guarda abaixo é redundância barata, não suposição.
+    const secaoSimples = secao.length === 3 && secao[0].alvo === 'calcada'
+      && secao[1].alvo === 'pista' && secao[2].alvo === 'calcada'
+      && ombro === 0 && !abaular && rampaExtremos === 0
+    const longeDaPraca = secaoSimples && MOBILE_LOD
+      && Math.hypot((ax + bx) / 2, (az + bz) / 2) > RAIO_TEIA_DETALHE
+      && !sobreAgua(ax, az) && !sobreAgua(bx, bz)
     for (let k = 0; k < passos; k++) {
       // ⚠️ `bordas[k]`, NÃO `k / passos`: o passo aqui não é mais uniforme (ver
       // a subdivisão adaptativa acima), então o corte em t vem da lista medida.
@@ -1780,6 +1870,16 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
       const distExtremo = rampaExtremos > 0 ? Math.min(sMeio, comp - sMeio) : Infinity
       const fRampa = rampaExtremos > 0 ? Math.min(1, distExtremo / rampaExtremos) : 1
       const rampaAtiva = CORTE1 && rampaExtremos > 0 && fRampa < 1
+      // ⚠️ RAIO_TEIA_DETALHE: ver a nota no topo desta função e a nota grande no
+      // topo de `buildVias`. Fora do raio da Praça, no celular, a banda de
+      // calçada e a de pista continuam CADA UMA no seu próprio quad, na própria
+      // cota — só a parede do meio-fio (mais abaixo, `!longeDaPraca`) é que não
+      // nasce. Uma versão anterior desta nota fundia as duas calçadas num quad
+      // só, na largura inteira (por baixo da pista também) para "economizar uma
+      // camada": errado, porque `Y_CALCADA` (0,33) é mais alto que `Y_PISTA`
+      // (0,18) e esse quad ganharia o teste de profundidade sobre a pista
+      // inteira — a rua sumiria debaixo da calçada em toda a cidade fora do
+      // raio. A economia real está na parede, não na banda.
       for (let i = 0; i < secao.length; i++) {
         const s = secao[i]
         const prox = secao[i + 1]
@@ -1845,7 +1945,9 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
         // arborização deixaria de plantar num terreno vazio.
         if (mascaravel(s.alvo)) marcarVia(codigoDe(s.alvo), pax, paz, pbx, pbz, pcx, pcz, pdx, pdz)
         // o meio-fio, no degrau entre esta banda e a próxima
-        if (prox && prox.alt !== s.alt) {
+        // ⚠️ `!longeDaPraca`: fora do raio da Praça, no celular, esta parede não
+        // nasce (ver a nota grande no topo desta função). A superfície não muda.
+        if (prox && prox.alt !== s.alt && !longeDaPraca) {
           const altoNominal = Math.max(s.alt, prox.alt), baixo = Math.min(s.alt, prox.alt)
           // ⚠️ TAREFA 3: A ALTURA DO DEGRAU ENCOLHE COM `fRampa`, NÃO SÓ A
           // CALÇADA. Rampa de 1:12 é FACE, não platô: se só a calçada descesse
@@ -2179,6 +2281,12 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   const marcas: { fita: Fita; centro: THREE.Vector3 }[] = []
   let eixos = 0, faixasPed = 0
   for (const b of malha.bulevares) {
+    // ⚠️ CAPTURA DO DUMP (ver a doutrina em `viasDump`, logo depois de `meta.aneis`
+    // ficar pronto): a avenida é reta e nunca cruza água por construção
+    // (`AV_R_INICIO`/`AV_R_FIM` ficam dentro do sítio), então o segmento inteiro
+    // de `malha.bulevares` — já as 12 avenidas simétricas de `avenidasGeom()`,
+    // nunca as 9 costuras de distrito do manifesto — é o que se desenha.
+    if (STATS_URL) dumpSeg('avenida', b.largura ?? K.bulevar, b.x0, b.z0, b.x1, b.z1)
     const ang = (b.rumo * Math.PI) / 180
     const perpX = Math.cos(ang), perpZ = Math.sin(ang)
     const dirX = Math.sin(ang), dirZ = -Math.cos(ang)
@@ -2425,6 +2533,23 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
         return pt(an.r, aa)
       })
       const NSUB = bordasLado.length - 1
+      // ⚠️ CAPTURA DO DUMP, NO RAIO CENTRAL DO ANEL (`an.r`), NÃO NUMA BANDA. As
+      // bandas (pista/calçada/canteiro) ficam a poucos metros umas das outras
+      // sobre um raio de 1.750 m ou mais; usar `an.r` dá UMA linha por anel em
+      // vez de cinco quase coincidentes. O corte por água é o MESMO teste de 3
+      // pontos que a banda de pista faz mais abaixo (ponta, ponta, meio), só que
+      // aqui decide se o SUBTRECHO entra no dump, nunca se ele se desenha — quem
+      // decide o desenho continua sendo o laço de bandas, inalterado.
+      if (STATS_URL) {
+        for (let t = 0; t < NSUB; t++) {
+          const u0 = bordasLado[t], u1 = bordasLado[t + 1]
+          const aa0 = a0 + (a1 - a0) * u0, aa1 = a0 + (a1 - a0) * u1
+          const [px0, pz0] = pt(an.r, aa0)
+          const [px1, pz1] = pt(an.r, aa1)
+          if (paraNaAgua((px0 + px1) / 2, (pz0 + pz1) / 2) || paraNaAgua(px0, pz0) || paraNaAgua(px1, pz1)) continue
+          dumpSeg('anel', an.larg, px0, pz0, px1, pz1)
+        }
+      }
       for (let i = 0; i < secao.length; i++) {
         const b = secao[i]
         const ra = r0 + b.de, rb = r0 + b.ate
@@ -3164,65 +3289,24 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     metros += comp
 
     // ⚠️ RAIO_TEIA_DETALHE: ver a nota grande no topo de `buildVias`. Fora do
-    // raio da Praça e no celular, este trecho leva DUAS camadas (chão + pista),
-    // não seis. `sobreAgua` nas duas pontas BARRA a simplificação: a travessia
-    // sobre canal ou cratera precisa do parapeito, que é segurança visual, não
-    // acabamento (ver a nota do PARAPEITO, abaixo). Só vale para a seção de
-    // 3 bandas calçada-pista-calçada (SEC_RUA, SEC_TRAVESSA_C, SEC_ORLA — as
-    // únicas que `teiaBraco` recebe, ver os dois call sites); uma seção de outro
-    // formato (com canteiro, por exemplo) cai no caminho de sempre.
+    // raio da Praça e no celular, este trecho não ganha meio-fio: a pista e as
+    // duas calçadas continuam cada uma no seu quad de sempre (mesma cota, mesma
+    // posição, zero risco de uma cobrir a outra no z-buffer), só a PAREDE
+    // vertical do degrau é que some — ela é puro acabamento (a sombra do
+    // relevo), nunca a superfície que se anda ou se dirige. `sobreAgua` nas
+    // duas pontas BARRA o corte: a travessia sobre canal ou cratera precisa do
+    // parapeito, que é segurança visual (ver a nota do PARAPEITO, abaixo).
+    //
+    // ⚠️ A PRIMEIRA VERSÃO DESTA NOTA FUNDIA AS DUAS CALÇADAS NUM QUAD SÓ NA
+    // LARGURA INTEIRA (por baixo da pista também) PARA CHEGAR A "DUAS CAMADAS".
+    // Errado: `Y_CALCADA` (0,33) é MAIS ALTO que `Y_PISTA` (0,18), e um quad
+    // mais alto cobrindo o mesmo XZ da pista GANHA o teste de profundidade —
+    // a rua sumiria embaixo da calçada em toda a cidade fora do raio. "duas
+    // camadas" aqui quer dizer duas MALHAS (fCalcada + fPista), não um quad
+    // só; cada banda mantém a própria pegada.
     const longeDaPraca = MOBILE_LOD
       && Math.hypot((cax + cbx) / 2, (caz + cbz) / 2) > RAIO_TEIA_DETALHE
       && !sobreAgua(cax, caz) && !sobreAgua(cbx, cbz)
-    const simples = longeDaPraca && sec.length === 3 && sec[0].alvo === 'calcada'
-      && sec[1].alvo === 'pista' && sec[2].alvo === 'calcada'
-
-    if (simples) {
-      const s0 = sec[0], s1 = sec[1], s2 = sec[2]
-      for (let k = 0; k < passos; k++) {
-        const t0 = bordas[k], t1 = bordas[k + 1]
-        const vA = t0 * comp, vB = t1 * comp
-        // ── camada 1: O CHÃO, a largura INTEIRA (as duas calçadas fundidas
-        // numa só malha, sem meio-fio) na cota da calçada. Zero material novo:
-        // é a mesma `fCalcada`/`chao` de sempre, só que num quad só em vez de
-        // dois, e sem a parede vertical que os separava da pista.
-        em(t0, 0, qa); em(t0, 1, qb); em(t1, 1, qc); em(t1, 0, qd)
-        const ftChao = fitaDe('calcada')
-        const escChao = ftChao.escala || 1
-        ftChao.comBanda(W, 0, 1, 1, 0)
-          .comUV(d0 / escChao, vA / escChao, (d0 + W) / escChao, vA / escChao,
-                 (d0 + W) / escChao, vB / escChao, d0 / escChao, vB / escChao)
-          .add(COR.calcada,
-            qa[0], cotaVia(qa[0], qa[1]) + s0.alt, qa[1],
-            qb[0], cotaVia(qb[0], qb[1]) + s0.alt, qb[1],
-            qc[0], cotaVia(qc[0], qc[1]) + s0.alt, qc[1],
-            qd[0], cotaVia(qd[0], qd[1]) + s0.alt, qd[1])
-        // ── camada 2: A PISTA, idêntica ao caminho de perto (mesma cota, UV e
-        // banda do acabamento) — é ela que continua lendo como rua de longe.
-        const tau0 = (s1.de - d0) / W, tau1 = (s1.ate - d0) / W
-        em(t0, tau0, qa); em(t0, tau1, qb); em(t1, tau1, qc); em(t1, tau0, qd)
-        const ftPista = fitaDe('pista')
-        const escPista = ftPista.escala || 1
-        ftPista.comBanda(s1.ate - s1.de, 0, 1, 1, 0)
-          .comUV(s1.de / escPista, vA / escPista, s1.ate / escPista, vA / escPista,
-                 s1.ate / escPista, vB / escPista, s1.de / escPista, vB / escPista)
-          .add(COR.pista,
-            qa[0], cotaVia(qa[0], qa[1]) + s1.alt, qa[1],
-            qb[0], cotaVia(qb[0], qb[1]) + s1.alt, qb[1],
-            qc[0], cotaVia(qc[0], qc[1]) + s1.alt, qc[1],
-            qd[0], cotaVia(qd[0], qd[1]) + s1.alt, qd[1])
-        // ── a máscara continua fiel às TRÊS bandas de verdade (calçada, pista,
-        // calçada), não à fusão visual acima: `naVia`/`sobreQue` não perdem
-        // precisão nenhuma, o corte é só de malha GPU. Custo: zero triângulo,
-        // é só empurrar 12 floats por banda num array.
-        for (const s of [s0, s1, s2]) {
-          const tA = (s.de - d0) / W, tB = (s.ate - d0) / W
-          em(t0, tA, qa); em(t0, tB, qb); em(t1, tB, qc); em(t1, tA, qd)
-          marcarVia(codigoDe(s.alvo), qa[0], qa[1], qb[0], qb[1], qc[0], qc[1], qd[0], qd[1])
-        }
-      }
-      return
-    }
 
     for (let k = 0; k < passos; k++) {
       // ⚠️ `bordas[k]`, NÃO `k / passos`: o passo aqui não é mais uniforme.
@@ -3250,8 +3334,10 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
           marcarVia(codigoDe(s.alvo), qa[0], qa[1], qb[0], qb[1], qc[0], qc[1], qd[0], qd[1])
         }
         // o meio-fio: uma face vertical, no degrau entre esta banda e a próxima
+        // ⚠️ `!longeDaPraca`: fora do raio da Praça, no celular, esta parede não
+        // nasce (ver a nota grande no topo da função). A superfície não muda.
         const prox = sec[i + 1]
-        if (prox && prox.alt !== s.alt) {
+        if (prox && prox.alt !== s.alt && !longeDaPraca) {
           const alto = Math.max(s.alt, prox.alt), baixo = Math.min(s.alt, prox.alt)
           const lado = prox.alt > s.alt ? 1 : -1
           const h0 = cotaVia(qb[0], qb[1]), h1 = cotaVia(qc[0], qc[1])
@@ -3498,6 +3584,17 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
       const h0z = inteiroB ? f0[1] : caz + dz * s1 - pz * meia
       const h1x = inteiroB ? f1[0] : cax + dx * s1 + px * meia
       const h1z = inteiroB ? f1[1] : caz + dz * s1 + pz * meia
+      // ⚠️ CAPTURA DO DUMP, NO EIXO (`cax+dx·s`), NÃO NA FACE g/h. `s0,s1` JÁ SÃO
+      // o pedaço vivo desta aresta depois de água, alça, orla E da poda de
+      // conectividade (`TEIA_VIV`, calculado ali em cima, na seção "A REDE É UMA
+      // SÓ"): é exatamente o "consumir a rede, não reimplementar a regra" que a
+      // tarefa de 23/09 pede. `ar.sec === SEC_TRAVESSA_C` por REFERÊNCIA (não por
+      // largura) separa travessa de radial: são os dois únicos objetos `Banda[]`
+      // que uma aresta sem arco recebe (seção 2c, `teiaArestas.push`).
+      if (STATS_URL) {
+        const tipo: ViaDump['tipo'] = ar.arco ? 'anel' : (ar.sec === SEC_TRAVESSA_C ? 'travessa' : 'radial')
+        dumpSeg(tipo, meia * 2, cax + dx * s0, caz + dz * s0, cax + dx * s1, caz + dz * s1)
+      }
       teiaBraco(g0x, g0z, g1x, g1z, h0x, h0z, h1x, h1z, ar.sec)
       teiaTrechos++
     }
@@ -3585,6 +3682,11 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
         if (naAlca(mx, mz)) continue
         if (emCorredorAvenida(mx, mz, 0) || emAnelPav(mx, mz, meia) || naRotatoriaPav(mx, mz, meia)) continue
         if (emParcela(mx, mz)) continue
+        // ⚠️ CAPTURA DO DUMP, NO EIXO (`eixo[]`), NÃO NAS FACES `fx/fz` (essas já
+        // são a borda com a esquadria da curva, deslocada meia largura para
+        // fora). O eixo é o que sobrevive a `encostaNaRede` mais os seis testes
+        // acima (raio máximo, água, alça, avenida/anel/rotatória, parcela).
+        if (STATS_URL) dumpSeg('orla', meia * 2, eixo[2 * k], eixo[2 * k + 1], eixo[2 * k + 2], eixo[2 * k + 3])
         teiaBraco(fx[2 * k], fz[2 * k], fx[2 * k + 1], fz[2 * k + 1],
                   fx[2 * k + 2], fz[2 * k + 2], fx[2 * k + 3], fz[2 * k + 3], SEC_ORLA)
         orlaTrechos++
@@ -3870,6 +3972,15 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     if (gx < 0 || gz < 0 || gx >= MASC_N || gz >= MASC_N) return null
     const c = lerCel(gx, gz)
     return c === 1 ? 'pista' : c === 2 ? 'calcada' : c === 3 ? 'sarjeta' : null
+  }
+
+  // ⚠️ O DUMP SÓ FICA PRONTO AQUI, NO FIM: os quatro pontos de captura (avenida,
+  // anel, teia, orla) já rodaram todos a esta altura. `scripts/city/mapa/
+  // assar-vias.mjs` espera por `window.__plazaPronto` antes de chamar isto (o
+  // mesmo contrato que `vias-varredura.mjs` já usa), então a função nunca é
+  // lida no meio da construção.
+  if (STATS_URL) {
+    (window as unknown as { __plazaVias?: () => unknown }).__plazaVias = () => viasDump
   }
 
   return {

@@ -68,6 +68,7 @@ import { AVENIDAS, anelRaio, aneisDaCidade, avenidasGeom, emAvenida, naAlcaDeTer
 import { naOrlaDaBaia } from './orla-baia'
 import { look2 } from './look'
 import type { DistanceCuller } from './perf'
+import { detectTier, profileFor, parseQuality } from './perf'
 import {
   ESPECIES, ORDEM, GEO_LOOK1, geoArbusto, geoLonge,
   arquetipoDe, especieDe, tintarMuda, hash01,
@@ -126,6 +127,36 @@ export interface Arborizacao {
 const TETO = 40000        // teto duro de instâncias; o módulo loga o plantado
 const R_CHEIA = 1400      // além disto a árvore vira o volume de longe (8 triângulos)
 const PASSO_REBALANCE = 150
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CORTE POR DISTÂNCIA NO BALDE DE LONGE, NO MOBILE (23/09) — a mesma classe de
+// defeito do poste em `mobiliario-urbano.ts`, verificada aqui a pedido: uma
+// InstancedMesh (`malhas.longe`) sem teto de distância.
+//
+// ⚠️ NÃO É A MESMA ESTRUTURA (aqui já existe LOD e já existe rebalanceamento
+// por câmera, `rebalancear()`/`PASSO_REBALANCE`), mas É O MESMO BURACO: o
+// `else` de `rebalancear()` manda para `malhas.longe` QUALQUER muda fora do
+// raio de espécie (`r2[forma]`, no máximo `R_CHEIA` = 1.400 m), sem teto
+// superior nenhum. Uma árvore a 10 km da câmera desenha o mesmo octaedro de
+// 8 triângulos que uma a 1.401 m. Como só ~9,5% das 40.000 mudas cabem dentro
+// de R_CHEIA nos tetos por espécie (`CAP`, ~3.794 num disco de 1.400 m pela
+// densidade medida de 616 árvores/km²), a esmagadora maioria do balde de
+// longe é PAISAGEM QUE NUNCA SOME, câmera de órbita ou câmera de rua.
+//
+// ⚠️ MEDIDO em 23/09 (mesmo protocolo do poste, `__plazaDump()`, mobile):
+// grupo "arborizacao" = 446.874 triângulos por quadro — ver o número DEPOIS
+// medido no mesmo lugar, uma vez a correção no ar.
+//
+// O conserto reaproveita a MESMA infraestrutura que já existe (não precisa
+// de setor novo: `rebalancear()` já roda por distância de câmera a cada
+// `PASSO_REBALANCE`): no mobile, uma muda que cairia no balde de longe além
+// de `perfilArb.smallCull` simplesmente NÃO ENTRA em `malhas.longe` — o
+// `continue` mais abaixo. `count` já é dinâmico (`malhas.longe.count = iL`),
+// então cortar na fonte já economiza sem precisar esconder objeto nenhum.
+//
+// ⚠️ SÓ NO MOBILE: `mobileArb` vem de `detectTier()`, e no desktop
+// (`mobileArb === false`) o corte nunca entra — "desktop HIGH não muda".
+// ═══════════════════════════════════════════════════════════════════════════
 /** margem entre o pé da muda e a guia: o ponto não tem raio, a árvore tem. Torrão
  *  de 1,05 m no maior porte (×1,35 de escala, ×1,34 de copa aberta) dá 1,90 m. */
 const FOLGA_VIA = 1.9
@@ -208,6 +239,15 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
   const TRAVESSAS_POR_K = K.travessasPorK ?? {}
   const group = new THREE.Group()
   group.name = 'arborizacao'
+
+  // ── corte do balde de longe, só no mobile: ver o cabeçalho de LONGE_CULL_M ──
+  const mobileArb = detectTier() === 'mobile'
+  const perfilArb = profileFor(
+    detectTier(),
+    typeof window !== 'undefined' ? parseQuality(new URLSearchParams(window.location.search).get('quality')) : 'balanced',
+  )
+  const LONGE_CULL_M = perfilArb.smallCull
+  const longeCull2 = LONGE_CULL_M * LONGE_CULL_M
 
   // ── as máscaras: árvore respeita o mesmo que a rua respeita ───────────────
   const pecas = (meta.programa ?? []).map((p) => {
@@ -1002,6 +1042,13 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
         if (m.tint) perto.setColorAt(j, m.tint)
         perto.setMatrixAt(j, m4)
       } else {
+        // ⚠️ CORTE POR DISTÂNCIA, SÓ NO MOBILE (23/09): sem isto o balde de
+        // longe desenhava toda muda fora do raio de espécie, sem teto — ver o
+        // cabeçalho de `LONGE_CULL_M`, acima de `TETO`/`R_CHEIA`. `continue`
+        // aqui, e não escrita com escala zero, porque `count` já é dinâmico
+        // (linha de baixo, `malhas.longe.count = iL`): quem nunca escreve não
+        // precisa ser escondido.
+        if (mobileArb && d2 >= longeCull2) continue
         // ⚠️ A PROPORÇÃO DE LONGE VEM DA TABELA, e é ela que faz quatro espécies
         // caberem num octaedro só. A colunar entra em 0,40 × 1,77 e a conífera em
         // 0,96 × 1,57: a 1.400 m ninguém tem espécie, todo mundo tem PROPORÇÃO, e

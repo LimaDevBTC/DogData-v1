@@ -2524,7 +2524,13 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // 38% do custo, e é a única que nenhuma sonda de areia lê. As duas
         // faixas da água ficam inteiras, então a linha d'água e a praia medidas
         // continuam idênticas às do desktop.
-        { faixaSeca: profile.tier !== 'mobile' })
+        //
+        // ⚠️ SEGUNDO BOTÃO DE GEOMETRIA, 23/09/2026: `coroaMetade`, também só
+        // no `profile.tier` do MESMO perf.ts (nenhuma bandeira nova). Ver o
+        // cabeçalho de `TERRENO_COROA_R` em `terrain.ts` para a régua completa
+        // (por que r > 8.000 m, por que a costura não tranca) e os números
+        // medidos antes/depois logo ali perto de `compactarGeometria`.
+        { faixaSeca: profile.tier !== 'mobile', coroaMetade: profile.tier === 'mobile' })
         chaoGuerra = terrain.heightAt(WAR_POS.x, WAR_POS.z)
         if (disposed) return
         heightAt = terrain.heightAt

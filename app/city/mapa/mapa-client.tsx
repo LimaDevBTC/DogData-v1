@@ -211,6 +211,16 @@ export default function MapaClient() {
             <button onClick={() => zoomBotao(1 / 1.6)} aria-label="Zoom out" className="h-9 w-9 rounded border border-white/15 bg-[#0A0A0C] font-mono text-lg text-white/80 hover:bg-white/10">−</button>
           </div>
 
+          {/* ⚠️ NUNCA REDERIVA EM SILÊNCIO (ver a doutrina em malha.ts): se
+             `public/city/mapa/vias.json` faltou, o mapa continua de pé (lote,
+             quarteirão e programa não dependem de via) e diz assim, no canto,
+             em vez de inventar uma malha própria de novo. */}
+          {dadosRef.current?.malha.vias === null && (
+            <div className="pointer-events-none fixed bottom-2 left-2 z-20 rounded border border-white/15 bg-[#0A0A0C]/90 px-2 py-1 font-mono text-[9px] uppercase tracking-[0.15em] text-white/50 sm:bottom-4 sm:left-4">
+              Road network unavailable
+            </div>
+          )}
+
           <Legenda selo={selo} />
 
           {selecionado >= 0 && dadosRef.current && (

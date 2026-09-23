@@ -158,7 +158,7 @@ de Fundador; ele não é mais o gatilho da fotografia.
   tipologia, position_score (block height), founding_prestige, snapshot block N, versão do
   algoritmo + **declaração da regra dinâmica** ("building_class = f(saldo DOG vivo da
   carteira); renderer canônico: dogdata"). Nada dinâmico vai on-chain.
-- **Gate:** mint requer Personal License (≥10k DOG doados — accumulator do /donate).
+- **Gate:** ~~mint requer Personal License (≥10k DOG doados, accumulator do /donate)~~ **REVOGADO em 23/09 (§35): o mint é aberto a todo lote; a licença é para CONSTRUIR (o kit da §4.1), não para a escritura.**
   Licenciado com saldo <20k minta o deed normalmente; o lote nasce "à espera".
 - **Infra:** ord wallet do projeto (custódia do Charter) + gestão de taxas. ⚠️ O ord CLI
   disputa o lock redb com `dog_scanner` — jobs de inscription rodam em **janelas
@@ -2729,3 +2729,67 @@ terra de uma pessoa. Ferramenta: `scripts/city/tag_institucional.py`.
    número pior.
 4. **O mapa público** (`citymap-1600-v2.webp`) é de 13/09 e não conhece nada disto.
 5. **A página publica 69.995 lotes de carteira** e o registro tem 69.989 + 27 institucionais.
+
+
+---
+
+## §35 — O mint é aberto; a licença é para construir 🔒 (23/09/2026)
+
+**Decisão do fundador, nas palavras dele:** *"O mint com certeza abre pro mint
+independentemente de ter licença ou não. A licença é pra construir."*
+
+Isto **revoga a leitura do §4** onde ele diz "Gate: mint requer Personal License". O gate
+da licença passa a valer para o **Kit de construção** (o catálogo de prédio da §4.1), não
+para a escritura. Todo lote do registro selado pode ser mintado pelo dono: **69.989
+carteiras**, sem pré-requisito além de ter o lote no snapshot do bloco 966.670.
+
+**Janela dos fundadores (decisão do fundador, 23/09):** quem tem licença **abre o mint e
+fica 3 dias em exclusividade**; depois o mint abre para todo lote. A licença continua não
+sendo pré-requisito da escritura, mas passa a comprar **antecedência**: é a primeira vez que
+ela tem valor antes do mint, e é isso que a torna alavanca da pré-venda ("compre a licença e
+minte 3 dias antes de todo mundo").
+
+**Preço ao holder:** US$ 2 para a casa + fee de rede + postage. A casa fica com os US$ 2.
+Postage de 1 sat só com o cliente DOG MODE no ar (hoje o nó é Core e 1 sat é dust que não
+propaga); até lá, 546 sats.
+
+**O que isso muda no potencial (§34 e `marketing/POTENCIAL-2026-09.md`):** a linha do
+mint deixa de ser limitada pelas licenças (105) e passa a ser limitada pela **conversão
+sobre 69.989 carteiras** e pela **racionalidade por faixa de saldo** (para quem tem 1.000
+DOG, a fee passa do valor do próprio saldo). O modelo foi refeito com essa premissa.
+
+⚠️ **E O §4 CONTINUA CERTO NUMA COISA:** a proveniência parent/child exige gastar input do
+pai, que só o projeto detém, então **quem inscreve é a casa**. O holder paga à casa e a casa
+inscreve. É a casa que adianta o postage: 70 mil deeds a 546 sats são 0,382 BTC. Com DOG
+MODE, US$ 60. O DOG MODE é condição do modelo, não otimização.
+
+---
+
+## §36 — O quarteirão adota o dodecágono 🔒 (23/09/2026)
+
+**Decisão do fundador, nas palavras dele:** *"A geração dos lotes está circular... por isso
+não encaixa em lugar nenhum, ela deveria seguir o modelo do dodecaedro."*
+
+Fecha a questão que o §32 deixou aberta: das duas famílias de anel (a curva de nível de φ
+em que o quarteirão nascia e o dodecágono métrico em que a rua é desenhada), **morre a de
+φ**. A divisa radial do quarteirão passa a nascer **entre as faces de dois anéis
+consecutivos da teia**, com o vão da rua (`VIA_CONTORNO`) exatamente onde o anel passa.
+
+**Por que era isso, medido em 22/09:** a reconciliação angular (divisa no radial ativo) foi
+feita, mas a radial não: distância da divisa ao anel da teia p50 45,8 m, p90 105,7, máx
+381,8; **85,7% dos 2.071 quarteirões tinham rua de anel passando por dentro**. A poda da
+teia (§32) devolveu 704 km de rua e escancarou isso.
+
+**A geometria:** para um ponto no rumo θ, a face do anel de vértice R está em
+`r_face(θ) = R·cos 15° / cos t`, com t a distância angular ao centro da face mais próxima.
+Os vértices caem em múltiplos de 30° = 7 passos de 360/84, ou seja **coincidem com radial
+ativo**, e a costura angular de 22/09 continua valendo.
+
+**O que não muda:** a regra 1 da fundação (idade → onde) é preservada pela ordem dos anéis;
+os três distritos especiais ficam (a AN7 da Orla Nobre **é** círculo, a única); as sete
+parcelas ancoradas, o K01 e a tag institucional de 27 ficam; a superfície assada continua
+sendo o chão; `PHI_LOTE=6500` e `RESERVA_PCT=1` continuam o padrão.
+
+🔓 **Consequência de ordem:** esta regeração invalida o root `2178966f…` do §34, a carta v3,
+o índice `escrituras.bin` (que confere os selos e se recusa sozinho) e o `vias.json` da
+cena. Tudo isso se refaz DEPOIS da rodada, nunca antes. Resultado da rodada entra aqui.
