@@ -2843,9 +2843,63 @@ regras 1 e 3 da fundação, toda fileira com rua, os três distritos especiais (
 círculo: célula de arco), as sete ancoradas, K01, a tag de 27, blocos de 3 na Orla do Projeto,
 a superfície assada como chão.
 
-🔓 **Projeto em curso (23/09):** inventário de consumidores + 3 propostas de registro (endereço de
-célula derivado; 4 cantos explícitos; híbrido por família) + 2 juízes. A escolha e o layout
-entram aqui antes de qualquer código.
+🔒 **Decisão de projeto (23/09, 13h), depois de inventário, 3 propostas e 2 juízes:** os juízes
+dividiram (um pelo híbrido polar, outro pelos 4 cantos) e convergiram nos enxertos; o que fica
+é a união dos dois:
+
+1. **Registro v4 = 4 cantos explícitos, 21 bytes** `<8h B B H B>`: quatro cantos ABSOLUTOS
+   (x, z) em int16 de quartos de metro (a unidade que x,z já usam; alcança 8.191 m, a cidade
+   chega a 7.430), na ordem canônica frente-esquerda, frente-direita, fundo-direita,
+   fundo-esquerda (frente = aresta na rua de menor raio); depois setor, coorte, família e
+   flags (bit0 DSC, bits1-3 forma, bits4-5 família geométrica: 0 dodecágono, 1 círculo, 2
+   reta). Dois vizinhos arredondam o MESMO ponto para o MESMO inteiro: costura zero no .bin
+   por construção. 70.709 × 21 = 1,48 MB (+40%). O consumidor lê 8 números e não recalcula
+   nada: zero fórmula do lado TypeScript, zero réplica. `frente_m`, `prof_m`, `giro_graus`,
+   `_GIRO_DE` e `_GIRO_ORLA` morrem. CSV de direito ganha `p0x_m … p3z_m`; `x_m, z_m` viram
+   centróide; `area_m2` vira o shoelace dos inteiros selados. Folha merkle
+   `L|lot_id|address|8 inteiros em cm|area_m2|cota_cm|forma`, merkle versão 3.
+2. **A geometria nasce da célula, no gerador:** `canto(θ, d) = (sin θ·r, −cos θ·r)` com
+   `r = d / cos(rel θ)` na família dodecágono (d = apótema deslocada, `R·cos15° + offset`,
+   porque a fórmula é linear em d) e `r = d` na família círculo (S07 na AN7, S08, S09-anel).
+   Laterais em θ (radial pelo centro), frente e fundo em d (face ou divisa paralela). A função
+   vive em `teia.ts` e num espelho Python, e um **teste cruzado** (Node roda teia.ts, Python o
+   espelho, compara os 4 cantos dos 70.709 registros em milímetros) roda ANTES do gerador.
+3. **Enxertos obrigatórios:** massa instanciada continua caixa aproximada (largura = corda da
+   face mais larga, para o prédio nunca pendurar fora do lote) e a exatidão fica na moldura,
+   que já aceita 4 cantos; nunca reusar centésimos de grau para ângulo nenhum; `VIA_CONTORNO`
+   (12 m, hoje só em `gerar_cidade.py:325`) vira constante compartilhada com selo;
+   `cidade-malha.json` passa a descrever o quarteirão como célula (θ0, θ1, R_in, R_out) e
+   `vias.ts` (travessas, ~l. 2191) e `arborizacao.ts` (fileiras, l. 756/813) passam a ler a
+   célula, senão a travessa volta a atravessar o lote.
+4. **Portão, testes novos:** (24) quadrilátero simples, sem bowtie; (25) `area_m2` = shoelace
+   dos inteiros ±1 m²; (26) **sobreposição lote×lote ENTRE quarteirões e quartos** (o §39 achou
+   10.465 pares que o teste 4 nunca viu); (27) divisa interna paralela à face (`R + δ/cos15°`);
+   (28) nenhum canto fora da célula declarada do quarteirão; (29) lote×rua desenhada
+   (`vias.json`), limiar zero; assert de faixa dos int16 aborta a rodada.
+
+⚠️ **Medir antes de codar (furos que os juízes abriram):** (a) **convenção de `ANEIS[]`**: a
+memória da casa diz raio no VÉRTICE (face em 96,6%), mas o juiz leu `vias.ts:2883`
+`raioDodeca(ANEIS[i], a)` como APÓTEMA e achou nós de anel em meio de face com `r == ANEIS[k]`
+no `vias.json`; quem estiver certo decide `_teia_face_raio`, e 3,4% de erro é rua dentro de
+lote de novo. (b) **dobra 84→168**: o gerador decide por φ (`TEIA_PHI_DOBRA`) e a cena por
+anel métrico (`ANEIS[13]` = 3.384 m); 20,7% da área dos anéis de 84 tem radial fino
+DESENHADO no meio do quarteirão. A dobra do gerador passa a ser a da cena. (c) comentário
+"blocos de 5" em ~l. 4630 mente: `ORLA_PROJETO_BLOCO = 3` (19/09).
+
+**Decisões assumidas sobre o que ninguém resolveu:** lote raso: 25% dos lotes do tecido têm
+menos de 125 m², 5 m de frente e fundo de 4,8 a 25 m numa fileira de 25 m, e a terra atrás
+sobra (ocupação do quarteirão 51,5%); regra: **a fileira tem profundidade por classe**
+(fileiras homogêneas), nenhuma tira órfã, frente mínima continua 5 m. Superquadra (≥ área da
+célula) toma a célula inteira e só onde cabe, como hoje. Célula cortada por água ou peça:
+continua a poda por 5 pontos; o recorte poligonal fica registrado para depois.
+
+**Ordem de execução:** (1) medir (a) e (b) e travar em `teia.ts`; (2) fórmula + espelho +
+teste cruzado; (3) gerador (`_bloco`, `_z_das_filas`, `coloca`, `_cabe`, `_testada_no_anel`,
+malha por célula); (4) consumidores: `tecido.ts` (moldura e massa), mapa 2D
+(`registro.ts`, `malha.ts`, `desenho.ts`), `carta.mjs` CAMADA 2 (lote a lote, nunca
+envoltório), `escrituras.ts` + `gerar_escrituras.mjs`, `merkle.py`, `sobe_lookup.py`,
+`conferir_lotes.py`; (5) `scripts/city/rodada.sh` → portão 29 → merkle → escrituras →
+carta v4 → `vias.json`.
 
 
 ---
@@ -2872,3 +2926,127 @@ terreno; a fusão calçada+pista num quad só (um agente tentou e reverteu por z
 
 **Superfície:** re-assada depois das edições e **byte-idêntica** (`cmp` do f32); só a
 `digitalDoChao` mudou, como esperado. Desktop não muda uma linha (tudo atrás de `MOBILE_LOD`).
+
+---
+
+## §39 — Diagnóstico da carta e da cidade selada (23/09/2026)
+
+Quatro medidores independentes e quatro céticos (cada um refez a conta do zero) sobre a
+rodada 4. Scripts em `scripts/city/diag/` (`lote_vs_rua.py`, `lotes_forma_lugar.py`,
+`lote_x_programa.py`, `analise_carta*.py`); todo número abaixo sai deles.
+
+**Na CIDADE (nos dados selados):**
+1. **Lote × rua desenhada** (`vias.json`): 12.687 lotes (17,9%) com faixa de rua entrando
+   mais de 0,5 m; anel 11.516 (16,3%) e 76,5% dos 1.933 quarteirões do tecido; radial 0;
+   travessa 516; avenida 1.027. Penetração p50 7,3 m, p90 12 m, máx 42,9 m. S09 é o mais
+   atingido (67% dos lotes). É o §36.
+2. **Lote × lote: 10.465 pares acima de 1 m², 1,94 milhão de m² (4,4% da área), 9.161 lotes
+   (13%).** 10.453 pares são ENTRE quarteirões de quartos vizinhos (Q16/17, 17/18, 18/19,
+   20/21) em S03 a S06; S03 sozinho tem 5.686 pares. O teste 4 do portão só compara lotes
+   do MESMO quarteirão e o 4b só S07 a S09: **a costura entre quartos nunca foi testada.**
+   Maior par 3.921 m² (S04-Q10-B011-L001 × S04-Q11-B007-L002). É a matemática do retângulo
+   girado em arranjo polar: dois blocos vizinhos com rumos diferentes se cruzam na emenda. O
+   §37 (célula) fecha isso por construção; o teste 26 vigia.
+3. **Lote × programa: zero** lotes cruzam as 76 peças de `cidade.json` (3 cruzam anéis). Já
+   6.122 lotes (8,7%) cruzam o PLANO ANTIGO (`mapa-v1.json`): 67 peças foram movidas de 12 m
+   a 9,3 km entre os dois arquivos. `enclaves` = famílias do airdrop (317 / 29.757), nada a
+   ver com rua.
+4. **Fora do lugar: nada.** Nenhum lote além de 8.900 m (canto mais distante 7.116 m); giro =
+   rumo do centro (desvio máx 1,99°; S09 desvia por desenho, 305 lotes).
+
+**Na CARTA (só no desenho, `carta.mjs` CAMADA 2):** desenha UM retângulo opaco por quarteirão
+lido de `cidade-malha.json`, não os lotes. Consequências, uma a uma: esconde a travessa
+interna (88,4% dos quarteirões têm 2 ou mais fileiras: as "fileiras coladas sem rua");
+esconde o recorte das peças (os "retângulos escuros sobre lotes" são peças SEM lote por
+dentro, desenhadas sobre o envoltório); **desenha 138 quarteirões da malha que não têm nenhum
+lote** (o "bloco saindo da borda", vários em r 6.000 a 6.500, S05/S06); 780 pares de
+retângulos vizinhos se sobrepõem (599 com invasão real de lote). A cunha inclinada no SO é a
+emenda S03/S04, onde a costura dos quartos mais sobrepõe. Água recortada por círculo
+r 9.050 de `mapa-v1`. Avenida sobre a baía: consertada (§34, item 6). Anéis retos cortam 525
+quarteirões (25,4%).
+
+**Regra que sai daqui:** a carta desenha LOTE, nunca envoltório de quarteirão; e nenhum
+arquivo do plano antigo desenha nada além de âncora e topônimo.
+
+---
+
+## §40 — Antes da célula, a rede na grade (23/09/2026, tarde)
+
+O passo 1 do §37 era "medir a convenção de `ANEIS[]` e a dobra". Medido no `vias.json` e no
+código da cena, ele achou três desalinhamentos que impediriam qualquer lote de ser célula:
+
+1. **`ANEIS[i]` é APÓTEMA.** `vias.ts` desenha o anel da teia com `raioDodeca(ANEIS[i], a)`:
+   face em `ANEIS[i]`, vértice 3,5% mais longe. Os 3.623 trechos retos de anel de 12 m do dump
+   têm apótema implícita `r·cos(rel)` igual a `ANEIS[i]` no metro. O gerador do §36 usou
+   `_teia_face_raio`, espelho de `anelRaio()`, que trata o número como VÉRTICE: o quarteirão
+   dele nascia 3,4% para dentro da rua real (49 m no anel 0, 229 m no anel 26), e o teste 23
+   passava porque usava a mesma conta. **Regra: teste de encaixe mede contra o `vias.json`
+   (o que a cena desenha), nunca contra a fórmula que o gerador usou.**
+2. **O dump grava o anel arterial como círculo.** A cena desenha AN1 a AN6 como dodecágono
+   (interpolação cartesiana entre vértices, `vias.ts` ~2567), mas o `dumpSeg` interpola o
+   ÂNGULO (`pt(an.r, aa)`): no `vias.json` os arteriais têm o mesmo raio no vértice e no meio da
+   face, até 215 m fora do asfalto. Contaminou mapa 2D, carta e a medição lote×rua do §39.
+3. **AN3, AN5 e AN6 correm pelo meio do quarteirão** (58, 106 e 46 m fora da face mais
+   próxima; `TOL_DIVISA` = 25 m só encaixa quem está perto). Canais CR01-03 em 25°, 55°, 85°,
+   com corredor de 140 m, fora dos radiais (múltiplos de 4,29°). O gerador ainda reserva
+   círculos para os arteriais (`num_anel`), as 9 costuras de distrito e as bordas das bandas
+   de φ, que a cena não desenha; e não reserva as 12 avenidas a cada 30°, que ela desenha.
+
+**Decisões (23/09, reversíveis):**
+- **Arterial vai para a face, centrado:** AN3 → face 3.803 (vértice 3.937,2; para dentro
+  encostaria nas 7 peças ancoradas do bloco `{i:11, nr:3}`), AN5 → 5.535 (5.730,3), AN6 →
+  6.131 (6.347,3). Nenhuma peça nova atingida, exceto AN5 nas bocas de autopista AU1B/AU3A,
+  que existem para encontrar a via. É a regra que a própria `teia.ts` escreveu: move a
+  arterial, nunca a teia.
+- **Canal vai para o radial:** CR01-03 em 25,714°, 55,714°, 85,714° (radiais j = 12, 26, 40
+  de 168). O corredor de 140 m vira a divisa lateral das células vizinhas.
+- **O loteador usa só a rede desenhada:** anéis da teia (apótema), radiais ativos (84 até o
+  anel 13, 168 dali para fora, como a cena), 12 avenidas (44 m nos cardeais, 34 nas demais),
+  arteriais na face, canais no radial. Sai da máscara do tecido: `num_anel`, costuras de
+  distrito, bordas de φ.
+- **Célula e lote (o §37 concretizado):** célula = trapézio entre duas faces e dois radiais,
+  com meia rua de cada lado; `k` faixas de ~50 m e travessas de 9 m paralelas à face, a
+  fileira flexiona (23 a 25 m) para fechar a célula exata. Lote = fração da fileira: frente e
+  fundo paralelos à face, laterais em reta radial; área exata `(d_f² − d_t²)/2 · Δtan`. Lote de
+  faixa (as duas fileiras) acima de ~1.500 m², lote de célula acima de ~6.000 m².
+- **Piso de frente de 5 m com o fundo inteiro da fileira (~125 m²):** acaba com a "tira
+  órfã" atrás de 25% dos lotes. Carteira pequena recebe mais que a curva, nunca menos.
+- **Endereço:** `S{distrito}-Q{anel}-B{célula}-L{lote}`; Q é o anel da teia (1 a 26), B a
+  célula no anel, em ordem de rumo.
+
+## §41 — Contrato do registro v4 (23/09/2026) 🔒
+
+Quem lê lote lê isto. Nenhum consumidor recalcula geometria: os cantos vêm prontos.
+
+**`data/dogcity_lotes.csv` (registro de direito).** Colunas de hoje, na mesma ordem, e mais nove
+no fim: `p0x_m,p0z_m,p1x_m,p1z_m,p2x_m,p2z_m,p3x_m,p3z_m,geo`.
+- `p0 p1` = **aresta da frente** (a que dá para a rua), `p2 p3` = aresta do fundo, `p0→p1` em
+  rumo crescente e `p3` atrás de `p0`. Quadrilátero simples e convexo; sentido de giro livre
+  (área = |shoelace|). Lote de faixa ou de célula (frente para duas ruas): frente = aresta de
+  menor apótema.
+- `geo`: 0 = célula da teia (arestas paralelas à face do dodecágono, laterais radiais),
+  1 = fatia de anel (S07, S08, S09-arco: arestas em círculo, gravadas como corda), 2 = reta
+  (S09-dedo), 3 = retângulo legado (só o que não foi convertido; o portão reprova se sobrar).
+- `x_m, z_m` = centróide do polígono. `area_m2` = área exata do polígono (a promessa lê esta).
+- `frente_m` = |p1 − p0|; `prof_m` = distância entre as retas da frente e do fundo;
+  `giro_graus` = rumo da face (célula) ou do meio do lote (fatia): **derivados**, ficam para
+  quem ainda não migrou e morrem quando o último consumidor migrar.
+
+**`public/city/cidade-lotes-v4.bin` (cópia quantizada, nome novo porque o CDN serve o velho).**
+21 bytes por lote, little-endian, `<8hBBHB`, mesma ordem do CSV:
+`p0x p0z p1x p1z p2x p2z p3x p3z` (int16, quartos de metro, ABSOLUTOS), `setor` (u8, 0-based),
+`coorte` (u8), `familia` (u16), `flags` (u8: bit0 DSC, bits1-3 forma 0-4, bits4-5 `geo`).
+Canto absoluto e não delta: dois vizinhos arredondam o mesmo ponto para o mesmo inteiro, então
+a costura no .bin é zero por construção. `cidade.json` ganha `registroVersao: 4`,
+`registroBytes: 21`, `registroArquivo: "cidade-lotes-v4.bin"`; todo leitor confere a versão e
+recusa o que não reconhece. `cidade-cotas.bin` não muda.
+
+**`public/city/cidade-malha.json`, `quarteiroes` = células.** Cada uma: `id` (`S03-Q14-B007`),
+`setor, quarto, quarteirao, anel, j0, j1, face` (graus), `dIn, dOut` (apótemas da área útil),
+`k, fila` (profundidade da fileira), `poly` (4 cantos da área útil, mesma convenção do lote),
+`travessas: [[x0,z0,x1,z1], ...]` (eixo de cada travessa de 9 m, de eixo de radial a eixo de
+radial, pronto para desenhar), `lotes` (quantos). Campos legados `x, z, r, giro, lado, prof`
+continuam, derivados, até o último leitor migrar.
+
+**Folha merkle v3:** `L|lot_id|address|p0x_cm|p0z_cm|p1x_cm|p1z_cm|p2x_cm|p2z_cm|p3x_cm|p3z_cm|
+area_m2|cota_cm|forma|geo`; o cabeçalho `H|3|...` sela CSV, cemitério, bin v4 e `cidade.json`.
