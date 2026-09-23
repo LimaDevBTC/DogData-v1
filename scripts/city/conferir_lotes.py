@@ -48,9 +48,9 @@
 #                      repositório (ou absoluto), sem mudar os demais. É assim
 #                      que se aponta o CSV e o .bin para
 #                      `public/city/_v4teste/` (que não espelha a árvore do
-#                      repositório) e deixa tudo o mais — manifesto de
-#                      snapshot, superfície assada, `app/dogcity/dogcity-data.ts`
-#                      — saindo da raiz de verdade.
+#                      repositório) e deixa tudo o mais (manifesto de
+#                      snapshot, superfície assada, `app/dogcity/dogcity-data.ts`)
+#                      saindo da raiz de verdade.
 #   --tolerancia=<m>   sobreposição: no v3 o padrão continua 0,02 m (a
 #                      resolução do registro antigo); no v4 o padrão passa a
 #                      0,05 m (masterplan §37, tarefa 4a). Passar o valor
@@ -71,7 +71,7 @@ ACEITA_LEGADO = flag('aceita-legado')
 def caminho(nome_canonico, override):
     """Sem override, o de sempre: BASE (--cidade=) + o nome canônico. Com
     override (--csv=, --bin=, ...), relativo à RAIZ DO REPOSITÓRIO (ou
-    absoluto), nunca a BASE — dá para apontar um artefato só para a pasta de
+    absoluto), nunca a BASE: dá para apontar um artefato só para a pasta de
     teste sem arrastar manifesto, malha, superfície e snapshots junto."""
     if override:
         return override if os.path.isabs(override) else os.path.join(RAIZ, override)
@@ -140,7 +140,7 @@ print(f'CONFERÊNCIA DO LOTEAMENTO em {BASE} (registro {"v4, 4 cantos" if V4 els
 # ── GEOMETRIA: cantos de cada lote, e SÓ DE UM JEITO (masterplan §37) ───────
 # No v4 os 4 cantos SÃO o CSV: nenhuma fórmula, nenhuma reconstrução. No v3
 # eles continuam vindo de `cantos(x, z, frente, prof, giro)`, exatamente como
-# sempre — a função abaixo também serve para desenhar o retângulo do lote de
+# sempre. A função abaixo também serve para desenhar o retângulo do lote de
 # projeto e a peça de programa mais adiante, que não mudam com a rodada.
 def cantos(x, z, w, d, giro):
     ca, sa = math.cos(giro), math.sin(giro)
@@ -166,7 +166,7 @@ def _shoelace(c):
 # shoelace dos 4 pontos, que subestimaria a corda), a SOBREPOSIÇÃO/LOTE×RUA
 # (a fatia não é convexa quando o arco é grande, então ela é subdividida em
 # sub-fatias de no máximo 1° e cada uma vira um quadrilátero que CONTÉM a
-# sub-fatia real, empurrando para fora só a aresta de raio maior — a de raio
+# sub-fatia real, empurrando para fora só a aresta de raio maior (a de raio
 # menor já fica por dentro do arco verdadeiro usando a corda crua) e o TESTE
 # DE FORMA (não é "convexo e simples", é |p0|=|p1|, |p2|=|p3| e as laterais
 # radiais).
@@ -210,7 +210,7 @@ def area_do_lote(c, geo):
 
 def _quase_radial(a, b, tol=0.05):
     """a e b estão no MESMO rumo a partir da origem? (distância perpendicular
-    de b à reta origem-a, em metros — bearing-independente, ao contrário de
+    de b à reta origem-a, em metros, bearing-independente, ao contrário de
     comparar ângulos, que precisaria de uma tolerância diferente por raio)."""
     ra = math.hypot(*a)
     if ra < 1e-6: return True
@@ -320,7 +320,7 @@ item('lote do projeto não tem dono de carteira',
 if V4:
     # ⚠️ NO v4 A FIDELIDADE FINA VIROU TESTE PRÓPRIO ("bin v4 fiel ao CSV",
     # mais abaixo, no lugar do antigo 6b): ali se confere CADA canto, não uma
-    # amostra de x/z. Aqui basta o tamanho — os três arquivos precisam ter o
+    # amostra de x/z. Aqui basta o tamanho: os três arquivos precisam ter o
     # mesmo número de linhas antes de qualquer teste que index por posição.
     mesma = len(lotes) == len(linhas) == len(cotas)
     item('registro (.bin v4, CSV e cotas) do mesmo tamanho', mesma,
@@ -387,8 +387,8 @@ def cruza(A, B, tol):
 
 # 4. SOBREPOSIÇÃO
 # ⚠️ SÓ O v4 GANHA A GRADE GLOBAL (masterplan §37, tarefa 4a). O v3 continua
-# rodando EXATAMENTE como hoje — mesmo agrupamento por quarteirão, mesmo teste
-# à parte para os distritos especiais, mesma tolerância padrão — porque a
+# rodando EXATAMENTE como hoje (mesmo agrupamento por quarteirão, mesmo teste
+# à parte para os distritos especiais, mesma tolerância padrão), porque a
 # tarefa pede o portão novo para o registro novo, não uma reauditoria
 # retroativa do registro que o bot de auto-commit publica agora mesmo. (O
 # §39 mediu esse mesmo buraco por FORA do portão, com script de diagnóstico
@@ -406,7 +406,7 @@ if V4:
     # Kraken hot); se a grade só olhasse a célula do centro, um vizinho a duas
     # células de distância nunca apareceria como candidato. Inserindo o lote
     # em TODA célula que sua caixa toca, dois polígonos que se tocam sempre
-    # compartilham pelo menos uma célula — não precisa de vizinhança 3×3 por
+    # compartilham pelo menos uma célula, e não precisa de vizinhança 3×3 por
     # cima.
     _CELD_SOB = 100.0
     _grade_sob = collections.defaultdict(list)
@@ -518,8 +518,8 @@ else:
          'PULADO: este CSV é anterior à coluna giro_graus (22/09)')
 
 # 4i. QUADRILÁTERO SIMPLES E CONVEXO (geo 0/2/3) OU FATIA COERENTE (geo=1)
-# (masterplan §37, tarefa 4c; só existe no v4 — o v3 sempre foi retângulo por
-# construção, `cantos()` não sabe desenhar outra coisa).
+# (masterplan §37, tarefa 4c; só existe no v4, porque o v3 sempre foi retângulo
+# por construção, e `cantos()` não sabe desenhar outra coisa).
 #
 # ⚠️ GEO=1 NÃO SE TESTA IGUAL. A emenda do coordenador (23/09) tornou a fatia
 # de anel não-convexa por definição quando o arco é grande (a corda cortaria
@@ -547,7 +547,7 @@ if V4:
 # 4j. area_m2 BATE COM A ÁREA EXATA DO POLÍGONO, ±1 m² (masterplan §37/§41)
 # ⚠️ GEO=1 USA SETOR CIRCULAR, NUNCA SHOELACE. A emenda do coordenador é
 # explícita: shoelace dos 4 pontos (que são só os EXTREMOS do arco, ligados
-# por corda) subestima a área verdadeira — é exatamente essa subestimativa
+# por corda) subestima a área verdadeira, e é exatamente essa subestimativa
 # que cortaria 114 m da custódia do Distrito Financeiro se alguém usasse a
 # corda como fronteira de direito.
 if V4:
@@ -609,13 +609,13 @@ if V4:
 # `POL[i]` (o CSV no v4, `cantos()` no v3) em vez de reconstruir retângulo a
 # partir de frente/prof/giro. `_folga` compara UM PAR de quadriláteros; quando
 # o lote é uma lista de sub-fatias (geo=1), `_folga_multi` testa todas as
-# combinações e fica com a pior — para geo 0/2/3 (lista de um elemento só) o
+# combinações e fica com a pior; para geo 0/2/3 (lista de um elemento só) o
 # resultado é idêntico ao de sempre.
 _TETO_DIVISA = 3.0
 _MAX_FORA = 0.01          # 1% das divisas
 # ⚠️ O RAIO DO FILTRO RÁPIDO NÃO MUDA NO v3, DE PROPÓSITO. É só uma pré-triagem
 # (quem sobra ainda passa por `_folga_multi`, exato), mas um raio diferente
-# muda QUAIS pares chegam a ser testados, e portanto o número final — o v3
+# muda QUAIS pares chegam a ser testados, e portanto o número final. O v3
 # usa `max(frente, prof)/2` desde sempre, e trocar por um raio derivado da
 # caixa envolvente (mais correto para retângulo girado, mas DIFERENTE) mudaria
 # a contagem publicada sem a rodada ter mudado. O v4 usa a caixa envolvente
@@ -767,7 +767,7 @@ if V4:
     #
     # ⚠️ ESTE TESTE VAI REPROVAR HOJE, E É ISSO MESMO (nota do coordenador,
     # 23/09): o `vias.json` atual grava os anéis ARTERIAIS como CÍRCULO
-    # (defeito do dump — `dumpSeg` interpola o ângulo, a cena desenha
+    # (defeito do dump: `dumpSeg` interpola o ângulo, a cena desenha
     # dodecágono), outro agente está consertando isso à parte. Reprovar aqui
     # não é regressão deste portão: é o portão finalmente medindo um defeito
     # que já existia e ninguém via.
@@ -868,10 +868,10 @@ if V4:
              f'{_sem_celula} sem célula correspondente, {len(_fora_cel)} fora por mais de {_TOL_CELULA} m'
              + (f', pior {_fora_cel[0][0]:.2f} m em {_fora_cel[0][1]}' if _fora_cel else ''))
 else:
-    # 4h. O QUARTEIRÃO OBEDECE O DODECÁGONO (masterplan §36, 23/09/2026) — só v3.
+    # 4h. O QUARTEIRÃO OBEDECE O DODECÁGONO (masterplan §36, 23/09/2026), só v3.
     # No v4 este papel se divide em dois testes que medem contra o que a CENA
     # desenha de verdade (4p, lote×rua; 4q, lote×célula), em vez de contra a
-    # fórmula que o gerador usou — a mesma lição que o §40 tirou desta prova.
+    # fórmula que o gerador usou: a mesma lição que o §40 tirou desta prova.
     #
     # ⚠️ POR QUE ISTO EXISTE. O fundador, nas palavras dele: "a geração dos lotes
     # está circular... ela deveria seguir o modelo do dodecaedro". Medido em 22/09
@@ -1098,7 +1098,7 @@ if V4:
     # é mais "1/4 m em x/z/frente/prof", é os 8 CANTOS e os FLAGS. bits4-5 dos
     # flags = `geo` (não "família geométrica 0/1/2" do texto antigo do §37: o
     # próprio §41, que é o contrato posterior e o que `v4_de_v3.py` já
-    # implementa, fixa bits4-5 = geo, 0 a 3 — é essa leitura que este teste usa).
+    # implementa, fixa bits4-5 = geo, 0 a 3, e é essa leitura que este teste usa).
     _n_bin, _n_csv = len(lotes), len(linhas)
     if _n_bin != _n_csv:
         item('bin v4 fiel ao CSV (cantos ±0,13 m, mesma ordem, flags)', False,
@@ -1154,7 +1154,7 @@ else:
 # gravada: o registro tem centro, frente, fundo e giro (v3) ou os 4 cantos
 # (v4). Por isso a conferência não exige que a cota bata com um ponto
 # escolhido, e sim que ela esteja DENTRO da faixa de alturas da PEGADA,
-# amostrada em 9 pontos (centro, quatro cantos, quatro meios de aresta) — no
+# amostrada em 9 pontos (centro, quatro cantos, quatro meios de aresta); no
 # v4 os cantos e os meios de aresta são os do POLÍGONO DE VERDADE, não os de
 # um retângulo reconstruído.
 COTA_P99 = 1.5

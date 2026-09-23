@@ -55,7 +55,7 @@
 //      [--csv=ARQ] [--cemiterio=ARQ] [--merkle=ARQ] [--saida=DIR]
 // Sem opções, os quatro caminhos são os de sempre (data/ e public/city/ na raiz
 // do repositório). Cada opção sobrepõe UM caminho, relativo à raiz do
-// repositório (ou absoluto) — é assim que se aponta para
+// repositório (ou absoluto): é assim que se aponta para
 // `public/city/_v4teste/` sem escrever em cima do `public/city/escrituras.bin`
 // de produção: `--saida=` manda o .bin e o .json de teste para outro lugar.
 // ═══════════════════════════════════════════════════════════════════════════
