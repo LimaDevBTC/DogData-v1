@@ -3024,10 +3024,16 @@ no fim: `p0x_m,p0z_m,p1x_m,p1z_m,p2x_m,p2z_m,p3x_m,p3z_m,geo`.
   rumo crescente e `p3` atrás de `p0`. Quadrilátero simples e convexo; sentido de giro livre
   (área = |shoelace|). Lote de faixa ou de célula (frente para duas ruas): frente = aresta de
   menor apótema.
-- `geo`: 0 = célula da teia (arestas paralelas à face do dodecágono, laterais radiais),
-  1 = fatia de anel (S07, S08, S09-arco: arestas em círculo, gravadas como corda), 2 = reta
-  (S09-dedo), 3 = retângulo legado (só o que não foi convertido; o portão reprova se sobrar).
-- `x_m, z_m` = centróide do polígono. `area_m2` = área exata do polígono (a promessa lê esta).
+- `geo`: 0 = célula da teia (quadrilátero convexo: arestas paralelas à face do dodecágono,
+  laterais radiais), 1 = **fatia de anel centrada na origem** (S07, S08, S09-arco): `p0p1` e
+  `p2p3` são ARCOS de círculo com centro em (0,0) e as laterais são radiais; os 4 cantos
+  determinam a forma inteira (raios = |p0| e |p2|, ângulos = rumo de p0 e p1). Quem desenha
+  subdivide o arco (flecha ≤ 0,05 m); quem mede área usa `(r_f² − r_t²)/2 · Δθ`. Existe porque
+  a custódia do Distrito Financeiro tem 57° de arco e a corda cortaria 114 m para dentro.
+  2 = reta (S09-dedo, retângulo exato), 3 = retângulo legado (só o convertido; o portão
+  reprova se sobrar).
+- `x_m, z_m` = centróide da forma. `area_m2` = área exata da forma (polígono, ou fatia de
+  anel quando `geo=1`); a promessa lê esta.
 - `frente_m` = |p1 − p0|; `prof_m` = distância entre as retas da frente e do fundo;
   `giro_graus` = rumo da face (célula) ou do meio do lote (fatia): **derivados**, ficam para
   quem ainda não migrou e morrem quando o último consumidor migrar.

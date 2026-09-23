@@ -22,32 +22,104 @@
 # aprovar antes da rodada. Portão que só sabe responder o que já foi
 # perguntado uma vez não é portão: é histórico.
 #
-#   python3 scripts/city/conferir_lotes.py --cidade=/caminho/da/saida
-#   opções: --tolerancia=<m> (sobreposição, padrão 0,02)
-#           --conexao=<arquivo> (saída de vias-varredura.mjs, padrão
-#                                /tmp/vias/conexao.json)
+# ⚠️ DOIS REGISTROS, UM PORTÃO (masterplan §37/§41, 23/09/2026). O lote deixou
+# de ser retângulo (x, z, frente, prof, giro) e virou 4 cantos explícitos. O
+# script DETECTA sozinho qual dos dois está no CSV (pela presença das colunas
+# `p0x_m ... p3z_m, geo`) e roda o conjunto de testes certo:
+#   - REGISTRO v3 (retângulo): os 23 testes de sempre, byte a byte como hoje.
+#   - REGISTRO v4 (4 cantos): todo teste geométrico usa os cantos do CSV
+#     diretamente (nunca reconstrói retângulo), a sobreposição passa a olhar
+#     TODOS os pares vizinhos (não só dentro do quarteirão) e entram os testes
+#     novos do §37 (quadrilátero, área exata, geo=3, faixa do int16, bin v4,
+#     lote×rua, lote×célula).
+# Nenhuma opção liga isto: é o arquivo em disco que decide, porque o bot de
+# auto-commit publica a árvore de hora em hora e não pode escolher versão.
+#
+#   python3 scripts/city/conferir_lotes.py [--cidade=DIR] [--tolerancia=<m>]
+#       [--conexao=<arquivo>] [--csv=ARQ] [--bin=ARQ] [--cemiterio=ARQ]
+#       [--cidade-json=ARQ] [--malha=ARQ] [--cotas=ARQ] [--vias=ARQ]
+#       [--aceita-legado]
+#
+#   --cidade=DIR      BASE para todo arquivo que os testes leem (registro,
+#                      manifesto, malha, superfície assada, snapshots...),
+#                      como sempre foi (padrão: a raiz do repositório).
+#   --csv=/--bin=/--cemiterio=/--cidade-json=/--malha=/--cotas=/--vias=
+#                      sobrepõe UM caminho por vez, relativo à raiz do
+#                      repositório (ou absoluto), sem mudar os demais. É assim
+#                      que se aponta o CSV e o .bin para
+#                      `public/city/_v4teste/` (que não espelha a árvore do
+#                      repositório) e deixa tudo o mais — manifesto de
+#                      snapshot, superfície assada, `app/dogcity/dogcity-data.ts`
+#                      — saindo da raiz de verdade.
+#   --tolerancia=<m>   sobreposição: no v3 o padrão continua 0,02 m (a
+#                      resolução do registro antigo); no v4 o padrão passa a
+#                      0,05 m (masterplan §37, tarefa 4a). Passar o valor
+#                      sobrescreve os dois.
+#   --aceita-legado    só para testar a cadeia contra um CSV convertido por
+#                      `v4_de_v3.py` (todo geo=3): sem isto, geo=3 reprova.
 # ═══════════════════════════════════════════════════════════════════════════
 import csv, json, math, os, struct, sys, collections
 
-arg = lambda k, d: next((a.split('=', 1)[1] for a in sys.argv[1:] if a.startswith(f'--{k}=')), d)
+arg = lambda k, d=None: next((a.split('=', 1)[1] for a in sys.argv[1:] if a.startswith(f'--{k}=')), d)
+flag = lambda k: f'--{k}' in sys.argv[1:]
 RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 BASE = arg('cidade', RAIZ)
 FILA = arg('fila', os.path.join(RAIZ, 'data/snapshots/dog_966670_ordem_residencial.json'))
-# ⚠️ A TOLERÂNCIA É A RESOLUÇÃO DO REGISTRO, NÃO UM GOSTO. O registro v2 guarda
-# posição em quartos de metro, então cada centro pode andar 0,125 m e dois lotes
-# que se ENCOSTAM aparecem cruzados em até 0,25 m sem que ninguém tenha errado.
-# Abaixo disso é quadriculado; acima é defeito de colocação. Medido em 20/09:
-# com 0,10 m o teste acusava 15.593 pares e TODOS os inspecionados estavam na
-# faixa de 0,15 m, ou seja o teste estava medindo o arquivo, não a cidade.
-TOL = float(arg('tolerancia', '0.02'))
+ACEITA_LEGADO = flag('aceita-legado')
 
-FMT = '<hhBBHBHHH'; REG = struct.calcsize(FMT)  # registro v3, 15 bytes
-byt = open(os.path.join(BASE, 'public/city/cidade-lotes.bin'), 'rb').read()
+
+def caminho(nome_canonico, override):
+    """Sem override, o de sempre: BASE (--cidade=) + o nome canônico. Com
+    override (--csv=, --bin=, ...), relativo à RAIZ DO REPOSITÓRIO (ou
+    absoluto), nunca a BASE — dá para apontar um artefato só para a pasta de
+    teste sem arrastar manifesto, malha, superfície e snapshots junto."""
+    if override:
+        return override if os.path.isabs(override) else os.path.join(RAIZ, override)
+    return os.path.join(BASE, nome_canonico)
+
+
+# ⚠️ A TOLERÂNCIA É A RESOLUÇÃO DO REGISTRO, NÃO UM GOSTO. O registro v3 (o
+# retângulo) guarda posição em quartos de metro, então cada centro pode andar
+# 0,125 m e dois lotes que se ENCOSTAM aparecem cruzados em até 0,25 m sem que
+# ninguém tenha errado. Medido em 20/09: com 0,10 m o teste acusava 15.593
+# pares e TODOS os inspecionados estavam na faixa de 0,15 m, ou seja o teste
+# estava medindo o arquivo, não a cidade. O v4 mede o CSV (ponto flutuante,
+# nunca quantizado), então o piso deixa de ser sobre a grade do .bin e vira o
+# valor fixado no §37 (0,05 m); ambos continuam sobrescrevíveis pela mesma opção.
+_tol_arg = arg('tolerancia')
+TOL = float(_tol_arg) if _tol_arg is not None else 0.02
+TOL_SOBREPOSICAO_V4 = float(_tol_arg) if _tol_arg is not None else 0.05
+
+CAM_CSV = caminho('data/dogcity_lotes.csv', arg('csv'))
+CAM_CEM = caminho('data/dogcity_cemiterio.csv', arg('cemiterio'))
+CAM_CIDADE_JSON = caminho('public/city/cidade.json', arg('cidade-json'))
+CAM_MALHA = caminho('public/city/cidade-malha.json', arg('malha'))
+CAM_COTAS = caminho('public/city/cidade-cotas.bin', arg('cotas'))
+CAM_VIAS = caminho('public/city/mapa/vias.json', arg('vias'))
+
+with open(CAM_CSV, newline='') as _f:
+    _leitor = csv.DictReader(_f)
+    _campos = _leitor.fieldnames or []
+    # ⚠️ A DETECÇÃO É PELO ARQUIVO, NUNCA POR OPÇÃO (a mesma regra de
+    # scripts/city/merkle.py): `p0x_m` e `geo` só existem depois que o gerador
+    # (ou, em teste, `v4_de_v3.py`) os escreveu.
+    V4 = 'p0x_m' in _campos and 'geo' in _campos
+    linhas = list(_leitor)
+
+NOME_BIN = 'public/city/cidade-lotes-v4.bin' if V4 else 'public/city/cidade-lotes.bin'
+CAM_BIN = caminho(NOME_BIN, arg('bin'))
+
+if V4:
+    FMT = '<8hBBHB'; REG = struct.calcsize(FMT)      # registro v4, 21 bytes (masterplan §41)
+    assert REG == 21
+else:
+    FMT = '<hhBBHBHHH'; REG = struct.calcsize(FMT)   # registro v3, 15 bytes
+byt = open(CAM_BIN, 'rb').read()
 lotes = [struct.unpack_from(FMT, byt, i * REG) for i in range(len(byt) // REG)]
-linhas = list(csv.DictReader(open(os.path.join(BASE, 'data/dogcity_lotes.csv'))))
-cot = open(os.path.join(BASE, 'public/city/cidade-cotas.bin'), 'rb').read()
+cot = open(CAM_COTAS, 'rb').read()
 cotas = [struct.unpack_from('<h', cot, i * 2)[0] / 100.0 for i in range(len(cot) // 2)]
 fila = json.load(open(FILA))['ordem']
+MANIFESTO = json.load(open(CAM_CIDADE_JSON))
 
 falhas = []
 def item(nome, ok, detalhe=''):
@@ -63,7 +135,142 @@ def indisponivel(nome, detalhe=''):
     print('  INDISP  ' + nome + (('  ' + detalhe) if detalhe else ''))
     falhas.append(nome + ' (INDISPONÍVEL)')
 
-print(f'CONFERÊNCIA DO LOTEAMENTO em {BASE}')
+print(f'CONFERÊNCIA DO LOTEAMENTO em {BASE} (registro {"v4, 4 cantos" if V4 else "v3, retângulo"})')
+
+# ── GEOMETRIA: cantos de cada lote, e SÓ DE UM JEITO (masterplan §37) ───────
+# No v4 os 4 cantos SÃO o CSV: nenhuma fórmula, nenhuma reconstrução. No v3
+# eles continuam vindo de `cantos(x, z, frente, prof, giro)`, exatamente como
+# sempre — a função abaixo também serve para desenhar o retângulo do lote de
+# projeto e a peça de programa mais adiante, que não mudam com a rodada.
+def cantos(x, z, w, d, giro):
+    ca, sa = math.cos(giro), math.sin(giro)
+    return [(x + dx*ca - dz*sa, z + dx*sa + dz*ca)
+            for dx, dz in ((-w/2, -d/2), (w/2, -d/2), (w/2, d/2), (-w/2, d/2))]
+
+def _rumo(pt):
+    """mesma convenção de sempre neste arquivo (teste do §36): 0 = norte
+    (x=0, z<0), crescente em sentido horário."""
+    return math.atan2(pt[0], -pt[1])
+
+def _shoelace(c):
+    s = 0.0
+    for k in range(4):
+        x1, z1 = c[k]; x2, z2 = c[(k + 1) % 4]
+        s += x1 * z2 - x2 * z1
+    return abs(s) / 2.0
+
+# ⚠️ EMENDA DO COORDENADOR (23/09/2026, depois do §41 já fechado): geo=1 NÃO É
+# CORDA, é FATIA DE ANEL CENTRADA NA ORIGEM. p0-p1 e p2-p3 são ARCOS de círculo
+# centrado em (0,0), as laterais p0-p3 e p1-p2 são RADIAIS. Isso muda três
+# coisas, e as três estão implementadas aqui: a ÁREA (setor circular, não
+# shoelace dos 4 pontos, que subestimaria a corda), a SOBREPOSIÇÃO/LOTE×RUA
+# (a fatia não é convexa quando o arco é grande, então ela é subdividida em
+# sub-fatias de no máximo 1° e cada uma vira um quadrilátero que CONTÉM a
+# sub-fatia real, empurrando para fora só a aresta de raio maior — a de raio
+# menor já fica por dentro do arco verdadeiro usando a corda crua) e o TESTE
+# DE FORMA (não é "convexo e simples", é |p0|=|p1|, |p2|=|p3| e as laterais
+# radiais).
+PASSO_ARCO = math.radians(0.25)   # o §37 pede no máximo 1°; uso 1/4 disso de folga
+
+def sub_poligonos(c, geo):
+    """lista de quadriláteros convexos que cobrem o lote. geo 0/2/3: o próprio
+    quadrilátero do CSV, sem mudança nenhuma. geo 1: a fatia de anel
+    subdividida (ver nota acima)."""
+    if geo != 1:
+        return [c]
+    p0, p1, p2, p3 = c
+    r_f = (math.hypot(*p0) + math.hypot(*p1)) / 2.0
+    r_t = (math.hypot(*p2) + math.hypot(*p3)) / 2.0
+    th0, th1 = _rumo(p0), _rumo(p1)
+    dth = (th1 - th0) % (2 * math.pi)
+    if dth < 1e-9:
+        return [c]
+    n = max(1, math.ceil(dth / PASSO_ARCO))
+    passo = dth / n
+    maior_r, menor_r = (r_f, r_t) if r_f >= r_t else (r_t, r_f)
+    maior_r_contido = maior_r / math.cos(passo / 2.0)
+    r_f_uso = maior_r_contido if r_f >= r_t else menor_r
+    r_t_uso = menor_r if r_f >= r_t else maior_r_contido
+    def pt(r, a): return (r * math.sin(a), -r * math.cos(a))
+    polys = []
+    for k in range(n):
+        a0 = th0 + k * passo
+        a1 = a0 + passo
+        polys.append([pt(r_f_uso, a0), pt(r_f_uso, a1), pt(r_t_uso, a1), pt(r_t_uso, a0)])
+    return polys
+
+def area_do_lote(c, geo):
+    if geo == 1:
+        p0, p1, p2, p3 = c
+        r1 = (math.hypot(*p0) + math.hypot(*p1)) / 2.0
+        r2 = (math.hypot(*p2) + math.hypot(*p3)) / 2.0
+        dth = (_rumo(p1) - _rumo(p0)) % (2 * math.pi)
+        return abs(r1 * r1 - r2 * r2) / 2.0 * dth
+    return _shoelace(c)
+
+def _quase_radial(a, b, tol=0.05):
+    """a e b estão no MESMO rumo a partir da origem? (distância perpendicular
+    de b à reta origem-a, em metros — bearing-independente, ao contrário de
+    comparar ângulos, que precisaria de uma tolerância diferente por raio)."""
+    ra = math.hypot(*a)
+    if ra < 1e-6: return True
+    cruz = a[0]*b[1] - a[1]*b[0]
+    return abs(cruz) / ra <= tol
+
+def _convexo_simples(c, tol=1e-6):
+    """todo giro de aresta (a cada vértice) tem o MESMO sinal: é o teste de
+    quadrilátero simples e convexo, e vale para os dois sentidos de giro
+    (§41: "sentido de giro livre"). Um bowtie (self-intersecting) sempre dá
+    sinais misturados aqui, então "simples" e "convexo" saem do mesmo cálculo."""
+    n = len(c)
+    sinais = []
+    for k in range(n):
+        ax, az = c[(k - 1) % n]; bx, bz = c[k]; cx, cz = c[(k + 1) % n]
+        e1x, e1z = bx - ax, bz - az
+        e2x, e2z = cx - bx, cz - bz
+        sinais.append(e1x*e2z - e1z*e2x)
+    pos = sum(1 for s in sinais if s > tol)
+    neg = sum(1 for s in sinais if s < -tol)
+    return (pos == n and neg == 0) or (neg == n and pos == 0)
+
+def _dist_pt_seg(p, a, b):
+    px, pz = p; ax, az = a; bx, bz = b
+    dx, dz = bx - ax, bz - az
+    l2 = dx*dx + dz*dz
+    if l2 < 1e-12: return math.hypot(px - ax, pz - az)
+    t = max(0.0, min(1.0, ((px - ax)*dx + (pz - az)*dz) / l2))
+    return math.hypot(px - (ax + t*dx), pz - (az + t*dz))
+
+def _dist_pt_poly_borda(p, poly):
+    n = len(poly)
+    return min(_dist_pt_seg(p, poly[k], poly[(k + 1) % n]) for k in range(n))
+
+if V4:
+    CANTOS_CSV = []
+    GEOS = []
+    for r in linhas:
+        CANTOS_CSV.append(((float(r['p0x_m']), float(r['p0z_m'])),
+                            (float(r['p1x_m']), float(r['p1z_m'])),
+                            (float(r['p2x_m']), float(r['p2z_m'])),
+                            (float(r['p3x_m']), float(r['p3z_m']))))
+        GEOS.append(int(r['geo']))
+    # POL[i]: lista de quadriláteros CONVEXOS que cobrem o lote (um só, exceto
+    # geo=1). BBOX[i]: caixa envolvente de POL[i], para o índice de grade.
+    POL, BBOX = [], []
+    for i in range(len(linhas)):
+        polys = sub_poligonos(CANTOS_CSV[i], GEOS[i])
+        POL.append(polys)
+        xs = [pt[0] for poly in polys for pt in poly]
+        zs = [pt[1] for poly in polys for pt in poly]
+        BBOX.append((min(xs), max(xs), min(zs), max(zs)))
+else:
+    POL, BBOX = [], []
+    for i, r in enumerate(linhas):
+        _w = max(1.0, float(r['frente_m'])); _d = max(1.0, float(r['prof_m']))
+        q = cantos(float(r['x_m']), float(r['z_m']), _w, _d, math.radians(lotes[i][8] / 100))
+        POL.append([q])
+        xs = [pt[0] for pt in q]; zs = [pt[1] for pt in q]
+        BBOX.append((min(xs), max(xs), min(zs), max(zs)))
 
 # 1. cada carteira da fila tem UM destino: lote ou lápide. Nenhuma tem os dois,
 #    nenhuma fica sem.
@@ -71,9 +278,8 @@ print(f'CONFERÊNCIA DO LOTEAMENTO em {BASE}')
 # lê-lo. Sem isto ele acusaria 15.802 carteiras "faltando" e passaria a mentir
 # na direção oposta: reprovaria a cidade certa.
 colum = []
-cam_col = os.path.join(BASE, 'data/dogcity_cemiterio.csv')
-if os.path.exists(cam_col):
-    colum = [r['address'] for r in csv.DictReader(open(cam_col))]
+if os.path.exists(CAM_CEM):
+    colum = [r['address'] for r in csv.DictReader(open(CAM_CEM))]
 # ⚠️ TRÊS DESTINOS, NÃO DOIS. Além de lote de carteira e lápide existe o LOTE
 # DO PROJETO: a Orla Nobre tem 65 e a reserva de apelo terá 15% dos lotes de
 # cada bairro (contrato público §5). Eles aparecem no registro com endereço
@@ -111,10 +317,19 @@ item('lote do projeto não tem dono de carteira',
      f'{len(projeto)} lotes do projeto, todos com endereço próprio')
 
 # 2. os três arquivos na mesma ordem
-mesma = (len(lotes) == len(linhas) == len(cotas)) and all(
-    abs(lotes[i][0] / 4.0 - float(linhas[i]['x_m'])) <= 1 and
-    abs(lotes[i][1] / 4.0 - float(linhas[i]['z_m'])) <= 1 for i in range(0, len(linhas), 7))
-item('.bin, CSV e cotas na mesma ordem', mesma, f'{len(lotes)} / {len(linhas)} / {len(cotas)}')
+if V4:
+    # ⚠️ NO v4 A FIDELIDADE FINA VIROU TESTE PRÓPRIO ("bin v4 fiel ao CSV",
+    # mais abaixo, no lugar do antigo 6b): ali se confere CADA canto, não uma
+    # amostra de x/z. Aqui basta o tamanho — os três arquivos precisam ter o
+    # mesmo número de linhas antes de qualquer teste que index por posição.
+    mesma = len(lotes) == len(linhas) == len(cotas)
+    item('registro (.bin v4, CSV e cotas) do mesmo tamanho', mesma,
+         f'{len(lotes)} / {len(linhas)} / {len(cotas)}')
+else:
+    mesma = (len(lotes) == len(linhas) == len(cotas)) and all(
+        abs(lotes[i][0] / 4.0 - float(linhas[i]['x_m'])) <= 1 and
+        abs(lotes[i][1] / 4.0 - float(linhas[i]['z_m'])) <= 1 for i in range(0, len(linhas), 7))
+    item('.bin, CSV e cotas na mesma ordem', mesma, f'{len(lotes)} / {len(linhas)} / {len(cotas)}')
 
 # 3. lot_id único e no formato
 import re
@@ -131,13 +346,9 @@ item('lot_id único e no padrão', len(set(ids)) == len(ids) and not _maus,
      f'{len(set(ids))} únicos de {len(ids)}, maior quarteirão B{_maiorB}'
      + (f', {len(_maus)} fora do padrão (ex.: {_maus[:2]})' if _maus else ''))
 
-# 4. sobreposição, pelo eixo separador, dentro do mesmo quarteirão
-def cantos(x, z, w, d, giro):
-    ca, sa = math.cos(giro), math.sin(giro)
-    return [(x + dx*ca - dz*sa, z + dx*sa + dz*ca)
-            for dx, dz in ((-w/2, -d/2), (w/2, -d/2), (w/2, d/2), (-w/2, d/2))]
 def penetracao(A, B):
-    """quanto um lote entra no outro, em metros: 0 ou menos quer dizer que não entram."""
+    """quanto um lote entra no outro, em metros: 0 ou menos quer dizer que não
+    entram. Eixo separador com os 4 cantos de cada polígono CONVEXO."""
     pior = 1e9
     for P, Q in ((A, B), (B, A)):
         for i in range(4):
@@ -151,6 +362,16 @@ def penetracao(A, B):
             pior = min(pior, -sep)
     return pior
 
+def penetracao_multi(polys_a, polys_b):
+    """o mesmo `penetracao`, mas cada lado pode ser uma LISTA de quadriláteros
+    (geo=1 subdividido): o pior caso entre todos os pares cobre a fatia
+    inteira, porque basta UM sub-quadrilátero encostar para o lote encostar."""
+    pior = 0.0
+    for pa in polys_a:
+        for pb in polys_b:
+            v = penetracao(pa, pb)
+            if v > pior: pior = v
+    return pior
 
 def cruza(A, B, tol):
     """eixo separador com folga: encolhe as duas caixas por tol/2 antes de testar."""
@@ -163,70 +384,126 @@ def cruza(A, B, tol):
             pa = [p[0]*nx + p[1]*nz for p in P]; pb = [p[0]*nx + p[1]*nz for p in Q]
             if min(pb) > max(pa) - tol or max(pb) < min(pa) + tol: return False
     return True
-por_quarteirao = collections.defaultdict(list)
-# ⚠️ A SOBREPOSIÇÃO SE MEDE NO REGISTRO DE DIREITO, QUE É O CSV. O `.bin` é a
-# cópia quantizada em quartos de metro para a cena, e medir nela confunde o
-# quadriculado do arquivo com defeito de cidade: media 0,39 m de "invasão" onde
-# a geometria real encosta exata. O `.bin` se confere logo abaixo, contra o CSV.
-for i, r in enumerate(linhas):
-    _, _, _s, _c, _f, _fl, _w, _d, giro_c = lotes[i]
-    x, z = float(r['x_m']), float(r['z_m'])
-    w, d = float(r['frente_m']), float(r['prof_m'])
-    # ⚠️ SPLIT, NÃO FATIA. `lot_id[:14]` supõe que o campo B tem sempre três
-    # dígitos; com quatro ele corta no meio do número e junta quarteirões
-    # diferentes no mesmo balde, o que ESCONDE sobreposição em vez de achar.
-    _p = r['lot_id'].split('-')
-    por_quarteirao['-'.join(_p[:3])].append((i, cantos(x, z, max(1.0, w), max(1.0, d), math.radians(giro_c/100))))
-pares, piores, fundos = 0, [], []
-for _q, itens in por_quarteirao.items():
-    for a in range(len(itens)):
-        for b in range(a + 1, len(itens)):
-            pen = penetracao(itens[a][1], itens[b][1])
-            if pen > TOL:
-                pares += 1
-                fundos.append(pen)
-                if pen > (piores[0][0] if piores else 0):
-                    piores = [(pen, linhas[itens[a][0]]['lot_id'], linhas[itens[b][0]]['lot_id'])]
-fundos.sort()
-detalhe = f'{pares} pares acima de {TOL:.2f} m'
-if fundos:
-    detalhe += f', mediana {fundos[len(fundos)//2]:.2f} m, pior {fundos[-1]:.2f} m em {piores[0][1:] if piores else ""}'
-item('nenhum lote sobre outro', pares == 0, detalhe)
 
-# 4b. OS DISTRITOS ESPECIAIS NÃO ERAM CONFERIDOS POR NINGUÉM
-# ⚠️ Orla Nobre (S07), Distrito Financeiro (S08) e Orla da Baía (S09) gravam UM
-# QUARTEIRÃO POR LOTE, porque cada lote tem giro próprio. O teste 4 agrupa por
-# quarteirão: com um lote em cada balde, ele nunca compara dois deles e os três
-# distritos passavam sem ser olhados, justamente os que não nascem do alocador
-# de tecido e não têm prateleira para garantir que não se encostam.
-# Aqui eles são comparados par a par, dentro de cada setor.
-_esp = collections.defaultdict(list)
-for i, r in enumerate(linhas):
-    _s_ = int(r['setor'])
-    if _s_ < 7: continue
-    _, _, _, _, _, _, _, _, giro_c = lotes[i]
-    _esp[_s_].append((i, cantos(float(r['x_m']), float(r['z_m']),
-                                max(1.0, float(r['frente_m'])), max(1.0, float(r['prof_m'])),
-                                math.radians(giro_c/100))))
-_pe, _piore = 0, (0.0, '', '')
-for _s_, itens in _esp.items():
-    for a in range(len(itens)):
-        for b in range(a + 1, len(itens)):
-            pen = penetracao(itens[a][1], itens[b][1])
-            if pen > TOL:
-                _pe += 1
-                if pen > _piore[0]:
-                    _piore = (pen, linhas[itens[a][0]]['lot_id'], linhas[itens[b][0]]['lot_id'])
-item('nenhum lote sobre outro nos distritos especiais (S07, S08, S09)', _pe == 0,
-     f'{sum(len(v) for v in _esp.values())} lotes comparados par a par, {_pe} pares acima de {TOL:.2f} m'
-     + (f', pior {_piore[0]:.2f} m em {_piore[1]} x {_piore[2]}' if _pe else ''))
+# 4. SOBREPOSIÇÃO
+# ⚠️ SÓ O v4 GANHA A GRADE GLOBAL (masterplan §37, tarefa 4a). O v3 continua
+# rodando EXATAMENTE como hoje — mesmo agrupamento por quarteirão, mesmo teste
+# à parte para os distritos especiais, mesma tolerância padrão — porque a
+# tarefa pede o portão novo para o registro novo, não uma reauditoria
+# retroativa do registro que o bot de auto-commit publica agora mesmo. (O
+# §39 mediu esse mesmo buraco por FORA do portão, com script de diagnóstico
+# à parte; a virada para "todos os pares" é o que fecha o buraco NO PORTÃO, e
+# só faz sentido cobrar isso da rodada que já fala a língua de 4 cantos.)
+if V4:
+    # ⚠️ O §39 ACHOU 10.465 PARES QUE O TESTE ANTIGO NUNCA VIA. O teste de
+    # sempre comparava lotes DENTRO DO MESMO QUARTEIRÃO (e, à parte, dentro do
+    # mesmo setor para S07-S09); 10.453 dos 10.465 pares eram ENTRE
+    # quarteirões de QUARTOS VIZINHOS (a costura da emenda polar). Agrupar por
+    # quarteirão nunca ia achar isso, não importa quantas vezes se rodasse.
+    #
+    # ⚠️ A GRADE INDEXA PELA CAIXA ENVOLVENTE INTEIRA, NÃO SÓ PELO CENTRO. Um
+    # lote de projeto tem 890 m de frente (S08-Q01-B001-L001, o pátio da
+    # Kraken hot); se a grade só olhasse a célula do centro, um vizinho a duas
+    # células de distância nunca apareceria como candidato. Inserindo o lote
+    # em TODA célula que sua caixa toca, dois polígonos que se tocam sempre
+    # compartilham pelo menos uma célula — não precisa de vizinhança 3×3 por
+    # cima.
+    _CELD_SOB = 100.0
+    _grade_sob = collections.defaultdict(list)
+    for i, (x0, x1, z0, z1) in enumerate(BBOX):
+        for bi in range(int((x0 - TOL_SOBREPOSICAO_V4) // _CELD_SOB), int((x1 + TOL_SOBREPOSICAO_V4) // _CELD_SOB) + 1):
+            for bj in range(int((z0 - TOL_SOBREPOSICAO_V4) // _CELD_SOB), int((z1 + TOL_SOBREPOSICAO_V4) // _CELD_SOB) + 1):
+                _grade_sob[(bi, bj)].append(i)
 
-# 4c. O GIRO DO REGISTRO BATE COM O DO .bin?
+    _visto_sob, _pares_sob, _fundos_sob, _pior_sob = set(), 0, [], (0.0, '', '')
+    _mesmo_bloco, _entre_blocos = 0, 0
+    for _itens in _grade_sob.values():
+        _n_it = len(_itens)
+        for _a in range(_n_it):
+            for _b in range(_a + 1, _n_it):
+                _i, _j = _itens[_a], _itens[_b]
+                _chave = (_i, _j) if _i < _j else (_j, _i)
+                if _chave in _visto_sob: continue
+                _visto_sob.add(_chave)
+                _pen = penetracao_multi(POL[_i], POL[_j])
+                if _pen > TOL_SOBREPOSICAO_V4:
+                    _pares_sob += 1
+                    _fundos_sob.append(_pen)
+                    _bi_id = '-'.join(linhas[_i]['lot_id'].split('-')[:3])
+                    _bj_id = '-'.join(linhas[_j]['lot_id'].split('-')[:3])
+                    if _bi_id == _bj_id: _mesmo_bloco += 1
+                    else: _entre_blocos += 1
+                    if _pen > _pior_sob[0]:
+                        _pior_sob = (_pen, linhas[_i]['lot_id'], linhas[_j]['lot_id'])
+    _fundos_sob.sort()
+    _detalhe_sob = f'{_pares_sob} pares acima de {TOL_SOBREPOSICAO_V4:.2f} m ({_mesmo_bloco} no mesmo quarteirão, {_entre_blocos} entre quarteirões/quartos)'
+    if _fundos_sob:
+        _detalhe_sob += f', mediana {_fundos_sob[len(_fundos_sob)//2]:.2f} m, pior {_pior_sob[0]:.2f} m em {_pior_sob[1]} x {_pior_sob[2]}'
+    item('nenhum lote sobre outro (todos os pares vizinhos, índice de grade)', _pares_sob == 0, _detalhe_sob)
+else:
+    # ─ EXATAMENTE o teste de sempre (pré-§37): agrupado por quarteirão, mais
+    # o teste à parte para os distritos especiais (que gravam um quarteirão
+    # por lote e por isso nunca caem no mesmo balde do teste principal).
+    por_quarteirao = collections.defaultdict(list)
+    for i, r in enumerate(linhas):
+        giro_c = lotes[i][8]
+        x, z = float(r['x_m']), float(r['z_m'])
+        w, d = float(r['frente_m']), float(r['prof_m'])
+        _p = r['lot_id'].split('-')
+        por_quarteirao['-'.join(_p[:3])].append((i, cantos(x, z, max(1.0, w), max(1.0, d), math.radians(giro_c / 100))))
+    pares, piores, fundos = 0, [], []
+    for _q, itens in por_quarteirao.items():
+        for a in range(len(itens)):
+            for b in range(a + 1, len(itens)):
+                pen = penetracao(itens[a][1], itens[b][1])
+                if pen > TOL:
+                    pares += 1
+                    fundos.append(pen)
+                    if pen > (piores[0][0] if piores else 0):
+                        piores = [(pen, linhas[itens[a][0]]['lot_id'], linhas[itens[b][0]]['lot_id'])]
+    fundos.sort()
+    detalhe = f'{pares} pares acima de {TOL:.2f} m'
+    if fundos:
+        detalhe += f', mediana {fundos[len(fundos)//2]:.2f} m, pior {fundos[-1]:.2f} m em {piores[0][1:] if piores else ""}'
+    item('nenhum lote sobre outro', pares == 0, detalhe)
+
+    # 4b. OS DISTRITOS ESPECIAIS NÃO ERAM CONFERIDOS POR NINGUÉM
+    # ⚠️ Orla Nobre (S07), Distrito Financeiro (S08) e Orla da Baía (S09) gravam
+    # UM QUARTEIRÃO POR LOTE, porque cada lote tem giro próprio. O teste 4
+    # agrupa por quarteirão: com um lote em cada balde, ele nunca compara dois
+    # deles e os três distritos passavam sem ser olhados. Aqui eles são
+    # comparados par a par, dentro de cada setor.
+    _esp = collections.defaultdict(list)
+    for i, r in enumerate(linhas):
+        _s_ = int(r['setor'])
+        if _s_ < 7: continue
+        giro_c = lotes[i][8]
+        _esp[_s_].append((i, cantos(float(r['x_m']), float(r['z_m']),
+                                    max(1.0, float(r['frente_m'])), max(1.0, float(r['prof_m'])),
+                                    math.radians(giro_c / 100))))
+    _pe, _piore = 0, (0.0, '', '')
+    for _s_, itens in _esp.items():
+        for a in range(len(itens)):
+            for b in range(a + 1, len(itens)):
+                pen = penetracao(itens[a][1], itens[b][1])
+                if pen > TOL:
+                    _pe += 1
+                    if pen > _piore[0]:
+                        _piore = (pen, linhas[itens[a][0]]['lot_id'], linhas[itens[b][0]]['lot_id'])
+    item('nenhum lote sobre outro nos distritos especiais (S07, S08, S09)', _pe == 0,
+         f'{sum(len(v) for v in _esp.values())} lotes comparados par a par, {_pe} pares acima de {TOL:.2f} m'
+         + (f', pior {_piore[0]:.2f} m em {_piore[1]} x {_piore[2]}' if _pe else ''))
+
+# 4c. O GIRO DO REGISTRO BATE COM O DO .bin? (só existe no v3)
 # ⚠️ Até 22/09 o giro só existia no binário, ou seja não havia contra o que
 # conferi-lo: o documento do dono não dizia para que lado o lote está virado.
 # Num distrito em que o lote do dedo é radial e o da fileira é tangente, giro
 # trocado é lote de lado, e nenhum teste pegava.
-if 'giro_graus' in (linhas[0].keys() if linhas else {}):
+if V4:
+    item('giro do CSV bate com o do .bin', True,
+         'N/A no v4: o .bin de 21 bytes não guarda mais giro (4 cantos absolutos, §41); '
+         'ver "bin v4 fiel ao CSV", mais abaixo')
+elif 'giro_graus' in (linhas[0].keys() if linhas else {}):
     _pior_g, _onde_g, _n_g = 0.0, '', 0
     for i, r in enumerate(linhas):
         g_csv = float(r['giro_graus']) % 360.0
@@ -240,6 +517,83 @@ else:
     item('giro do CSV bate com o do .bin', True,
          'PULADO: este CSV é anterior à coluna giro_graus (22/09)')
 
+# 4i. QUADRILÁTERO SIMPLES E CONVEXO (geo 0/2/3) OU FATIA COERENTE (geo=1)
+# (masterplan §37, tarefa 4c; só existe no v4 — o v3 sempre foi retângulo por
+# construção, `cantos()` não sabe desenhar outra coisa).
+#
+# ⚠️ GEO=1 NÃO SE TESTA IGUAL. A emenda do coordenador (23/09) tornou a fatia
+# de anel não-convexa por definição quando o arco é grande (a corda cortaria
+# 114 m para dentro da custódia do Distrito Financeiro, 57° de arco). O teste
+# certo para ela é geométrico só que outro: os dois cantos da frente à mesma
+# distância da origem, os dois do fundo à mesma distância, e as duas laterais
+# exatamente radiais.
+if V4:
+    _maus_quad = []
+    for i, r in enumerate(linhas):
+        c, g = CANTOS_CSV[i], GEOS[i]
+        if g == 1:
+            p0, p1, p2, p3 = c
+            ok = (abs(math.hypot(*p0) - math.hypot(*p1)) <= 0.05
+                  and abs(math.hypot(*p2) - math.hypot(*p3)) <= 0.05
+                  and _quase_radial(p0, p3) and _quase_radial(p1, p2))
+        else:
+            ok = _convexo_simples(c)
+        if not ok: _maus_quad.append(r['lot_id'])
+    item('quadrilátero simples e convexo (geo 0/2/3) ou fatia coerente (geo=1)',
+         len(linhas) > 0 and not _maus_quad,
+         f'{len(linhas)} lotes conferidos; {len(_maus_quad)} reprovam'
+         + (f' (ex.: {_maus_quad[:5]})' if _maus_quad else ''))
+
+# 4j. area_m2 BATE COM A ÁREA EXATA DO POLÍGONO, ±1 m² (masterplan §37/§41)
+# ⚠️ GEO=1 USA SETOR CIRCULAR, NUNCA SHOELACE. A emenda do coordenador é
+# explícita: shoelace dos 4 pontos (que são só os EXTREMOS do arco, ligados
+# por corda) subestima a área verdadeira — é exatamente essa subestimativa
+# que cortaria 114 m da custódia do Distrito Financeiro se alguém usasse a
+# corda como fronteira de direito.
+if V4:
+    _maus_area = []
+    for i, r in enumerate(linhas):
+        _esperado = area_do_lote(CANTOS_CSV[i], GEOS[i])
+        _diff = abs(_esperado - float(r['area_m2']))
+        if _diff > 1.0:
+            _maus_area.append((_diff, r['lot_id'], _esperado, float(r['area_m2'])))
+    _maus_area.sort(reverse=True)
+    item('area_m2 bate com a área exata do polígono (±1 m²)',
+         len(linhas) > 0 and not _maus_area,
+         f'{len(linhas)} lotes; {len(_maus_area)} divergem por mais de 1 m²'
+         + (f', pior {_maus_area[0][0]:.2f} m² em {_maus_area[0][1]} '
+            f'(calc {_maus_area[0][2]:.1f} contra CSV {_maus_area[0][3]:.1f})' if _maus_area else ''))
+
+# 4k. NENHUM RETÂNGULO LEGADO (geo=3) NO REGISTRO (masterplan §41)
+# ⚠️ geo=3 É "SÓ O QUE NÃO FOI CONVERTIDO", e o próprio §41 manda o portão
+# reprovar se sobrar. `--aceita-legado` existe só para provar a cadeia inteira
+# (merkle → escrituras → lookup → portão) contra `v4_de_v3.py`, cujo CSV é
+# geo=3 em 100% das linhas de propósito; nunca para uma rodada que vira Charter.
+if V4:
+    _n_geo3 = sum(1 for g in GEOS if g == 3)
+    _ex_geo3 = [linhas[i]['lot_id'] for i in range(len(linhas)) if GEOS[i] == 3][:5]
+    if ACEITA_LEGADO:
+        item('nenhum retângulo legado (geo=3) no registro', True,
+             f'PULADO por --aceita-legado: {_n_geo3} de {len(linhas)} lotes são geo=3 '
+             '(só vale para testar a cadeia, nunca para uma rodada real)')
+    else:
+        item('nenhum retângulo legado (geo=3) no registro', _n_geo3 == 0,
+             f'{_n_geo3} de {len(linhas)} lotes ainda em geo=3'
+             + (f' (ex.: {_ex_geo3})' if _ex_geo3 else ''))
+
+# 4l. TODO CANTO DENTRO DA FAIXA DO int16 (masterplan §37: "assert de faixa
+# dos int16 aborta a rodada" no gerador; aqui o portão só MEDE e reprova).
+if V4:
+    _LIMITE_CANTO = 32767 / 4.0   # int16 em quartos de metro: 8.191,75 m
+    _fora_faixa = []
+    for i, r in enumerate(linhas):
+        if any(abs(v) >= _LIMITE_CANTO for pt in CANTOS_CSV[i] for v in pt):
+            _fora_faixa.append(r['lot_id'])
+    item(f'todo canto dentro da faixa do int16 (±{_LIMITE_CANTO:.2f} m)',
+         len(linhas) > 0 and not _fora_faixa,
+         f'{len(linhas)} lotes; {len(_fora_faixa)} com algum canto fora da faixa'
+         + (f' (ex.: {_fora_faixa[:5]})' if _fora_faixa else ''))
+
 # 4f. O MURO DE DIVISA OBEDECE AO TETO DE 3 m?
 # ⚠️ O §15 promete que a cidade paga o talude entre vizinhos e que ele não passa
 # de 3 m. O socalco cumpre isso DENTRO da fileira e entre fileiras pareadas, mas
@@ -250,14 +604,32 @@ else:
 # O teste não exige zero, porque zero exigiria acoplar o socalco através de
 # quarteirão e isso é obra grande. Ele exige que a EXCEÇÃO continue exceção, e
 # grita o número em toda rodada para ela não crescer calada.
+#
+# ⚠️ MIGRADO PARA O POLÍGONO (masterplan §37, tarefa 4d): os cantos vêm de
+# `POL[i]` (o CSV no v4, `cantos()` no v3) em vez de reconstruir retângulo a
+# partir de frente/prof/giro. `_folga` compara UM PAR de quadriláteros; quando
+# o lote é uma lista de sub-fatias (geo=1), `_folga_multi` testa todas as
+# combinações e fica com a pior — para geo 0/2/3 (lista de um elemento só) o
+# resultado é idêntico ao de sempre.
 _TETO_DIVISA = 3.0
 _MAX_FORA = 0.01          # 1% das divisas
+# ⚠️ O RAIO DO FILTRO RÁPIDO NÃO MUDA NO v3, DE PROPÓSITO. É só uma pré-triagem
+# (quem sobra ainda passa por `_folga_multi`, exato), mas um raio diferente
+# muda QUAIS pares chegam a ser testados, e portanto o número final — o v3
+# usa `max(frente, prof)/2` desde sempre, e trocar por um raio derivado da
+# caixa envolvente (mais correto para retângulo girado, mas DIFERENTE) mudaria
+# a contagem publicada sem a rodada ter mudado. O v4 usa a caixa envolvente
+# porque não há mais "frente"/"prof" autoritativos para derivar o raio dela.
 _cant = []
 for _i, _r in enumerate(linhas):
-    _w = max(1.0, float(_r['frente_m'])); _d = max(1.0, float(_r['prof_m']))
-    _cant.append((float(_r['x_m']), float(_r['z_m']), max(_w, _d) / 2,
-                  cantos(float(_r['x_m']), float(_r['z_m']), _w, _d, math.radians(lotes[_i][8] / 100)),
-                  float(_r['cota_m']), _r['lot_id']))
+    _cx, _cz = float(_r['x_m']), float(_r['z_m'])
+    if V4:
+        _x0, _x1, _z0, _z1 = BBOX[_i]
+        _raio = max(_x1 - _x0, _z1 - _z0) / 2.0
+    else:
+        _w = max(1.0, float(_r['frente_m'])); _d = max(1.0, float(_r['prof_m']))
+        _raio = max(_w, _d) / 2.0
+    _cant.append((_cx, _cz, _raio, POL[_i], float(_r['cota_m']), _r['lot_id']))
 def _folga(A, B_):
     pior = -1e9
     for P_, Q_ in ((A, B_), (B_, A)):
@@ -266,6 +638,13 @@ def _folga(A, B_):
             L = math.hypot(ex, ez) or 1; nx, nz = -ez/L, ex/L
             pa = [q[0]*nx+q[1]*nz for q in P_]; pb = [q[0]*nx+q[1]*nz for q in Q_]
             g = max(min(pb)-max(pa), min(pa)-max(pb))
+            if g > pior: pior = g
+    return pior
+def _folga_multi(polys_a, polys_b):
+    pior = -1e9
+    for pa in polys_a:
+        for pb in polys_b:
+            g = _folga(pa, pb)
             if g > pior: pior = g
     return pior
 _CELD = 80.0
@@ -282,7 +661,7 @@ for (_bi, _bj), _ix in _bd.items():
             _a, _b = _cant[_i], _cant[_j]
             if (_a[0]-_b[0])**2 + (_a[1]-_b[1])**2 > (_a[2]+_b[2]+3)**2: continue
             _vis.add((_i, _j))
-            if _folga(_a[3], _b[3]) <= 1.5: _div.append((abs(_a[4]-_b[4]), _a[5], _b[5]))
+            if _folga_multi(_a[3], _b[3]) <= 1.5: _div.append((abs(_a[4]-_b[4]), _a[5], _b[5]))
 _div.sort(reverse=True)
 _nd = len(_div) or 1
 _fora = sum(1 for d in _div if d[0] > _TETO_DIVISA)
@@ -331,6 +710,8 @@ def _sobrepoe(quad, poly):
     if any(_dentro_poly(v_, quad) for v_ in poly): return True
     return any(_cruzam(quad[k], quad[(k+1) % 4], poly[j], poly[(j+1) % len(poly)])
                for k in range(4) for j in range(len(poly)))
+def _sobrepoe_multi(polys, poly):
+    return any(_sobrepoe(p, poly) for p in polys)
 
 _pecas = []
 _cam_mapa = os.path.join(BASE, 'public/city/mapa-v1.json')
@@ -339,8 +720,7 @@ if os.path.exists(_cam_mapa):
         if _a_.get('poly'):
             _pecas.append(('âncora ' + str(_a_.get('id')),
                            [(float(u), float(v)) for u, v in _a_['poly']]))
-_prog_manif = json.load(open(os.path.join(BASE, 'public/city/cidade.json')))
-for _q_ in (_prog_manif.get('programa') or []):
+for _q_ in (MANIFESTO.get('programa') or []):
     if _q_.get('poly'):
         _pecas.append((str(_q_.get('id')), [(float(u), float(v)) for u, v in _q_['poly']]))
         continue
@@ -354,7 +734,7 @@ for _q_ in (_prog_manif.get('programa') or []):
     _pecas.append((str(_q_.get('id')),
                    [(float(_cx) + lx*_rc - lz*_rs, float(_cz) + lx*_rs + lz*_rc) for lx, lz in _loc]))
 
-# ⚠️ REAPROVEITA `_cant` e `_bd` DO TESTE ACIMA de propósito: são os mesmos
+# ⚠️ REAPROVEITA `_cant` E `_bd` DO TESTE ACIMA de propósito: são os mesmos
 # quatro cantos e o mesmo balde de 80 m. Recalcular daria a chance de os dois
 # testes medirem lotes com geometrias levemente diferentes, que é como um
 # portão passa a discordar de si mesmo.
@@ -368,7 +748,7 @@ for _nm, _poly in _pecas:
         for _bj in range(int(_z0 // _CELD), int(_z1 // _CELD) + 1):
             _cand.update(_bd.get((_bi, _bj), ()))
     for _i in _cand:
-        if _sobrepoe(_cant[_i][3], _poly):
+        if _sobrepoe_multi(_cant[_i][3], _poly):
             _por_peca[_nm] += 1; _sob.add(_i)
 _ha_sob = sum(float(linhas[_i]['area_m2']) for _i in _sob) / 1e4
 _cart_sob = sum(1 for _i in _sob if not linhas[_i]['address'].startswith('__projeto'))
@@ -377,107 +757,216 @@ item('nenhum lote sobre peça de programa', not _sob,
      f'{len(_sob)} lotes sobrepostos, {_ha_sob:.2f} ha, {_cart_sob} de carteira'
      + ('; pior: ' + ', '.join(f'{k} {v}' for k, v in _por_peca.most_common(4)) if _sob else ''))
 
-# 4h. O QUARTEIRÃO OBEDECE O DODECÁGONO (masterplan §36, 23/09/2026)
-#
-# ⚠️ POR QUE ISTO EXISTE. O fundador, nas palavras dele: "a geração dos lotes
-# está circular... ela deveria seguir o modelo do dodecaedro". Medido em 22/09
-# contra o registro selado (masterplan §36): 85,7% dos 2.071 quarteirões
-# residenciais tinham a rua de anel da teia, que É um dodecágono (`vias.ts`
-# desenha com o vértice em `an.r` e a face em 96,6% dele), passando POR DENTRO
-# da própria pegada. A causa era a divisa radial nascer da curva de nível de φ
-# (redonda, ou superelipse fora do núcleo), nunca da FACE do anel desenhado.
-#
-# ⚠️ A FÓRMULA VEM DE app/city/plaza/teia.ts, NUNCA É COPIADA. `anelRaio()`
-# devolve o raio da FACE do anel de vértice R no rumo `ang`:
-#   r_face(ang) = R·cos(15°) / cos(t), t = distância angular ao vértice mais
-#   perto, limitada a [-15°, 15°] (os vértices caem a cada 30°, 7 passos de
-#   360/84, e por isso coincidem com o radial ativo da costura de 22/09).
-# Se a cena mudar a fórmula, este teste lê a nova: o regex abaixo é o mesmo de
-# `_teia_num`/`vaoDoAnel` em `scripts/gerar_cidade.py`, nunca reimplementado à
-# mão. Lido de RAIZ (o repositório), não de BASE (a saída de `--cidade=`):
-# fonte não se move com a rodada, só o registro gerado por ela.
-#
-# ⚠️ SÓ OS DISTRITOS COMUNS ENTRAM (setor 1 a 6). Orla Nobre (S07), Distrito
-# Financeiro (S08) e Orla da Baía (S09) não nascem do alocador de tecido (nota
-# do teste 4b, acima: "gravam UM QUARTEIRÃO POR LOTE... não nascem do
-# alocador"), e a AN7 da Orla Nobre é CÍRCULO por decisão do fundador: o
-# próprio §36 diz que ela é a única exceção. Cobrar dodecágono dela reprovaria
-# uma forma que está certa por definição. As sete parcelas ancoradas, o K01 e
-# a tag institucional também ficam de fora: são `PROGRAMA_GEO`, e não passam
-# pela divisa de banda em φ que este teste audita.
-#
-# ⚠️ POR LOTE, NÃO POR QUARTEIRÃO (o texto do §36: "para cada lote
-# residencial"). Um lote no MEIO do quarteirão nunca é alcançado por anel
-# nenhum (a próxima face fica uma banda inteira, 120 a 300 m, adiante); só os
-# lotes da fileira de fora ou de dentro do quarteirão estão perto o bastante
-# para a rua cortar. Testar por lote pega exatamente esses e não infla o
-# denominador com quem nunca corre risco.
-_cam_teia_h = os.path.join(RAIZ, 'app/city/plaza/teia.ts')
-_cam_ger_h = os.path.join(RAIZ, 'scripts/gerar_cidade.py')
-_TETO_DODECA = 0.02      # no máximo 2% dos lotes cruzados (era 85,7% dos quarteirões)
-if not os.path.exists(_cam_teia_h):
-    indisponivel('quarteirão obedece o dodecágono da teia (§36)', 'app/city/plaza/teia.ts não existe')
-elif not os.path.exists(_cam_ger_h):
-    indisponivel('quarteirão obedece o dodecágono da teia (§36)', 'scripts/gerar_cidade.py não existe')
+if V4:
+    # 4p. LOTE × RUA DESENHADA (masterplan §37, tarefa 4b/(i))
+    # ⚠️ NENHUM POLÍGONO DE LOTE INVADE A FAIXA DE NENHUMA VIA (`vias.json`,
+    # o segmento engrossado larg/2 de cada lado) em mais de 0,5 m. É o mesmo
+    # eixo separador de sempre: o "corredor" de uma via é só um retângulo
+    # (comprimento do segmento × largura), então `penetracao` serve sem
+    # mudar uma linha.
+    #
+    # ⚠️ ESTE TESTE VAI REPROVAR HOJE, E É ISSO MESMO (nota do coordenador,
+    # 23/09): o `vias.json` atual grava os anéis ARTERIAIS como CÍRCULO
+    # (defeito do dump — `dumpSeg` interpola o ângulo, a cena desenha
+    # dodecágono), outro agente está consertando isso à parte. Reprovar aqui
+    # não é regressão deste portão: é o portão finalmente medindo um defeito
+    # que já existia e ninguém via.
+    if not os.path.exists(CAM_VIAS):
+        indisponivel('lote não invade a faixa de nenhuma via (vias.json)', f'não achei {CAM_VIAS}')
+    else:
+        _vias = json.load(open(CAM_VIAS))
+        _CELD_RUA = 100.0
+        def _corredor(pontos, larg):
+            (x1, z1), (x2, z2) = pontos
+            dx, dz = x2 - x1, z2 - z1
+            comp = math.hypot(dx, dz) or 1e-6
+            ux, uz = dx / comp, dz / comp
+            nx, nz = -uz, ux
+            hw = larg / 2.0
+            return [(x1 + nx*hw, z1 + nz*hw), (x2 + nx*hw, z2 + nz*hw),
+                    (x2 - nx*hw, z2 - nz*hw), (x1 - nx*hw, z1 - nz*hw)]
+        _seg_poly, _seg_tipo = [], []
+        _grade_rua = collections.defaultdict(list)
+        for _s in _vias:
+            _pts = _s.get('pontos') or []
+            if len(_pts) < 2: continue
+            _poly = _corredor(_pts, float(_s.get('larg') or 0.0))
+            _idx = len(_seg_poly)
+            _seg_poly.append(_poly); _seg_tipo.append(_s.get('tipo') or '?')
+            _xs = [q[0] for q in _poly]; _zs = [q[1] for q in _poly]
+            for _bi in range(int(min(_xs)//_CELD_RUA), int(max(_xs)//_CELD_RUA)+1):
+                for _bj in range(int(min(_zs)//_CELD_RUA), int(max(_zs)//_CELD_RUA)+1):
+                    _grade_rua[(_bi, _bj)].append(_idx)
+        _TETO_RUA = 0.5
+        _invasoes, _por_tipo, _n_testados = [], collections.Counter(), 0
+        for i in range(len(linhas)):
+            x0, x1, z0, z1 = BBOX[i]
+            _cand = set()
+            for bi in range(int(x0//_CELD_RUA), int(x1//_CELD_RUA)+1):
+                for bj in range(int(z0//_CELD_RUA), int(z1//_CELD_RUA)+1):
+                    _cand.update(_grade_rua.get((bi, bj), ()))
+            if not _cand: continue
+            _n_testados += 1
+            _pior, _pior_tipo = 0.0, None
+            for _si in _cand:
+                for _pa in POL[i]:
+                    _v = penetracao(_pa, _seg_poly[_si])
+                    if _v > _pior: _pior, _pior_tipo = _v, _seg_tipo[_si]
+            if _pior > _TETO_RUA:
+                _invasoes.append((_pior, linhas[i]['lot_id'], _pior_tipo))
+                _por_tipo[_pior_tipo] += 1
+        _invasoes.sort(reverse=True)
+        item('lote não invade a faixa de nenhuma via (vias.json, tolerância 0,5 m)',
+             _n_testados > 0 and not _invasoes,
+             f'{_n_testados} lotes com via candidata nas redondezas ({len(_seg_poly)} segmentos lidos); '
+             f'{len(_invasoes)} invadem mais de {_TETO_RUA} m'
+             + (f' ({", ".join(f"{k} {v}" for k, v in _por_tipo.most_common())})' if _invasoes else '')
+             + (f'; pior {_invasoes[0][0]:.1f} m em {_invasoes[0][1]} ({_invasoes[0][2]})' if _invasoes else ''))
+
+    # 4q. LOTE DENTRO DA CÉLULA (masterplan §37, tarefa 4b/(ii))
+    # ⚠️ SÓ GEO=0 (célula da teia): fatia de anel (geo=1) e reta (geo=2) não
+    # nascem de quarteirão-célula do `cidade-malha.json` da mesma forma, e o
+    # próprio enunciado da tarefa restringe a "todo lote geo=0".
+    #
+    # ⚠️ INDISPONÍVEL HOJE, DE PROPÓSITO. `cidade-malha.json` ainda descreve
+    # quarteirão como retângulo em coordenadas polares (x, z, r, giro, lado,
+    # prof); o campo `poly` por célula é trabalho do §41 que ainda não rodou
+    # (é o gerador, fora do escopo desta tarefa). "Indisponível" aqui não é
+    # aprovação: conta como falha, exatamente como os outros insumos que faltam.
+    _malha_v4 = json.load(open(CAM_MALHA)) if os.path.exists(CAM_MALHA) else None
+    _poly_bloco = {}
+    if _malha_v4:
+        for _q in (_malha_v4.get('quarteiroes') or []):
+            if _q.get('poly'):
+                _poly_bloco[_q['id']] = [(float(u), float(v)) for u, v in _q['poly']]
+    if _malha_v4 is None:
+        indisponivel('lote geo=0 cabe na célula (cidade-malha.json)', f'não achei {CAM_MALHA}')
+    elif not _poly_bloco:
+        indisponivel('lote geo=0 cabe na célula (cidade-malha.json)',
+                     'malha sem campo `poly` nos quarteirões (§41 ainda não migrado no gerador)')
+    else:
+        _TOL_CELULA = 0.15
+        _fora_cel, _sem_celula, _n_geo0 = [], 0, 0
+        for i, r in enumerate(linhas):
+            if GEOS[i] != 0: continue
+            _n_geo0 += 1
+            _bloco_id = '-'.join(r['lot_id'].split('-')[:3])
+            _poly = _poly_bloco.get(_bloco_id)
+            if _poly is None:
+                _sem_celula += 1; continue
+            _pior = 0.0
+            for _c in CANTOS_CSV[i]:
+                if not _dentro_poly(_c, _poly):
+                    _d = _dist_pt_poly_borda(_c, _poly)
+                    if _d > _pior: _pior = _d
+            if _pior > _TOL_CELULA:
+                _fora_cel.append((_pior, r['lot_id']))
+        _fora_cel.sort(reverse=True)
+        item('lote geo=0 cabe na célula (cidade-malha.json)',
+             _n_geo0 > 0 and not _fora_cel and _sem_celula == 0,
+             f'{_n_geo0} lotes geo=0 contra {len(_poly_bloco)} células com poly; '
+             f'{_sem_celula} sem célula correspondente, {len(_fora_cel)} fora por mais de {_TOL_CELULA} m'
+             + (f', pior {_fora_cel[0][0]:.2f} m em {_fora_cel[0][1]}' if _fora_cel else ''))
 else:
-    try:
-        _txt_teia_h = open(_cam_teia_h, encoding='utf-8').read()
-        _txt_ger_h = open(_cam_ger_h, encoding='utf-8').read()
-        _m = re.search(r'export const R_DENTRO\s*=\s*([0-9.]+)', _txt_teia_h)
-        if not _m: raise ValueError('R_DENTRO sumiu de teia.ts')
-        _R_DENTRO_H = float(_m.group(1))
-        _m = re.search(r'export const R_FORA\s*=\s*([0-9.]+)', _txt_teia_h)
-        if not _m: raise ValueError('R_FORA sumiu de teia.ts')
-        _R_FORA_H = float(_m.group(1))
-        _vt_h = re.search(r'vaoDoAnel\(r: number\): number \{\s*return\s*(.+?)\n\}', _txt_teia_h, re.S)
-        if not _vt_h: raise ValueError('vaoDoAnel sumiu ou mudou de forma em teia.ts')
-        _VAO_H = [(float(a), float(b)) for a, b in
-                  re.findall(r'r\s*<\s*([0-9.]+)\s*\?\s*([0-9.]+)', _vt_h.group(1))]
-        _ELSE_H = re.findall(r':\s*([0-9.]+)', _vt_h.group(1))
-        if not _VAO_H or not _ELSE_H: raise ValueError('vaoDoAnel deixou de ser escada de ternários')
-        _VAO_FIM_H = float(_ELSE_H[-1])
-        def _vao_h(r):
-            for _lim, _v in _VAO_H:
-                if r < _lim: return _v
-            return _VAO_FIM_H
-        _TEIA_ANEIS_H = []
-        _rt_h = _R_DENTRO_H
-        while _rt_h <= _R_FORA_H:
-            _TEIA_ANEIS_H.append(_rt_h); _rt_h += _vao_h(_rt_h)
-        _m = re.search(r'^VIA_CONTORNO\s*=\s*([0-9.]+)', _txt_ger_h, re.M)
-        if not _m: raise ValueError('VIA_CONTORNO sumiu de gerar_cidade.py')
-        _VIA_CONTORNO_H = float(_m.group(1))
-        def _teia_face_h(r_vertice, ang):
-            _PASSO = math.pi / 6
-            _rel = ((ang % _PASSO) + _PASSO) % _PASSO - _PASSO / 2
-            return (r_vertice * math.cos(_PASSO / 2)) / math.cos(_rel)
-        _cruzados_h, _n_h = [], 0
-        for _r in linhas:
-            if int(_r['setor']) >= 7: continue
-            _x, _z = float(_r['x_m']), float(_r['z_m'])
-            _meio = max(1.0, float(_r['prof_m'])) / 2.0
-            _rc = math.hypot(_x, _z)
-            _r_in, _r_out = _rc - _meio, _rc + _meio
-            _lo, _hi = _r_in + _VIA_CONTORNO_H / 2, _r_out - _VIA_CONTORNO_H / 2
-            if _hi <= _lo: continue      # lote mais raso que a própria rua: sem zona interna a cruzar
-            _n_h += 1
-            _ang_h = math.atan2(_x, -_z)
-            for _R in _TEIA_ANEIS_H:
-                _rf = _teia_face_h(_R, _ang_h)
-                if _lo < _rf < _hi:
-                    _cruzados_h.append((min(_rf - _lo, _hi - _rf), _r['lot_id']))
-                    break
-        _cruzados_h.sort(reverse=True)
-        _n_h = _n_h or 1
-        _frac_h = len(_cruzados_h) / _n_h
-        item('quarteirão obedece o dodecágono da teia (§36)', _frac_h <= _TETO_DODECA,
-             f'{_n_h} lotes testados (setor 1 a 6, {len(_TEIA_ANEIS_H)} anéis da teia), '
-             f'{len(_cruzados_h)} cruzados por face de anel ({100*_frac_h:.2f}%, '
-             f'teto {_TETO_DODECA*100:.0f}%)'
-             + (f'; pior {_cruzados_h[0][0]:.1f} m de profundidade em {_cruzados_h[0][1]}'
-                if _cruzados_h else ''))
-    except Exception as _e:
-        indisponivel('quarteirão obedece o dodecágono da teia (§36)', f'{type(_e).__name__}: {_e}')
+    # 4h. O QUARTEIRÃO OBEDECE O DODECÁGONO (masterplan §36, 23/09/2026) — só v3.
+    # No v4 este papel se divide em dois testes que medem contra o que a CENA
+    # desenha de verdade (4p, lote×rua; 4q, lote×célula), em vez de contra a
+    # fórmula que o gerador usou — a mesma lição que o §40 tirou desta prova.
+    #
+    # ⚠️ POR QUE ISTO EXISTE. O fundador, nas palavras dele: "a geração dos lotes
+    # está circular... ela deveria seguir o modelo do dodecaedro". Medido em 22/09
+    # contra o registro selado (masterplan §36): 85,7% dos 2.071 quarteirões
+    # residenciais tinham a rua de anel da teia, que É um dodecágono (`vias.ts`
+    # desenha com o vértice em `an.r` e a face em 96,6% dele), passando POR DENTRO
+    # da própria pegada. A causa era a divisa radial nascer da curva de nível de φ
+    # (redonda, ou superelipse fora do núcleo), nunca da FACE do anel desenhado.
+    #
+    # ⚠️ A FÓRMULA VEM DE app/city/plaza/teia.ts, NUNCA É COPIADA. `anelRaio()`
+    # devolve o raio da FACE do anel de vértice R no rumo `ang`:
+    #   r_face(ang) = R·cos(15°) / cos(t), t = distância angular ao vértice mais
+    #   perto, limitada a [-15°, 15°] (os vértices caem a cada 30°, 7 passos de
+    #   360/84, e por isso coincidem com o radial ativo da costura de 22/09).
+    # Se a cena mudar a fórmula, este teste lê a nova: o regex abaixo é o mesmo de
+    # `_teia_num`/`vaoDoAnel` em `scripts/gerar_cidade.py`, nunca reimplementado à
+    # mão. Lido de RAIZ (o repositório), não de BASE (a saída de `--cidade=`):
+    # fonte não se move com a rodada, só o registro gerado por ela.
+    #
+    # ⚠️ SÓ OS DISTRITOS COMUNS ENTRAM (setor 1 a 6). Orla Nobre (S07), Distrito
+    # Financeiro (S08) e Orla da Baía (S09) não nascem do alocador de tecido, e a
+    # AN7 da Orla Nobre é CÍRCULO por decisão do fundador: o próprio §36 diz que
+    # ela é a única exceção. Cobrar dodecágono dela reprovaria uma forma que está
+    # certa por definição.
+    #
+    # ⚠️ POR LOTE, NÃO POR QUARTEIRÃO (o texto do §36: "para cada lote
+    # residencial"). Um lote no MEIO do quarteirão nunca é alcançado por anel
+    # nenhum; só os lotes da fileira de fora ou de dentro estão perto o bastante
+    # para a rua cortar.
+    _cam_teia_h = os.path.join(RAIZ, 'app/city/plaza/teia.ts')
+    _cam_ger_h = os.path.join(RAIZ, 'scripts/gerar_cidade.py')
+    _TETO_DODECA = 0.02      # no máximo 2% dos lotes cruzados (era 85,7% dos quarteirões)
+    if not os.path.exists(_cam_teia_h):
+        indisponivel('quarteirão obedece o dodecágono da teia (§36)', 'app/city/plaza/teia.ts não existe')
+    elif not os.path.exists(_cam_ger_h):
+        indisponivel('quarteirão obedece o dodecágono da teia (§36)', 'scripts/gerar_cidade.py não existe')
+    else:
+        try:
+            _txt_teia_h = open(_cam_teia_h, encoding='utf-8').read()
+            _txt_ger_h = open(_cam_ger_h, encoding='utf-8').read()
+            _m = re.search(r'export const R_DENTRO\s*=\s*([0-9.]+)', _txt_teia_h)
+            if not _m: raise ValueError('R_DENTRO sumiu de teia.ts')
+            _R_DENTRO_H = float(_m.group(1))
+            _m = re.search(r'export const R_FORA\s*=\s*([0-9.]+)', _txt_teia_h)
+            if not _m: raise ValueError('R_FORA sumiu de teia.ts')
+            _R_FORA_H = float(_m.group(1))
+            _vt_h = re.search(r'vaoDoAnel\(r: number\): number \{\s*return\s*(.+?)\n\}', _txt_teia_h, re.S)
+            if not _vt_h: raise ValueError('vaoDoAnel sumiu ou mudou de forma em teia.ts')
+            _VAO_H = [(float(a), float(b)) for a, b in
+                      re.findall(r'r\s*<\s*([0-9.]+)\s*\?\s*([0-9.]+)', _vt_h.group(1))]
+            _ELSE_H = re.findall(r':\s*([0-9.]+)', _vt_h.group(1))
+            if not _VAO_H or not _ELSE_H: raise ValueError('vaoDoAnel deixou de ser escada de ternários')
+            _VAO_FIM_H = float(_ELSE_H[-1])
+            def _vao_h(r):
+                for _lim, _v in _VAO_H:
+                    if r < _lim: return _v
+                return _VAO_FIM_H
+            _TEIA_ANEIS_H = []
+            _rt_h = _R_DENTRO_H
+            while _rt_h <= _R_FORA_H:
+                _TEIA_ANEIS_H.append(_rt_h); _rt_h += _vao_h(_rt_h)
+            _m = re.search(r'^VIA_CONTORNO\s*=\s*([0-9.]+)', _txt_ger_h, re.M)
+            if not _m: raise ValueError('VIA_CONTORNO sumiu de gerar_cidade.py')
+            _VIA_CONTORNO_H = float(_m.group(1))
+            def _teia_face_h(r_vertice, ang):
+                _PASSO = math.pi / 6
+                _rel = ((ang % _PASSO) + _PASSO) % _PASSO - _PASSO / 2
+                return (r_vertice * math.cos(_PASSO / 2)) / math.cos(_rel)
+            _cruzados_h, _n_h = [], 0
+            for _r in linhas:
+                if int(_r['setor']) >= 7: continue
+                _x, _z = float(_r['x_m']), float(_r['z_m'])
+                _meio = max(1.0, float(_r['prof_m'])) / 2.0
+                _rc = math.hypot(_x, _z)
+                _r_in, _r_out = _rc - _meio, _rc + _meio
+                _lo, _hi = _r_in + _VIA_CONTORNO_H / 2, _r_out - _VIA_CONTORNO_H / 2
+                if _hi <= _lo: continue      # lote mais raso que a própria rua: sem zona interna a cruzar
+                _n_h += 1
+                _ang_h = math.atan2(_x, -_z)
+                for _R in _TEIA_ANEIS_H:
+                    _rf = _teia_face_h(_R, _ang_h)
+                    if _lo < _rf < _hi:
+                        _cruzados_h.append((min(_rf - _lo, _hi - _rf), _r['lot_id']))
+                        break
+            _cruzados_h.sort(reverse=True)
+            _n_h = _n_h or 1
+            _frac_h = len(_cruzados_h) / _n_h
+            item('quarteirão obedece o dodecágono da teia (§36)', _frac_h <= _TETO_DODECA,
+                 f'{_n_h} lotes testados (setor 1 a 6, {len(_TEIA_ANEIS_H)} anéis da teia), '
+                 f'{len(_cruzados_h)} cruzados por face de anel ({100*_frac_h:.2f}%, '
+                 f'teto {_TETO_DODECA*100:.0f}%)'
+                 + (f'; pior {_cruzados_h[0][0]:.1f} m de profundidade em {_cruzados_h[0][1]}'
+                    if _cruzados_h else ''))
+        except Exception as _e:
+            indisponivel('quarteirão obedece o dodecágono da teia (§36)', f'{type(_e).__name__}: {_e}')
 
 # 4e. NENHUM LOTE TEM COTA DE OUTRO LUGAR
 # ⚠️ O teste 6 só exige que a cota caia na FAIXA do relevo do sítio, e por isso
@@ -516,8 +1005,7 @@ item('nenhum lote com cota de outro lugar', not _orfaos,
 # ⚠️ Nenhum teste cruzava o destino "lápide" com o motivo dele. O portão sabia
 # que toda carteira tem UM destino, mas não que o destino é o CERTO: uma
 # carteira rica no cemitério, ou uma abaixo do corte com lote, passava.
-_manif = json.load(open(os.path.join(BASE, 'public/city/cidade.json')))
-_cem = _manif.get('cemiterio') or {}
+_cem = MANIFESTO.get('cemiterio') or {}
 _corte = float(_cem.get('corteDog') or 0)
 if _corte > 0 and colum:
     _dog = {r['address']: float(r.get('dog') or 0) for r in fila}
@@ -596,24 +1084,56 @@ item('cota dentro da faixa do relevo', not fora, f'{len(fora)} fora')
 # `_acha_lagos()` descarta antes de entrar na máscara.
 # ⚠️ A LÂMINA SE LÊ DO MANIFESTO, não se crava aqui: o dia em que ela mudar,
 # este teste muda junto, em vez de virar a quarta cópia do número.
-_cam_malha = os.path.join(BASE, 'public/city/cidade-malha.json')
-_LAMINA = (json.load(open(_cam_malha)).get('lagos', {}).get('cota', -40.0)
-           if os.path.exists(_cam_malha) else -40.0)
+_LAMINA = (json.load(open(CAM_MALHA)).get('lagos', {}).get('cota', -40.0)
+           if os.path.exists(CAM_MALHA) else -40.0)
 _afogados = sorted(((float(r['cota_m']), r['lot_id'], r['address']) for r in linhas
                     if float(r['cota_m']) < _LAMINA))
 item("nenhum lote abaixo da lâmina d'água", not _afogados,
      f'lâmina {_LAMINA:.1f} m; {len(_afogados)} lotes abaixo'
      + (f', pior {_afogados[0][0]:.2f} m em {_afogados[0][1]}' if _afogados else ''))
 
-# 6b. o .bin é cópia fiel do registro, dentro da resolução dele (um quarto de metro)
-pior_bin = 0.0
-for i, r in enumerate(linhas):
-    x4, z4, _s, _c, _f, _fl, w10, d10, _g = lotes[i]
-    pior_bin = max(pior_bin,
-                   abs(x4/4.0 - float(r['x_m'])), abs(z4/4.0 - float(r['z_m'])),
-                   abs(w10/10.0 - float(r['frente_m'])),
-                   abs(d10/10.0 - float(r['prof_m'])))
-item('.bin fiel ao registro (1/4 m)', pior_bin <= 0.13, f'pior desvio {pior_bin:.3f} m')
+# 6b. O .bin É CÓPIA FIEL DO REGISTRO
+if V4:
+    # ⚠️ SUBSTITUÍDO PELO TESTE DO REGISTRO v4 (masterplan §37, tarefa 4c): não
+    # é mais "1/4 m em x/z/frente/prof", é os 8 CANTOS e os FLAGS. bits4-5 dos
+    # flags = `geo` (não "família geométrica 0/1/2" do texto antigo do §37: o
+    # próprio §41, que é o contrato posterior e o que `v4_de_v3.py` já
+    # implementa, fixa bits4-5 = geo, 0 a 3 — é essa leitura que este teste usa).
+    _n_bin, _n_csv = len(lotes), len(linhas)
+    if _n_bin != _n_csv:
+        item('bin v4 fiel ao CSV (cantos ±0,13 m, mesma ordem, flags)', False,
+             f'.bin tem {_n_bin} registros, CSV tem {_n_csv}: tamanhos diferentes, nada mais foi conferido')
+    else:
+        _pior_bin4, _flags_ruins, _setor_ruim = 0.0, 0, 0
+        _ex_flag, _ex_setor = '', ''
+        for i, r in enumerate(linhas):
+            b = lotes[i]
+            _cantos_bin = [(b[0]/4.0, b[1]/4.0), (b[2]/4.0, b[3]/4.0), (b[4]/4.0, b[5]/4.0), (b[6]/4.0, b[7]/4.0)]
+            for (bx, bz), (cx, cz) in zip(_cantos_bin, CANTOS_CSV[i]):
+                _pior_bin4 = max(_pior_bin4, abs(bx - cx), abs(bz - cz))
+            _setor_bin, _coorte_bin, _flags_bin = b[8], b[9], b[11]
+            if _setor_bin != int(r['setor']) - 1 or _coorte_bin != int(r['coorte']):
+                _setor_ruim += 1; _ex_setor = _ex_setor or r['lot_id']
+            _dsc_bit = _flags_bin & 1
+            _forma_bits = (_flags_bin >> 1) & 7
+            _geo_bits = (_flags_bin >> 4) & 3
+            if (_dsc_bit != (1 if r['dsc'] == '1' else 0) or _forma_bits != int(r['forma'])
+                    or _geo_bits != GEOS[i]):
+                _flags_ruins += 1; _ex_flag = _ex_flag or r['lot_id']
+        item('bin v4 fiel ao CSV (cantos ±0,13 m, mesma ordem, flags)',
+             _pior_bin4 <= 0.13 and _flags_ruins == 0 and _setor_ruim == 0,
+             f'{_n_bin} registros; pior desvio de canto {_pior_bin4:.3f} m; '
+             f'{_flags_ruins} com flags divergentes' + (f' (ex.: {_ex_flag})' if _flags_ruins else '') + '; '
+             f'{_setor_ruim} com setor/coorte divergente' + (f' (ex.: {_ex_setor})' if _setor_ruim else ''))
+else:
+    pior_bin = 0.0
+    for i, r in enumerate(linhas):
+        x4, z4, _s, _c, _f, _fl, w10, d10, _g = lotes[i]
+        pior_bin = max(pior_bin,
+                       abs(x4/4.0 - float(r['x_m'])), abs(z4/4.0 - float(r['z_m'])),
+                       abs(w10/10.0 - float(r['frente_m'])),
+                       abs(d10/10.0 - float(r['prof_m'])))
+    item('.bin fiel ao registro (1/4 m)', pior_bin <= 0.13, f'pior desvio {pior_bin:.3f} m')
 
 # 6c. A COTA GRAVADA CAI DENTRO DO CHÃO QUE A CIDADE DESENHA, JULGADA PELA CAUDA
 # ⚠️ O TESTE 4e COMPARA COM OS VIZINHOS, E ERRO SISTEMÁTICO PASSA INTEIRO. Um
@@ -628,16 +1148,15 @@ item('.bin fiel ao registro (1/4 m)', pior_bin <= 0.13, f'pior desvio {pior_bin:
 # comparava com a RÉPLICA ANALÍTICA que `conferir_terreno.py` reconstrói do
 # gerador. Só que o gerador parou de replicar o chão: `altura()` agora lê
 # `data/superficie.f32`, que é a superfície assada da própria cena pela sonda
-# `__plazaPerfil` (ver `scripts/city/assar_superficie.mjs`). Comparar a cota com
-# a réplica passou a medir a distância entre duas coisas que ninguém usa: medido,
-# a réplica e a superfície divergem até 155 m. O teste reprovaria para sempre,
-# pelo motivo errado, que é a pior espécie de portão.
+# `__plazaPerfil` (ver `scripts/city/assar_superficie.mjs`).
 #
 # ⚠️ A COTA É DA TESTADA, NÃO DO CENTRO (masterplan §15), e a testada não está
-# gravada: o registro tem centro, frente, fundo e giro. Por isso a conferência
-# não exige que a cota bata com um ponto escolhido, e sim que ela esteja DENTRO
-# da faixa de alturas da PEGADA, amostrada em 9 pontos (centro, quatro cantos,
-# quatro meios de face), com a tolerância de grade do teste 6d somada.
+# gravada: o registro tem centro, frente, fundo e giro (v3) ou os 4 cantos
+# (v4). Por isso a conferência não exige que a cota bata com um ponto
+# escolhido, e sim que ela esteja DENTRO da faixa de alturas da PEGADA,
+# amostrada em 9 pontos (centro, quatro cantos, quatro meios de aresta) — no
+# v4 os cantos e os meios de aresta são os do POLÍGONO DE VERDADE, não os de
+# um retângulo reconstruído.
 COTA_P99 = 1.5
 COTA_PIOR = 6.0
 COTA_TOL_GRADE = 1.0   # o teto medido do erro da grade de 15 m (ver 6d)
@@ -667,15 +1186,22 @@ else:
         G = lambda q, w: _a[w * _sn + q]
         return (G(i, j)*(1-u)*(1-v) + G(i+1, j)*u*(1-v)
                 + G(i, j+1)*(1-u)*v + G(i+1, j+1)*u*v)
+    def _pontos_amostra(c):
+        cx = sum(p[0] for p in c) / 4.0; cz = sum(p[1] for p in c) / 4.0
+        meios = [((c[k][0]+c[(k+1) % 4][0])/2, (c[k][1]+c[(k+1) % 4][1])/2) for k in range(4)]
+        return [(cx, cz)] + list(c) + meios
     _exc, _pior_c, _fora = [], (0.0, '', 0.0), 0
     for _i, _r in enumerate(linhas):
-        _x, _z = float(_r['x_m']), float(_r['z_m'])
-        _g = math.radians(float(lotes[_i][8]) / 100.0)
-        _hw, _hd = max(1.0, float(_r['frente_m'])) / 2, max(1.0, float(_r['prof_m'])) / 2
-        _cg, _sg = math.cos(_g), math.sin(_g)
-        _hs = [_alt(_x + lx*_cg - lz*_sg, _z + lx*_sg + lz*_cg)
-               for lx, lz in ((0, 0), (-_hw, -_hd), (_hw, -_hd), (_hw, _hd), (-_hw, _hd),
-                              (0, -_hd), (0, _hd), (-_hw, 0), (_hw, 0))]
+        if V4:
+            _hs = [_alt(px, pz) for (px, pz) in _pontos_amostra(CANTOS_CSV[_i])]
+        else:
+            _x, _z = float(_r['x_m']), float(_r['z_m'])
+            _g = math.radians(float(lotes[_i][8]) / 100.0)
+            _hw, _hd = max(1.0, float(_r['frente_m'])) / 2, max(1.0, float(_r['prof_m'])) / 2
+            _cg, _sg = math.cos(_g), math.sin(_g)
+            _hs = [_alt(_x + lx*_cg - lz*_sg, _z + lx*_sg + lz*_cg)
+                   for lx, lz in ((0, 0), (-_hw, -_hd), (_hw, -_hd), (_hw, _hd), (-_hw, _hd),
+                                  (0, -_hd), (0, _hd), (-_hw, 0), (_hw, 0))]
         _hs = [h for h in _hs if h is not None]
         if not _hs: _fora += 1; continue
         _c = float(_r['cota_m'])
@@ -696,8 +1222,8 @@ else:
 # ⚠️ ESTE É O TESTE QUE IMPEDE O 6c DE SER CIRCULAR. O gerador planta sobre a
 # grade assada e o 6c julga a cota contra a mesma grade: sozinhos, os dois
 # concordariam mesmo que a grade inteira estivesse errada. Aqui a referência é a
-# CENA, sondada ponto a ponto no centro de cada lote por `__plazaPerfil`, que é
-# a mesma função que assenta lote, rua e peça:
+# CENA, sondada ponto a ponto no CENTRÓIDE de cada lote por `__plazaPerfil`, que
+# é a mesma função que assenta lote, rua e peça:
 #
 #     node scripts/city/assar_superficie.mjs --pontos=data/dogcity_lotes.csv
 #
@@ -735,20 +1261,19 @@ else:
          + (f'; {_semq} lotes sem sonda (a sonda é de outra rodada)' if _semq else ''))
 
 # 7. o que a cidade.json declara bate com o que existe
-meta = json.load(open(os.path.join(BASE, 'public/city/cidade.json')))
-# ⚠️ O META DECLARA POR NATUREZA, e o portão tem de ler assim: `plantadas` e
-# `carteiras` falam de LOTE DE CARTEIRA, enquanto o arquivo tem também projeto
-# e institucional. Comparar com o total de linhas reprovava a cidade certa.
-_lot = (meta.get('lotes') or {})
+# ⚠️ O MANIFESTO DECLARA POR NATUREZA, e o portão tem de ler assim: `plantadas`
+# e `carteiras` falam de LOTE DE CARTEIRA, enquanto o arquivo tem também
+# projeto e institucional. Comparar com o total de linhas reprovava a cidade certa.
+_lot = (MANIFESTO.get('lotes') or {})
 item('cidade.json bate com os arquivos',
-     meta.get('plantadas') == len(tenho) and meta.get('carteiras') == len(tenho)
+     MANIFESTO.get('plantadas') == len(tenho) and MANIFESTO.get('carteiras') == len(tenho)
      and (_lot.get('total') is None or _lot.get('total') == len(lotes)),
-     f"declara {meta.get('plantadas')} de {meta.get('carteiras')} carteiras, "
+     f"declara {MANIFESTO.get('plantadas')} de {MANIFESTO.get('carteiras')} carteiras, "
      f"{_lot.get('total')} linhas no total, arquivo tem {len(lotes)}")
 
 # 8. o columbário declarado é o columbário gravado
 if colum:
-    dec = (meta.get('cemiterio') or {}).get('lapides')
+    dec = (MANIFESTO.get('cemiterio') or {}).get('lapides')
     item('cemitério declarado bate com o gravado', dec == len(colum),
          f'declara {dec}, gravados {len(colum)}')
 

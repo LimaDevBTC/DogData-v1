@@ -43,7 +43,21 @@
 // (sem dono), e a rota rejeita esse texto antes de consultar qualquer coisa:
 // guardá-los seria prometer busca por uma chave que nunca chega.
 //
+// ⚠️ REGISTRO v3 (retângulo) OU v4 (4 cantos, masterplan §41): ESTE ARQUIVO NÃO
+// PRECISA SABER A DIFERENÇA. Ele só lê x_m, z_m, area_m2, cota_m, setor, quarto,
+// quarteirao, lote, forma e dsc, que existem com o mesmo nome nos dois formatos
+// (no v4, x_m/z_m viram centróide e area_m2 vira a área exata do polígono, mas
+// continuam sendo colunas numéricas normais). As nove colunas novas do v4
+// (p0x_m…p3z_m, geo) ficam nas linhas lidas e nunca são usadas aqui: quem quiser
+// o polígono lê o CSV, não este índice.
+//
 // USO: node scripts/city/gerar_escrituras.mjs
+//      [--csv=ARQ] [--cemiterio=ARQ] [--merkle=ARQ] [--saida=DIR]
+// Sem opções, os quatro caminhos são os de sempre (data/ e public/city/ na raiz
+// do repositório). Cada opção sobrepõe UM caminho, relativo à raiz do
+// repositório (ou absoluto) — é assim que se aponta para
+// `public/city/_v4teste/` sem escrever em cima do `public/city/escrituras.bin`
+// de produção: `--saida=` manda o .bin e o .json de teste para outro lugar.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
@@ -52,11 +66,22 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
-const LOTES = path.join(RAIZ, 'data', 'dogcity_lotes.csv')
-const CEMITERIO = path.join(RAIZ, 'data', 'dogcity_cemiterio.csv')
-const MERKLE = path.join(RAIZ, 'data', 'dogcity_merkle.json')
-const SAIDA_BIN = path.join(RAIZ, 'public', 'city', 'escrituras.bin')
-const SAIDA_JSON = path.join(RAIZ, 'public', 'city', 'escrituras.json')
+
+// caminho por opção (--chave=valor), relativo à RAIZ (ou absoluto); sem a
+// opção, cai no padrão de sempre.
+function opcao(chave, padrao) {
+  const achado = process.argv.slice(2).find((a) => a.startsWith(`--${chave}=`))
+  if (!achado) return padrao
+  const v = achado.slice(chave.length + 3)
+  return path.isAbsolute(v) ? v : path.join(RAIZ, v)
+}
+
+const LOTES = opcao('csv', path.join(RAIZ, 'data', 'dogcity_lotes.csv'))
+const CEMITERIO = opcao('cemiterio', path.join(RAIZ, 'data', 'dogcity_cemiterio.csv'))
+const MERKLE = opcao('merkle', path.join(RAIZ, 'data', 'dogcity_merkle.json'))
+const SAIDA_DIR = opcao('saida', path.join(RAIZ, 'public', 'city'))
+const SAIDA_BIN = path.join(SAIDA_DIR, 'escrituras.bin')
+const SAIDA_JSON = path.join(SAIDA_DIR, 'escrituras.json')
 
 const MAGIC = 'DOGESCR1'
 const CAB = 16
@@ -147,10 +172,16 @@ for (const r of lotes) {
     continue
   }
   const x = Math.round(+r.x_m * 100), z = Math.round(+r.z_m * 100)
-  const area = +r.area_m2, cota = Math.round(+r.cota_m * 10), forma = +r.forma
+  // ⚠️ AREA ARREDONDA, NÃO EXIGE INTEIRO. No registro v3 `area_m2` já saía
+  // inteiro do gerador; no v4 (masterplan §41) ela vira "a área exata do
+  // polígono" (shoelace dos cantos selados), que pode ter casas decimais. O
+  // campo do índice continua uint32 em m² inteiros (documentado em `esquema`
+  // abaixo), então quem arredonda é aqui, uma vez, em vez de o CSV ter de
+  // mentir sendo inteiro para este leitor não rejeitar a linha.
+  const area = Math.round(+r.area_m2), cota = Math.round(+r.cota_m * 10), forma = +r.forma
   if (
     setor < 1 || setor > 255 || quarto < 0 || quarto > 255 || quarteirao > 65535 || lote > 65535 ||
-    forma < 0 || forma > 7 || !Number.isInteger(area) || area < 0 || area > 0xffffffff ||
+    forma < 0 || forma > 7 || !Number.isFinite(area) || area < 0 || area > 0xffffffff ||
     Math.abs(x) > 0x7fffffff || Math.abs(z) > 0x7fffffff || Math.abs(cota) > 0x7fff
   ) { rejeitados.fora_da_faixa++; console.error(`fora da faixa: ${r.lot_id}`); continue }
   empurra(r.address, {
@@ -228,7 +259,11 @@ for (const r of amostra) {
   if (Math.abs(x - +r.x_m) > 0.006 || Math.abs(z - +r.z_m) > 0.006) throw new Error(`prova falhou: coordenada de ${r.address}`)
   if (r.lot_id) {
     const id = lotIdDe(buf.readUInt8(o + 13), buf.readUInt8(o + 14), buf.readUInt16LE(o + 16), buf.readUInt16LE(o + 18))
-    if (id !== r.lot_id || buf.readUInt32LE(o + 28) !== +r.area_m2) throw new Error(`prova falhou: ${r.lot_id}`)
+    // ⚠️ COMPARA ARREDONDADO, NÃO IGUAL. `area_m2` do v4 pode ter casas
+    // decimais (nota acima, na gravação); o campo do índice é inteiro, então
+    // a prova tem de refazer o MESMO arredondamento em vez de exigir bater
+    // igual a um float que o índice nunca prometeu guardar exato.
+    if (id !== r.lot_id || buf.readUInt32LE(o + 28) !== Math.round(+r.area_m2)) throw new Error(`prova falhou: ${r.lot_id}`)
   } else if (buf.readUInt8(o + 12) !== KIND_LAPIDE || `L${pad(buf.readUInt16LE(o + 18), 5)}` !== r.lapide) {
     throw new Error(`prova falhou: ${r.lapide}`)
   }

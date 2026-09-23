@@ -1135,9 +1135,17 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   // costuras dos 6 distritos como "bulevares", e elas ficam entre 5,6° e 73,1°
   // uma da outra: divisa de loteamento, não estrutura viária. A avenida quer
   // simetria e mora na teia. Ver a nota longa em `teia.ts`.
+  // ⚠️ SÓ DESENVOLVIMENTO: `?reg=_v4teste` aponta a malha e o `cidade.json`
+  // publicados para `public/city/_v4teste/` em vez de `public/city/` (pasta
+  // gitignored, registro v4 de teste do masterplan.md §41). Sem o parâmetro
+  // nada muda; e quem já veio com `o.malha`/`o.meta` prontos (chamador que
+  // buscou por conta própria) nem passa por aqui.
+  const regBase = typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).get('reg') === '_v4teste'
+    ? '/city/_v4teste' : '/city'
   const [malha, meta] = await Promise.all([
-    o.malha ?? fetch('/city/cidade-malha.json').then((r) => r.json() as Promise<Malha>),
-    o.meta ?? fetch('/city/cidade.json').then((r) => r.json() as Promise<Meta>),
+    o.malha ?? fetch(`${regBase}/cidade-malha.json`).then((r) => r.json() as Promise<Malha>),
+    o.meta ?? fetch(`${regBase}/cidade.json`).then((r) => r.json() as Promise<Meta>),
   ])
   // ⚠️ TROCA AS COSTURAS PUBLICADAS PELAS 12 AVENIDAS SIMÉTRICAS. O gerador
   // publica as divisas dos 6 distritos no campo `bulevares`, e elas ficam entre
@@ -2182,9 +2190,44 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
       const z0 = -(k * faixaP + (k - 1) * travP) / 2 + faixaP + i * (faixaP + travP)
       return { z0, z1: z0 + travP }
     })
-    let n = 0, derivados = 0
+    // ⚠️ A SEÇÃO CENTRADA NO EIXO (23/09, registro v4 da malha). `q.travessas`
+    // publica o EIXO do segmento (de radial a radial), não a borda: a tabela
+    // `z0/z1` de hoje é borda-a-borda porque nasce de um quadro rígido
+    // (centro+giro do bloco) e `SEC_TRAVESSA` (0 a 9) some com essa borda em
+    // `de: 0`. Com o eixo pronto não há quadro para reconstruir, então a seção
+    // usada aqui é a MESMA de 9 m recentrada em 0, igual à que `SEC_TRAVESSA_C`
+    // já faz mais abaixo para a teia fina (por isso a definição local: aquela
+    // vive depois deste bloco no arquivo e o `const` não é hoisted).
+    const largTravessa = SEC_TRAVESSA[SEC_TRAVESSA.length - 1].ate
+    const secTravessaEixo = SEC_TRAVESSA.map((b) => ({ ...b, de: b.de - largTravessa / 2, ate: b.ate - largTravessa / 2 }))
+    let n = 0, derivados = 0, daMalha = 0
     for (const q of malha.quarteiroes) {
       const k = (q as unknown as { k?: number }).k ?? 0
+      // ⚠️ QUANDO A CÉLULA JÁ TRAZ `travessas` (masterplan §41, `cidade-malha.json`
+      // `quarteiroes[].travessas`), ela é o eixo PRONTO PARA DESENHAR, de radial a
+      // radial: nada de `giro`/`lado` nem de achar a ponta no radial ativo (a
+      // conta grande de `ateORadial` logo abaixo é exatamente isso, e some
+      // porque o gerador já fez). `lpf` continua valendo, no MESMO índice j: os
+      // segmentos nascem na mesma ordem da tabela que substituem (fileira 2j+1
+      // /2j+2 primeiro que o próximo par).
+      const travMalha = (q as unknown as { travessas?: [number, number, number, number][] }).travessas
+      if (travMalha && travMalha.length) {
+        const lpf = ((q as unknown as { lotesPorFileira?: number[] }).lotesPorFileira) ?? []
+        for (let j = 0; j < travMalha.length; j++) {
+          if (lpf.length && !((lpf[2 * j + 1] ?? 0) > 0 || (lpf[2 * j + 2] ?? 0) > 0)) continue
+          const [tx0, tz0, tx1, tz1] = travMalha[j]
+          const compTrav = Math.hypot(tx1 - tx0, tz1 - tz0)
+          if (compTrav < 1) continue
+          const dirX = (tx1 - tx0) / compTrav, dirZ = (tz1 - tz0) / compTrav
+          const perpX = -dirZ, perpZ = dirX
+          // ⚠️ `faixa` já embute água, alça e avenida (respeitaBulevar por
+          // padrão): as mesmas regras do caminho antigo, que também chamava
+          // `faixa` sem mexer nesses parâmetros.
+          faixa(tx0, tz0, tx1, tz1, perpX, perpZ, secTravessaEixo)
+          n++; daMalha++
+        }
+        continue
+      }
       if (k < 2) continue
       const tabela = tpk[String(k)] ?? (derivados++, derivada(k))
       if (!tabela.length) continue
@@ -2270,7 +2313,8 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
       }
     }
     if (n) console.log(`[vias] ${n} travessas de serviço desenhadas dentro dos quarteirões`
-      + (derivados ? `, ${derivados} com a tabela derivada (k fora de travessasPorK)` : ''))
+      + (derivados ? `, ${derivados} com a tabela derivada (k fora de travessasPorK)` : '')
+      + (daMalha ? `, ${daMalha} do eixo publicado em quarteiroes[].travessas` : ''))
   }
 
   // ── 2. os 12 bulevares de costura, e só eles ganham marcação ──────────────
@@ -2541,11 +2585,21 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
       // aqui decide se o SUBTRECHO entra no dump, nunca se ele se desenha — quem
       // decide o desenho continua sendo o laço de bandas, inalterado.
       if (STATS_URL) {
+        // ⚠️ CORDA CARTESIANA, A MESMA DO DESENHO (23/09). Interpolar o ÂNGULO
+        // (`pt(an.r, aa0/aa1)`) grava CÍRCULO: no meio da face o ponto ficava a
+        // `an.r` do centro, quando o desenho abaixo (que é dodecágono) já
+        // mergulha para `an.r·cos(15°)` ali. Os dois vértices do lado, no raio
+        // do EIXO (`an.r`, não numa banda), e a mesma interpolação cartesiana
+        // entre eles que o laço de bandas usa: por isso serve tanto para o
+        // dodecágono (lado reto) quanto para o arco da alça (vértices já são
+        // amostras densas do círculo, então a corda entre duas delas é o
+        // próprio arco dentro da tolerância de `verticesDoArco`).
+        const [P0x, P0z] = pt(an.r, a0)
+        const [P1x, P1z] = pt(an.r, a1)
         for (let t = 0; t < NSUB; t++) {
           const u0 = bordasLado[t], u1 = bordasLado[t + 1]
-          const aa0 = a0 + (a1 - a0) * u0, aa1 = a0 + (a1 - a0) * u1
-          const [px0, pz0] = pt(an.r, aa0)
-          const [px1, pz1] = pt(an.r, aa1)
+          const px0 = P0x + (P1x - P0x) * u0, pz0 = P0z + (P1z - P0z) * u0
+          const px1 = P0x + (P1x - P0x) * u1, pz1 = P0z + (P1z - P0z) * u1
           if (paraNaAgua((px0 + px1) / 2, (pz0 + pz1) / 2) || paraNaAgua(px0, pz0) || paraNaAgua(px1, pz1)) continue
           dumpSeg('anel', an.larg, px0, pz0, px1, pz1)
         }

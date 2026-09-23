@@ -9,22 +9,33 @@
 //
 //   node scripts/city/carta.mjs              # SVG + PNG 1600 + PNG 3200 + WebP
 //   node scripts/city/carta.mjs --so-svg=1   # só o vetor, para iterar rápido
+//   node scripts/city/carta.mjs --dados=public/city/_v4teste --so-svg=1 \
+//     --svg=/tmp/teste.svg   # lê outra pasta (registro v4 de teste), nunca
+//                            # escreve em public/ sem --svg/--webp/--png* explícitos
 //
 // FONTES (leitura, nunca escrita):
 //   data/superficie.f32 + .json      o chão COMO CONSTRUÍDO, 1600x1600, ±12 km
-//   public/city/cidade-malha.json    os 2.071 quarteirões (centro, giro, lado, prof)
-//   public/city/cidade-lotes.bin     os lotes das três orlas especiais (S07/S08/S09)
-//   public/city/cidade.json          programa congelado, contagens, nomes
+//   <dados>/cidade-malha.json        os 2.071 quarteirões (rua, programa continuam por aqui)
+//   <dados>/cidade-lotes*.bin        TODOS os lotes (v4 pelos cantos, v3 pelo retângulo)
+//   <dados>/cidade.json              programa congelado, contagens, nomes, versão do registro
 //   public/city/mapa-v1.json         avenidas, anéis viários, alça, Founders Club
 //   data/dogcity_merkle.json         bloco, root, lotes, lápides do cartucho
+//   (<dados> é `--dados=`, padrão `public/city`; só afeta os três primeiros —
+//   mapa-v1.json, merkle e superfície nunca desviam, ver a doutrina em
+//   app/city/mapa/registro.ts sobre `?reg=`, a mesma convenção)
 //
-// ⚠️ O QUARTEIRÃO É A UNIDADE, NÃO O LOTE. 70.709 lotes num quadrado de 1.600 px
-// (4,6 m por pixel) viram textura, e textura mente: parece detalhe e não é. A
-// carta desenha os 2.071 quarteirões do tecido como polígonos cheios, e a rua
-// aparece em NEGATIVO, o vão escuro entre eles. As três orlas especiais (Orla
-// Nobre, Distrito Financeiro, Orla da Baía) não têm quarteirão na malha: ali os
-// lotes são fundidos (preenchimento sem traço, com 0,8 m de folga) para que o
-// olho leia a fileira e não a divisa.
+// ⚠️ A CARTA DESENHA LOTE, NUNCA ENVOLTÓRIO DE QUARTEIRÃO (§39, 23/09). Até
+// 23/09 esta camada desenhava um retângulo opaco por quarteirão lido de
+// cidade-malha.json: escondia a travessa interna, pintava 138 quarteirões sem
+// nenhum lote e desenhava peça por cima de lote. Hoje ela lê TODOS os lotes do
+// .bin (v4 pelos 4 cantos prontos, geo=1 com o arco de verdade; v3 pelo
+// retângulo x,z,frente,prof,giro) e desenha cada um preenchido com a cor do
+// setor, SEM TRAÇO entre vizinhos do mesmo setor: a célula lê como forma
+// cheia e a rua (e a travessa) aparece como o vão onde não há lote nenhum. O
+// v3 ganha 0,8 m de folga por lote para fechar a costura de arredondamento
+// entre vizinhos (o v4 não precisa: cantos absolutos, a costura já é zero por
+// construção). As três orlas nomeadas (Orla Nobre, Distrito Financeiro, Orla
+// da Baía) mantêm a borda creme clara de sempre, por cima do preenchimento.
 //
 // ⚠️ A VERDADE DO PROGRAMA É cidade.json, NÃO mapa-v1.json. Medido em 23/09
 // contando lotes dentro de cada polígono: os 70 do mapa-v1 têm CENTENAS de lotes
@@ -75,6 +86,10 @@ const arg = (k, d) => (process.argv.find((a) => a.startsWith(`--${k}=`)) || `--$
 const LADO = 1600                       // o SVG, em unidades; o PNG sai em 1x e 2x
 const QUADRO = +arg('quadro', 7400)     // meio-lado do enquadramento, em metros
 const SO_SVG = arg('so-svg', '0') !== '0'
+// pasta do registro (cidade.json, cidade-malha.json, cidade-lotes*.bin); ver
+// a doutrina no cabeçalho. Tudo que NÃO é registro (mapa-v1, merkle,
+// superfície) continua fixo em public/ e data/, nunca segue este argumento.
+const DADOS = arg('dados', 'public/city')
 const DEG = Math.PI / 180
 const ESC = LADO / (2 * QUADRO)         // px por metro
 // mundo -> px. x cresce para leste e z para o sul; o y do SVG cresce para baixo,
@@ -87,8 +102,8 @@ const rumoDe = (x, z) => ((Math.atan2(x, -z) / DEG) + 360) % 360
 
 // ── as fontes ───────────────────────────────────────────────────────────────
 const ler = (p) => JSON.parse(readFileSync(resolve(RAIZ, p), 'utf8'))
-const cidade = ler('public/city/cidade.json')
-const malha = ler('public/city/cidade-malha.json')
+const cidade = ler(`${DADOS}/cidade.json`)
+const malha = ler(`${DADOS}/cidade-malha.json`)
 const mapa = ler('public/city/mapa-v1.json')
 const merkle = ler('data/dogcity_merkle.json')
 // ⚠️ A REDE VIÁRIA VEM DE public/city/mapa/vias.json, NÃO MAIS DE mapa-v1.json
@@ -366,69 +381,105 @@ corpo += `</g>\n`
 console.log(`água: ${terraLaços.length} laços de costa, ${Date.now() - t0} ms`)
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CAMADA 2: OS QUARTEIRÕES, COR POR SETOR, RUA EM NEGATIVO
+// CAMADA 2: OS LOTES, COR POR SETOR, RUA EM NEGATIVO (§39, emenda 23/09 §41)
 // ═══════════════════════════════════════════════════════════════════════════
-// quadro da malha: mundo = centro + R(giro)·local; x local = testada (lado),
-// z local = profundidade (prof). giro em graus, positivo de +x para +z.
+// retângulo girado: mundo = centro + R(giro)·local; x local = testada (lado),
+// z local = profundidade (prof). giro em graus, positivo de +x para +z. Só
+// serve ao FALLBACK v3 (leLote abaixo); o v4 já traz os 4 cantos prontos.
 const retangulo = (x, z, meiaX, meiaZ, giroGraus) => {
   const g = giroGraus * DEG, c = Math.cos(g), s = Math.sin(g)
   return [[-meiaX, -meiaZ], [meiaX, -meiaZ], [meiaX, meiaZ], [-meiaX, meiaZ]]
     .map(([lx, lz]) => [x + lx * c - lz * s, z + lx * s + lz * c])
 }
 const poli = (pts) => 'M' + pts.map(([x, z]) => pt(x, z)).join('L') + 'Z'
-// ⚠️ O RECUO DE 1,5 m É PARA A RUA APARECER. O vão real entre quarteirões vizinhos
-// é de 16 m (medido na malha: p5 e p50 iguais a 16,0), que a 4,6 m/px dá 3,5 px
-// no 1600 e 7 no 3200. Com o recuo o vão vai a 19 m e a rua lê limpa nos dois.
-// É recuo de desenho, não de cadastro: a área do quarteirão não muda em lugar
-// nenhum que alguém consulte.
-const RECUO = 1.5
-// ⚠️ DUAS BOLSAS POR SETOR, NUNCA UMA. O quarteirão da malha ganha traço de
-// rua por cima (linha creme, ver abaixo); o lote fundido das três orlas
-// especiais NÃO pode ganhar esse traço, porque ali o lote é fundido de
-// propósito para o olho ler a fileira e não a divisa (aviso do cabeçalho).
-// Guardar as duas bolsas separadas é o que permite tratamento diferente sem
-// reintroduzir a divisa por lote.
-const porSetorBlocos = {}, porSetorOrlas = {}
-for (const b of malha.quarteiroes) {
-  const s = b.setor
-  porSetorBlocos[s] = (porSetorBlocos[s] || '') + poli(retangulo(b.x, b.z, b.lado / 2 - RECUO, b.prof / 2 - RECUO, b.giro))
-}
-// as três orlas especiais vêm do registro, lote a lote, fundidos por setor.
-// ⚠️ O SETOR DO .bin É ZERO-BASED (0..8) e o do lot_id é S01..S09: bin 6 = S07.
-const REG = 15
-const bin = readFileSync(resolve(RAIZ, 'public/city/cidade-lotes.bin'))
+
+// ⚠️ QUEM DECIDE A VERSÃO É cidade.json, NUNCA O TAMANHO DO ARQUIVO (mesma
+// regra de app/city/mapa/registro.ts). v4 = 21 bytes, 8 cantos prontos
+// (int16, quartos de metro) + setor/coorte/familia/flags; v3 = 15 bytes,
+// retângulo. O setor do .bin é ZERO-BASED (0..8), o do lot_id é S01..S09.
+const V4 = cidade.registroVersao === 4
+const REG = V4 ? 21 : 15
+const ARQUIVO_LOTES = V4 ? (cidade.registroArquivo || 'cidade-lotes-v4.bin') : 'cidade-lotes.bin'
+const bin = readFileSync(resolve(RAIZ, `${DADOS}/${ARQUIVO_LOTES}`))
 const nLotes = Math.floor(bin.length / REG)
-if (cidade.registroBytes !== REG) throw new Error(`cidade.json declara ${cidade.registroBytes} bytes por lote, este leitor espera ${REG}`)
-const contagemOrla = { 7: 0, 8: 0, 9: 0 }
-for (let i = 0; i < nLotes; i++) {
+if (cidade.registroBytes !== REG)
+  throw new Error(`cidade.json declara ${cidade.registroBytes} bytes por lote (registroVersao ${cidade.registroVersao ?? 3}), este leitor espera ${REG}`)
+// ⚠️ FUSÃO SÓ NO V3. 0,8 m de folga por lado fecha a costura de arredondamento
+// entre vizinhos do mesmo setor (sem isso a fileira mostra hairline entre
+// lotes que deveriam ler como uma célula só). O v4 grava cantos ABSOLUTOS —
+// dois vizinhos arredondam o mesmo ponto para o mesmo inteiro, a costura já
+// é zero por construção (§41) — então NÃO leva fusão nenhuma.
+const FUSAO_V3 = 0.8
+/** setor (1-based), geo (v3 sempre 3, retângulo legado) e os 4 cantos do
+ *  lote i, mundo, metros. Esconde a diferença de formato: quem chama nunca
+ *  lê offset de byte de novo. */
+function leLote(i) {
   const o = i * REG
+  if (V4) {
+    const gp = (k) => bin.readInt16LE(o + k * 2) / 4
+    const setor = bin.readUInt8(o + 16) + 1
+    const geo = (bin.readUInt8(o + 20) >> 4) & 3
+    const p0x = gp(0), p0z = gp(1), p1x = gp(2), p1z = gp(3), p2x = gp(4), p2z = gp(5), p3x = gp(6), p3z = gp(7)
+    return { setor, geo, x: (p0x + p1x + p2x + p3x) / 4, z: (p0z + p1z + p2z + p3z) / 4, p0x, p0z, p1x, p1z, p2x, p2z, p3x, p3z }
+  }
   const setor = bin.readUInt8(o + 4) + 1
-  if (!(setor in contagemOrla)) continue
   const x = bin.readInt16LE(o) / 4, z = bin.readInt16LE(o + 2) / 4
   const frente = bin.readUInt16LE(o + 9) / 10, prof = bin.readUInt16LE(o + 11) / 10
   const giro = bin.readUInt16LE(o + 13) / 100
-  contagemOrla[setor]++
-  porSetorOrlas[setor] = (porSetorOrlas[setor] || '') + poli(retangulo(x, z, frente / 2 + 0.8, prof / 2 + 0.8, giro))
+  const [[p0x, p0z], [p1x, p1z], [p2x, p2z], [p3x, p3z]] = retangulo(x, z, frente / 2 + FUSAO_V3, prof / 2 + FUSAO_V3, giro)
+  return { setor, geo: 3, x, z, p0x, p0z, p1x, p1z, p2x, p2z, p3x, p3z }
 }
-const setoresComuns = Object.keys(porSetorBlocos).map(Number).sort((a, b) => a - b)
-// 1) o preenchimento dos quarteirões comuns, translúcido: a curva de nível de
-// baixo ainda respira por baixo
-for (const s of setoresComuns) corpo += `<path d="${porSetorBlocos[s]}" fill="${corSetor(s)}" fill-opacity="0.88"/>\n`
+
+// ⚠️ GEO=1 (FATIA DE ANEL) NÃO É CORDA. Emenda de 23/09 ao §41: a frente
+// (p0-p1) e o fundo (p2-p3) de um lote geo=1 são ARCOS de círculo centrados
+// na ORIGEM (Satoshi Plaza), raios |p0| e |p2|, rumos de p0 e p1 — uma corda
+// cortaria dezenas de metros para dentro num arco largo (o caso medido: 57°
+// de abertura, 114 m de corda). O SVG traça o arco de verdade com o comando
+// `A`, sem tesselar em segmentos. Nenhum lote do dado de teste é geo=1 (todos
+// vieram como retângulo convertido, geo=3); este caminho fica pronto para
+// quando o gerador emitir o primeiro.
+function subpathLote(l) {
+  if (l.geo !== 1) return poli([[l.p0x, l.p0z], [l.p1x, l.p1z], [l.p2x, l.p2z], [l.p3x, l.p3z]])
+  const r0 = Math.hypot(l.p0x, l.p0z), r1 = Math.hypot(l.p2x, l.p2z)
+  const a0 = rumoDe(l.p0x, l.p0z) * DEG, a1 = rumoDe(l.p1x, l.p1z) * DEG
+  const grande = (((a1 - a0) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI)) > Math.PI ? 1 : 0
+  return `M${pt(l.p0x, l.p0z)}A${(r0 * ESC).toFixed(1)} ${(r0 * ESC).toFixed(1)} 0 ${grande} 1 ${pt(l.p1x, l.p1z)}`
+    + `L${pt(l.p2x, l.p2z)}A${(r1 * ESC).toFixed(1)} ${(r1 * ESC).toFixed(1)} 0 ${grande} 0 ${pt(l.p3x, l.p3z)}Z`
+}
+
+// um subpath por lote, agrupado por setor num só <path> (nonzero: subpaths
+// vizinhos que se tocam ou levemente se sobrepõem pintam como UMA área só,
+// nunca criam buraco). ⚠️ NADA DE STROKE POR LOTE AQUI: um traço por cima da
+// divisa de cada lote É o "traço entre vizinhos" que o §39 pediu para tirar
+// (ver a camada inteira mais abaixo, item 3).
+const porSetorPartes = {}, contagemSetor = {}
+for (let i = 0; i < nLotes; i++) {
+  const l = leLote(i)
+  ;(porSetorPartes[l.setor] || (porSetorPartes[l.setor] = [])).push(subpathLote(l))
+  contagemSetor[l.setor] = (contagemSetor[l.setor] || 0) + 1
+}
+const setoresTodos = Object.keys(porSetorPartes).map(Number).sort((a, b) => a - b)
+const porSetorD = {}
+for (const s of setoresTodos) porSetorD[s] = porSetorPartes[s].join('')
+const ORLAS = new Set([7, 8, 9])
+// 1) o preenchimento: cada lote com a cor do próprio setor, sem traço nenhum
+// (comum translúcido, a curva de nível de baixo ainda respira; orla opaca,
+// igual sempre foi). A rua (e agora também a travessa interna, que o
+// envoltório de quarteirão escondia) aparece sozinha, pelo vão sem lote.
+for (const s of setoresTodos) corpo += `<path d="${porSetorD[s]}" fill="${corSetor(s)}"${ORLAS.has(s) ? '' : ' fill-opacity="0.88"'}/>\n`
 // 2) a curva de nível volta a atravessar por cima do tecido (mesma geometria
-// da camada 1), antes da malha creme, para ficar por baixo dela
+// da camada 1), para a elevação continuar lendo através da cor do setor
 for (const ls of linhasRelevo) corpo += `<path d="${caminho(ls, true)}" fill="none" stroke="${BRUMA}" stroke-width="0.6" stroke-opacity="0.28"/>\n`
-// 3) a rua como LINHA creme fina e densa, por cima do quarteirão comum. Não
-// entra nas orlas: ver aviso acima
-for (const s of setoresComuns) corpo += `<path d="${porSetorBlocos[s]}" fill="none" stroke="${RUA_LINHA}" stroke-width="0.62" stroke-opacity="0.55" stroke-linejoin="round"/>\n`
-// 4) as três orlas nomeadas, com borda creme clara: é o que faz o Spit, os
+// 3) as três orlas nomeadas, com borda creme clara: é o que faz o Spit, os
 // píeres de Bay Shore e o anel do Distrito Financeiro lerem como endereço
-// nobre, e não só uma diferença de tom que só se vê a 3200
+// nobre. SÓ elas: um traço por cima dos setores comuns voltaria a desenhar a
+// divisa de CADA lote, o "traço entre vizinhos" que este item existe para tirar.
 for (const s of [7, 8, 9]) {
-  if (!porSetorOrlas[s]) continue
-  corpo += `<path d="${porSetorOrlas[s]}" fill="${corSetor(s)}"/>\n`
-  corpo += `<path d="${porSetorOrlas[s]}" fill="none" stroke="${ORLA_BORDA}" stroke-width="0.7" stroke-opacity="0.75"/>\n`
+  if (!porSetorD[s]) continue
+  corpo += `<path d="${porSetorD[s]}" fill="none" stroke="${ORLA_BORDA}" stroke-width="0.7" stroke-opacity="0.75"/>\n`
 }
-console.log(`quarteirões: ${malha.quarteiroes.length}; lotes das orlas: S07 ${contagemOrla[7]}, S08 ${contagemOrla[8]}, S09 ${contagemOrla[9]} (de ${nLotes})`)
+console.log(`lotes: ${nLotes} (registro v${V4 ? 4 : 3}, ${REG} bytes/lote, ${ARQUIVO_LOTES}); por setor `
+  + setoresTodos.map((s) => `S${String(s).padStart(2, '0')} ${contagemSetor[s]}`).join(', '))
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CAMADA 3: PROGRAMA E ÂNCORAS, HACHURA FINA E NOME CURTO
@@ -685,9 +736,9 @@ corpo += via(an7Path, BANDA_AN7, { cor: 'url(#gradArco)', op: 1 })
 // a Orla Nobre volta a desenhar por cima da banda larga (enxerto da variante
 // B: a borda creme clara), senão a faixa cobriria as fileiras de lote que a
 // camada 2 já tinha desenhado
-if (porSetorOrlas[7]) {
-  corpo += `<path d="${porSetorOrlas[7]}" fill="${corSetor(7)}"/>\n`
-  corpo += `<path d="${porSetorOrlas[7]}" fill="none" stroke="${ORLA_BORDA}" stroke-width="0.75" stroke-opacity="0.8"/>\n`
+if (porSetorD[7]) {
+  corpo += `<path d="${porSetorD[7]}" fill="${corSetor(7)}"/>\n`
+  corpo += `<path d="${porSetorD[7]}" fill="none" stroke="${ORLA_BORDA}" stroke-width="0.75" stroke-opacity="0.8"/>\n`
 }
 corpo += `<path d="${an7Path.terra}" fill="none" stroke="${LARANJA_CLARO}" stroke-width="1.1" stroke-opacity="0.9"/>\n`
 
@@ -697,7 +748,7 @@ corpo += `<path d="${an7Path.terra}" fill="none" stroke="${LARANJA_CLARO}" strok
 // a Praça e o Distrito Financeiro (anel de 27 lotes em r 992, dentro da Praça)
 const rDF = (() => {
   let s = 0, n = 0
-  for (let i = 0; i < nLotes; i++) { const o = i * REG; if (bin.readUInt8(o + 4) + 1 !== 8) continue; s += Math.hypot(bin.readInt16LE(o) / 4, bin.readInt16LE(o + 2) / 4); n++ }
+  for (let i = 0; i < nLotes; i++) { const l = leLote(i); if (l.setor !== 8) continue; s += Math.hypot(l.x, l.z); n++ }
   return n ? s / n : 992
 })()
 corpo += `<rect x="${(cx - 3).toFixed(1)}" y="${(cx - 3).toFixed(1)}" width="6" height="6" fill="${LARANJA}"/>\n`
@@ -711,7 +762,7 @@ rotulos += TC(7128, meioAlca - 28, meioAlca + 28, NOME_SETOR[7], { tam: 11, esp:
 // grupo (o fundador prefere repetição simétrica a um rótulo torto no meio)
 const rumosBaia = (() => {
   const rs = []
-  for (let i = 0; i < nLotes; i++) { const o = i * REG; if (bin.readUInt8(o + 4) + 1 !== 9) continue; const x = bin.readInt16LE(o) / 4, z = bin.readInt16LE(o + 2) / 4; if (Math.hypot(x, z) < 4800) rs.push(rumoDe(x, z)) }
+  for (let i = 0; i < nLotes; i++) { const l = leLote(i); if (l.setor !== 9) continue; if (Math.hypot(l.x, l.z) < 4800) rs.push(rumoDe(l.x, l.z)) }
   rs.sort((a, b) => a - b)
   // parte no maior salto angular
   let corte = 0, maior = 0

@@ -818,7 +818,11 @@ print(f'dobra da teia: r {TEIA_DOBRA_R:.0f} m = φ {TEIA_PHI_DOBRA:.0f} (máximo
 # 25 · 55 · 85 ficam espaçados de 30° dentro da janela, e a baía os encontra em
 # r 4.850, 3.730 e 5.810. Eles radiam do porto para dentro da cidade, que é como
 # via de água funciona: ela nasce no ancoradouro.
-CANAL_RADIAIS = [25.0, 55.0, 85.0]
+# ⚠️ §40 (23/09/2026): NO RADIAL DA TEIA, 0,714° ADIANTE. 25, 55 e 85 caíam entre
+# radiais (múltiplos de 360/84 = 4,286°) e o corredor de 140 m (lâmina 60 + talude 40
+# de cada lado) cortava célula pelo meio. Em j = 6, 13 e 20 de 84 ele vira a divisa
+# lateral das células vizinhas, e a baía continua encontrando os três.
+CANAL_RADIAIS = [j * 360.0 / 84 for j in (6, 13, 20)]
 # ⚠️ 96 -> 60 (fundador, 30/08: "60 m já resolve"). 96 m de lâmina entre
 # quarteirões de 109 a 227 m de fundo era canal mais largo que a quadra do
 # Núcleo. 60 m ainda é mais largo que qualquer canal de Amsterdam e cabe entre
@@ -2208,6 +2212,20 @@ ANEIS = [
 ANEIS = [(i, ('Avenida da Alça' if i == 'AN7' else n),
           (ALCA_R if i == 'AN7' else r), (ALCA_LARG if i == 'AN7' else w))
          for i, n, r, w in ANEIS]
+# ⚠️ §40 (23/09/2026): O ARTERIAL MORA NA FACE DA TEIA, CENTRADO, OU A CÉLULA NÃO
+# EXISTE. A cena desenha AN1 a AN6 como dodecágono com `r` no VÉRTICE (face em
+# r·cos 15°) e só encaixa na face da teia quem está a 25 m dela (`TOL_DIVISA`).
+# AN3, AN5 e AN6 ficavam a 58, 106 e 46 m: avenida de 26 a 34 m correndo pelo meio
+# do quarteirão, e nenhum lote pode ser fração de célula com rua por dentro. A regra
+# que `teia.ts` já escreveu é mover a arterial, nunca a teia. A tabela diz em que
+# face (`TEIA_ANEIS`, apótema) cada uma mora: AN3 vai para 3.803 e não para 3.564
+# porque 3.564 é a borda externa do bloco das 7 peças ancoradas; AN5 cruza as bocas
+# de autopista AU1B e AU3A, que existem para encontrar a via. O comentário acima
+# ("círculo de verdade, não polígono da malha") é de antes de 06/09 e está revogado.
+_COS15 = math.cos(math.pi / 12)
+_FACE_DO_ARTERIAL = {'AN1': 2, 'AN2': 9, 'AN3': 15, 'AN4': 17, 'AN5': 22, 'AN6': 24}
+ANEIS = [(i, n, (TEIA_ANEIS[_FACE_DO_ARTERIAL[i]] / _COS15 if i in _FACE_DO_ARTERIAL else r), w)
+         for i, n, r, w in ANEIS]
 
 # medição: SEM_ANEIS=1 mede quanto do estrago é do anel e quanto é da peça
 if os.environ.get('SEM_ANEIS'):
@@ -2437,9 +2455,18 @@ def em_programa(x, z, margem=2.0):
     return None
 
 def num_anel(x, z, margem=2.0):
+    # ⚠️ §40: DODECÁGONO, COMO A CENA DESENHA. A versão anterior testava o CÍRCULO
+    # de raio `ra`, que é o VÉRTICE: no meio da face o asfalto passa 3,4% para
+    # dentro (128 m no AN3) e a máscara deixava lote nascer em cima dele. A
+    # distância que conta é a apótema do ponto, r·cos(rel); só a alça é círculo.
     r = math.hypot(x, z)
+    _P = math.pi / 6
+    _a = math.atan2(x, -z)
+    ap = r * math.cos(((_a % _P) + _P) % _P - _P / 2)
     for aid, nome, ra, larg in ANEIS:
-        if abs(r - ra) <= larg/2 + margem:
+        if aid == 'AN7':
+            if abs(r - ra) <= larg/2 + margem: return aid
+        elif abs(ap - ra * _COS15) <= larg/2 + margem:
             return aid
     return None
 
@@ -4017,15 +4044,113 @@ if os.environ.get('AUDITA_AGUA'):
         print('  %-18s %7.2f km²  %5.1f%%' % (_k, _km2(_v), 100.0*_v/max(1,_tot)), file=sys.stderr)
     sys.exit(0)
 
-T = tecido()
-cap = [sum(len(b['lotes']) for q in T[s] for b in q['quarteiroes']) for s in range(N_DIST)]
-for s in range(N_DIST):
-    print(f'  distrito {s+1} (rumo {DISTRITOS[s][0]:5.1f}+{DISTRITOS[s][1]:4.1f}, giro '
-          f'{DISTRITOS[s][2]:+5.1f}): {len(T[s]):2d} bandas, '
-          f'{sum(len(q["quarteiroes"]) for q in T[s]):4d} quarteirões, {cap[s]:6,d} lotes',
-          file=sys.stderr)
-CAP = sum(cap)
-print(f'CAPACIDADE TOTAL: {CAP:,} lotes', file=sys.stderr)
+# ══════════════════════════════════════════════════════════════════════════
+# §37/§40 (23/09/2026): O TECIDO É A GRADE DE CÉLULAS DA TEIA DESENHADA
+#
+# Fundador: "Os lotes devem ter o formato de células que se encaixem, não serem
+# forçados a entrar numa grade num formato diferente". Até aqui o quarteirão nascia
+# em anel de φ (círculo) e o lote era retângulo com giro por bloco; a rua é
+# dodecágono. Medido na cidade selada (§39): 95% dos quarteirões com rua por dentro
+# e 10.465 pares de lotes sobrepostos na emenda entre quartos.
+#
+# Agora a célula é o trapézio entre duas faces de anel da teia (APÓTEMA `ANEIS[i]`,
+# como `vias.ts` desenha) e dois radiais ativos (84 até o anel da dobra, 168 dali
+# para fora, como a cena), com meia rua de cada lado; o lote é fração dela (ver
+# `scripts/city/celula.py`). `tecido()` e as prateleiras de retângulo ficaram acima
+# só como histórico: nada as chama.
+#
+# ⚠️ A MÁSCARA DO TECIDO É A REDE DESENHADA E MAIS NADA DE RUA. `livre()` ainda
+# reserva o círculo dos arteriais, as 9 costuras de distrito e as bordas das bandas
+# de φ, e a cena não desenha nenhuma delas; as 12 avenidas, que ela desenha, não
+# estavam lá. Aqui a rua é a borda da célula; a máscara cuida só de água, peça,
+# canal, orlas especiais, guerra e declive.
+# ══════════════════════════════════════════════════════════════════════════
+sys.path.insert(0, p('scripts/city'))
+import celula as CEL
+_avt = open(p_ts('teia.ts'), encoding='utf-8').read()
+_mav = re.search(r'AVENIDAS[^=]*=\s*Array\.from\(\{\s*length:\s*(\d+)\s*\},\s*\(_, i\)\s*=>\s*\(\{\s*'
+                 r'rumo:\s*i\s*\*\s*(\d+),\s*largura:\s*i\s*%\s*(\d+)\s*===\s*0\s*\?\s*(\d+)\s*:\s*(\d+)', _avt)
+if not _mav: raise SystemExit('gerar_cidade: AVENIDAS mudou de forma em teia.ts; leia de novo')
+_n_av, _p_av, _m_av, _l1, _l2 = map(int, _mav.groups())
+_mhr = re.search(r'export const HR\s*=\s*([0-9.]+)', _avt)
+if not _mhr: raise SystemExit('gerar_cidade: HR sumiu de teia.ts')
+TEIA_HR = float(_mhr.group(1))
+_J_POR_GRAU = TEIA_N_RAD / 360.0
+_AV_MEIA = {}
+for _k in range(_n_av):
+    _j = _k * _p_av * _J_POR_GRAU
+    if abs(_j - round(_j)) > 1e-9: raise SystemExit('gerar_cidade: avenida fora de radial da teia')
+    _AV_MEIA[int(round(_j)) % TEIA_N_RAD] = (_l1 if _k % _m_av == 0 else _l2) / 2.0
+_ART_MEIA = {_FACE_DO_ARTERIAL[_i]: _w / 2.0 for _i, _n, _r, _w in ANEIS if _i in _FACE_DO_ARTERIAL}
+_CANAIS_CEL = []
+for _ru in CANAL_RADIAIS:
+    _j = _ru * _J_POR_GRAU
+    if abs(_j - round(_j)) > 1e-6: raise SystemExit(f'gerar_cidade: canal em {_ru}° fora de radial')
+    _CANAIS_CEL.append((int(round(_j)) % TEIA_N_RAD, CANAL_RAD_SEC / 2 + CANAL_TALUDE + 2.0,
+                        R_INICIO, R_ABOBADA))
+TEIA_CEL = CEL.Teia(TEIA_ANEIS, _NIVEIS[-1][1], TEIA_N_RAD, TEIA_HR, TRAVESSA / 2.0,
+                    _AV_MEIA, _ART_MEIA, _CANAIS_CEL)
+
+def livre_tecido(x, z):
+    """`livre()` sem as ruas que a cena não desenha (ver a nota acima)."""
+    r = math.hypot(x, z)
+    if r < R_INICIO: return False
+    if phi(x, z) > PHI_BORDA: return False
+    if math.hypot(x-PCX, z-PCZ) < parque_alcance(x, z) + 2: return False
+    if dentro_do_coliseu(x, z, 2.0): return False
+    if em_programa(x, z) is not None: return False
+    if em_canal(x, z, CANAL_TALUDE + 2.0): return False
+    if em_guerra(x, z, 2.0): return False
+    if em_baia(x, z, ORLA_RESERVA): return False
+    if _na_orla_nobre(x, z): return False
+    if _na_orla_baia(x, z): return False
+    if em_lago(x, z, 30.0): return False
+    if altura(x, z) < LAGO_COTA + 0.5: return False
+    return declive(x, z) <= DECLIVE_MAX
+
+print('grade de células da teia: amostrando a máscara ao longo das fileiras...', file=sys.stderr)
+CELS = []
+_REJ_CEL = collections.Counter()
+for _i in range(len(TEIA_ANEIS) - 1):
+    _passo = TEIA_CEL.passo(_i)
+    for _j0 in range(0, TEIA_N_RAD, _passo):
+        _c = CEL.Celula(TEIA_CEL, _i, _j0, _j0 + _passo)
+        if not _c.ok: _REJ_CEL['estreita'] += 1; continue
+        _wm = (_c.wL + _c.wR) / 2
+        _cx, _cz = CEL.ponto((_c.d_in + _c.d_out) / 2, _wm, _c.fi)
+        # ⚠️ O φ DO TECIDO SELADO CONTINUA SENDO O LIMITE, MAS PELO CENTRO DA CÉLULA:
+        # a borda do tecido anda de célula inteira, nunca corta uma pela metade.
+        if phi(_cx, _cz) > PHI_LOTE: _REJ_CEL['além do tecido'] += 1; continue
+        _s = distrito_de(_cx, _cz)
+        if _s is None: _REJ_CEL['sem distrito'] += 1; continue
+        _tem = False
+        for _f in CEL.fileiras_da_celula(_c):
+            _f['livre0'] = CEL.intervalos_livres(_f, _c.wL, _c.wR, livre_tecido)
+            _f['r'] = math.hypot(*CEL.ponto((_f['df'] + _f['db']) / 2, _wm, _c.fi))
+            _tem = _tem or bool(_f['livre0'])
+        if not _tem: _REJ_CEL['toda mascarada'] += 1; continue
+        _c.setor = _s
+        CELS.append(_c)
+DIST = []
+for _s in range(N_DIST):
+    _a0 = math.radians(DISTRITOS[_s][0])
+    _ang = lambda c: (TEIA_CEL.theta(c.j0) - _a0) % (2 * math.pi)
+    _cs = sorted((c for c in CELS if c.setor == _s), key=lambda c: (c.i, _ang(c)))
+    _nb = collections.Counter()
+    for _c in _cs:
+        _c.q = _c.i + 1
+        _nb[_c.q] += 1
+        _c.b = _nb[_c.q]
+    # ⚠️ A ORDEM DE CHEGADA É DE DENTRO PARA FORA POR FILEIRA, NÃO POR CÉLULA: a
+    # carteira mais antiga pega a fileira mais interna do distrito inteiro, que é a
+    # regra 1 (idade → onde) na resolução da fileira.
+    _fs = sorted((f for c in _cs for f in c.fileiras),
+                 key=lambda f: (f['cel'].i, f['faixa'], f['lado'], _ang(f['cel'])))
+    DIST.append(CEL.Distrito(_fs))
+    print(f'  distrito {_s+1} (rumo {DISTRITOS[_s][0]:5.1f}+{DISTRITOS[_s][1]:5.1f}): '
+          f'{len(_cs):4d} células, {len(_fs):5d} fileiras, '
+          f'{DIST[-1].capacidade_total()/1e4:8,.1f} ha loteáveis', file=sys.stderr)
+print(f'  células: {len(CELS):,} com fileira livre | fora: {dict(_REJ_CEL)}', file=sys.stderr)
 
 # ══════════════════════════════════════════════════════════════════════════
 # A FONTE DA FILA: O SNAPSHOT DO BLOCO 966.670
@@ -4297,7 +4422,9 @@ def prateleiras_de(s):
                 and out[_i]['sentido'] == -out[_i+1]['sentido']):
             out[_i]['par'] = out[_i+1]; out[_i+1]['par'] = out[_i]
     return out
-PASSO = [prateleiras_de(s) for s in range(N_DIST)]
+# ⚠️ §40: AS PRATELEIRAS SÃO AS FILEIRAS DAS CÉLULAS. `socalca()` e o relatório
+# leem `PASSO[s][i]` com 'i' e 'par', que as fileiras de `celula.py` carregam.
+PASSO = [D.F for D in DIST]
 
 # ⚠️ PRATELEIRA DUPLICADA É LOTE EM CIMA DE LOTE. Se duas entradas de `PASSO`
 # descrevem a MESMA fileira física, as duas se enchem do mesmo x0 e dois donos
@@ -4348,7 +4475,7 @@ def _mg():
 K_AREA = 0.0   # calibrado adiante, contra o tecido que sobrou depois dos lobos
 
 # ── capacidade agora é ÁREA, não contagem ──────────────────────────────────
-cap_area = [sum(pr['livre'] for pr in PASSO[s]) * PROF for s in range(N_DIST)]
+cap_area = [D.capacidade_total() for D in DIST]
 CAP_AREA = sum(cap_area)
 # ⚠️ A CURVA SE CALIBRA CONTRA O TECIDO QUE EXISTE, não contra um alvo escrito
 # à mão. A primeira versão mirava os 16,33 km² do plano diretor e o contorno
@@ -4361,8 +4488,8 @@ K_AREA = (CAP_AREA * 0.97) / (_mg() * soma_raiz)
 print(f'tecido disponível: {CAP_AREA/1e6:.2f} km² | curva: expoente {EXPOENTE}, '
       f'gradiente {GRADIENTE}, k = {K_AREA:.6g}', file=sys.stderr)
 for s in range(N_DIST):
-    print(f'  setor {s+1:2d} (rumo {s*30:3d}): {len(T[s]):3d} quartos, '
-          f'{sum(len(q["quarteiroes"]) for q in T[s]):4d} quarteirões, '
+    print(f'  setor {s+1:2d} (rumo {s*30:3d}): '
+          f'{len({id(f["cel"]) for f in PASSO[s]}):4d} células, '
           f'{cap_area[s]/1e4:8,.1f} ha', file=sys.stderr)
 
 # ── o condomínio do DSC: as prateleiras mais internas do setor do rumo 68,7 ─
@@ -4672,12 +4799,28 @@ def planta_orla_nobre():
             # piso entregava 1,44x o prometido a 388 dos 446. Ver a nota de
             # `ORLA_FUNDO_PROJETO`. O lote do PROJETO continua com fundo fixo,
             # porque ele não tem curva a honrar.
-            prof = min(fundo_max, area / testada)
             ang = math.radians((a0 + span * (slot + 0.5) / total) % 360.0)
             r_borda = ALCA_R + sentido * ALCA_LARG / 2
-            r_centro = r_borda + sentido * prof / 2
-            x, z = math.sin(ang) * r_centro, -math.cos(ang) * r_centro
-            out.append((x, z, testada, prof, math.degrees(ang) % 360.0, dono))
+            # ⚠️ §41: A VAGA É UMA FATIA DE ANEL, E O FUNDO SAI DA ÁREA EXATA DELA.
+            # O retângulo antigo tinha a testada da corda interna e deixava uma cunha
+            # vazia entre vizinhos que crescia para fora; a fatia ocupa a vaga
+            # inteira, de radial a radial, e o fundo é resolvido para a área da curva
+            # (com o mesmo teto `fundo_max` de antes).
+            _t0 = math.radians(a0 + span * slot / total)
+            _t1 = math.radians(a0 + span * (slot + 1) / total)
+            _t0, _t1 = min(_t0, _t1), max(_t0, _t1)
+            _dt = _t1 - _t0
+            _r2 = r_borda ** 2 + sentido * 2.0 * area / _dt
+            r_fundo = math.sqrt(max(0.0, _r2))
+            if abs(r_fundo - r_borda) > fundo_max:
+                r_fundo = r_borda + sentido * fundo_max
+            prof = abs(r_fundo - r_borda)
+            _g = {'cantos': CEL.cantos_fatia(r_borda, r_fundo, _t0, _t1), 'geo': 1,
+                  'area': CEL.area_fatia(r_borda, r_fundo, _t0, _t1), 'prof': prof,
+                  'centro': CEL.centroide_fatia(r_borda, r_fundo, _t0, _t1),
+                  'giro': math.degrees(ang) % 360.0}
+            x, z = _g['centro']
+            out.append((x, z, _g['area'] / prof, prof, math.degrees(ang) % 360.0, dono, _g))
         return out
 
     frente = fila(['satoshi_visionary', 'btc_maximalist'], ORLA_PROJETO_FRENTE,
@@ -4766,6 +4909,31 @@ class FitaOrla:
         return (ux * ao_longo + vx * perp, uz * ao_longo + vz * perp,
                 (rumo - 90.0) % 360.0)
 
+    def _forma(self, t, s, w):
+        """§41: a forma exata do lote que ocupa [s, s+w] deste trecho. No arco é
+        fatia de anel centrada na origem (geo 1), frente no lado da rua; no dedo é
+        retângulo exato (geo 2), frente no cais."""
+        if t['tipo'] == 'anel':
+            a_i = math.radians(t['a0'] + t['sinal'] * math.degrees(s / t['r']))
+            a_f = math.radians(t['a0'] + t['sinal'] * math.degrees((s + w) / t['r']))
+            t0, t1 = min(a_i, a_f), max(a_i, a_f)
+            r_c = t['r'] + t['sentido'] * (OB_PROF / 2 - OB_RECUO)
+            r_fr = r_c - t['sentido'] * OB_PROF / 2
+            r_fu = r_c + t['sentido'] * OB_PROF / 2
+            return {'cantos': CEL.cantos_fatia(r_fr, r_fu, t0, t1), 'geo': 1,
+                    'area': CEL.area_fatia(r_fr, r_fu, t0, t1), 'prof': OB_PROF,
+                    'centro': CEL.centroide_fatia(r_fr, r_fu, t0, t1),
+                    'giro': math.degrees((t0 + t1) / 2) % 360.0}
+        a = math.radians(t['rumo']); lado = t['lado']
+        ux, uz = math.sin(a), -math.cos(a)
+        vx, vz = math.cos(a), math.sin(a)
+        c = OB_DEDO_PONTA - (s + w / 2)
+        perp = lado * (OB_DEDO_LARG / 2 - OB_DEDO_CAIS - OB_PROF / 2 + OB_RECUO)
+        P = lambda al, pp: (ux * al + vx * pp, uz * al + vz * pp)
+        pf, pb = perp + lado * OB_PROF / 2, perp - lado * OB_PROF / 2
+        C = [P(c - w / 2, pf), P(c + w / 2, pf), P(c + w / 2, pb), P(c - w / 2, pb)]
+        return {'cantos': C, 'geo': 2, 'area': w * OB_PROF, 'prof': OB_PROF,
+                'centro': P(c, perp), 'giro': (t['rumo'] - 90.0) % 360.0}
     def proximo(self, w):
         """o próximo lote de testada `w`, no trecho menos adiantado. Devolve
         (x, z, giro, trecho, ordem) ou None quando nenhum trecho tem espaço.
@@ -4781,9 +4949,10 @@ class FitaOrla:
             t = min(cand, key=lambda t: t['cur'] / t['comp'])
             x, z, giro = self._geo(t, t['cur'], w * t['fator'])
             if _ob_livre(x, z, giro, w):
+                g = self._forma(t, t['cur'], w * t['fator'])
                 t['cur'] += w * t['fator']
                 t['n'] = t.get('n', 0) + 1
-                return x, z, giro, t['q'], t['n']
+                return x, z, giro, t['q'], t['n'], g
             # ⚠️ ANDA, NÃO DESISTE. É a mesma sondagem de 12 m do tecido: o
             # pedaço reprovado foi reprovado para ESTE lote, e o canal radial
             # que atravessa o distrito tem 144 m de corredor — sem andar, o
@@ -4899,7 +5068,7 @@ def planta_orla_baia():
         pos = fita.proximo(w)
         if pos is None:
             fora.append(a); continue
-        out.append((pos[0], pos[1], w, OB_PROF, pos[2], a, pos[3], pos[4]))
+        out.append((pos[0], pos[1], w, OB_PROF, pos[2], a, pos[3], pos[4], pos[5]))
     print('Orla da Baía: %d lotes (%d tier 4, %d tier 5), %.3f km², testada '
           '%.1f m mediana | linha %.1f km, sobra %.1f km'
           % (len(out), sum(1 for l in out if TIER_DE.get(l[5]) == 'ordinal_believer'),
@@ -4978,6 +5147,12 @@ def planta_distrito_financeiro():
         # testada, ou 22,6° de arco, e o canto dela passava 13,98 m por cima da
         # vizinha. Com o canto na conta, o passo dela vira 24,0°.
         passo = 2.0 * math.degrees(math.atan((frente / 2) / FIN_R0))
+        # ⚠️ §41 (23/09): A FATIA DE ANEL TEM A ÁREA EXATA, E A CONTA DA CORDA ACIMA
+        # FICA SÓ COMO HISTÓRICO. O lote agora é a fatia inteira entre FIN_R0 e
+        # FIN_R1 (geo 1, arcos centrados na origem), então o ângulo sai da área,
+        # com o piso de 20 m de arco na frente. A Kraken passa de 57° a 51,5°.
+        passo = max(math.degrees(2.0 * area / (FIN_R1 ** 2 - FIN_R0 ** 2)),
+                    math.degrees(20.0 / FIN_R0))
         # ⚠️ PULA A PONTE. Os quatro bulevares cardeais atravessam esta faixa e
         # viram ponte sobre o lago: lote em cima deles fecharia a travessia.
         for _ in range(64):
@@ -4986,9 +5161,14 @@ def planta_distrito_financeiro():
                 break
             ang = (ang + FIN_PULO) % 360.0
         a_meio = math.radians((ang + passo / 2) % 360.0)
-        x, z = math.sin(a_meio) * r_med, -math.cos(a_meio) * r_med
-        out.append((x, z, frente, prof, math.degrees(a_meio) % 360.0,
-                    it.get('address'), it.get('motivos') or it.get('rotulo')))
+        _t0 = math.radians(ang); _t1 = _t0 + math.radians(passo)
+        _g = {'cantos': CEL.cantos_fatia(FIN_R0, FIN_R1, _t0, _t1), 'geo': 1,
+              'area': CEL.area_fatia(FIN_R0, FIN_R1, _t0, _t1), 'prof': prof,
+              'centro': CEL.centroide_fatia(FIN_R0, FIN_R1, _t0, _t1),
+              'giro': math.degrees(a_meio) % 360.0}
+        x, z = _g['centro']
+        out.append((x, z, _g['area'] / prof, prof, math.degrees(a_meio) % 360.0,
+                    it.get('address'), it.get('motivos') or it.get('rotulo'), _g))
         ang = (ang + passo + 8.0 * 180.0 / math.pi / r_med) % 360.0   # 8 m de rua entre lotes
     print('Distrito Financeiro: %d lotes institucionais, %.0f m² somados, maior %.0f m²'
           % (len(out), sum(l[2] * l[3] for l in out), max((l[2] * l[3] for l in out), default=0)),
@@ -5095,264 +5275,69 @@ PROF_MAX = FAIXA             # 50 m: o lote pode atravessar a faixa inteira, DES
 # normal, que está toda acima de 0,99.
 EXIGE_AREA = 0.95
 
+def _valida_lote(C):
+    """A máscara fina do lote pronto: cantos (recuados 0,3 m para dentro) e centro
+    livres, nenhum ponto abaixo da lâmina, declividade da pegada dentro do teto. As
+    fileiras já foram amostradas a cada 3 m contra a máscara inteira; aqui fica o
+    que a amostra não vê: o fino entre duas amostras e o declive do lote inteiro."""
+    cx, cz = CEL.centroide(C)
+    pts = [(x + (cx - x) * 0.3 / max(0.3, math.hypot(cx - x, cz - z)),
+            z + (cz - z) * 0.3 / max(0.3, math.hypot(cx - x, cz - z))) for x, z in C]
+    for x, z in pts + [(cx, cz)]:
+        if not livre_tecido(x, z):
+            REJ['mascara'] += 1
+            return False
+    hs = [altura(x, z) for x, z in pts]
+    if min(hs + [altura(cx, cz)]) < LAGO_COTA:
+        REJ['agua'] += 1
+        return False
+    fr = max(1e-6, math.hypot(C[1][0] - C[0][0], C[1][1] - C[0][1]))
+    pf = max(1e-6, math.hypot((C[3][0] + C[2][0] - C[0][0] - C[1][0]) / 2,
+                              (C[3][1] + C[2][1] - C[0][1] - C[1][1]) / 2))
+    gx = ((hs[1] + hs[2]) - (hs[0] + hs[3])) / (2 * fr)
+    gz = ((hs[2] + hs[3]) - (hs[0] + hs[1])) / (2 * pf)
+    if math.hypot(gx, gz) > DECL_LOTE_MAX:
+        REJ['declive'] += 1
+        return False
+    REJ['ok'] += 1
+    return True
+
+# ⚠️ §37/§41: A GEOMETRIA DO LOTE VIAJA AO LADO DE `saida`, POR ENDEREÇO. A tupla de
+# nove campos é desempacotada em mais de dez lugares; ela continua com (x, z) no
+# centróide e (frente, prof) tais que frente·prof = área exata, e os 4 cantos, a
+# área e o `geo` moram aqui. Toda cópia de `saida` leva uma cópia disto junto.
+GEOM = {}
+
+def _geom_de(reg):
+    C = reg['cantos']
+    f = reg['fil']; c = f['cel']
+    return {'cantos': [tuple(p) for p in C], 'area': reg['area'], 'geo': 0,
+            'giro': math.degrees(c.fi) % 360.0,
+            'frente': math.hypot(C[1][0] - C[0][0], C[1][1] - C[0][1]),
+            'prof': abs(reg['db'] - reg['df']), 'tipo': reg['tipo'],
+            'cel': (c.setor, c.q, c.b), 'fila': f['i'], 'wm': (reg['wa'] + reg['wb']) / 2}
+
 def coloca(s, dog, addr, escala=1.0, exige=0.0):
-    """Consome testada e devolve (x, z, frente, prof).
+    """§37/§40: planta a carteira numa CÉLULA do distrito `s` e devolve
+    (x, z, frente, prof, quarto, quarteirão), com frente·prof = área exata.
+    ⚠️ `exige` FICA NA ASSINATURA E NÃO FAZ MAIS NADA. Ela existia porque o lote de
+    retângulo podia sair espremido (área truncada em silêncio); o lote de célula
+    sai com a área pedida ou mais (piso de 5 m de frente), nunca menos.
+    O coloca de retângulo está no histórico do git (antes de 23/09/2026)."""
+    area = max(PISO_LOTE, area_de(dog, max(r_medio[s], R_INICIO)) * escala)
+    reg = DIST[s].coloca(area, _valida_lote)
+    if reg is None:
+        return None
+    reg['addr'] = addr
+    g = _geom_de(reg)
+    GEOM[addr] = g
+    C = g['cantos']
+    COTA[addr] = altura((C[0][0] + C[1][0]) / 2, (C[0][1] + C[1][1]) / 2)
+    PRAT[addr] = (s, reg['fil']['i'], g['wm'] * min(reg['df'], reg['db']))
+    cx, cz = CEL.centroide(C)
+    c = reg['fil']['cel']
+    return (cx, cz, g['area'] / g['prof'], g['prof'], c.q, c.b)
 
-    `escala` encolhe a área pedida. Ver a nota do corte de cabelo em uma_passada().
-
-    ⚠️ `exige` É A FRAÇÃO MÍNIMA DA ÁREA QUE ESTA CHAMADA ACEITA ENTREGAR, e ela
-    existe porque a truncagem era SILENCIOSA. Ver a nota do teto de fundo lá
-    embaixo. Com `exige > 0` a função devolve None em vez de entregar um lote
-    espremido, e quem chamou tenta outro distrito."""
-    n = len(PASSO[s])
-    while cursor[s] < n and PASSO[s][cursor[s]]['livre'] < LOTE_MIN_FRENTE:
-        cursor[s] += 1
-    if cursor[s] >= n: return None
-    base = cursor[s]
-    # ⚠️ O PISO SOBREVIVE AO CORTE. `area_de` já aplica o piso de 24 m², e
-    # multiplicar por 0,8 depois devolvia 19,2 m², ou seja o corte furava o
-    # próprio piso que existe para lote não virar risco no chão.
-    area = max(PISO_LOTE, area_de(dog, max(PASSO[s][base]['r'], R_INICIO)) * escala)
-    frente_nat = max(area / PROF, LOTE_MIN_FRENTE)
-
-    # ⚠️ A JANELA DE 24 VIROU A ÁRVORE. Antes: varria 24 prateleiras à frente e
-    # desistia, deixando 506 km de fileira intacta para trás. Agora: a árvore
-    # devolve a PRIMEIRA prateleira do distrito que comporta a testada, que é
-    # também a mais interna, ou seja a lei de posição sai de graça.
-    escolhida, folgada, escolhida_alt = -1, -1, -1
-    if ARV and ARV[s] is not None:
-        escolhida = ARV[s].primeiro(frente_nat, base)
-    if escolhida < 0:
-        for k in range(base, min(n, base + JANELA)):
-            sobra = PASSO[s][k]['livre']
-            if sobra > folgada: folgada, escolhida_alt = sobra, k
-    if escolhida < 0:
-        # ⚠️ "AFUNDAR O LOTE" TRUNCA A ÁREA EM SILÊNCIO, e agora a área é promessa
-        # pública. O lote afundado tem profundidade limitada a PROF_MAX, então
-        # `frente x 50` vira o teto do que ele entrega: quem pede 4.768 m² numa
-        # sobra de 5 m recebe 250 e ninguém conta. Medido em 20/09: 3.175
-        # carteiras abaixo do prometido por este caminho, e o defeito NÃO é o
-        # corte de cabelo da passada, que nem chega a rodar.
-        #
-        # Antes de aceitar isso, procura no distrito INTEIRO uma prateleira que
-        # honre a área com profundidade legal. A janela é pequena de propósito
-        # (empacotamento local), mas ela não pode virar teto de justiça.
-        _frente_min = area / PROF_MAX
-        for k in range(min(n, base + JANELA), n):
-            if PASSO[s][k]['livre'] + 1e-9 >= _frente_min:
-                escolhida = k
-                break
-        else:
-            escolhida = escolhida_alt if folgada >= LOTE_MIN_FRENTE else -1
-        if escolhida < 0:
-            for k in range(base, min(n, base + JANELA)):
-                PASSO[s][k]['livre'] = 0.0; _arv_atualiza(s, k)
-            cursor[s] = base
-            return coloca(s, dog, addr, escala, exige) if base + JANELA < n else None
-
-    pr = PASSO[s][escolhida]
-
-    # ⚠️ O GIGANTE PEGA PRATELEIRA INTEIRA. Sem este ramo o teto de profundidade
-    # decapita o topo da curva: o maior lote caía de 30.244 para 12.600 m², que é
-    # exatamente 168 x 75, e a área perdida ia parar no lote dos outros. São umas
-    # poucas dezenas de carteiras, mas são justamente as que a regra da raiz
-    # existe para tratar, então truncar aqui esvazia a regra.
-    # ⚠️ QUEM PASSA DA FAIXA VIRA SUPERQUADRA, e isso não é exceção, é urbanismo:
-    # um lote de 4 hectares não é lote de rua, é quarteirão inteiro, com frente
-    # para as quatro vias de contorno e sem travessa por dentro. Sem esta regra o
-    # lote fundo atravessava a travessa e comia a rua dos vizinhos, que é
-    # justamente o que a regra do fundador proíbe.
-    _lado_ref = PASSO[s][cursor[s]]['lado'] if cursor[s] < len(PASSO[s]) else _lado(3)
-    if area > PROF_MAX * _lado_ref:
-        # ⚠️ A SUPERQUADRA EXIGE UM QUARTEIRÃO INTEIRO E VIRGEM, e isso é conserto
-        # de um defeito medido, não zelo. A versão anterior tomava 6 prateleiras a
-        # partir da ESCOLHIDA, que pode ser a fileira 3: ela consumia as fileiras
-        # 3..5 deste quarteirão e 0..2 do SEGUINTE, mas gravava o lote centrado no
-        # quarteirão da escolhida, EM CIMA de lotes já plantados nas fileiras 0..2.
-        # Medido em 29/08 contra data/dogcity_lotes.csv: 7 das 24 superquadras
-        # cobriam 141 lotes normais (S06-Q19-B004 cobria 31, S07-Q09-B002 29,
-        # S12-Q17-B005 31) e 17 quarteirões seguintes ficavam com as primeiras
-        # fileiras vazias.
-        # Agora ela varre para a frente até achar um quarteirão cujas seis
-        # fileiras ainda estejam com a testada original, toma as seis e grava no
-        # centro dele. Se não achar nenhum, cai no ramo normal e recebe um lote
-        # limitado à faixa: perde área, mas não come o lote de ninguém.
-        alvo, nf_alvo = -1, 0
-        j = cursor[s]
-        while j < n:
-            pj = PASSO[s][j]
-            comeca = j == 0 or (PASSO[s][j-1]['q'], PASSO[s][j-1]['b']) != (pj['q'], pj['b'])
-            if comeca:
-                nf = pj['nf']
-                if j + nf <= n:
-                    bloco = PASSO[s][j:j+nf]
-                    mesmo = all((x['q'], x['b']) == (pj['q'], pj['b']) for x in bloco)
-                    virgem = all(x['livre'] >= x['util0'] - 0.01 for x in bloco)
-                    if mesmo and virgem:
-                        alvo, nf_alvo = j, nf
-                        break
-            j += 1
-        if alvo >= 0:
-            pq = PASSO[s][alvo]
-            # ⚠️ NA TEIA A SUPERQUADRA OCUPA O BLOCO, ENTÃO A PROFUNDIDADE DELA É
-            # A DO BLOCO. Antes ela vinha de `area / testada`, e como a testada da
-            # teia é o ARCO (125 a 250 m) essa conta devolvia profundidade ABAIXO
-            # dos 50 m de PROF_MAX: a superquadra deixava de ser reconhecida rio
-            # abaixo, entrava na reconstrução de fileira como lote normal e o
-            # guarda de meio metro pegou 26,02 m de erro.
-            lado_q = pq['lado']
-            prof_g = pq['prof']
-            # centro do quarteirão: com a superquadra ocupando tudo, ox e oz são 0
-            _cx, _cz = pq['bx'], pq['bz']
-            # ⚠️ A SUPERQUADRA TAMBÉM SE CONFERE PELA PEGADA. Ela ocupa o bloco
-            # INTEIRO (até 250 m de testada por 227 m de fundo) e este teste
-            # olhava só o centro: era o caminho por onde os últimos lotes ainda
-            # nasciam dentro do canal depois de `_cabe` entrar no ramo normal.
-            # ⚠️ A PROFUNDIDADE DA SUPERQUADRA NÃO CABE NO REGISTRO. `prof_g` é a
-            # do bloco e vai a 345 m na banda do Horizonte, mas o .bin grava
-            # profundidade em uint8: 255. O `min` estava só na gravação, ou seja
-            # a superquadra perdia até 90 m de fundo, 26% da área, calada. Aqui
-            # o teto entra ANTES e a testada compensa, então a área fica de pé.
-            prof_g = min(prof_g, 255.0)
-            _fq = min(lado_q, area / prof_g)
-            if _cabe(pq, 0.0, 0.0, _fq, prof_g):
-                COTA[addr] = cota_testada(pq, 0.0)
-                for k in range(alvo, alvo + nf_alvo):
-                    # ⚠️ a superquadra come o bloco inteiro: nenhuma fileira dele
-                    # pode receber lote depois, nem pelo vão
-                    PASSO[s][k]['bloq'].append((-1e9, 1e9))
-                    PASSO[s][k]['ocup'].append((-1e9, 1e9))
-                    PASSO[s][k]['x0'] += PASSO[s][k]['livre']
-                    PASSO[s][k]['livre'] = 0.0; _arv_atualiza(s, k)
-                return (_cx, _cz, min(lado_q, area / prof_g), prof_g, pq['q'], pq['b'])
-            # quarteirão em terra proibida: queima e tenta o próximo
-            for k in range(alvo, alvo + nf_alvo):
-                if PASSO[s][k]['livre'] >= LOTE_MIN_FRENTE:
-                    _guarda_vao(s, PASSO[s][k], PASSO[s][k]['x0'], PASSO[s][k]['livre'])
-                ORC['queimada'] += PASSO[s][k]['livre']; ORC['queimada_n'] += 1
-                PASSO[s][k]['livre'] = 0.0; _arv_atualiza(s, k)
-            return coloca(s, dog, addr, exige=exige)
-        # sem quarteirão virgem à frente: segue no ramo normal, com o lote preso
-        # à faixa. A bisseção enxerga a área menor e se ajusta.
-
-    frente = min(frente_nat, pr['livre'])
-    prof_real = area / frente
-    if prof_real > PROF_MAX:
-        # ainda fundo demais: alarga até o limite da sobra e aceita o que couber
-        frente = pr['livre']
-        prof_real = min(PROF_MAX, area / frente)
-        # ⚠️ E ERA AQUI QUE A PROMESSA MORRIA CALADA. `frente x 50` vira o teto do
-        # que o lote entrega: numa sobra de 6,15 m uma carteira de 889.806 DOG
-        # recebe 307 m² dos 930,51 que a API promete a ela, e 889.806 DOG é o
-        # EXEMPLO IMPRESSO na página pública. Medido no registro selado de 22/09:
-        # 85 lotes abaixo de 0,90 da área prometida e 21 abaixo de 0,50; 82 deles
-        # no distrito 4, TODOS com fundo travado em 50 m e testada entre 5,0 e
-        # 7,3 m, e 81 dos 82 entre os últimos 10% plantados ali (posição mediana
-        # 5.501 de 5.544). Ou seja a causa não é o lote: é o DISTRITO ACABAR
-        # antes da fila dele, e a sobra que resta ser sliver.
-        # ⚠️ O CONSERTO NÃO É AQUI, É NO CHAMADOR, e ele JÁ EXISTIA: `uma_passada`
-        # sabe mudar de distrito quando `coloca` devolve None (ele escolhe o de
-        # maior testada livre). Só que devolver um lote de 30% da área não é
-        # None, então o desvio nunca disparava. Agora dispara.
-        # ⚠️ E O LIMIAR É FOLGADO DE PROPÓSITO. Medido na distribuição selada: com
-        # 0,95 da área da passada disparam 87 lotes, com 0,99 disparam 885 e com
-        # 0,999 disparam 13.587. A banda normal da cidade está toda acima de 0,99
-        # da área da passada, então 0,95 pega a patologia e não encosta no resto.
-        if exige > 0.0 and frente * prof_real < area * exige:
-            ORC['espremido'] = ORC.get('espremido', 0) + 1
-            return None
-    # ⚠️ CONFIRA A MÁSCARA NO PONTO QUE VAI SER GRAVADO. A sondagem de tecido()
-    # testa 84 pontos fixos por quarteirão; o lote de largura variável não cai em
-    # cima deles, então a borda do quarteirão escorregava para dentro de máscara.
-    # Resíduo medido depois de consertar a rotação dupla: 236 lotes no Parque,
-    # 126 DENTRO do Coliseu congelado (que o fundador mandou guardar vazio), 123
-    # fora do contorno lobado e 360 dentro do platô. Aqui o ponto é conferido um
-    # a um e a testada ruim é queimada em vez de virar endereço.
-    # ⚠️ PRIMEIRO O VÃO, DEPOIS O CURSOR. Terra já aberta antes de terra nova: é a
-    # ordem que o fundador pediu em 20/09 ("compacte melhor primeiro").
-    _achou = _busca_vao(s, frente, prof_real)
-    if _achou is not None:
-        _pv, _vx, _ozv = _achou
-        _wx = _pv['bx'] + (_vx + frente/2)*_pv['ca'] - _ozv*_pv['sa']
-        _wz = _pv['bz'] + (_vx + frente/2)*_pv['sa'] + _ozv*_pv['ca']
-        COTA[addr] = cota_testada(_pv, _vx + frente / 2)
-        PRAT[addr] = (s, _pv['i'], _vx + frente / 2)
-        _ocupa(_pv, _vx, frente)
-        _reserva_no_par(_pv, _vx, frente, prof_real)
-        ORC['vao_usado'] += frente; ORC['vao_n'] += 1
-        return (_wx, _wz, frente, min(255.0, prof_real), _pv['q'], _pv['b'])
-
-    ox = pr['x0'] + frente / 2
-    ok = False
-    for _ in range(max(14, min(60, int(pr['livre'] / 12) + 1))):
-        ozc = pr['borda'] + pr['sentido'] * prof_real / 2
-        cx = pr['bx'] + ox*pr['ca'] - ozc*pr['sa']
-        cz = pr['bz'] + ox*pr['sa'] + ozc*pr['ca']
-        if (_vago(pr, ox - frente / 2, frente)
-                and _par_vago(pr, ox - frente / 2, frente, prof_real)
-                and _cabe(pr, ox, ozc, frente, prof_real)):
-            ok = True; break
-        # ⚠️ ANDE UM PASSO DE SONDAGEM, NÃO A TESTADA INTEIRA. Queimar `frente` a
-        # cada rejeição custou 53 m² no lote mediano (294 caiu para 241): a
-        # prateleira inteira ia embora por causa de uma ponta ruim. O passo de
-        # 12 m é a largura da vaga antiga, ou seja a resolução em que a máscara
-        # foi sondada; abaixo disso não há informação nova.
-        passo = min(frente, 12.0)
-        _guarda_vao(s, pr, pr['x0'], passo)
-        pr['x0'] += passo; pr['livre'] -= passo; _arv_atualiza(s, pr['i'])
-        if pr['livre'] < max(frente, LOTE_MIN_FRENTE): break
-        ox = pr['x0'] + frente / 2
-    if not ok:
-        # ⚠️ NÃO GRAVE ENDEREÇO EM TERRA MASCARADA. O fundador congelou o Coliseu
-        # e mandou guardar o espaço; lote plantado ali teria de ser desfeito, e
-        # lote atribuído não se desfaz. Melhor perder a prateleira que a regra.
-        # ⚠️ E ZERE SÓ ESTA PRATELEIRA. Empurrar o cursor para escolhida+1
-        # descartava também todas as prateleiras entre a atual e ela, até 24 de
-        # uma vez: custou 24 pontos de aproveitamento e 26 m² no lote mediano.
-        # ⚠️ A PRATELEIRA QUEIMADA TAMBÉM VIRA VÃO. Ela é abandonada porque ESTE
-        # lote não achou lugar nela em 14 sondagens, não porque a terra seja
-        # ruim: é o mesmo raciocínio do vão, na escala da prateleira inteira.
-        # São 144 km de testada na cidade do snapshot, 3,6 km² de tecido.
-        if pr['livre'] >= LOTE_MIN_FRENTE:
-            _guarda_vao(s, pr, pr['x0'], pr['livre'])
-        # ⚠️ QUEIMAR É CARO, ENTÃO A CAUSA TEM DE APARECER. Três motivos possíveis
-        # e excludentes, e cada um tem conserto diferente: a testada que sobrou é
-        # menor que o lote que veio tentar (só serviria um lote menor), a pegada
-        # bate em máscara (terra proibida de verdade), ou a fileira de trás já
-        # está ocupada por lote fundo (conflito de par).
-        if pr['livre'] < frente - 0.01: ORC['q_estreita'] += pr['livre']
-        elif not _par_vago(pr, pr['x0'], frente, prof_real): ORC['q_par'] += pr['livre']
-        else: ORC['q_mascara'] += pr['livre']
-        ORC['queimada'] += pr['livre']; ORC['queimada_n'] += 1
-        pr['livre'] = 0.0; _arv_atualiza(s, pr['i'])
-        return coloca(s, dog, addr, exige=exige)
-    pr['x0'] += frente; pr['livre'] -= frente; _arv_atualiza(s, pr['i'])
-    # ⚠️ ROTACIONE O DESLOCAMENTO, NUNCA O CENTRO DO QUARTEIRÃO. `bx/bz` já vêm
-    # em MUNDO (saem de bwx/bwz dentro de tecido()); girar a soma dos dois girava
-    # a cidade uma segunda vez. O estrago era invisível na contagem e enorme no
-    # mapa: 49.021 lotes, 92,5% da cidade, com o setor gravado diferente do rumo
-    # geométrico, 9.902 lotes caídos DENTRO do disco do Parque Runestone, 4.791
-    # em declive acima de 4°, 1.263 em cima de bulevar, 253 dentro do Coliseu
-    # congelado e 9 fora do sítio. As máscaras eram testadas no quadro certo
-    # dentro de tecido() e o ponto era gravado a partir de outro quadro, então
-    # nenhuma delas valia na saída. O contorno lobado também sumia por isso.
-    # ⚠️ O LOTE CRESCE A PARTIR DA VIA, não em volta do eixo da fileira. Centrar
-    # na fileira fazia o lote fundo invadir a travessa dos dois lados e comer a
-    # rua que ele mesmo precisa.
-    oz = pr['borda'] + pr['sentido'] * prof_real / 2
-    wx = pr['bx'] + ox*pr['ca'] - oz*pr['sa']
-    wz = pr['bz'] + ox*pr['sa'] + oz*pr['ca']
-    COTA[addr] = cota_testada(pr, ox)
-    PRAT[addr] = (s, pr['i'], ox)
-    _ocupa(pr, ox - frente / 2, frente)
-    _reserva_no_par(pr, ox - frente / 2, frente, prof_real)
-    return (wx, wz, frente, min(255.0, prof_real), pr['q'], pr['b'])
-
-# ⚠️ A COTA NÃO CABE NO REGISTRO DE 13 BYTES: ele está cheio, e alargá-lo
-# quebraria em silêncio todo mundo que lê o .bin (foi exatamente isso que deixou
-# a prancha do plano diretor lendo 11 bytes por um mês). Então a cota anda por
-# fora, num arquivo irmão na MESMA ORDEM, e quem não souber dela continua
-# funcionando. Chave: endereço, porque cada carteira tem um lote só.
 COTA = {}
 PRAT = {}     # endereço -> (distrito, índice da prateleira, x ao longo dela)
 
@@ -5476,16 +5461,18 @@ def socalca():
               file=sys.stderr)
 
 
+def _area_livre(t):
+    """a área de fileira ainda livre no distrito `t`, em m²"""
+    return sum((w1 - w0) * f['A2'] for f in PASSO[t] for w0, w1 in f['livre'])
+
 def uma_passada():
     global PASSO, cursor, saida
-    PASSO = [prateleiras_de(s) for s in range(N_DIST)]
-    # ⚠️ a árvore precisa saber o índice de cada prateleira para atualizar em
-    # tempo logarítmico quando a testada é consumida
-    for _s in range(N_DIST):
-        for _k, _pr in enumerate(PASSO[_s]): _pr['i'] = _k
-    ARV.clear()
-    ARV.extend(ArvoreLivre([pr['livre'] for pr in PASSO[_s]]) for _s in range(N_DIST))
+    # ⚠️ §40: as fileiras das células voltam ao estado amostrado (a máscara é
+    # medida UMA vez, antes da bisseção; cada passada só reinicia os trechos).
+    for _D in DIST: _D.reinicia()
+    PASSO = [_D.F for _D in DIST]
     cursor = [0]*N_DIST
+    GEOM.clear()
     saida = []
     COTA.clear(); PRAT.clear()
     ORC['queimada'] = 0.0; ORC['queimada_n'] = 0
@@ -5500,13 +5487,15 @@ def uma_passada():
     # dono é decidido pelo tier e a área tem regra própria. Ela é setor 7 no
     # endereço, um quarteirão por lote, porque cada lote tem o seu próprio giro
     # tangente ao círculo da avenida.
-    for _i, (_x, _z, _fr, _pf, _gi, _end, _rot) in enumerate(FIN_LOTES, 1):
+    for _i, (_x, _z, _fr, _pf, _gi, _end, _rot, _g) in enumerate(FIN_LOTES, 1):
         _GIRO_ORLA[(S_FIN, 1, _i)] = _gi
         _a = _end or f'__projeto_financeiro_{_i:03d}'
+        GEOM[_a] = _g
         COTA[_a] = altura(_x, _z)
         saida.append((_x, _z, S_FIN, _a, _fr, _pf, 1, _i, 1))
-    for _i, (_x, _z, _fr, _pf, _gi, _dono) in enumerate(ORLA_LOTES, 1):
+    for _i, (_x, _z, _fr, _pf, _gi, _dono, _g) in enumerate(ORLA_LOTES, 1):
         _GIRO_ORLA[(S_ORLA, 1, _i)] = _gi
+        GEOM[_dono or f'__projeto_orla_{_i:03d}'] = _g
         # ⚠️ A CHAVE DA COTA TEM DE SER O ENDEREÇO GRAVADO, E NÃO ERA. Ela era
         # `__orla{i}` e o registro sai como `__projeto_orla_{i:03d}`: para os 65
         # lotes de projeto da Orla Nobre o `COTA.get(a, 0.0)` da gravação não
@@ -5521,8 +5510,10 @@ def uma_passada():
     # fixa, dono decidido pelo tier, área pela curva. Setor 9 no endereço, um
     # quarteirão por lote, porque no dedo o giro é radial e na fileira é
     # tangente — dois giros diferentes não cabem num quarteirão só.
-    for _x, _z, _fr, _pf, _gi, _dono, _q, _b in ORLA_BAIA_LOTES:
+    for _x, _z, _fr, _pf, _gi, _dono, _q, _b, _g in ORLA_BAIA_LOTES:
         _GIRO_ORLA[(S_OB, _q, _b)] = _gi
+        GEOM[_dono] = _g
+        _x, _z = _g['centro']; _fr = _g['area'] / _g['prof']
         COTA[_dono] = altura(_x, _z)
         saida.append((_x, _z, S_OB, _dono, _fr, _pf, _q, _b, 1))
     # ⚠️ O DSC PLANTA PRIMEIRO, E ISSO CONSERTA DOIS DEFEITOS DE UMA VEZ.
@@ -5605,7 +5596,7 @@ def uma_passada():
         r = coloca(s, elig[c[3]], c[3], exige=EXIGE_AREA)
         if r is None:
             _por_area = ORC['espremido'] > _esp0
-            alt = max(range(N_DIST), key=lambda t: sum(pr['livre'] for pr in PASSO[t][cursor[t]:]))
+            alt = max(range(N_DIST), key=_area_livre)
             r = coloca(alt, elig[c[3]], c[3], exige=EXIGE_AREA)
             if r is not None:
                 s = alt
@@ -5637,7 +5628,7 @@ def uma_passada():
         # corte, e raso. Se nem assim couber, a passada reprova e a bisseção
         # baixa k, que é o mecanismo justo: todo mundo divide o aperto.
         _ordem_dist = sorted(range(N_DIST),
-                             key=lambda t: -sum(pr['livre'] for pr in PASSO[t][cursor[t]:]))
+                             key=lambda t: -_area_livre(t))
         for t in _ordem_dist:
             if r is not None: break
             if t == s: continue
@@ -5660,6 +5651,25 @@ def uma_passada():
         chave = (s, r[4], r[5])
         no_bloco[chave] = no_bloco.get(chave, 0) + 1
         saida.append((r[0], r[1], s, c[3], r[2], r[3], r[4], r[5], no_bloco[chave]))
+    # a sobra de ponta de fileira vira do vizinho (ver `Distrito.fecha_fileiras`)
+    _gan = sum(D.fecha_fileiras(_valida_lote) for D in DIST)
+    _mud = 0
+    for _k, _r in enumerate(saida):
+        _g = GEOM.get(_r[3])
+        if not _g or 'fila' not in _g: continue
+        _reg = next((l for l in PASSO[_r[2]][_g['fila']]['lotes'] if l.get('addr') == _r[3]), None)
+        if _reg is None: continue
+        _novo = _geom_de(_reg)
+        if abs(_novo['area'] - _g['area']) < 1e-6: continue
+        GEOM[_r[3]] = _novo
+        _cx, _cz = CEL.centroide(_novo['cantos'])
+        saida[_k] = (_cx, _cz, _r[2], _r[3], _novo['area'] / _novo['prof'], _novo['prof'],
+                     _r[6], _r[7], _r[8])
+        C = _novo['cantos']
+        COTA[_r[3]] = altura((C[0][0] + C[1][0]) / 2, (C[0][1] + C[1][1]) / 2)
+        _mud += 1
+    if _gan:
+        print('  ponta de fileira: %d sobras absorvidas pelo lote vizinho' % _mud, file=sys.stderr)
     socalca()
     print('  reserva do projeto: %d lotes intercalados (%.1f%% do total)'
           % (_reserva_n, 100.0 * _reserva_n / max(1, len(saida))), file=sys.stderr)
@@ -5668,15 +5678,17 @@ def uma_passada():
         print('  DIAG %d sem lugar; por setor: %s' % (len(sem_lugar),
               dict(sorted(collections.Counter(falhou_em).items()))), file=sys.stderr)
         for t in range(N_DIST):
-            resto = sum(pr['livre'] for pr in PASSO[t][cursor[t]:])
-            usadas = sum(1 for pr in PASSO[t] if pr['livre'] < 0.01)
+            resto = _area_livre(t)
+            usadas = sum(1 for pr in PASSO[t] if not pr['livre'])
             print('    S%02d cursor %4d/%4d  testada livre restante %8.0f m  prateleiras zeradas %4d'
                   % (t+1, cursor[t], len(PASSO[t]), resto, usadas), file=sys.stderr)
         falhou_em.clear()
     # ⚠️ o orçamento fecha em testada (metros lineares), não em área: é assim que
     # a prateleira é consumida, e converter para área aqui esconderia o PROF_MAX.
-    _tot = sum(pr['util0'] for t in range(N_DIST) for pr in PASSO[t])
-    _sobra = sum(pr['livre'] for t in range(N_DIST) for pr in PASSO[t])
+    # ⚠️ §40: o orçamento passa a ser em ÁREA (m²) de fileira, não em metro de testada
+    _tot = sum(D.capacidade_total() for D in DIST)
+    _sobra = sum(_area_livre(t) for t in range(N_DIST))
+    ORC['queimada'] = sum(D.queimada for D in DIST)
     ORC['total'] = _tot
     ORC['sobra'] = _sobra
     ORC['usada'] = _tot - _sobra - ORC['queimada']
@@ -5722,7 +5734,13 @@ for tentativa in range(12):
     if coube:
         k_bom, saida_boa, k_lo, cota_boa, orc_boa = K_AREA, list(saida), K_AREA, dict(COTA), dict(ORC)
         if k_hi is None:
-            K_AREA /= max(0.55, obtido/alvo)      # primeiro salto: mira o desperdício medido
+            # ⚠️ §40: O SALTO SÓ SOBE. Com o lote de retângulo a passada desperdiçava
+            # área (obtido < alvo) e dividir pela razão subia k. Com a célula, o piso
+            # de 5 m de frente e o lote de célula (que leva a travessa junto) fazem
+            # obtido > alvo, e a mesma conta DESCIA k a cada passada que cabia,
+            # guardando o menor. Agora: mira o desperdício quando há, e sobe no
+            # mínimo 3% quando não há, até a primeira passada que não cabe.
+            K_AREA *= max(1.03, min(1.8, alvo / max(1.0, obtido)))
             continue
     else:
         k_hi = K_AREA
@@ -5761,9 +5779,17 @@ if saida_boa is None:
             if coube: saida_boa, k_bom, lo, cota_boa, orc_boa = list(saida), K_AREA, K_AREA, dict(COTA), dict(ORC)
             else: hi = K_AREA
 if saida_boa is not None:
-    saida, K_AREA = saida_boa, k_bom
-    COTA.clear(); COTA.update(cota_boa or {})
-    ORC.clear(); ORC.update(orc_boa or {})
+    # ⚠️ §40: A MELHOR PASSADA É REFEITA, NÃO SÓ COPIADA. Cada passada reescreve as
+    # fileiras, os cortes de travessa das células e a geometria de cada lote (`GEOM`),
+    # e a última da bisseção quase nunca é a boa. Copiar só `saida` e a cota deixava
+    # a malha e os cantos de uma cidade e os lotes de outra. A passada é
+    # determinística: com o mesmo k ela devolve a mesma cidade, e aqui se confere.
+    K_AREA = k_bom
+    uma_passada()
+    if len(saida) != len(saida_boa) or any(a[3] != b[3] for a, b in zip(saida, saida_boa)):
+        print('ERRO: a passada refeita com o k vencedor não reproduziu a cidade. Nada foi gravado.',
+              file=sys.stderr)
+        sys.exit(1)
 
 # ⚠️ GUARDA DURA: a regra do fundador é que todo elegível tem endereço. Se a
 # cidade sair incompleta o script MORRE em vez de gravar, porque arquivo gravado
@@ -5837,12 +5863,32 @@ def _banda_por_emblema():
     return _out
 
 
+# ⚠️ §41: O GIRO É DERIVADO DA FORMA, POR LOTE. Era um por quarteirão (o bloco
+# rígido); agora cada lote diz o rumo da face da célula dele, ou o do meio da fatia.
+# Fica só para quem ainda lê o v3; o registro de direito são os 4 cantos.
 _GIRO_DE = {}
-for _s in range(N_DIST):
-    for _q in T[_s]:
-        for _ib, _b in enumerate(sorted(_q['quarteiroes'], key=lambda b: b['r'])):
-            _GIRO_DE[(_s, _q['banda'], _ib + 1)] = math.degrees(_b['giro']) % 360.0
 _GIRO_DE.update(_GIRO_ORLA)
+
+# ⚠️ §40: O NÚMERO DO LOTE É A ORDEM NO CHÃO, NÃO A ORDEM DE PLANTIO. Dentro da célula
+# os lotes vão de dentro para fora por fileira e, na fileira, em rumo crescente:
+# L001 é o canto de dentro mais anti-horário. O endereço lê como uma rua.
+_por_cel = {}
+for _k, _r in enumerate(saida):
+    _g = GEOM.get(_r[3])
+    if _g and 'fila' in _g:
+        _f = PASSO[_r[2]][_g['fila']]
+        _por_cel.setdefault((_r[2], _r[6], _r[7]), []).append(
+            ((_f['faixa'], _f['lado'], _g['wm']), _k))
+for _lst in _por_cel.values():
+    _lst.sort()
+    for _n, (_ordem, _k) in enumerate(_lst, 1):
+        _r = saida[_k]
+        saida[_k] = (_r[0], _r[1], _r[2], _r[3], _r[4], _r[5], _r[6], _r[7], _n)
+_sem_geom = [r[3] for r in saida if r[3] not in GEOM]
+if _sem_geom:
+    print(f'ERRO: {len(_sem_geom)} lotes sem forma registrada (ex.: {_sem_geom[:3]}). Nada foi gravado.',
+          file=sys.stderr)
+    sys.exit(1)
 buf = bytearray()
 for x, z, s, a, w, d, _q, _b, _n in saida:
     # ⚠️ LOTE DO PROJETO NÃO TEM CARTEIRA. Ele entra no registro com coorte,
@@ -5880,7 +5926,7 @@ for x, z, s, a, w, d, _q, _b, _n in saida:
     _d10 = max(1, min(65535, int(round(d * 10))))
     _u_bin = 1 if _sem_dono else (UTX.get(a) or UTX_SNAP_TODOS.get(a, 1))
     fl = (0 if _sem_dono else ((1 if a in dsc else 0) | (forma_de(_u_bin) << 1)))
-    giro_c = int(round(_GIRO_DE.get((s, _q, _b), 0.0) * 100)) % 36000
+    giro_c = int(round(GEOM[a]['giro'] * 100)) % 36000
     # ⚠️ A POSIÇÃO PASSOU A SER EM QUARTOS DE METRO (versão 2 do registro,
     # 20/09). Em metros inteiros dois lotes que se ENCOSTAM na divisa de fundo
     # apareciam cruzados em até 1 m, porque cada centro andava meio metro no
@@ -5892,6 +5938,26 @@ for x, z, s, a, w, d, _q, _b, _n in saida:
     buf += struct.pack('<hhBBHBHHH', int(round(x*4)), int(round(z*4)), s, coorte,
                        min(65535, fam), fl, _w10, _d10, giro_c)
 open(ps('public/city/cidade-lotes.bin'), 'wb').write(buf)
+
+# ⚠️ §41: O REGISTRO v4, 21 BYTES, OS 4 CANTOS ABSOLUTOS EM QUARTOS DE METRO. Nome
+# novo porque o CDN serve o arquivo velho pelo nome velho. O v3 acima continua
+# sendo gravado, derivado, até o último leitor migrar.
+REG_V4 = '<8hBBHB'
+buf4 = bytearray()
+for x, z, s, a, w, d, _q, _b, _n in saida:
+    _sem_dono = a.startswith('__projeto')
+    _proj = _sem_dono or a not in posto
+    coorte = 0 if _proj else min(7, posto[a]*8//N)
+    fam = 0 if _proj else familia_de.get(a, 0)
+    _u_bin = 1 if _sem_dono else (UTX.get(a) or UTX_SNAP_TODOS.get(a, 1))
+    fl = (0 if _sem_dono else ((1 if a in dsc else 0) | (forma_de(_u_bin) << 1)))
+    fl |= (GEOM[a]['geo'] & 3) << 4
+    _cq = [int(round(v * 4)) for pt in GEOM[a]['cantos'] for v in pt]
+    if any(abs(v) > 32767 for v in _cq):
+        print(f'ERRO: canto fora do int16 no lote de {a}. Nada foi gravado.', file=sys.stderr)
+        sys.exit(1)
+    buf4 += struct.pack(REG_V4, *_cq, s, coorte, min(65535, fam), fl)
+open(ps('public/city/cidade-lotes-v4.bin'), 'wb').write(buf4)
 
 # ⚠️ A COTA DE CADA LOTE, ARQUIVO IRMÃO, MESMA ORDEM, 2 BYTES POR LOTE. int16 em
 # CENTÍMETROS: o relevo do sítio vai de -182 a +230 m, ou seja 23.000 cm, e
@@ -5920,6 +5986,15 @@ open(ps('public/city/cidade-cotas.bin'), 'wb').write(cot)
 # O lot_id é S{setor:02}-Q{quarto:02}-B{quarteirão:03}-L{lote:03} e é ESTÁVEL
 # enquanto a semente (ordem de chegada) e a geometria não mudarem. Ele ainda NÃO
 # é promessa pública: publicar a regra vem antes (plano-diretor, passo 4).
+def _frente_de(g):
+    """a aresta da frente: corda na célula e no dedo, arco na fatia de anel"""
+    (x0, z0), (x1, z1) = g['cantos'][0], g['cantos'][1]
+    if g['geo'] == 1:
+        r = math.hypot(x0, z0)
+        dt = abs(((math.atan2(x1, -z1) - math.atan2(x0, -z0)) + math.pi) % (2 * math.pi) - math.pi)
+        return r * dt
+    return math.hypot(x1 - x0, z1 - z0)
+
 with open(ps('data/dogcity_lotes.csv'), 'w', newline='') as f:
     w = csv.writer(f)
     # ⚠️ O GIRO VIRA COLUNA EM 22/09, e o motivo é que ele não existia em NENHUM
@@ -5929,7 +6004,8 @@ with open(ps('data/dogcity_lotes.csv'), 'w', newline='') as f:
     # lado, e passaria batido.
     w.writerow(['lot_id', 'address', 'ordem', 'setor', 'quarto', 'quarteirao', 'lote',
                 'x_m', 'z_m', 'raio_m', 'frente_m', 'prof_m', 'area_m2', 'giro_graus',
-                'dog', 'utxo_count', 'forma', 'coorte', 'familia', 'dsc', 'cota_m'])
+                'dog', 'utxo_count', 'forma', 'coorte', 'familia', 'dsc', 'cota_m',
+                'p0x_m', 'p0z_m', 'p1x_m', 'p1z_m', 'p2x_m', 'p2z_m', 'p3x_m', 'p3z_m', 'geo'])
     for x, z, s, a, fr, pf, q_, b_, n_ in saida:
         # ⚠️ DUAS COISAS DIFERENTES QUE ERAM UMA SÓ, E A CONFUSÃO MENTIA NO
         # REGISTRO. "Lote sem dono" (o land bank do projeto) e "carteira de
@@ -5950,14 +6026,16 @@ with open(ps('data/dogcity_lotes.csv'), 'w', newline='') as f:
                     # documento do dono ter menos precisão que o desenho: dois
                     # lotes que se encostam apareciam cruzados em meio metro.
                     round(x, 2), round(z, 2), round(math.hypot(x, z), 1),
-                    round(fr, 2), round(pf, 2), round(fr * pf),
-                    round(_GIRO_DE.get((s, q_, b_), 0.0), 2),
+                    round(_frente_de(GEOM[a]), 2), round(pf, 2), round(GEOM[a]['area']),
+                    round(GEOM[a]['giro'], 2),
                     round(_dog), 0 if _sem_dono else u,
                     0 if _sem_dono else forma_de(u),
                     0 if _proj else min(7, posto[a]*8//N),
                     0 if _proj else familia_de.get(a, 0),
                     0 if _proj else (1 if a in dsc else 0),
-                    round(COTA.get(a, 0.0), 2)])
+                    round(COTA.get(a, 0.0), 2)]
+                   + [round(v, 2) for pt in GEOM[a]['cantos'] for v in pt]
+                   + [GEOM[a]['geo']])
 print(f'gravado data/dogcity_lotes.csv com {len(saida):,} lotes', file=sys.stderr)
 
 # ⚠️ O COLUMBÁRIO É ARTEFATO DE REGISTRO, não sobra de filtro. Ele entra no
@@ -6061,7 +6139,11 @@ json.dump({
     # do plano diretor ficou um mês lendo 11 bytes). Agora ele leva VERSÃO: quem
     # ler a v2 com código de v1 desenha a cidade a um quarto do tamanho, e isso
     # tem de falhar alto, não em silêncio.
-    'registroVersao': 3,
+    # ⚠️ §41 (23/09/2026): v4, os 4 cantos. O v3 continua gravado em
+    # `cidade-lotes.bin` (derivado) só para quem ainda não migrou; quem lê v4 lê
+    # `registroArquivo` e confere `registroBytes`.
+    'registroVersao': 4,
+    'registroArquivo': 'cidade-lotes-v4.bin',
     'cemiterio': {'lapides': len(COLUMBARIO), 'corteDog': round(DOG_MIN_LOTE, 2),
                    'pisoLote_m2': PISO_LOTE,
                    'regra': 'abaixo do saldo que paga o menor lote, o endereço recebe nicho. '
@@ -6072,11 +6154,14 @@ json.dump({
     # errados por 490 a 901 m. Aqui ela é MEDIDA na cidade que acabou de ser
     # gravada, então nunca mais diverge do que existe.
     'bandaPorEmblema': _banda_por_emblema(),
-    'esquema': 'int16 x_quartos_de_metro, int16 z_quartos_de_metro, uint8 setor, '
-               'uint8 coorte, uint16 familia, uint8 flags(bit0=DSC, bits1-3=forma), '
-               'uint16 frente_decimetros, uint16 prof_decimetros, '
-               'uint16 giro_centesimos_de_grau',
-    'registroBytes': 15,
+    'esquema': '<8hBBHB: p0x p0z p1x p1z p2x p2z p3x p3z (int16, quartos de metro, '
+               'absolutos; p0p1 = frente, p2p3 = fundo), uint8 setor (0-based), uint8 coorte, '
+               'uint16 familia, uint8 flags (bit0 DSC, bits1-3 forma, bits4-5 geo: 0 célula da '
+               'teia, 1 fatia de anel centrada na origem, 2 reta). Ver masterplan §41.',
+    'registroBytes': 21,
+    'esquemaV3': 'cidade-lotes.bin, 15 bytes: int16 x, int16 z (quartos de metro), uint8 setor, '
+                 'uint8 coorte, uint16 familia, uint8 flags, uint16 frente_dm, uint16 prof_dm, '
+                 'uint16 giro_cc (DERIVADO do v4, para leitor antigo)',
     'chave': 'posicao_residencial do snapshot 966.670 (DOG-tempo, masterplan §12)',
     'curva': {'expoente': EXPOENTE, 'gradiente': GRADIENTE, 'k': K_AREA,
               'lobos': LOBOS, 'loboAmp': LOBO_AMP,
@@ -6123,8 +6208,8 @@ json.dump({
     'aneis': [{'id': a, 'nome': n, 'r': r, 'larg': w} for a, n, r, w in ANEIS],
     'aneisHa': round(sum(2*math.pi*r*w for _, _, r, w in ANEIS)/1e4, 1),
     'programaHa': round(sum(q['area'] for q in PROGRAMA_GEO)/1e4, 1),
-    'quartos': sum(len(T[s]) for s in range(N_DIST)),
-    'quarteiroes': sum(len(q['quarteiroes']) for s in range(N_DIST) for q in T[s]),
+    'quartos': len({(c.setor, c.q) for c in CELS}),
+    'quarteiroes': len({(r[2], r[6], r[7]) for r in saida if 'fila' in GEOM[r[3]]}),
 }, open(ps('public/city/cidade.json'), 'w'), indent=1)
 print('gravado public/city/cidade.{json} + cidade-lotes.bin', file=sys.stderr)
 
@@ -6185,123 +6270,61 @@ def _fila_do_lote(ox, oz, prof, k=3, bloco_lado=None):
         if e < erro: erro, melhor = e, f['fila']
     return melhor, erro
 
+# ⚠️ §41 (23/09/2026): O QUARTEIRÃO DA MALHA É A CÉLULA. Cada registro traz a forma
+# útil (`poly`, 4 cantos na convenção do lote) e o eixo de cada travessa de 9 m pronto
+# para desenhar, de eixo de radial a eixo de radial, partido onde um lote de célula
+# passa por cima. Quem desenha não reconstrói nada. Os campos x, z, giro, lado, prof
+# e fileiras são DERIVADOS, só para quem ainda lê o quarteirão como retângulo.
+# Célula sem lote não entra: a rua em volta dela existe, o quarteirão não.
 malha_q, malha_b = [], []
-# ⚠️ O NÚMERO DE FILEIRAS DEIXOU DE SER 6 PARA TODO MUNDO. Núcleo tem 4, Meio 6,
-# Bairro 8, e a Cinta o que couber, porque o quarteirão passou a ter tamanho por
-# banda. Contar 6 aqui daria fileira fantasma no Núcleo e truncaria o Bairro.
-_NFILAS = {}
-for _s in range(N_DIST):
-    for _q in T[_s]:
-        for _ib, _b in enumerate(sorted(_q['quarteiroes'], key=lambda b: b['r'])):
-            _NFILAS[(_s, _q['banda'], _ib + 1)] = 2 * _b['k']
-ocup = {}                        # (s, q, b) -> [lotes por fileira]
-sup = {}                         # (s, q, b) -> profundidade da superquadra
-erro_fila_max = 0.0
-for x, z, s, a, fr, pf, q_, b_, n_ in saida:
-    ch = (s, q_, b_)
-    ocup.setdefault(ch, [0]*_NFILAS.get((s, q_, b_), 8))
-    if pf > PROF_MAX:
-        # o ramo gigante de coloca(): frente = o lado do quarteirão, todas as
-        # prateleiras dele consumidas
-        # ⚠️ A SUPERQUADRA NÃO COMEÇA NA FILA 0, E ISSO É DEFEITO MEDIDO, NÃO
-        # REGRA. O ramo gigante toma 6 prateleiras a partir da ESCOLHIDA, e a
-        # escolhida pode ser a fila 3 de um quarteirão: aí ele consome as filas
-        # 3..5 deste e 0..2 do SEGUINTE (por raio), mas grava o lote centrado no
-        # quarteirão da escolhida, em cima de lotes já plantados nas filas 0..2.
-        # Medido em 29/08 contra data/dogcity_lotes.csv: 7 das 24 superquadras
-        # se sobrepõem a 141 lotes normais do próprio quarteirão (S06-Q19-B004
-        # cobre 31, S07-Q09-B002 cobre 29, S12-Q17-B005 cobre 31), e 17
-        # quarteirões seguintes ficam com as primeiras fileiras vazias.
-        # Consertar é mexer na alocação (coloca()), o que muda endereço de todo
-        # mundo depois do primeiro gigante; fica registrado aqui e no JSON para
-        # a cena não desenhar por cima sem saber. Não corrigir em silêncio.
-        sup[ch] = max(sup.get(ch, 0.0), pf)
-
-# ⚠️ DUAS COISAS QUEBRARAM AQUI E AS DUAS ERAM A MESMA SUPOSIÇÃO: UM GIRO SÓ POR
-# SETOR. (1) a chave usava `iq+1`, a POSIÇÃO da banda na lista ordenada por raio,
-# enquanto a prateleira grava `b['banda']`, o NÚMERO da banda: com a Cinta
-# entrando como bandas 4, 5 e 6 os dois deixaram de coincidir. (2) `ca, sa` vinha
-# de `s * GIRO_SETOR`, mas o giro agora é DO BLOCO, e na Cinta ele é a tangente
-# local, diferente em cada quarteirão. O guarda de meio metro pegou: 47,85 m.
+_lotes_cel = collections.Counter()
+_tipos_cel = collections.defaultdict(collections.Counter)
+_por_fila = collections.Counter()
+for _r in saida:
+    _g = GEOM[_r[3]]
+    if 'fila' not in _g: continue
+    _ch = (_r[2], _r[6], _r[7])
+    _lotes_cel[_ch] += 1
+    _tipos_cel[_ch][_g['tipo']] += 1
+    _por_fila[(_r[2], _g['fila'])] += 1
 for s in range(N_DIST):
-    centros = {}
-    for q in T[s]:
-        for ib, b in enumerate(sorted(q['quarteiroes'], key=lambda b: b['r'])):
-            # ⚠️ §36: `b['prof']` ENTRA NO MAPA. É o vão medido daquele
-            # quarteirão contra a teia, e sem ele `_fila_do_lote` reconstrói
-            # pelo nominal da classe enquanto `_bloco()` plantou pelo medido:
-            # os dois se descolam e `erro_fila_max` estoura (de propósito).
-            centros[(s, q['banda'], ib+1)] = (b['x'], b['z'],
-                                              math.cos(b['giro']), math.sin(b['giro']),
-                                              b['k'], b['prof'])
-    for x, z, ss, a, fr, pf, q_, b_, n_ in saida:
-        if ss != s or pf > PROF_MAX: continue
-        if (s, q_, b_) not in centros: continue
-        bx, bz, ca, sa, kk, ladob = centros[(s, q_, b_)]
-        dx, dz = x - bx, z - bz
-        ox = dx*ca + dz*sa
-        oz = -dx*sa + dz*ca
-        fila, e = _fila_do_lote(ox, oz, pf, kk, ladob)
-        if e > erro_fila_max:
-            _pior = (s, q_, b_, kk, round(ox,2), round(oz,2), round(pf,2), round(e,2), round(ladob,2))
-        erro_fila_max = max(erro_fila_max, e)
-        ocup[(s, q_, b_)][fila] += 1
-# ⚠️ CONFERÊNCIA: se a reconstrução da fileira errar por mais de meio metro é
-# porque o quadro local mudou em coloca() e este bloco ficou para trás.
-if erro_fila_max > 0.5:
-    print(f'ERRO: fileira reconstruída com erro de {erro_fila_max:.2f} m; malha não gravada',
-          file=sys.stderr)
-    print(f'  pior caso (s,q,b,k,ox,oz,pf,erro,ladoDoBloco) = {_pior}', file=sys.stderr)
-    print(f'  fileiras previstas para k={_pior[3]}, lado={_pior[8]}: '
-          f'{[(round(f["borda"],1), f["sentido"]) for f in _fileiras_de(_pior[3], _pior[8])]}',
-          file=sys.stderr)
-    sys.exit(1)
-
-# ⚠️ A PRAÇA DE QUARTO MORREU AQUI, E DE PROPÓSITO. `_sonda_praca` media quanto
-# da célula central de cada quarto 3x3 estava livre, porque essa célula nunca
-# recebia lote e virava praça. Era exatamente o poá que o fundador viu de cima:
-# um buraco a cada 540 m em fileira perfeita. Agora o verde é `PARQUES`, poucos e
-# escolhidos, publicado abaixo em `parques`. `app/city/plaza/pracas.ts` consumia
-# `pracaFracLivre` e precisa ser refeito para ler `parques`.
-
-for s in range(N_DIST):
-    for q in sorted(T[s], key=lambda q: q['r']):
-        qid = f'S{s+1:02d}-Q{q["banda"]:02d}'
-        blocos = []
-        for ib, b in enumerate(sorted(q['quarteiroes'], key=lambda b: b['r'])):
-            bid = f'{qid}-B{ib+1:03d}'
-            ch = (s, q['banda'], ib+1)
-            por_fila = ocup.get(ch, [0] * (2*b['k']))
-            malha_b.append({
-                'id': bid, 'setor': s+1, 'quarto': q['banda'], 'quarteirao': ib+1,
-                'x': round(b['x'], 1), 'z': round(b['z'], 1), 'r': round(b['raio']),
-                'phi': round(b['r']),
-                # ⚠️ O GIRO É DO BLOCO. No miolo ele é o do distrito; na Cinta é a
-                # TANGENTE local, diferente em cada quarteirão. Publicar um giro
-                # por setor faria a cena desenhar a Cinta torta.
-                'giro': round(math.degrees(b['giro']), 3),
-                # ⚠️ TESTADA E PROFUNDIDADE SÃO DIFERENTES NA TEIA: `lado` é o arco
-                # (tangencial, 125 a 250 m) e `prof` é o vão entre anéis (radial,
-                # 109/168/227). Publicar só `lado` faz a cena desenhar contorno
-                # QUADRADO sobre quarteirão trapezoidal.
-                'lado': round(b['lado'], 1), 'prof': b['prof'],
-                'k': b['k'], 'fileiras': 2*b['k'], 'tipo': b['tipo'],
-                'sondasLivres': len(b['lotes']), 'capacidade': b['cap'],
-                'lotes': sum(por_fila) + (1 if ch in sup else 0),
-                'lotesPorFileira': por_fila,
-                'fileirasComLote': sum(1 for v in por_fila if v),
-                'superquadra': ch in sup,
-                'superquadraProf': round(sup[ch], 1) if ch in sup else 0,
-            })
-            blocos.append(bid)
-        malha_q.append({
-            'id': qid, 'setor': s+1, 'quarto': q['banda'], 'nome': q['nome'],
-            'phi': round(q['r']), 'quarteiroes': blocos,
+    por_q = {}
+    for c in sorted((c for c in CELS if c.setor == s), key=lambda c: (c.q, c.b)):
+        ch = (s, c.q, c.b)
+        n = _lotes_cel.get(ch, 0)
+        if not n: continue
+        bid = f'S{s+1:02d}-Q{c.q:02d}-B{c.b:03d}'
+        P = c.poly()
+        cx, cz = CEL.centroide(P)
+        dm = (c.d_in + c.d_out) / 2
+        por_fila = [_por_fila.get((s, f['i']), 0) for f in c.fileiras]
+        malha_b.append({
+            'id': bid, 'setor': s+1, 'quarto': c.q, 'quarteirao': c.b,
+            'anel': c.i, 'j0': c.j0, 'j1': c.j1,
+            'face': round(math.degrees(c.fi) % 360.0, 4),
+            'dIn': round(c.d_in, 2), 'dOut': round(c.d_out, 2),
+            'k': c.k, 'fila': round(c.h, 2),
+            'poly': [[round(x, 2), round(z, 2)] for x, z in P],
+            'travessas': c.travessas(),
+            'lotes': n, 'tipos': dict(_tipos_cel[ch]),
+            'lotesPorFileira': por_fila,
+            'fileirasComLote': sum(1 for v in por_fila if v),
+            'superquadra': _tipos_cel[ch].get('celula', 0) > 0,
+            'x': round(cx, 1), 'z': round(cz, 1), 'r': round(math.hypot(cx, cz)),
+            'phi': round(phi(cx, cz)), 'giro': round(math.degrees(c.fi) % 360.0, 3),
+            'lado': round(dm * (c.wR - c.wL), 1), 'prof': round(c.d_out - c.d_in, 1),
+            'fileiras': 2 * c.k,
         })
-
-# ⚠️ OS PARQUES SÃO PUBLICADOS A PARTIR DAS PEÇAS ALOCADAS, não mais da tabela
-# de elipses: é o alocador que decidiu onde eles couberam, e o `poly` é o
-# trapézio da teia. `pracas.ts` desenha DENTRO desse polígono.
+        por_q.setdefault(c.q, []).append((bid, phi(cx, cz)))
+    for q, blocos in sorted(por_q.items()):
+        malha_q.append({
+            'id': f'S{s+1:02d}-Q{q:02d}', 'setor': s+1, 'quarto': q,
+            'nome': f'anel {q} da teia',
+            'phi': round(sum(ph for _b, ph in blocos) / len(blocos)),
+            'quarteiroes': [b for b, _ph in blocos],
+        })
+print(f'malha: {len(malha_b):,} células com lote, '
+      f'{sum(len(b["travessas"]) for b in malha_b):,} trechos de travessa', file=sys.stderr)
 parques_pub = [{'id': q['id'], 'nome': q['nome'],
                 'x': round(q['cx'], 1), 'z': round(q['cz'], 1),
                 'a': round(q['a'], 1), 'b': round(q['b'], 1),

@@ -37,6 +37,13 @@ ORDEM CERTA DEPOIS DA REGERACAO:
   4. python3 scripts/city/sobe_lookup.py --dry-run
   5. python3 scripts/city/sobe_lookup.py
 Rodar o 5 antes do 1 publica a cidade velha; rodar o 5 sem o 2 publica cidade reprovada.
+
+REGISTRO v3 (retangulo) OU v4 (4 cantos, masterplan §41): este script nao veste a
+diferenca. So le 'address' e 'area_m2' de dogcity_lotes.csv (no v4 area_m2 vira a
+area EXATA do poligono, mas continua sendo a coluna que decide o que sobe) e
+'address' de dogcity_cemiterio.csv. --csv=/--cemiterio= apontam para outro
+arquivo (relativo a RAIZ, ou absoluto) sem mexer nos demais caminhos -- e' assim
+que se testa contra public/city/_v4teste/ sem tocar em producao.
 """
 import json, io, os, csv, sys, math, time, statistics, urllib.request
 
@@ -46,8 +53,16 @@ REG = os.path.join(RAIZ, 'data')
 
 DRY = '--dry-run' in sys.argv[1:]
 
-CAM_LOTES = os.path.join(REG, 'dogcity_lotes.csv')
-CAM_CEM = os.path.join(REG, 'dogcity_cemiterio.csv')
+
+def _opcao(chave, padrao):
+    achado = next((a.split('=', 1)[1] for a in sys.argv[1:] if a.startswith(f'--{chave}=')), None)
+    if achado is None:
+        return padrao
+    return achado if os.path.isabs(achado) else os.path.join(RAIZ, achado)
+
+
+CAM_LOTES = _opcao('csv', os.path.join(REG, 'dogcity_lotes.csv'))
+CAM_CEM = _opcao('cemiterio', os.path.join(REG, 'dogcity_cemiterio.csv'))
 CAM_SNAP = os.path.join(SNAP, 'dog_snapshot_966670.json')
 CAM_FIN = os.path.join(SNAP, 'dog_966670_tag_institucional.json')
 

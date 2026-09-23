@@ -91,6 +91,8 @@ interface Meta {
   distritos?: number; setores?: number; bulevar_m: number
   raioInicio: number; raioSitio: number; raioBorda: number
   plantadas: number; programa: Peca[]
+  /** ⚠️ REGISTRO v4 (masterplan.md §41). Ausente == 3, nunca assumido. */
+  registroVersao?: number; registroBytes?: number; registroArquivo?: string
 }
 
 /** ruído determinístico por lote: a cidade é a mesma em toda visita */
@@ -101,24 +103,167 @@ function hash01(i: number): number {
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296
 }
 
+// ⚠️ RUMO, A MESMA CONVENÇÃO DE `vias.ts` (`pt`/`ang`): atan2(x, -z), 0 = norte
+// (-z), cresce para leste (+x). É a convenção que o próprio `cidade-malha.json`
+// documenta (`esquema.quadro`) e que a emenda de 23/09 ao §41 usa para descrever
+// o meio da fatia de anel (geo=1).
+const rumoDe = (x: number, z: number): number => Math.atan2(x, -z)
+
+/** um lote lido do registro (v3 ou v4), já na forma que o resto do módulo
+ *  consome: x/z/frente/prof/giroLote sempre presentes (v4 os DERIVA dos 4
+ *  cantos); `cantos` só existe em v4, e é ele que a moldura desenha direto,
+ *  sem reconstruir retângulo. */
+interface LoteRec {
+  x: number; z: number; setor: number; coorte: number; flags: number; forma: number
+  frente: number; prof: number; giroLote: number
+  /** só v4: os 4 cantos absolutos do arquivo, p0..p3 */
+  cantos: [number, number][] | null
+  /** só v4: 0 célula, 1 fatia de anel, 2 reta, 3 retângulo legado */
+  geo: number
+}
+
+/**
+ * ⚠️ A INTERPOLAÇÃO É A MESMA DE `cantos()` EM `scripts/city/v4_de_v3.py`,
+ * SÓ QUE AO CONTRÁRIO. Aquele script (a fonte do `_v4teste` que este módulo
+ * lê) grava P1 = P0 + frente·(cos giro, sin giro): a direção de P0 para P1 É
+ * (cos giro, sin giro), sem negação nenhuma. Derivar `giroLote` de qualquer
+ * outra convenção (por exemplo pela rotação que `q.setFromAxisAngle` parece
+ * pedir) quebra o giro assim que o lote não é quadrado, porque as duas conven
+ * ções discordam por um sinal. A prova de round-trip: converter o v3 de hoje
+ * para v4 (geo=3, já feito em `_v4teste`) e ler de volta com ESTA fórmula tem
+ * de desenhar o MESMO retângulo que o v3 desenha — é a chapa do item 6.
+ */
+function insetQuad(c: readonly [number, number][], d: number): [number, number][] {
+  if (d <= 0 || c.length < 3) return c.map((p) => [p[0], p[1]] as [number, number])
+  const n = c.length
+  let cx = 0, cz = 0
+  for (const p of c) { cx += p[0]; cz += p[1] }
+  cx /= n; cz /= n
+  // cada aresta deslocada `d` para dentro (rumo ao centróide)
+  const linhas = c.map((p, i) => {
+    const q = c[(i + 1) % n]
+    const ex = q[0] - p[0], ez = q[1] - p[1]
+    const el = Math.hypot(ex, ez) || 1
+    let nx = -ez / el, nz = ex / el
+    if (nx * (cx - p[0]) + nz * (cz - p[1]) < 0) { nx = -nx; nz = -nz }
+    return { px: p[0] + nx * d, pz: p[1] + nz * d, dx: ex / el, dz: ez / el }
+  })
+  // canto k = interseção da reta (k-1) com a reta k, as duas já deslocadas
+  const fora: [number, number][] = []
+  for (let k = 0; k < n; k++) {
+    const a = linhas[(k + n - 1) % n], b = linhas[k]
+    const den = a.dx * b.dz - a.dz * b.dx
+    if (Math.abs(den) < 1e-9) { fora.push([b.px, b.pz]); continue }
+    const t = ((b.px - a.px) * b.dz - (b.pz - a.pz) * b.dx) / den
+    fora.push([a.px + a.dx * t, a.pz + a.dz * t])
+  }
+  return fora
+}
+
 export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
-  const [meta, buf] = await Promise.all([
-    fetch('/city/cidade.json').then((r) => r.json() as Promise<Meta>),
-    fetch('/city/cidade-lotes.bin').then((r) => r.arrayBuffer()),
-  ])
+  // ⚠️ SÓ DESENVOLVIMENTO: `?reg=_v4teste` aponta cidade.json e o bin de lote
+  // para `public/city/_v4teste/` em vez de `public/city/`. A pasta é
+  // gitignored e tem o registro v4 de teste (masterplan.md §41); sem o
+  // parâmetro nada muda, o mesmo caminho de sempre. O bot de hora em hora só
+  // publica v3 em `public/city/` (regra da casa), então a produção nunca vê
+  // este ramo.
+  const regBase = typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).get('reg') === '_v4teste'
+    ? '/city/_v4teste' : '/city'
+  const meta = await fetch(`${regBase}/cidade.json`).then((r) => r.json() as Promise<Meta>)
   // ⚠️ O REGISTRO PASSOU DE 11 PARA 13 BYTES. Os dois a mais são o GIRO DO LOTE,
   // uint16 em centésimos de grau. Até aqui a orientação era reconstruída como
   // `setor * 7,5°`, o que funcionava enquanto havia um giro por setor; agora o
   // giro é do QUARTEIRÃO e, na Cinta, é a tangente local, diferente em cada
   // bloco. Derivar do setor giraria a Cinta inteira errado, em silêncio.
-  const dv = new DataView(buf)
+  //
   // ⚠️ REGISTRO v3 (21/09): 15 bytes. Testada e fundo passaram a uint16 em
   // DECÍMETROS porque o maior lote institucional tem 388 m de testada e o
   // campo de 1 byte parava em 255: o desenho saía 133 m menor que o registro.
   // Os quatro bits de quarto de metro na flag sumiram junto, eram remendo do
   // mesmo problema. Posição segue em quartos de metro.
-  const REG = 15
+  //
+  // ⚠️ REGISTRO v4 (masterplan.md §41, 23/09): o lote deixou de ser retângulo
+  // (x, z, frente, prof, giro) e virou 4 CANTOS ABSOLUTOS, 21 bytes. `cidade.
+  // json` avisa em `registroVersao`; o publicado hoje não tem o campo, o que
+  // significa v3 (nunca assumido às cegas). O NOME do arquivo v4 também vem
+  // do manifesto (`registroArquivo`), nunca fixo: o CDN continua servindo
+  // `cidade-lotes.bin` (v3) no mesmo caminho de sempre, e o v4 mora em nome
+  // novo para não colidir com o cache dele.
+  const v4 = meta.registroVersao === 4
+  const REG = v4 ? (meta.registroBytes ?? 21) : 15
+  const binNome = v4 ? (meta.registroArquivo ?? 'cidade-lotes-v4.bin') : 'cidade-lotes.bin'
+  const buf = await fetch(`${regBase}/${binNome}`).then((r) => r.arrayBuffer())
+  const dv = new DataView(buf)
   const n = Math.floor(buf.byteLength / REG)
+  // ⚠️ LER O LOTE, v3 OU v4, NUM SÓ LUGAR. Os dois laços do módulo (a massa e
+  // os marcos de esquina) liam o `DataView` cru cada um por conta própria;
+  // duplicar a leitura seria duplicar o dia em que o v4 chegar. Em v3 os 4
+  // cantos ficam `null` porque não existem no arquivo — quem precisa deles
+  // (a moldura) reconstrói o retângulo do jeito de sempre, giro e tudo.
+  const lerLote = (i: number): LoteRec => {
+    const off = i * REG
+    if (!v4) {
+      const x = dv.getInt16(off, true) / 4, z = dv.getInt16(off + 2, true) / 4
+      const setor = dv.getUint8(off + 4), coorte = dv.getUint8(off + 5)
+      const flags = dv.getUint8(off + 8)
+      const frente = dv.getUint16(off + 9, true) / 10
+      const prof = dv.getUint16(off + 11, true) / 10
+      const giroLote = (dv.getUint16(off + 13, true) / 100) * Math.PI / 180
+      const forma = Math.min(4, (flags >> 1) & 7)
+      return { x, z, setor, coorte, flags, forma, frente, prof, giroLote, cantos: null, geo: 3 }
+    }
+    // v4: <8hBBHB> = 4 cantos absolutos (int16, quartos de metro) + setor +
+    // coorte + familia (não lido aqui, ninguém no módulo usa) + flags.
+    const p = [0, 1, 2, 3].map((k) => [
+      dv.getInt16(off + k * 4, true) / 4,
+      dv.getInt16(off + k * 4 + 2, true) / 4,
+    ]) as [number, number][]
+    const setor = dv.getUint8(off + 16), coorte = dv.getUint8(off + 17)
+    const flags = dv.getUint8(off + 20)
+    const forma = Math.min(4, (flags >> 1) & 7)
+    const geo = (flags >> 4) & 3
+    const [p0, p1, p2, p3] = p
+    if (geo === 1) {
+      // ⚠️ EMENDA DE 23/09 AO §41: FATIA DE ANEL CENTRADA NA ORIGEM. p0p1 e
+      // p2p3 são ARCOS de círculo centrados em (0,0) (raios |p0| e |p2|,
+      // ângulos = rumo de p0 e de p1): um quadrilátero reto aqui cortaria a
+      // corda para dentro do lote de verdade (57° no Distrito Financeiro
+      // chegam a 114 m). A massa usa a corda da aresta MAIS CURTA como
+      // largura e |r_frente − r_fundo| como fundo, centrada no MEIO da fatia
+      // e girada pelo RUMO do meio — nunca pendura fora.
+      const rF = (Math.hypot(p0[0], p0[1]) + Math.hypot(p1[0], p1[1])) / 2
+      const rT = (Math.hypot(p2[0], p2[1]) + Math.hypot(p3[0], p3[1])) / 2
+      let a0 = rumoDe(p0[0], p0[1]), a1 = rumoDe(p1[0], p1[1])
+      if (a1 - a0 > Math.PI) a1 -= Math.PI * 2
+      else if (a1 - a0 < -Math.PI) a1 += Math.PI * 2
+      const aMeio = (a0 + a1) / 2, rMeio = (rF + rT) / 2
+      const x = Math.sin(aMeio) * rMeio, z = -Math.cos(aMeio) * rMeio
+      const frente = Math.min(Math.hypot(p1[0] - p0[0], p1[1] - p0[1]),
+                               Math.hypot(p3[0] - p2[0], p3[1] - p2[1]))
+      const prof = Math.abs(rF - rT)
+      return { x, z, setor, coorte, flags, forma, frente, prof, giroLote: aMeio, cantos: p, geo }
+    }
+    // geo 0 (célula), 2 (reta) e 3 (retângulo legado): quadrilátero reto.
+    // ⚠️ MESMA CONTA DE `v4_de_v3.py:cantos()`, AO CONTRÁRIO. Lá P1 = P0 +
+    // frente·(cos giro, sin giro): a direção de P0 para P1 é (cos giro, sin
+    // giro) sem negação, então `giroLote = atan2(dz, dx)` é o inverso exato.
+    // A prova está na chapa do item 6: `_v4teste` converteu o v3 de hoje para
+    // geo=3 com essa fórmula, e ler de volta tem de desenhar o MESMO lote.
+    const x = (p0[0] + p1[0] + p2[0] + p3[0]) / 4, z = (p0[1] + p1[1] + p2[1] + p3[1]) / 4
+    const frente = Math.min(Math.hypot(p1[0] - p0[0], p1[1] - p0[1]),
+                             Math.hypot(p3[0] - p2[0], p3[1] - p2[1]))
+    // fundo = distância da reta p0p1 à reta p2p3 (célula: duas faces
+    // concêntricas do dodecágono, quase sempre paralelas por construção)
+    const fdx = p1[0] - p0[0], fdz = p1[1] - p0[1]
+    const fl = Math.hypot(fdx, fdz) || 1
+    const nx = -fdz / fl, nz = fdx / fl
+    const mFx = (p0[0] + p1[0]) / 2, mFz = (p0[1] + p1[1]) / 2
+    const mTx = (p2[0] + p3[0]) / 2, mTz = (p2[1] + p3[1]) / 2
+    const prof = Math.abs((mTx - mFx) * nx + (mTz - mFz) * nz)
+    const giroLote = Math.atan2(fdz, fdx)
+    return { x, z, setor, coorte, flags, forma, frente, prof, giroLote, cantos: p, geo }
+  }
   const group = new THREE.Group()
   group.name = 'tecido'
   const modo = o.modo ?? 'obra'
@@ -141,6 +286,53 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
   const mol = { pos: [] as number[], cor: [] as number[], u: [] as number[],
                 idx: [] as number[], setor: [] as number[] }
   const sSetDe = (s: number) => (s < SET ? s : SET - 1)
+
+  // ⚠️ O CONTORNO DA MOLDURA, v3 E v4 NUM SÓ LUGAR. Em v3 (sem `cantos`) ele
+  // reconstrói o retângulo local do jeito de sempre (giro e tudo). Em v4 ele
+  // usa os cantos do ARQUIVO: geo 0/2/3 são os 4 direto, geo=1 subdivide os
+  // dois arcos (emenda de 23/09 ao §41: flecha ≤ 0,05 m ou passo de ~1°, o que
+  // for mais fino) e mantém as duas laterais retas. O inset (RECUO, depois
+  // BANDA) é `insetQuad`, que vale para qualquer polígono convexo: para o
+  // arco subdividido, cada ponto intermediário tem os dois vizinhos quase
+  // colineares, então a interseção das arestas deslocadas reproduz o raio
+  // menos a distância, sem precisar de uma conta em raio à parte.
+  const contornoLote = (rec: LoteRec): { fora: [number, number, number][]; dentro: [number, number, number][] } => {
+    let base: [number, number][]
+    if (rec.cantos && rec.geo === 1) {
+      const [p0, p1, p2, p3] = rec.cantos
+      const arco = (pa: [number, number], pb: [number, number]): [number, number][] => {
+        const r = (Math.hypot(pa[0], pa[1]) + Math.hypot(pb[0], pb[1])) / 2
+        let a0 = rumoDe(pa[0], pa[1]), a1 = rumoDe(pb[0], pb[1])
+        if (a1 - a0 > Math.PI) a1 -= Math.PI * 2
+        else if (a1 - a0 < -Math.PI) a1 += Math.PI * 2
+        const dAng = Math.abs(a1 - a0) || 1e-9
+        const porFlecha = dAng / (2 * Math.acos(Math.max(-1, 1 - 0.05 / Math.max(1, r))))
+        const porGrau = dAng / (Math.PI / 180)
+        const nDiv = Math.max(1, Math.ceil(Math.max(porFlecha, porGrau)))
+        const pts: [number, number][] = []
+        for (let k = 0; k <= nDiv; k++) {
+          const a = a0 + (a1 - a0) * (k / nDiv)
+          pts.push([Math.sin(a) * r, -Math.cos(a) * r])
+        }
+        return pts
+      }
+      base = [...arco(p0, p1), ...arco(p2, p3)]
+    } else if (rec.cantos) {
+      base = rec.cantos
+    } else {
+      const cg = Math.cos(-rec.giroLote), sg = Math.sin(-rec.giroLote)
+      const mf0 = rec.frente / 2, mp0 = rec.prof / 2
+      base = ([[-mf0, -mp0], [mf0, -mp0], [mf0, mp0], [-mf0, mp0]] as const).map(([lx, lz]) =>
+        [rec.x + lx * cg - lz * sg, rec.z + lx * sg + lz * cg] as [number, number])
+    }
+    const mf = Math.max(1.5, rec.frente / 2 - RECUO), mp = Math.max(1.5, rec.prof / 2 - RECUO)
+    const BANDA = Math.min(1.2, Math.min(mf, mp) * 0.35)
+    const foraXZ = insetQuad(base, RECUO)
+    const dentroXZ = insetQuad(foraXZ, BANDA)
+    const fora: [number, number, number][] = foraXZ.map(([wx, wz]) => [wx, o.heightAt(wx, wz) + 0.10, wz])
+    const dentro: [number, number, number][] = dentroXZ.map(([wx, wz], k) => [wx, fora[k][1], wz])
+    return { fora, dentro }
+  }
 
   const geo = new THREE.BoxGeometry(1, 1, 1)
   geo.translate(0, 0.5, 0)          // pivô no pé: a massa cresce do chão para cima
@@ -191,8 +383,13 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
   // envenenado é o maior da cidade. O conserto é não amontoar: o número de
   // baldes sai do MAIOR setor que o arquivo traz, e cada um fica com a esfera
   // que é de fato a dele.
+  // ⚠️ O BYTE DO SETOR MUDA DE LUGAR EM v4: byte 4 no retângulo (15 bytes),
+  // byte 16 depois dos 4 cantos (21 bytes). Ler o offset errado aqui não
+  // quebra rápido: cada byte vira ALGUM setor válido (é posição de x/z do
+  // canto seguinte), só os baldes de esfera saem errados, em silêncio.
+  const setorOff = v4 ? 16 : 4
   let setorMax = SET_TECIDO - 1
-  for (let i = 0; i < n; i++) setorMax = Math.max(setorMax, dv.getUint8(i * REG + 4))
+  for (let i = 0; i < n; i++) setorMax = Math.max(setorMax, dv.getUint8(i * REG + setorOff))
   const SET = setorMax + 1
   const porSetor: { m: number[]; c: number[] }[] = Array.from({ length: SET }, () => ({ m: [], c: [] }))
   const m4 = new THREE.Matrix4()
@@ -206,18 +403,12 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
   // 5 sondagens de terreno por lote em 85.839 lotes, ou seja 429 mil chamadas de
   // `superficieAt`, e isso é o grosso do tempo de subida da cena.
   for (let i = 0; modo !== 'obra' && i < n; i++) {
-    const off = i * REG
     // ⚠️ REGISTRO v2 (20/09): posição em QUARTOS DE METRO e o quarto de metro da
     // frente e do fundo nos bits 4-7 da flag. Em metros inteiros, dois lotes que
     // se encostam na divisa de fundo apareciam cruzados em até 1 m, e meio metro
     // de erro é degrau de calçada para o boneco de 1,70 m.
-    const x = dv.getInt16(off, true) / 4, z = dv.getInt16(off + 2, true) / 4
-    const setor = dv.getUint8(off + 4), coorte = dv.getUint8(off + 5)
-    const flags = dv.getUint8(off + 8)
-    const frente = dv.getUint16(off + 9, true) / 10
-    const prof = dv.getUint16(off + 11, true) / 10
-    const giroLote = (dv.getUint16(off + 13, true) / 100) * Math.PI / 180
-    const forma = Math.min(4, (flags >> 1) & 7)
+    const rec = lerLote(i)
+    const { x, z, setor, coorte, flags, forma, frente, prof, giroLote } = rec
     const r01 = hash01(i)
 
     let alt: number
@@ -251,33 +442,21 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
     // (dash por geometria custaria 60 triângulos por lote, 4,2 M no total): é
     // descarte por `u` no fragmento, 8 triângulos por lote.
     if (modo === 'lote') {
-      const cg = Math.cos(-giroLote), sg = Math.sin(-giroLote)
-      const mf = Math.max(1.5, frente / 2 - RECUO), mp = Math.max(1.5, prof / 2 - RECUO)
-      const BANDA = Math.min(1.2, Math.min(mf, mp) * 0.35)
-      // os quatro cantos, cada um na SUA cota: é isto que tira o lote do ar
-      const cantos: [number, number, number][] = []
-      for (const [lx, lz] of [[-mf, -mp], [mf, -mp], [mf, mp], [-mf, mp]] as const) {
-        const wx = x + lx * cg - lz * sg, wz = z + lx * sg + lz * cg
-        cantos.push([wx, o.heightAt(wx, wz) + 0.10, wz])
-      }
-      // e os quatro de dentro, na MESMA cota do canto de fora: a 1,2 m de
-      // distância o chão não muda o bastante para pagar outra sondagem, e o
-      // laço já é o grosso do tempo de subida da cena.
-      const dentro: [number, number, number][] = []
-      for (let k = 0; k < 4; k++) {
-        const [lx, lz] = [[-mf + BANDA, -mp + BANDA], [mf - BANDA, -mp + BANDA],
-                          [mf - BANDA, mp - BANDA], [-mf + BANDA, mp - BANDA]][k] as [number, number]
-        dentro.push([x + lx * cg - lz * sg, cantos[k][1], z + lx * sg + lz * cg])
-      }
+      // ⚠️ v4: `contornoLote` já usa os 4 cantos do arquivo (ou os subdivide,
+      // em geo=1); v3 (`cantos: null` em `lerLote`) reconstrói o retângulo
+      // local do jeito de sempre. N pontos em vez de 4 fixos: geo=1 entra com
+      // o arco subdividido, o resto (v3 e geo 0/2/3) continua em 4.
+      const { fora, dentro } = contornoLote(rec)
       cor.set(pintura === 'idade' ? CORES_COORTE[Math.min(7, coorte)]
             : pintura === 'forma' ? CORES_FORMA[forma]
             : COR_DIVISA)
       if (flags & 1) cor.set('#7FD4E0')
       const base = mol.pos.length / 3
+      const N = fora.length
       let u = 0
-      for (let k = 0; k < 4; k++) {
-        const a = cantos[k], b = cantos[(k + 1) % 4]
-        const ai = dentro[k], bi = dentro[(k + 1) % 4]
+      for (let k = 0; k < N; k++) {
+        const a = fora[k], b = fora[(k + 1) % N]
+        const ai = dentro[k], bi = dentro[(k + 1) % N]
         const lado = Math.hypot(b[0] - a[0], b[2] - a[2])
         for (const [p, uu] of [[a, u], [b, u + lado], [ai, u], [bi, u + lado]] as const) {
           mol.pos.push(p[0], p[1], p[2])
@@ -494,12 +673,12 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
     const qm = new THREE.Quaternion()
     const em = new THREE.Vector3(1, 1, 1)
     for (let i = 0; i < n; i++) {
-      const off = i * REG
-      const x = dv.getInt16(off, true) / 4, z = dv.getInt16(off + 2, true) / 4
-      const setor = dv.getUint8(off + 4)
-      const frente = dv.getUint16(off + 9, true) / 10
-      const prof = dv.getUint16(off + 11, true) / 10
-    const giroLote = (dv.getUint16(off + 13, true) / 100) * Math.PI / 180
+      // ⚠️ v3 OU v4, PELO MESMO `lerLote`: em v4 frente/prof/giroLote são
+      // DERIVADOS dos 4 cantos (célula, fatia ou retângulo legado), mas o
+      // marco não precisa do canto exato do arquivo — ele é um poste de
+      // 0,5x1,5x0,5 m, e a esquina aproximada da caixa já é a história que
+      // ele conta.
+      const { x, z, setor, frente, prof, giroLote } = lerLote(i)
       const ang = -giroLote
       const cx = Math.cos(ang), sx = Math.sin(ang)
       // esquina da frente, no canto esquerdo de quem olha da rua

@@ -14,7 +14,7 @@ import type { Camera, Nivel } from './camera'
 import { mundoParaTela, retanguloVisivel } from './camera'
 import type { Malha, Selo, Agua, Via } from './malha'
 import type { Registro } from './registro'
-import { consultarGrade, cantosDoLote } from './registro'
+import { consultarGrade, cantosDoLote, rumoMundo } from './registro'
 import { COR_SETOR, TIPO_PROGRAMA, NOME_PECA_EN, FUNDO, LARANJA, CIANO_DSC } from './estilo'
 
 export interface Contexto {
@@ -51,6 +51,43 @@ function tracarPoligonal(ctx: CanvasRenderingContext2D, cam: Camera, cw: number,
   ctx.stroke()
 }
 
+const cantosBuf = new Float32Array(8)
+
+/** traça o CONTORNO do lote `i` (chame ctx.beginPath() antes; fill/stroke
+ *  depois, é de quem chama). Reto pelos 4 cantos para geo 0/2/3; para geo=1
+ *  (fatia de anel, emenda 23/09 ao §41) a frente e o fundo são ARCOS de
+ *  círculo centrados na ORIGEM, não a corda entre os cantos gravados — uma
+ *  corda cortaria dezenas de metros para dentro num arco largo. Os dois
+ *  círculos são MUNDIAIS (centro (0,0), a Praça); a câmera só translada e
+ *  escala, nunca gira (doutrina de camera.ts), então continuam círculos na
+ *  tela e dá para usar ctx.arc() nativo em vez de tesselar em segmentos. */
+function tracarLote(ctx: CanvasRenderingContext2D, cam: Camera, cw: number, ch: number, r: Registro, i: number) {
+  cantosDoLote(r, i, cantosBuf)
+  const [p0x, p0z, p1x, p1z, p2x, p2z, p3x, p3z] = cantosBuf
+  if (r.geo[i] !== 1) {
+    for (let k = 0; k < 4; k++) {
+      const [sx, sy] = mundoParaTela(cam, cw, ch, cantosBuf[k * 2], cantosBuf[k * 2 + 1])
+      if (k === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy)
+    }
+    ctx.closePath()
+    return
+  }
+  // rumo do mundo -> ângulo do canvas: 0 rad do canvas aponta para +x (leste),
+  // crescendo para +y (sul); rumo 0 aponta para -z (norte), crescendo para +x
+  // (leste). A mesma rotação de 90° (-π/2) alinha os dois em qualquer sentido.
+  const ang = (rumo: number) => rumo - Math.PI / 2
+  const r0 = Math.hypot(p0x, p0z), r1 = Math.hypot(p2x, p2z)
+  const a0 = rumoMundo(p0x, p0z), a1 = rumoMundo(p1x, p1z)
+  const [ox, oy] = mundoParaTela(cam, cw, ch, 0, 0)
+  const [sx0, sy0] = mundoParaTela(cam, cw, ch, p0x, p0z)
+  ctx.moveTo(sx0, sy0)
+  ctx.arc(ox, oy, r0 * cam.escala, ang(a0), ang(a1), false)
+  const [sx2, sy2] = mundoParaTela(cam, cw, ch, p2x, p2z)
+  ctx.lineTo(sx2, sy2)
+  ctx.arc(ox, oy, r1 * cam.escala, ang(a1), ang(a0), true)
+  ctx.closePath()
+}
+
 function fundo(c: Contexto) {
   const { ctx, cw, ch } = c
   ctx.fillStyle = FUNDO
@@ -79,9 +116,14 @@ function contorno(c: Contexto) {
 
 function quarteiroes(c: Contexto) {
   const { ctx, cw, ch, cam, malha, nivel } = c
-  const { n, setor, poligonos } = malha.quarteiroes
+  const { n, setor, poligonos, lotes } = malha.quarteiroes
   const fill = nivel !== 'perto'
   for (let i = 0; i < n; i++) {
+    // §39: 138 quarteirões da malha não têm nenhum lote (peça sem reserva ou
+    // sonda livre demais); pintar o envoltório deles pinta terreno onde não
+    // há lote nenhum. O fundo de quarteirão só existe para o olho ler o
+    // bloco à distância, nunca para inventar área que ninguém tem.
+    if (lotes[i] === 0) continue
     const o = i * 8
     const cor = COR_SETOR[setor[i]] ?? '#888888'
     ctx.beginPath()
@@ -194,8 +236,6 @@ function programa(c: Contexto) {
   for (const p of malha.ancoras) desenhaUm(p, true)
 }
 
-const cantosBuf = new Float32Array(8)
-
 /** S07 The Spit / Orla Nobre, S08 Financial District e S09 Bay Shore: cada um
  *  grava UM QUARTEIRÃO POR LOTE (ver o aviso em registro.ts), então eles não
  *  entram em malha.quarteiroes (que só cobre os setores 1-6, o tecido comum) e
@@ -209,13 +249,8 @@ function distritosEspeciais(c: Contexto) {
   const { ctx, cw, ch, cam, registro, nivel } = c
   if (nivel === 'perto') return
   for (const i of registro.especiais) {
-    cantosDoLote(registro, i, cantosBuf)
     ctx.beginPath()
-    for (let k = 0; k < 4; k++) {
-      const [sx, sy] = mundoParaTela(cam, cw, ch, cantosBuf[k * 2], cantosBuf[k * 2 + 1])
-      if (k === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy)
-    }
-    ctx.closePath()
+    tracarLote(ctx, cam, cw, ch, registro, i)
     ctx.globalAlpha = nivel === 'longe' ? 0.5 : 0.4
     ctx.fillStyle = COR_SETOR[registro.setor[i]] ?? '#888888'
     ctx.fill()
@@ -236,13 +271,8 @@ function lotes(c: Contexto) {
   const TETO = 12000 // válvula de segurança; a grade de 200 m já limita bem antes disso
   consultarGrade(registro, xmin, zmin, xmax, zmax, (i) => {
     if (desenhados++ > TETO) return
-    cantosDoLote(registro, i, cantosBuf)
     ctx.beginPath()
-    for (let k = 0; k < 4; k++) {
-      const [sx, sy] = mundoParaTela(cam, cw, ch, cantosBuf[k * 2], cantosBuf[k * 2 + 1])
-      if (k === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy)
-    }
-    ctx.closePath()
+    tracarLote(ctx, cam, cw, ch, registro, i)
     const selecao = i === selecionado
     ctx.fillStyle = COR_SETOR[registro.setor[i]] ?? '#888888'
     ctx.globalAlpha = selecao ? 0.85 : 0.55

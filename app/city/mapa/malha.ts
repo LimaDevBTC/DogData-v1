@@ -37,9 +37,23 @@
 //
 // ⚠️ ESTE MÓDULO NÃO DECIDE COR NEM NOME: isso é estilo.ts, que por sua vez
 // importa de app/dogcity/dogcity-data.ts (a fonte pública única).
+//
+// ⚠️ CÉLULA (masterplan §41): quando um quarteirão de cidade-malha.json já
+// traz `poly` (4 cantos, mesma convenção do lote em registro.ts), usamos ele
+// direto; sem `poly` (cidade-malha.json de hoje, v3), caímos no retângulo de
+// sempre (x,z,lado,prof,giro). `lotes` (contagem) vem junto para desenho.ts
+// não pintar fundo de quarteirão sem nenhum lote dentro (§39). ?reg=NOME
+// desvia só cidade-malha.json (mesma convenção de registro.ts); mapa-v1.json
+// e vias.json nunca desviam.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const RAD = Math.PI / 180
+
+function raizCidade(): string {
+  if (typeof window === 'undefined') return '/city'
+  const nome = new URLSearchParams(window.location.search).get('reg')
+  return nome ? `/city/${nome}` : '/city'
+}
 
 /**
  * Um trecho já vivo da rede viária, exatamente como `app/city/plaza/vias.ts`
@@ -66,7 +80,14 @@ export interface Via {
 }
 
 export interface Peca { id: string; tipo: string; nomeEn: string; poly: Float32Array /* n×2 */; cx: number; cz: number }
-export interface Quarteiroes { n: number; setor: Uint8Array; poligonos: Float32Array /* n×8: 4 cantos */ }
+export interface Quarteiroes {
+  n: number
+  setor: Uint8Array
+  poligonos: Float32Array /* n×8: 4 cantos */
+  /** lotes dentro do quarteirão (campo `lotes` do JSON); 0 = nada para pintar
+   *  aqui (§39: 138 quarteirões da malha sem lote nenhum). */
+  lotes: Uint16Array
+}
 
 export interface Malha {
   /** `null` só quando `public/city/mapa/vias.json` não existe ou não carregou;
@@ -129,22 +150,30 @@ async function carregarVias(): Promise<Via[] | null> {
 
 export async function carregarMalha(): Promise<Malha> {
   const [cidadeMalha, mapaV1, vias] = await Promise.all([
-    json<any>('/city/cidade-malha.json'),
+    json<any>(`${raizCidade()}/cidade-malha.json`),
     json<any>('/city/mapa-v1.json'),
     carregarVias(),
   ])
 
-  // quarteirões: 2.071 retângulos girados, pré-computados uma vez (é barato
-  // recalcular todo quadro, mas é mais barato ainda não fazer trigonometria
-  // 2.071 vezes por frame durante um pan contínuo)
+  // quarteirões (célula, §41): 2.071 polígonos, pré-computados uma vez (é
+  // barato recalcular todo quadro, mas é mais barato ainda não fazer
+  // trigonometria 2.071 vezes por frame durante um pan contínuo). `poly`
+  // quando existe (4 cantos, mesma convenção do lote); senão o retângulo de
+  // sempre (x,z,lado,prof,giro) — cidade-malha.json de hoje não tem `poly`.
   const qList = cidadeMalha.quarteiroes as any[]
   const qN = qList.length
   const qSetor = new Uint8Array(qN)
   const qPoly = new Float32Array(qN * 8)
+  const qLotes = new Uint16Array(qN)
   for (let i = 0; i < qN; i++) {
     const q = qList[i]
     qSetor[i] = q.setor
-    qPoly.set(retanguloGraus(q.x, q.z, q.lado / 2, q.prof / 2, q.giro), i * 8)
+    qLotes[i] = q.lotes ?? 0
+    if (Array.isArray(q.poly) && q.poly.length >= 4) {
+      for (let k = 0; k < 4; k++) { qPoly[i * 8 + k * 2] = q.poly[k][0]; qPoly[i * 8 + k * 2 + 1] = q.poly[k][1] }
+    } else {
+      qPoly.set(retanguloGraus(q.x, q.z, q.lado / 2, q.prof / 2, q.giro), i * 8)
+    }
   }
 
   const paraPeca = (p: any): Peca => {
@@ -161,7 +190,7 @@ export async function carregarMalha(): Promise<Malha> {
 
   return {
     vias,
-    quarteiroes: { n: qN, setor: qSetor, poligonos: qPoly },
+    quarteiroes: { n: qN, setor: qSetor, poligonos: qPoly, lotes: qLotes },
     programa, ancoras, contorno,
     raioSitio: cidadeMalha.esquema ? 9000 : 9000,
     raioCasca: mapaV1.terraplenagem?.casca?.r ?? 9050,

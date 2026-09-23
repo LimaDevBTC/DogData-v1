@@ -205,7 +205,17 @@ function criarMuda(x: number, z: number, forma: Forma, i: number): Muda {
   }
 }
 
-interface Quarteirao { x: number; z: number; giro: number; lado: number; prof?: number; k?: number }
+interface Quarteirao {
+  x: number; z: number; giro: number; lado: number; prof?: number; k?: number
+  /** ⚠️ masterplan.md §41: 4 cantos da área útil da célula, mesma convenção do
+   *  lote (p0p1 frente, p2p3 fundo). Ainda não publicado em 23/09 (a malha
+   *  atual não tem este campo em nenhuma célula); quando existir, o plantio
+   *  de contorno planta na BORDA dele em vez do quadro rígido giro+lado. */
+  poly?: [number, number][]
+  /** ⚠️ idem, eixo de cada travessa de 9 m (de radial a radial), pronto para
+   *  plantar as duas bocas sem reconstruir quadro nenhum. */
+  travessas?: [number, number, number, number][]
+}
 interface Bulevar { rumo: number; largura: number; x0: number; z0: number; x1: number; z1: number }
 interface Anel { r: number; larg: number; nome?: string }
 interface Peca { x: number; z: number; a: number; b: number; rot: number; forma?: string }
@@ -218,15 +228,22 @@ interface DadoDistrito { rumo: number; abertura: number }
 type TravessasPorK = Record<string, { z0: number; z1: number }[]>
 
 export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao> {
+  // ⚠️ SÓ DESENVOLVIMENTO: `?reg=_v4teste` aponta a malha e o `cidade.json`
+  // publicados para `public/city/_v4teste/` em vez de `public/city/` (pasta
+  // gitignored, registro v4 de teste do masterplan.md §41). Sem o parâmetro
+  // nada muda.
+  const regBase = typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).get('reg') === '_v4teste'
+    ? '/city/_v4teste' : '/city'
   const [malha, meta] = await Promise.all([
-    fetch('/city/cidade-malha.json').then((r) => r.json() as Promise<{
+    fetch(`${regBase}/cidade-malha.json`).then((r) => r.json() as Promise<{
       constantes: {
         setores: number; quarteirao: number; viaContorno: number; bulevar: number
         bandas?: DadoBanda[]; distritosDef?: DadoDistrito[]; travessasPorK?: TravessasPorK
       }
       quarteiroes: Quarteirao[]; bulevares: Bulevar[]
     }>),
-    fetch('/city/cidade.json').then((r) => r.json() as Promise<{
+    fetch(`${regBase}/cidade.json`).then((r) => r.json() as Promise<{
       programa: Peca[]; raioBorda: number; raioInicio: number; aneis?: Anel[]
     }>),
   ])
@@ -760,12 +777,6 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
     // espécie diferente por árvore, que é confete. Com a semente do bloco, a
     // testada inteira tem parentesco e é o bloco seguinte que troca.
     const semQ = Math.round(q.x) * 31 + Math.round(q.z)
-    // a fileira corre ao longo da TESTADA e recua a PROFUNDIDADE
-    const off = (q.prof ?? q.lado) / 2 + 2.5 + 1.07
-    const g = (q.giro * Math.PI) / 180
-    const cg = Math.cos(g), sg = Math.sin(g)
-    const meia = meio - RECUO_ESQ
-    const n = Math.floor((meia * 2) / PASSO_CONT)
     // ⚠️ BANDA + ACENTO DE DISTRITO (paisagismo.md §2), ATRÁS DE `?verde=1`.
     // O raio do CENTRO do quarteirão já diz a banda (Núcleo a Cinta); o
     // ângulo já diz o distrito. As duas leituras vêm dos MESMOS arrays
@@ -778,6 +789,36 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
     const espContorno = (px: number, pz: number) => verde && pesosContorno
       ? especieDeTabela(pesosContorno, px, pz, semQ)
       : espDa('contorno', px, pz, semQ, 'esfera')
+    // ⚠️ QUANDO A CÉLULA JÁ TEM `poly` (masterplan §41; a malha de hoje, 23/09,
+    // ainda não publica isso em nenhuma célula), a fileira planta na BORDA DA
+    // FRENTE dele (`p0->p1`, mesma convenção do lote), recuada `RECUO_ESQ` de
+    // cada ponta e empurrada `off` para FORA (a mesma folga de sempre,
+    // calçada+meio-fio): não há mais quadro rígido (`giro`+`lado`) para
+    // reconstruir, o poly já É a testada. Sem `poly`, o quadro de sempre.
+    if (q.poly && q.poly.length === 4) {
+      const [p0, p1] = q.poly
+      const ex = p1[0] - p0[0], ez = p1[1] - p0[1]
+      const el = Math.hypot(ex, ez) || 1
+      const cg = ex / el, sg = ez / el
+      let nx = -sg, nz = cg
+      const mx = (p0[0] + p1[0]) / 2, mz = (p0[1] + p1[1]) / 2
+      if (nx * (mx - q.x) + nz * (mz - q.z) < 0) { nx = -nx; nz = -nz }
+      const off = 2.5 + 1.07
+      const meiaPoly = el / 2 - RECUO_ESQ
+      const nPoly = Math.floor((meiaPoly * 2) / PASSO_CONT)
+      for (let k = 0; k <= nPoly; k++) {
+        const lx = -meiaPoly + k * PASSO_CONT
+        const x = mx + cg * lx + nx * off, z = mz + sg * lx + nz * off
+        por(x, z, espContorno(x, z), i++, true, undefined, [cg, sg], [-sg, cg])
+      }
+      continue
+    }
+    // a fileira corre ao longo da TESTADA e recua a PROFUNDIDADE
+    const off = (q.prof ?? q.lado) / 2 + 2.5 + 1.07
+    const g = (q.giro * Math.PI) / 180
+    const cg = Math.cos(g), sg = Math.sin(g)
+    const meia = meio - RECUO_ESQ
+    const n = Math.floor((meia * 2) / PASSO_CONT)
     for (let k = 0; k <= n; k++) {
       const lx = -meia + k * PASSO_CONT
       const x = q.x + lx * cg - off * sg, z = q.z + lx * sg + off * cg
@@ -811,18 +852,37 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
   // árvore está MARCANDO a boca, não evitando o cruzamento.
   const RECUO_TRAV = 6.0
   for (const q of (verde ? malha.quarteiroes : [])) {
+    const semQ = Math.round(q.x) * 31 + Math.round(q.z) + 97   // semente distinta do contorno
+    const rQ = Math.hypot(q.x, q.z)
+    const bandaQ = BANDAS.length ? bandaDe(rQ, BANDAS) : null
+    const distritoQ = DISTRITOS.length ? distritoDe(q.x, q.z, DISTRITOS) : null
+    const pesosTrav = bandaQ ? comAcento(PESO_BANDA[bandaQ], distritoQ) : null
+    // ⚠️ QUANDO A CÉLULA JÁ TEM `travessas` (idem §41, idem ainda não
+    // publicado em 23/09): cada segmento já É o eixo pronto, de radial a
+    // radial, então as duas árvores nascem direto nas bocas (`RECUO_TRAV` de
+    // cada ponta), sem tabela `travessasPorK` nem quadro rígido nenhum.
+    if (q.travessas && q.travessas.length) {
+      for (const [tx0, tz0, tx1, tz1] of q.travessas) {
+        const compTrav = Math.hypot(tx1 - tx0, tz1 - tz0)
+        if (compTrav <= 2 * RECUO_TRAV) continue
+        const cgT = (tx1 - tx0) / compTrav, sgT = (tz1 - tz0) / compTrav
+        for (const [x, z] of [
+          [tx0 + cgT * RECUO_TRAV, tz0 + sgT * RECUO_TRAV],
+          [tx1 - cgT * RECUO_TRAV, tz1 - sgT * RECUO_TRAV],
+        ] as const) {
+          const esp = pesosTrav ? especieDeTabela(pesosTrav, x, z, semQ) : 'esfera'
+          por(x, z, esp, i++, true, undefined, [cgT, sgT], [-sgT, cgT])
+        }
+      }
+      continue
+    }
     const segs = TRAVESSAS_POR_K[String(q.k ?? '')]
     if (!segs || !segs.length) continue
     const meio = q.lado / 2
     const meiaTrav = meio - RECUO_TRAV
     if (meiaTrav <= 0) continue
-    const semQ = Math.round(q.x) * 31 + Math.round(q.z) + 97   // semente distinta do contorno
     const g = (q.giro * Math.PI) / 180
     const cg = Math.cos(g), sg = Math.sin(g)
-    const rQ = Math.hypot(q.x, q.z)
-    const bandaQ = BANDAS.length ? bandaDe(rQ, BANDAS) : null
-    const distritoQ = DISTRITOS.length ? distritoDe(q.x, q.z, DISTRITOS) : null
-    const pesosTrav = bandaQ ? comAcento(PESO_BANDA[bandaQ], distritoQ) : null
     for (const seg of segs) {
       const lz = (seg.z0 + seg.z1) / 2
       for (const lx of [-meiaTrav, meiaTrav]) {
