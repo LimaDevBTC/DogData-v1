@@ -4026,8 +4026,28 @@ if FONTE == 'snapshot':
                                    + PESO_TIER * _posto_bloco[id(r)])
         print('  ⚠️ PESO_TIER=%.2f: a fila deixou de ser a do §12 e virou a do caderno'
               % PESO_TIER, file=sys.stderr)
+    # ⚠️ A FILA RESIDENCIAL TEM DE EXCLUIR A TAG INSTITUCIONAL, E ISSO FALTAVA.
+    # O arquivo de ordem foi gerado em 13/09 já sem as 21 institucionais daquele
+    # dia ("as institucionais saem para o Distrito Financeiro e não ocupam fila
+    # aqui", diz a nota dele), então ninguém precisava filtrar. Em 22/09 a tag
+    # ganhou 6 carteiras de custódia rotulada (a quente da Kraken entre elas), e
+    # o arquivo de ordem continuou sendo o de 13/09: as seis foram plantadas no
+    # Distrito Financeiro E na fila, ou seja receberam DOIS lotes cada.
+    # ⚠️ MEDIDO ANTES DO CONSERTO: `plantadas 70.721 linhas, 70.001 carteiras de
+    # 69.995`, seis a mais que o total, que é o próprio defeito imprimindo a
+    # assinatura dele. O teste "cada carteira tem um destino" do portão pega, mas
+    # só depois de uma hora de rodada.
+    # A tag é a fonte, não o arquivo de ordem: quem entra nela sai daqui.
+    _INST = set()
+    _ct = p('data/snapshots/dog_966670_tag_institucional.json')
+    if os.path.exists(_ct):
+        _tj = json.load(open(_ct, encoding='utf-8'))
+        _INST = {l['address'] for l in (_tj.get('linhas') or [])}
+    _fora = 0
     for _r in _linhas:
         _a = _r['address']
+        if _a in _INST:
+            _fora += 1; continue
         if _r['dog'] <= 0: continue
         if _r['dog'] < DOG_MIN_LOTE:
             COLUMBARIO.append(_r); continue
@@ -4039,6 +4059,9 @@ if FONTE == 'snapshot':
     N = len(carteiras)
     print('fila do snapshot %s: %d carteiras, posição por DOG-tempo (masterplan §12)'
           % (os.path.basename(SNAP_ORDEM), N), file=sys.stderr)
+    if _fora:
+        print('  %d carteiras saíram da fila por estarem na tag institucional '
+              '(vão para o Distrito Financeiro)' % _fora, file=sys.stderr)
     print('  columbário: %d carteiras abaixo de %.0f DOG (o saldo que paga o piso de %.0f m²), '
           'com %.0f DOG somados' % (len(COLUMBARIO), DOG_MIN_LOTE, PISO_LOTE,
                                     sum(_r['dog'] for _r in COLUMBARIO)), file=sys.stderr)

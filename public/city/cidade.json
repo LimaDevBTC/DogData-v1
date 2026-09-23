@@ -8,7 +8,7 @@
  },
  "bandaPorEmblema": {
   "institucional": {
-   "lotes": 18,
+   "lotes": 23,
    "r_min": 992,
    "r_p5": 992,
    "r_p50": 992,
@@ -30,6 +30,14 @@
    "r_p50": 6993,
    "r_p95": 7006,
    "r_max": 7044
+  },
+  "diamond_paws": {
+   "lotes": 19279,
+   "r_min": 992,
+   "r_p5": 1912,
+   "r_p50": 3639,
+   "r_p95": 5435,
+   "r_max": 7045
   },
   "btc_maximalist": {
    "lotes": 100,
@@ -56,68 +64,60 @@
    "r_max": 5688
   },
   "grupo": {
-   "lotes": 43878,
+   "lotes": 43873,
    "r_min": 1493,
-   "r_p5": 2914,
-   "r_p50": 5106,
-   "r_p95": 5867,
+   "r_p5": 2912,
+   "r_p50": 5118,
+   "r_p95": 5879,
    "r_max": 7070
   },
   "steady_holder": {
    "lotes": 411,
-   "r_min": 1528,
-   "r_p5": 1944,
-   "r_p50": 3953,
-   "r_p95": 5541,
-   "r_max": 7021
-  },
-  "diamond_paws": {
-   "lotes": 19279,
-   "r_min": 1493,
-   "r_p5": 1913,
-   "r_p50": 3639,
-   "r_p95": 5420,
-   "r_max": 7045
+   "r_min": 1552,
+   "r_p5": 1979,
+   "r_p50": 4026,
+   "r_p95": 5228,
+   "r_max": 7070
   },
   "hodl_hero": {
    "lotes": 301,
    "r_min": 1527,
-   "r_p5": 2906,
-   "r_p50": 4365,
-   "r_p95": 5795,
-   "r_max": 6488
+   "r_p5": 2700,
+   "r_p50": 4399,
+   "r_p95": 5899,
+   "r_max": 6690
   },
   "profit_taker": {
    "lotes": 823,
    "r_min": 1494,
-   "r_p5": 2075,
-   "r_p50": 4233,
-   "r_p95": 5566,
-   "r_max": 7021
+   "r_p5": 2031,
+   "r_p50": 4186,
+   "r_p95": 5575,
+   "r_max": 7048
   },
   "early_exit": {
    "lotes": 822,
-   "r_min": 1528,
-   "r_p5": 2108,
-   "r_p50": 4612,
-   "r_p95": 5994,
-   "r_max": 7065
+   "r_min": 1527,
+   "r_p5": 1948,
+   "r_p50": 4642,
+   "r_p95": 5813,
+   "r_max": 7023
   },
   "panic_seller": {
    "lotes": 714,
    "r_min": 1528,
-   "r_p5": 3193,
-   "r_p50": 4858,
-   "r_p95": 5797,
-   "r_max": 6893
+   "r_p5": 3096,
+   "r_p50": 4873,
+   "r_p95": 5668,
+   "r_max": 7006
   },
   "paper_hands": {
    "lotes": 1259,
-   "r_min": 1553,
-   "r_p5": 4297,
-   "r_p50": 5241,
-   "r_p95": 5825,
-   "r_max": 7070
+   "r_min": 1674,
+   "r_p5": 4605,
+   "r_p50": 5249,
+   "r_p95": 5841,
+   "r_max": 6514
   }
  },
  "esquema": "int16 x_quartos_de_metro, int16 z_quartos_de_metro, uint8 setor, uint8 coorte, uint16 familia, uint8 flags(bit0=DSC, bits1-3=forma), uint16 frente_decimetros, uint16 prof_decimetros, uint16 giro_centesimos_de_grau",
@@ -126,7 +126,7 @@
  "curva": {
   "expoente": 0.5,
   "gradiente": 0.0,
-  "k": 0.9078800561659263,
+  "k": 0.9107525800966718,
   "lobos": 5,
   "loboAmp": 0.0,
   "ritmoLobos": 5,
@@ -150,20 +150,20 @@
   1251.5,
   1021.3
  ],
- "areaLotes_km2": 43.729,
- "loteMediana_m2": 548,
+ "areaLotes_km2": 43.92,
+ "loteMediana_m2": 550,
  "loteMenor_m2": 24,
- "loteMaior_m2": 54300,
- "carteiras": 69995,
- "plantadas": 69995,
+ "loteMaior_m2": 112247,
+ "carteiras": 69989,
+ "plantadas": 69989,
  "lotes": {
-  "carteira": 69995,
-  "projeto": 699,
-  "institucional": 21,
-  "total": 70715
+  "carteira": 69989,
+  "projeto": 693,
+  "institucional": 27,
+  "total": 70709
  },
- "enclaves": 318,
- "carteirasEmEnclave": 29771,
+ "enclaves": 317,
+ "carteirasEmEnclave": 29757,
  "dsc": 42,
  "setorDSC": 3,
  "programa": [
