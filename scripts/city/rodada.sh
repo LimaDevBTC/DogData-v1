@@ -15,8 +15,15 @@ passo() { # nome, comando...
   if [ $rc -ne 0 ]; then echo "PAROU em $n" | tee -a $L/resumo.txt; tail -25 $L/$n.log; exit $rc; fi
 }
 : > $L/resumo.txt
+# ⚠️ §40: DUAS PASSADAS DO GERADOR. A primeira publica os canais e arteriais no lugar
+# novo; o chão da cena (que cava o canal a partir de cidade-malha.json) só muda depois
+# dela, e a impressão digital do chão NÃO vê dado, só módulo. Então: gera, reassa, gera.
 passo 1_assar        node scripts/city/assar_superficie.mjs
-passo 2_gerar        python3 scripts/gerar_cidade.py
+passo 2a_gerar       python3 scripts/gerar_cidade.py
+passo 2b_reassar     node scripts/city/assar_superficie.mjs
+passo 2c_gerar       python3 scripts/gerar_cidade.py
+# o dump da rede ANTES do portão: o teste lote × rua mede contra ele
+passo 2d_vias_json   node scripts/city/mapa/assar-vias.mjs
 passo 3_vias         node scripts/city/vias-varredura.mjs --cel=6 --dilata=1
 passo 4_assar_pontos node scripts/city/assar_superficie.mjs --pontos=data/dogcity_lotes.csv
 passo 5_portao       python3 scripts/city/conferir_lotes.py

@@ -5986,6 +5986,19 @@ open(ps('public/city/cidade-cotas.bin'), 'wb').write(cot)
 # O lot_id é S{setor:02}-Q{quarto:02}-B{quarteirão:03}-L{lote:03} e é ESTÁVEL
 # enquanto a semente (ordem de chegada) e a geometria não mudarem. Ele ainda NÃO
 # é promessa pública: publicar a regra vem antes (plano-diretor, passo 4).
+def _area_gravada(g):
+    """⚠️ A ÁREA DO REGISTRO É A DOS CANTOS COMO GRAVADOS (milímetro), não a da conta
+    em float: numa fatia de 51° a 1 km do centro, meio centímetro de arredondamento no
+    raio já move a área em 4 m², e o portão confere ±1 m² contra os cantos do CSV."""
+    C = [(round(x, 3), round(z, 3)) for x, z in g['cantos']]
+    if g['geo'] != 1:
+        return CEL.shoelace(C)
+    rf = (math.hypot(*C[0]) + math.hypot(*C[1])) / 2
+    rt = (math.hypot(*C[2]) + math.hypot(*C[3])) / 2
+    dt = abs(((math.atan2(C[1][0], -C[1][1]) - math.atan2(C[0][0], -C[0][1])) + math.pi)
+             % (2 * math.pi) - math.pi)
+    return abs(rf * rf - rt * rt) / 2 * dt
+
 def _frente_de(g):
     """a aresta da frente: corda na célula e no dedo, arco na fatia de anel"""
     (x0, z0), (x1, z1) = g['cantos'][0], g['cantos'][1]
@@ -6026,7 +6039,7 @@ with open(ps('data/dogcity_lotes.csv'), 'w', newline='') as f:
                     # documento do dono ter menos precisão que o desenho: dois
                     # lotes que se encostam apareciam cruzados em meio metro.
                     round(x, 2), round(z, 2), round(math.hypot(x, z), 1),
-                    round(_frente_de(GEOM[a]), 2), round(pf, 2), round(GEOM[a]['area']),
+                    round(_frente_de(GEOM[a]), 2), round(pf, 2), round(_area_gravada(GEOM[a])),
                     round(GEOM[a]['giro'], 2),
                     round(_dog), 0 if _sem_dono else u,
                     0 if _sem_dono else forma_de(u),
@@ -6034,7 +6047,7 @@ with open(ps('data/dogcity_lotes.csv'), 'w', newline='') as f:
                     0 if _proj else familia_de.get(a, 0),
                     0 if _proj else (1 if a in dsc else 0),
                     round(COTA.get(a, 0.0), 2)]
-                   + [round(v, 2) for pt in GEOM[a]['cantos'] for v in pt]
+                   + [round(v, 3) for pt in GEOM[a]['cantos'] for v in pt]
                    + [GEOM[a]['geo']])
 print(f'gravado data/dogcity_lotes.csv com {len(saida):,} lotes', file=sys.stderr)
 
