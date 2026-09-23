@@ -37,6 +37,7 @@ import * as THREE from 'three'
 import { buildPecas, type Peca } from './pecas'
 import { look2 } from './look'
 import { vestir } from './materiais'
+import { detectTier } from './perf'
 
 export interface TecidoOpts {
   heightAt: (x: number, z: number) => number
@@ -47,6 +48,15 @@ export interface TecidoOpts {
   sombra?: boolean
   /** 'pedra' é a paleta de maquete; 'idade' e 'forma' são lentes de diagnóstico */
   pintura?: 'pedra' | 'idade' | 'forma'
+  /** ⚠️ 23/09: se não vier, `buildTecido` mede sozinho com `detectTier()` de
+   *  `perf.ts` (nunca reinventado aqui). Passe explícito só se quem chama já
+   *  tiver o `PerfProfile` pronto e quiser garantir os dois lendo o mesmo tier.
+   *  Liga o corte por altura das 70.709 molduras de `?modo=lote` (ver update()
+   *  logo abaixo). Em 'obra' (o padrão publicado) isto não faz diferença
+   *  nenhuma, porque o laço de lote nem roda; o corte é para quem abre
+   *  `?modo=lote` no telefone, que hoje desenha a cidade inteira de uma vez sem
+   *  olhar o aparelho. NÃO muda o desktop nem o HIGH. */
+  mobile?: boolean
 }
 
 export interface Tecido {
@@ -113,6 +123,7 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
   group.name = 'tecido'
   const modo = o.modo ?? 'obra'
   const pintura = o.pintura ?? 'pedra'
+  const mobile = o.mobile ?? detectTier() === 'mobile'
 
   // ⚠️ O RECUO É O QUE FAZ A RUA EXISTIR. Sem ele os lotes se encostam, o
   // quarteirão vira uma mancha só e a cidade perde a coisa mais básica que ela
@@ -421,6 +432,42 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
   for (const im of lotes) im.castShadow = o.sombra ?? (modo === 'massa')
   for (const im of lotes) group.add(im)
 
+  // ⚠️ O CORTE POR ALTURA DO CELULAR, 23/09. O fundador: "ta dando o navegador
+  // no celular, provavelmente tudo isso que entrou nao foi otimizado pra nao
+  // quebrar em mobile". As 70.709 molduras (8 triângulos cada, 565.672 no
+  // total) já são cortadas por setor pelo frustum (nota lá em cima), mas o
+  // frustum só descarta o que está fora do CAMPO DE VISÃO: uma câmera alta
+  // olhando para baixo, que é exatamente a vista de visão geral que uma chapa
+  // ou um visitante curioso tomam, enxerga vários setores ao mesmo tempo e o
+  // frustum não ajuda em nada.
+  //
+  // Medido em 23/09 no próprio registro (`cidade-lotes.bin`, 70.709 lotes em 9
+  // setores): o raio de cada setor (bounding box da nuvem de pontos dele) vai
+  // de 1.048 m (Distrito Financeiro, minúsculo) a 6.391 m (Orla Nobre, um anel
+  // esparso que se estende quase pelo sítio inteiro), contra um sítio publicado
+  // (`cidade.json.raioSitio`) de 9.000 m de raio. Setores desse tamanho ficam
+  // encostados uns nos outros perto do centro: não precisa estar muito alto
+  // para o cone de 42° de FOV pegar mais de um ao mesmo tempo.
+  // O corte escolhido (1.500 m) é quase dez vezes o teto de quem está
+  // ANDANDO pela cidade (`ALT_PASSEIO = 160` em explore.ts, o limiar entre
+  // passeio e voo) e menos de um sexto do raio do sítio inteiro: alto o
+  // bastante para nunca pegar quem está de fato conferindo um lote de perto, e
+  // baixo o bastante para desligar bem antes da vista de topo que enxerga a
+  // cidade inteira de uma vez.
+  //
+  // ⚠️ A ARMADILHA: ALTURA É SOBRE O CHÃO LOCAL, NÃO SOBRE O MAR. O sítio tem
+  // relevo (montanha, cratera, abóbada): usar `cam.y` sozinho confundiria um
+  // voo rasante perto de um pico alto com "câmera longe olhando a cidade
+  // inteira" bem no meio do passeio de rua. `o.heightAt(cam.x, cam.z)` é a
+  // MESMA sonda que assenta o lote, então o corte concorda com o chão que a
+  // própria cidade desenha.
+  //
+  // ⚠️ SÓ NO CELULAR (`mobile`), E SÓ EM `modo=lote`. `modo=obra`, que é o
+  // padrão publicado, nem chega aqui: `molhas` fica vazio e o laço abaixo não
+  // tem o que apagar. Desktop e o perfil HIGH não mudam em nada: o fundador só
+  // pediu conserto para o aparelho que está travando.
+  const ALT_MOLDURA_MOBILE = 1500
+
   // ── os marcos de esquina ──────────────────────────────────────────────────
   // ⚠️ UM POR LOTE, e é ele que faz o chão parecer DEMARCADO em vez de pintado.
   // De longe some, de perto conta a história certa: terreno medido, com dono,
@@ -530,6 +577,14 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
       for (const s2 of marcosSetores) {
         const on = Math.hypot(cam.x - s2.cx, cam.z - s2.cz) < R_MARCO + s2.raio
         if (s2.m.visible !== on) s2.m.visible = on
+      }
+      // corte por altura das molduras no celular; ver a nota longa acima de
+      // `ALT_MOLDURA_MOBILE`. `molhas` só existe em `modo=lote`, então em
+      // 'obra' e 'massa' este laço roda vazio e não custa nada.
+      if (mobile && molhas.length) {
+        const chao = o.heightAt(cam.x, cam.z)
+        const on = cam.y - chao < ALT_MOLDURA_MOBILE
+        for (const m of molhas) if (m.visible !== on) m.visible = on
       }
     },
     covas: construidas.covas,

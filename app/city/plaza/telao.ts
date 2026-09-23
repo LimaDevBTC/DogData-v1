@@ -200,6 +200,16 @@ export function makeScreenTexture(video: CryptolutionVideo, metade = false): {
 // ⚠️ O QUADRO LOCAL É O DA CASA: a tela olha para +Z. Quem posiciona gira o
 // group com `rotation.y = −rumo` (em radianos), que é a mesma conta que o muro
 // do DSC faz em dsc-gallery.ts — e é o que põe a face olhando para a Agulha.
+//
+// ⚠️ CONFERIDO NA RODADA DE 22-23/09 (custo de celular): o proscênio (pódio,
+// peitoril, os dois pilares, a parede de trás, a verga, a marquise, o soffit
+// e o rodapé, todos abaixo) NÃO TEM NENHUM MAPA DE TEXTURA — `pedra`, `metal`,
+// `quente` e `laranja` são cor sólida (`MeshStandardMaterial`/`MeshBasicMaterial`
+// sem `map`). O custo dele é só geometria (9 `BoxGeometry` + 2 `PlaneGeometry`,
+// dezenas de triângulos), que não paga VRAM de textura em nenhum perfil. A
+// ÚNICA textura da peça inteira é a da tela, tratada em `makeScreenTexture`
+// logo acima (512x288 no celular, ≈0,75 MiB com mipmap — dentro do teto de 1
+// MiB por peça). Nada aqui precisou de corte.
 export function buildTelao(video: CryptolutionVideo, opts?: { profile?: PerfProfile }): Telao {
   const group = new THREE.Group()
   group.name = 'Telao'

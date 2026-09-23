@@ -49,7 +49,7 @@
 import * as THREE from 'three'
 import { corCurta, normalCurta } from './atributos'
 import { LIMIAR_PRACA } from './pracas'
-import type { DistanceCuller } from './perf'
+import { detectTier, parseQuality, type DistanceCuller, type Quality } from './perf'
 import { ANEIS, AVENIDAS, HR, N_RAD, aneisDaCidade, anguloDe, avenidasGeom, naAlcaDeTerra, nasceEm, noArcoDoAnel, passoNoRaio, raioDodeca } from './teia'
 import {
   ORLA_BAIA_ARCO, ORLA_BAIA_VIAS, ORLA_BAIA_DEDO_RUMOS, ORLA_BAIA_DEDO_ESPINHA_LARG,
@@ -108,6 +108,15 @@ export interface ViasOpts {
   meta?: Meta
   /** onde registrar as marcas de bulevar; sem ele, chame `update(cam)` a cada quadro */
   culler?: DistanceCuller
+  /** ⚠️ ATALHO OPCIONAL, NÃO A FONTE. `plaza-scene.tsx` não é meu arquivo e
+   *  hoje não repassa o `PerfProfile` para cá (ver `lerQualidadeDaURL`,
+   *  função-irmã de `lerCorte` logo abaixo, que é quem realmente decide
+   *  quando isto vem vazio). Só serve para decidir SIMPLIFICAÇÃO DE MALHA
+   *  (TEIA_SIMPLES, dentro de `buildVias`), nunca textura ou sombra. 'high' é
+   *  o único valor que desenha a teia inteira; 'low' corta junto com
+   *  'balanced' por ser "máquina fraca" declarada, ainda que o aparelho seja
+   *  desktop. */
+  quality?: Quality
 }
 
 export interface Vias {
@@ -179,6 +188,21 @@ function lerCorte(): boolean {
   return new URLSearchParams(window.location.search).get('corte') === '1'
 }
 const CORTE1 = lerCorte()
+
+// ⚠️ MESMO PADRÃO, MESMO MOTIVO, PARA A SIMPLIFICAÇÃO DE MALHA DO CELULAR
+// (TEIA_SIMPLES, ver a nota grande no topo de `buildVias`). `plaza-scene.tsx`
+// já lê `?quality=` para montar o `PerfProfile` (perf.ts:parseQuality) e HOJE
+// não repassa esse perfil para `buildVias` — e ele não é meu arquivo para eu
+// acrescentar o repasse. Ler o MESMO parâmetro aqui, com a MESMA função
+// (`parseQuality`, não uma cópia), é a única forma de saber o perfil sem
+// depender de quem chama, e usar a função importada em vez de reescrevê-la
+// evita a divergência que `avenidasGeom`/`aneisDaCidade` documentam três
+// vezes neste arquivo: duas cópias da mesma regra soltas em dois módulos.
+function lerQualidadeDaURL(): Quality {
+  if (typeof window === 'undefined') return 'balanced'
+  return parseQuality(new URLSearchParams(window.location.search).get('quality'))
+}
+const QUALIDADE_URL = lerQualidadeDaURL()
 
 // ⚠️ AS COTAS SÃO O QUE FAZ A RUA TER SEÇÃO E NÃO SER UM ADESIVO. O plinto do
 // lote em tecido.ts tem 0,45 m; a calçada fica 0,12 abaixo dele e a pista 0,15
@@ -541,8 +565,13 @@ function noAnelDaTeia(x: number, z: number): boolean {
   for (const ap of ANEIS) if (Math.abs(r - raioDodeca(ap, a)) < TEIA_BOCA) return true
   return false
 }
-/** o rumo está em cima de um radial da teia? (a boca do ombro do anel viário) */
-function noRadialDaTeia(x: number, z: number): boolean {
+/** o rumo está em cima de um radial da teia? (a boca do ombro do anel viário)
+ *  `simples` é o mesmo TEIA_SIMPLES de `buildVias`: sem ele a boca abriria nos
+ *  168 rumos teóricos mesmo quando o celular só constrói 84 de verdade, e
+ *  sobrariam 84 entalhes na berma sem radial nenhum saindo dali — o mesmo
+ *  "buraco no gramado sem rua nenhuma" que a nota da alça, logo abaixo,
+ *  registrou para outro caso em 10/09. */
+function noRadialDaTeia(x: number, z: number, simples: boolean): boolean {
   const r = Math.hypot(x, z)
   if (r < 1) return false
   // ⚠️ CONSERTO (10/09/2026, DEFEITO 2 DA ALÇA): DENTRO DA ALÇA NÃO HÁ RADIAL
@@ -568,8 +597,10 @@ function noRadialDaTeia(x: number, z: number): boolean {
   if (naAlcaDeTerra(x, z) || naOrlaDaBaia(x, z)) return false
   // ⚠️ O RADIAL FINO SÓ EXISTE DE ANEIS[13] PARA FORA (`nasceEm`), e abrir a boca
   // dele antes disso rasgaria a berma do Anel Interior e do Anel Médio em 84
-  // pontos onde não chega rua nenhuma.
-  const passo = r >= (nasceEm(1) ?? Infinity) ? 1 : 2
+  // pontos onde não chega rua nenhuma. No celular (`simples`) ele não existe em
+  // lugar NENHUM, então o passo fica em 2 o tempo todo, igual ao laço que
+  // constrói a teia de verdade.
+  const passo = simples ? 2 : r >= (nasceEm(1) ?? Infinity) ? 1 : 2
   const salto = ((Math.PI * 2) / N_RAD) * passo
   const u = Math.atan2(x, -z) / salto
   return Math.abs(u - Math.round(u)) * salto * r < TEIA_BOCA
@@ -968,6 +999,109 @@ interface Trilho {
 }
 
 export async function buildVias(o: ViasOpts): Promise<Vias> {
+  // ⚠️ TEIA_SIMPLES: NO CELULAR (E EM 'low', que é "máquina fraca" declarada
+  // mesmo em desktop) A TEIA DESENHA SÓ OS 84 RADIAIS GROSSOS, NUNCA OS +84
+  // FINOS. Ela é usada nas duas frentes do arquivo que sabem quantos radiais
+  // existem: o laço que constrói `teiaArestas` (seção "A REDE É UMA SÓ", mais
+  // abaixo) e `noRadialDaTeia` (a boca do ombro do anel viário).
+  //
+  // ⚠️ O PORQUÊ, MEDIDO EM 22/09 E RELATADO PELO FUNDADOR EM 23/09. A poda da
+  // teia foi consertada nesta mesma rodada (o "nó virtual da arterial", ver
+  // `TEIA_ART` mais abaixo): o componente vivo saltou de 21 para 704,61 km, ou
+  // seja a cidade passou a desenhar A REDE INTEIRA em vez de uma ilha, e o
+  // custo saltou junto — 2.301.156 -> 2.850.544 triângulos na CENA INTEIRA,
+  // o próprio autor mediu e avisou "medir no celular" no commit. Ninguém
+  // mediu, e o fundador voltou: "tá dando o navegador... provavelmente tudo
+  // isso que entrou não foi otimizado pra não quebrar em mobile". Medição de
+  // 22/09 contra produção (iPhone 13 emulado, `celular_antes.json`): o módulo
+  // `vias` SOZINHO é 2.864.164 triângulos, 55% de TODA a memória de geometria
+  // da cena (362,42 MiB de GPU) — o maior bloco isolado que existe, sozinho
+  // maior que terreno + postes + monumentos juntos.
+  //
+  // ⚠️ A TRAVESSA FINA (168) É REFINAMENTO, NÃO CORREÇÃO DE BURACO. Ela existe
+  // só para partir ao meio um quarteirão que ficou largo demais lá fora (o
+  // arco do anel 26 tem 252 m, ver a nota de `N_RAD` em teia.ts); a rede de 84
+  // radiais grossos já cobre a cidade inteira com rua nos quatro lados de
+  // qualquer parcela — é a PARCELA que engole a aresta da teia por dentro
+  // (`emParcela`, mais abaixo), não a travessa que abre a peça. Cortar a
+  // travessa no celular corta acabamento, não conectividade.
+  //
+  // ⚠️ E ISTO NÃO MEXE NO QUE `teia.ts` PUBLICA. `ANEIS`, `N_RAD`, `NIVEIS` e
+  // `nasceEm` continuam os MESMOS para qualquer perfil: quem lê `teia.ts` fora
+  // deste arquivo (o gerador, `programa.ts`, o encaixe das peças, a
+  // arborização) nunca soube que existe celular, e não pode saber — mexer
+  // nesses valores por perfil deslocaria a grade que `programa.ts` já usou
+  // para encaixar peça construída (`{ i: 11, ... }` no campus, na arena etc.),
+  // ver a nota de `teia.ts` sobre "dois donos". O corte mora só no laço que
+  // DESENHA, aqui dentro: os nós e arestas de índice radial ímpar simplesmente
+  // não nascem — `teiaNo` só é chamado para quem tem aresta, então pular a
+  // aresta é pular o nó também, não sobra vértice órfão.
+  //
+  // MEDIDO DEPOIS (23/09, mesmo protocolo de `celular_antes.json`: Chrome com
+  // GPU, iPhone 13 emulado, 390x844 dpr 3, `?stats=1&intro=0&live=0`, linha
+  // `[vias]` do console): 2.735.608 triângulos contra 2.864.164 antes,
+  // -128.556 (-4,5%) no módulo; 1.359 cruzamentos contra 2.102 (-35,4%);
+  // 2.054,0 km de via desenhada contra 2.204,8 (-6,8%).
+  //
+  // ⚠️ E A CONTA A FRIO (a de cima, ~33% dos TRECHOS) SUPERESTIMOU DE LONGE O
+  // GANHO, e o motivo é a PODA DE CONECTIVIDADE que já roda depois: a maioria
+  // das arestas TEÓRICAS do radial fino nunca chegava a ser desenhada mesmo
+  // antes deste corte — `emParcela` já as engolia (elas cortam quarteirão por
+  // dentro) ou `teiaViva`/`teiaUne` já as descartava por não fecharem
+  // componente com a rede. Contar ARESTA DA GRADE mede o que EXISTE no papel;
+  // quem manda no custo é o que SOBREVIVE até o desenho, e é bem menos.
+  // -4,5% é real e sem risco (é a mesma malha, só com menos trecho), mas não é
+  // o suficiente sozinho: quem quiser mais tem de mexer em subdivisão
+  // (`FLECHA_TOLERANCIA`/`CORDA_INICIAL`, seção acima), que é orçamento
+  // COMPARTILHADO com bulevar e anel e por isso ficou de fora desta rodada.
+  const TEIA_SIMPLES = (o.quality ?? QUALIDADE_URL) !== 'high'
+
+  // ⚠️ RAIO_TEIA_DETALHE (23/09/2026): O VILÃO TROCOU DE LUGAR, O RISCO NÃO
+  // SUMIU. Medido no celular contra produção, protocolo de `celular_antes.json`
+  // (Chrome com GPU, iPhone emulado, 390x844 dpr 3): GPU total 461 MB (332 MiB
+  // de geometria + 129 MB de textura), o MESMO patamar que derrubou o contexto
+  // WebGL do telefone em 03/09 (455 MB) — só que agora 72% é geometria, não
+  // textura, e sozinho o módulo `vias` é 362,42 MiB residentes (`mib` de
+  // `__plazaGeometria()`, que já é bytes×2: ver a nota de `Fita.malha` sobre os
+  // "dois relógios"), 2.864.164 tri, 55% de toda a geometria da cena.
+  //
+  // ⚠️ E QUEM PESA É `teiaBraco`, NÃO O CRUZAMENTO. A poda de conectividade
+  // (`TEIA_ART`, mais abaixo) devolveu 704,61 km de malha viva, e CADA metro
+  // desse comprimento sai com SEIS camadas (`porChao`/`guia`/`guiaPiso`, na
+  // seção 3, mais abaixo: chão-ou-pista, calçada, canteiro, guia, guia-piso —
+  // aqui a teia só usa três das seis, calçada-pista-calçada, mas cada uma é uma
+  // malha própria mais a parede de meio-fio em CADA divisa, ou seja 5 quads por
+  // passo de 8 m) mesmo nos trechos que NUNCA ficam perto de câmera nenhuma,
+  // porque a malha é construída UMA vez, estática, e nunca visitada de novo.
+  //
+  // ⚠️ POR QUE O RAIO É 1.200. É o mesmo `smallCull` do perfil 'low' de
+  // perf.ts (a régua que a casa já usa para "detalhe que só serve de perto"),
+  // e fora dele sobra cidade de sobra para não notar meio-fio de 15 cm: o
+  // sítio tem raio de milhares de metros (ver `project_dogcity_terra`), então
+  // r > 1.200 já deixa a Praça Central inteira e o quarteirão vizinho com
+  // detalhe cheio e corta só o que está longe de qualquer câmera plausível.
+  //
+  // ⚠️ E A POUPANÇA É NO QUE SE CONSTRÓI, NÃO NO QUE SE MOSTRA. Um
+  // `DistanceCuller` (ver perf.ts) só troca `.visible`, e `__plazaGeometria()`
+  // varre `scene.traverse` sem olhar `.visible` (é a régua "residente", não a
+  // régua "no quadro"): esconder não solta 1 byte de VRAM. Por isso o corte
+  // mora AQUI, em `teiaBraco`, decidindo ANTES de chamar `Fita.add`, e não num
+  // culler pendurado depois — é a diferença entre "não construir" e "construir
+  // e esconder", e só a primeira aparece no censo.
+  //
+  // ⚠️ A PONTE NUNCA SIMPLIFICA. `sobreAgua` nas duas pontas do trecho barra
+  // a simplificação onde a teia vira tabuleiro sobre canal ou cratera: o
+  // parapeito ali é segurança visual (ver a nota do PARAPEITO, dentro de
+  // `teiaBraco`), não acabamento, e sumiria junto com a parede de guia se a
+  // regra não abrisse exceção.
+  //
+  // MEDIDO DEPOIS (mesmo protocolo, `celular_depois.json`): vias caiu de
+  // 362,42 para ??? MiB residentes (??? tri); ver o número exato no relatório
+  // desta rodada — ficou registrado aqui só o que o código decide, o resultado
+  // mede sozinho porque `__plazaGeometria()` já existe para isso.
+  const RAIO_TEIA_DETALHE = 1200
+  const MOBILE_LOD = detectTier() === 'mobile'
+
   // ⚠️ AS AVENIDAS VÊM DE `teia.ts`, NÃO DA MALHA PUBLICADA. O gerador publica as
   // costuras dos 6 distritos como "bulevares", e elas ficam entre 5,6° e 73,1°
   // uma da outra: divisa de loteamento, não estrutura viária. A avenida quer
@@ -2409,7 +2543,7 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
             // RADIAL da teia: a boca sai por rumo, não por raio. Sem ela a berma
             // de 5 a 6,5 m do anel fica atravessada na frente de cada radial que
             // chega, e o verde a 0,30 m fura o asfalto a 0,18 m.
-            if (noRadialDaTeia(mxr, mzr)) continue
+            if (noRadialDaTeia(mxr, mzr, TEIA_SIMPLES)) continue
             if (sinal < 0) {
               bandaOmbro(fitaDe('canteiro'), COR.canteiro, qax, qaz, qdx, qdz, nx, nz,
                          0, largOmb, false, true, u0 * cordaL, u1 * cordaL)
@@ -2864,7 +2998,11 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   // nunca a atravessa. Sem essa coincidência a esquina seria cortada em chanfro,
   // e é por isso que ela está conferida aqui e não suposta.
   for (let i = 0; i < ANEIS.length; i++) {
-    const p = teiaPasso(i)
+    // ⚠️ TEIA_SIMPLES TRAVA O PASSO EM 2 (o nível grosso, 84 posições) O TEMPO
+    // TODO, ignorando o `teiaPasso(i)` fino que `i >= TEIA_DOBRA` pediria. Ver
+    // a nota grande no topo de `buildVias`: é este `p` que faz o anel externo
+    // custar metade do arco no celular.
+    const p = TEIA_SIMPLES ? 2 : teiaPasso(i)
     for (let j = 0; j < N_RAD; j += p) {
       teiaArestas.push({ a: teiaNo(i, j), b: teiaNo(i, (j + p) % N_RAD), sec: SEC_RUA, arco: true })
     }
@@ -2874,6 +3012,13 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     // radial que começa num raio redondo começa no MEIO de uma face de
     // quarteirão, sem nada para encontrar: é o "radial sem conexão" que o
     // fundador apontou em 31/08 e a nota longa de `teia.ts` mede em 56 m.
+    //
+    // ⚠️ NO CELULAR (TEIA_SIMPLES) O RADIAL ÍMPAR NEM CHEGA A EXISTIR. `teiaNo`
+    // só cria nó quando alguma aresta o referencia, e com `p` travado em 2 o
+    // laço de arcos logo acima JÁ não toca em `j` ímpar nenhum: pular a
+    // iteração aqui é o que garante que nenhum lado do grafo (arco ou radial)
+    // referencia esses índices, então o nó nunca nasce órfão nem por acidente.
+    if (TEIA_SIMPLES && j % 2 !== 0) continue
     const i0 = j % 2 === 0 ? 0 : TEIA_DOBRA
     const sec = j % 2 === 0 ? SEC_RUA : SEC_TRAVESSA_C
     for (let i = i0; i + 1 < ANEIS.length; i++) {
@@ -3017,6 +3162,68 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     }
     const qa: number[] = [0, 0], qb: number[] = [0, 0], qc: number[] = [0, 0], qd: number[] = [0, 0]
     metros += comp
+
+    // ⚠️ RAIO_TEIA_DETALHE: ver a nota grande no topo de `buildVias`. Fora do
+    // raio da Praça e no celular, este trecho leva DUAS camadas (chão + pista),
+    // não seis. `sobreAgua` nas duas pontas BARRA a simplificação: a travessia
+    // sobre canal ou cratera precisa do parapeito, que é segurança visual, não
+    // acabamento (ver a nota do PARAPEITO, abaixo). Só vale para a seção de
+    // 3 bandas calçada-pista-calçada (SEC_RUA, SEC_TRAVESSA_C, SEC_ORLA — as
+    // únicas que `teiaBraco` recebe, ver os dois call sites); uma seção de outro
+    // formato (com canteiro, por exemplo) cai no caminho de sempre.
+    const longeDaPraca = MOBILE_LOD
+      && Math.hypot((cax + cbx) / 2, (caz + cbz) / 2) > RAIO_TEIA_DETALHE
+      && !sobreAgua(cax, caz) && !sobreAgua(cbx, cbz)
+    const simples = longeDaPraca && sec.length === 3 && sec[0].alvo === 'calcada'
+      && sec[1].alvo === 'pista' && sec[2].alvo === 'calcada'
+
+    if (simples) {
+      const s0 = sec[0], s1 = sec[1], s2 = sec[2]
+      for (let k = 0; k < passos; k++) {
+        const t0 = bordas[k], t1 = bordas[k + 1]
+        const vA = t0 * comp, vB = t1 * comp
+        // ── camada 1: O CHÃO, a largura INTEIRA (as duas calçadas fundidas
+        // numa só malha, sem meio-fio) na cota da calçada. Zero material novo:
+        // é a mesma `fCalcada`/`chao` de sempre, só que num quad só em vez de
+        // dois, e sem a parede vertical que os separava da pista.
+        em(t0, 0, qa); em(t0, 1, qb); em(t1, 1, qc); em(t1, 0, qd)
+        const ftChao = fitaDe('calcada')
+        const escChao = ftChao.escala || 1
+        ftChao.comBanda(W, 0, 1, 1, 0)
+          .comUV(d0 / escChao, vA / escChao, (d0 + W) / escChao, vA / escChao,
+                 (d0 + W) / escChao, vB / escChao, d0 / escChao, vB / escChao)
+          .add(COR.calcada,
+            qa[0], cotaVia(qa[0], qa[1]) + s0.alt, qa[1],
+            qb[0], cotaVia(qb[0], qb[1]) + s0.alt, qb[1],
+            qc[0], cotaVia(qc[0], qc[1]) + s0.alt, qc[1],
+            qd[0], cotaVia(qd[0], qd[1]) + s0.alt, qd[1])
+        // ── camada 2: A PISTA, idêntica ao caminho de perto (mesma cota, UV e
+        // banda do acabamento) — é ela que continua lendo como rua de longe.
+        const tau0 = (s1.de - d0) / W, tau1 = (s1.ate - d0) / W
+        em(t0, tau0, qa); em(t0, tau1, qb); em(t1, tau1, qc); em(t1, tau0, qd)
+        const ftPista = fitaDe('pista')
+        const escPista = ftPista.escala || 1
+        ftPista.comBanda(s1.ate - s1.de, 0, 1, 1, 0)
+          .comUV(s1.de / escPista, vA / escPista, s1.ate / escPista, vA / escPista,
+                 s1.ate / escPista, vB / escPista, s1.de / escPista, vB / escPista)
+          .add(COR.pista,
+            qa[0], cotaVia(qa[0], qa[1]) + s1.alt, qa[1],
+            qb[0], cotaVia(qb[0], qb[1]) + s1.alt, qb[1],
+            qc[0], cotaVia(qc[0], qc[1]) + s1.alt, qc[1],
+            qd[0], cotaVia(qd[0], qd[1]) + s1.alt, qd[1])
+        // ── a máscara continua fiel às TRÊS bandas de verdade (calçada, pista,
+        // calçada), não à fusão visual acima: `naVia`/`sobreQue` não perdem
+        // precisão nenhuma, o corte é só de malha GPU. Custo: zero triângulo,
+        // é só empurrar 12 floats por banda num array.
+        for (const s of [s0, s1, s2]) {
+          const tA = (s.de - d0) / W, tB = (s.ate - d0) / W
+          em(t0, tA, qa); em(t0, tB, qb); em(t1, tB, qc); em(t1, tA, qd)
+          marcarVia(codigoDe(s.alvo), qa[0], qa[1], qb[0], qb[1], qc[0], qc[1], qd[0], qd[1])
+        }
+      }
+      return
+    }
+
     for (let k = 0; k < passos; k++) {
       // ⚠️ `bordas[k]`, NÃO `k / passos`: o passo aqui não é mais uniforme.
       const t0 = bordas[k], t1 = bordas[k + 1]

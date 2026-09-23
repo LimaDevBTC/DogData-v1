@@ -68,6 +68,12 @@ export interface Registro {
   raio: Float32Array
   grade: Grade
   porChave: Map<number, number>
+  /** índices dos lotes de S07 (The Spit / Orla Nobre), S08 (Financial
+   *  District) e S09 (Bay Shore), 2.594 no total. cidade-malha.json só tem
+   *  quarteirão para os setores 1-6 (cada um destes três grava um quarteirão
+   *  POR LOTE); desenho.ts usa esta lista para pintá-los nos níveis longe e
+   *  médio, onde o desenho por quarteirão da malha os pula por completo. */
+  especiais: Int32Array
 }
 
 async function baixar(url: string): Promise<ArrayBuffer> {
@@ -127,6 +133,7 @@ export async function carregarRegistro(): Promise<Registro> {
   const raio = new Float32Array(n)
   const porChave = new Map<number, number>()
 
+  const especiaisTmp: number[] = []
   let xmin = Infinity, xmax = -Infinity, zmin = Infinity, zmax = -Infinity, rmax = 0
   for (let i = 0; i < n; i++) {
     const off = i * REG
@@ -151,6 +158,7 @@ export async function carregarRegistro(): Promise<Registro> {
     area[i] = Math.max(0, Math.round((w10 / 10) * (d10 / 10)) + delta)
     raio[i] = Math.hypot(frente[i], prof[i]) / 2
     porChave.set(chaveDoLote(setor[i], quarto[i], quarteirao[i], lote[i]), i)
+    if (setor[i] >= 7 && setor[i] <= 9) especiaisTmp.push(i)
     if (x[i] < xmin) xmin = x[i]
     if (x[i] > xmax) xmax = x[i]
     if (z[i] < zmin) zmin = z[i]
@@ -188,7 +196,8 @@ export async function carregarRegistro(): Promise<Registro> {
 
   return { n, x, z, setor, coorte, familia, forma, dsc, frente, prof, giro, cota, area,
            quarto, quarteirao, lote, raio, porChave,
-           grade: { cel: CEL_GRADE, x0, z0, nx, nz, inicio, itens } }
+           grade: { cel: CEL_GRADE, x0, z0, nx, nz, inicio, itens },
+           especiais: Int32Array.from(especiaisTmp) }
 }
 
 // carimbo por consulta para não visitar duas vezes o lote que está em várias

@@ -33,6 +33,7 @@ import * as THREE from 'three'
 import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { AVENIDAS, avenidasGeom } from './teia'
 import { look2 } from './look'
+import { detectTier } from './perf'
 
 /** ⚠️ `circulo` e `arco` são a exceção da alça: ver `AVENIDA_ALCA` em teia.ts */
 export interface AnelViario {
@@ -125,6 +126,55 @@ export function carregarPecas(gltf: GLTFLoader): Promise<Map<string, THREE.Buffe
 // gradil, que corre em +X, sairia ESPELHADO em z e a corrida de 12 m se afastaria
 // da via em vez de acompanhá-la. O poste não sofre disso porque é quase
 // simétrico; o gradil sofre, e apareceria como cerca cruzando a pista.
+// ═══════════════════════════════════════════════════════════════════════════
+// CORTE POR SETOR NO CELULAR (23/09) — o poste era o item que faltava o
+// `smallCull` que perf.ts já promete (linhas 13-14 e 74) e todo outro módulo
+// da praça já obedece (props.ts, precinct.ts, sphere-jardim.ts, dsc-gallery.ts,
+// estadio.ts). `mastros`/`luminarias` eram UMA InstancedMesh cada, com os
+// 7.200 postes SEMPRE no `count`: a câmera podia estar a 8 km e o GPU
+// processava os 7.200 do mesmo jeito, porque InstancedMesh não tem
+// visibilidade por instância — só um `count` (quantas das PRIMEIRAS entradas
+// desenhar) que aqui nunca mudava.
+//
+// ⚠️ MEDIDO em 23/09 contra produção (Chrome com GPU, 390×844 dpr 3, UA de
+// iPhone, `__plazaDump()`): grupo "mobiliario-urbano" = 777.600 triângulos
+// desenhados por quadro (76 tri do mastro + 32 do difusor, × 7.200 postes;
+// bate exato: 108 × 7.200 = 777.600), 55% da geometria residente da cena
+// (332 MiB de 664,87 MiB), e SEM NENHUMA variação com a posição da câmera.
+//
+// ⚠️ O CONSERTO NÃO É REORDENAR O BUFFER. Encolher `count` só ajuda se as
+// instâncias "de perto" ocuparem as PRIMEIRAS posições do array, e não
+// ocupam: a ordem de construção é avenida por avenida, anel por anel, sem
+// nenhuma relação com onde a câmera vai estar depois. Reordenar a cada
+// PASSO_REFAZ custaria o(7.200) por família, toda vez — o mesmo preço que já
+// se paga em `gradis`/`balizas` (bem menores) e não vale para o balde
+// inteiro dos postes.
+//
+// O que resolve, e é o que `perto()` da malha viária.ts também faz, é
+// SETORIZAR: quebrar a InstancedMesh única numa por CÉLULA de uma grade
+// cartesiana (`CELULA_M`), e no update de câmera (mesmo `PASSO_REFAZ` que já
+// existia) esconder — `visible = false`, sem tocar em `count` — toda célula
+// cuja distância ao centro passa de `CULL_MOBILE_M`. Célula invisível custa
+// zero: o `WebGLRenderer` pula o objeto inteiro na montagem da lista de
+// desenho, e é exatamente isso que `__plazaDump()` mede (ele também obedece
+// `visible`).
+//
+// ⚠️ SÓ NO MOBILE, E O DESKTOP HIGH NÃO MUDA UMA LINHA: o ramo `!mobile`
+// abaixo é o código de sempre, sem setor, sem visibilidade condicional —
+// zero custo extra de objetos na cena para quem não tem o problema de
+// memória que motivou isto (03/09, "Bitcoin DOG Mode"-mobile perdendo o
+// contexto WebGL em 455 MB).
+// ═══════════════════════════════════════════════════════════════════════════
+/** tamanho da célula da grade de corte (m), só usada no mobile. Uma reta
+ *  cruzando a célula na diagonal mede no máximo `CELULA_M·√2`, então o raio
+ *  extra sobre `CULL_MOBILE_M` fica em ~495 m no pior caso — por isso o raio
+ *  de cada célula é MEDIDO dos pontos reais nela, não assumido do nominal. */
+const CELULA_M = 700
+/** distância (m) além da qual o poste some no celular. Pedido desta rodada;
+ *  MEDIDO com `__plazaDump()` no mesmo protocolo do "antes": 777.600 → ver
+ *  número no retorno de `buildMobiliarioUrbano` e no console. */
+const CULL_MOBILE_M = 1500
+
 const PASSO_AVENIDA = 36
 const PASSO_ANEL = 44
 const MAX_POSTES = 7200
@@ -268,33 +318,137 @@ export function buildMobiliarioUrbano(o: MobiliarioUrbanoOpts): MobiliarioUrbano
 
   const posteMat = new THREE.MeshStandardMaterial({ color: '#272A30', roughness: 0.42, metalness: 0.78 })
   const luzMat = new THREE.MeshStandardMaterial({ color: '#FFD59A', emissive: '#F6A74B', emissiveIntensity: 2.2, roughness: 0.32, metalness: 0.08 })
-  const mastros = new THREE.InstancedMesh(posteGeo, posteMat, Math.max(1, pontos.length))
-  const luminarias = new THREE.InstancedMesh(luzGeo, luzMat, Math.max(1, pontos.length))
-  mastros.name = 'urbano:mastros'
-  luminarias.name = 'urbano:luminarias'
-  mastros.castShadow = o.sombra ?? true
-  mastros.receiveShadow = true
-  luminarias.castShadow = false
-  mastros.frustumCulled = false
-  luminarias.frustumCulled = false
 
   const m = new THREE.Matrix4(), p = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1)
   const eixoY = new THREE.Vector3(0, 1, 0)
   // A matriz de cada poste fica guardada: o LOD do look 2 precisa REPOR a
   // primitiva quando a câmera se afasta, e recompor do zero custa um seno por
-  // poste por refazimento.
-  const matrizes: THREE.Matrix4[] = []
-  pontos.forEach((pt, i) => {
-    p.set(pt.x, o.heightAt(pt.x, pt.z) + 0.35, pt.z)
-    q.setFromAxisAngle(eixoY, pt.giro)
-    m.compose(p, q, s)
-    matrizes.push(m.clone())
-    mastros.setMatrixAt(i, m)
-    luminarias.setMatrixAt(i, m)
-  })
-  mastros.instanceMatrix.needsUpdate = true
-  luminarias.instanceMatrix.needsUpdate = true
-  group.add(mastros, luminarias)
+  // poste por refazimento. Indexada por i (não `push`): o ramo mobile enche
+  // fora de ordem, célula por célula.
+  const matrizes: THREE.Matrix4[] = new Array(pontos.length)
+
+  const mobile = detectTier() === 'mobile'
+
+  /** as duas malhas-base (mastro, luminária) de UMA célula da grade, mais o
+   *  centro e o raio medidos dos pontos de fato dentro dela — usados pelo
+   *  culler para decidir se a célula inteira aparece. */
+  interface CelulaPostes { mastro: THREE.InstancedMesh; luz: THREE.InstancedMesh; cx: number; cz: number; raio: number }
+  const celulas: CelulaPostes[] = []
+  /** para cada poste global i: em qual célula ele caiu e em que posição LOCAL
+   *  dentro do buffer daquela célula — é o que permite ao LOD do look 2
+   *  continuar apagando/repondo o poste individual mesmo com a base
+   *  fatiada em N InstancedMesh em vez de uma. */
+  let celulaDoPonto: Int32Array = new Int32Array(0)
+  let localDoPonto: Int32Array = new Int32Array(0)
+
+  /** escreve a matriz do poste `i` (mastro + luminária) na malha certa, e
+   *  marca a malha como suja para o flush no fim de `atualizar`. Uma função
+   *  só, os dois caminhos (desktop de malha única, mobile setorizado). */
+  let setPrim: (i: number, mat: THREE.Matrix4) => void = () => {}
+  /** sobe pra GPU só o que `setPrim` sujou desde o último flush. */
+  let flushPrim: () => void = () => {}
+
+  if (!mobile) {
+    // ── DESKTOP: o caminho de sempre, malha única, SEM setor e sem corte.
+    // Ver o cabeçalho de `CULL_MOBILE_M`: "o desktop HIGH não muda uma linha".
+    const mastros = new THREE.InstancedMesh(posteGeo, posteMat, Math.max(1, pontos.length))
+    const luminarias = new THREE.InstancedMesh(luzGeo, luzMat, Math.max(1, pontos.length))
+    mastros.name = 'urbano:mastros'
+    luminarias.name = 'urbano:luminarias'
+    mastros.castShadow = o.sombra ?? true
+    mastros.receiveShadow = true
+    luminarias.castShadow = false
+    mastros.frustumCulled = false
+    luminarias.frustumCulled = false
+    pontos.forEach((pt, i) => {
+      p.set(pt.x, o.heightAt(pt.x, pt.z) + 0.35, pt.z)
+      q.setFromAxisAngle(eixoY, pt.giro)
+      m.compose(p, q, s)
+      matrizes[i] = m.clone()
+      mastros.setMatrixAt(i, m)
+      luminarias.setMatrixAt(i, m)
+    })
+    mastros.instanceMatrix.needsUpdate = true
+    luminarias.instanceMatrix.needsUpdate = true
+    group.add(mastros, luminarias)
+    setPrim = (i, mat) => { mastros.setMatrixAt(i, mat); luminarias.setMatrixAt(i, mat) }
+    flushPrim = () => { mastros.instanceMatrix.needsUpdate = true; luminarias.instanceMatrix.needsUpdate = true }
+  } else {
+    // ── MOBILE: uma InstancedMesh por célula da grade, pra o culler ter o
+    // que esconder. Balde por `Math.floor(x/CELULA_M), Math.floor(z/CELULA_M)`.
+    const baldes = new Map<string, number[]>()
+    for (let i = 0; i < pontos.length; i++) {
+      const pt = pontos[i]
+      const k = `${Math.floor(pt.x / CELULA_M)}:${Math.floor(pt.z / CELULA_M)}`
+      let lista = baldes.get(k)
+      if (!lista) { lista = []; baldes.set(k, lista) }
+      lista.push(i)
+    }
+    celulaDoPonto = new Int32Array(pontos.length)
+    localDoPonto = new Int32Array(pontos.length)
+    for (const idxs of baldes.values()) {
+      const cIdx = celulas.length
+      const n = idxs.length
+      const cellMastro = new THREE.InstancedMesh(posteGeo, posteMat, n)
+      const cellLuz = new THREE.InstancedMesh(luzGeo, luzMat, n)
+      cellMastro.name = `urbano:mastros:${cIdx}`
+      cellLuz.name = `urbano:luminarias:${cIdx}`
+      cellMastro.castShadow = o.sombra ?? true
+      cellMastro.receiveShadow = true
+      cellLuz.castShadow = false
+      cellMastro.frustumCulled = false
+      cellLuz.frustumCulled = false
+      let sx = 0, sz = 0
+      idxs.forEach((i, j) => {
+        const pt = pontos[i]
+        p.set(pt.x, o.heightAt(pt.x, pt.z) + 0.35, pt.z)
+        q.setFromAxisAngle(eixoY, pt.giro)
+        m.compose(p, q, s)
+        matrizes[i] = m.clone()
+        cellMastro.setMatrixAt(j, m)
+        cellLuz.setMatrixAt(j, m)
+        celulaDoPonto[i] = cIdx
+        localDoPonto[i] = j
+        sx += pt.x; sz += pt.z
+      })
+      const cx = sx / n, cz = sz / n
+      let raio = 0
+      for (const i of idxs) {
+        const dx = pontos[i].x - cx, dz = pontos[i].z - cz
+        raio = Math.max(raio, Math.hypot(dx, dz))
+      }
+      cellMastro.instanceMatrix.needsUpdate = true
+      cellLuz.instanceMatrix.needsUpdate = true
+      group.add(cellMastro, cellLuz)
+      celulas.push({ mastro: cellMastro, luz: cellLuz, cx, cz, raio })
+    }
+    const sujos = new Set<number>()
+    setPrim = (i, mat) => {
+      const c = celulaDoPonto[i], j = localDoPonto[i]
+      celulas[c].mastro.setMatrixAt(j, mat)
+      celulas[c].luz.setMatrixAt(j, mat)
+      sujos.add(c)
+    }
+    flushPrim = () => {
+      for (const c of sujos) { celulas[c].mastro.instanceMatrix.needsUpdate = true; celulas[c].luz.instanceMatrix.needsUpdate = true }
+      sujos.clear()
+    }
+    console.log(
+      `[mobiliário] corte por setor (mobile): ${celulas.length} células de até ${CELULA_M} m, ` +
+      `corte em ${CULL_MOBILE_M} m; ver número antes/depois no cabeçalho de CULL_MOBILE_M`,
+    )
+  }
+
+  /** esconde/mostra CÉLULAS INTEIRAS (não postes individuais) por distância
+   *  ao alvo da câmera. Só existe corte no mobile: no desktop `celulas` está
+   *  sempre vazio e o laço não faz nada. */
+  function aplicarCullSetores(alvoCam: THREE.Vector3) {
+    for (const c of celulas) {
+      const dx = c.cx - alvoCam.x, dz = c.cz - alvoCam.z
+      const visivel = Math.hypot(dx, dz) < CULL_MOBILE_M + c.raio
+      if (c.mastro.visible !== visivel) { c.mastro.visible = visivel; c.luz.visible = visivel }
+    }
+  }
 
   // ── LOD do look 2: os postes modelados ────────────────────────────────────
   const ZERO = new THREE.Matrix4().makeScale(0, 0, 0)
@@ -390,11 +544,20 @@ export function buildMobiliarioUrbano(o: MobiliarioUrbanoOpts): MobiliarioUrbano
   }
 
   function atualizar(camera: THREE.Camera) {
-    if (!mastrosGLB && !gradilMesh && !balizMesh) return
     camera.getWorldPosition(alvo)
     if (!primeira && alvo.distanceToSquared(camAnterior) < PASSO_REFAZ * PASSO_REFAZ) return
     primeira = false
     camAnterior.copy(alvo)
+
+    // ⚠️ RODA SEMPRE, ANTES DA GUARDA DO GLB LOGO ABAIXO — e isso é o que
+    // corrige o defeito. Até esta rodada a função inteira retornava na
+    // primeira linha quando `look2` estava desligado (nenhuma das três GLB
+    // nascia), e o corte por setor nunca rodava: postes ficavam sem cull até
+    // alguém carregar o mobiliário modelado. O corte por setor não depende
+    // de GLB nenhum, só da grade construída acima.
+    if (mobile) aplicarCullSetores(alvo)
+
+    if (!mastrosGLB && !gradilMesh && !balizMesh) return
 
     // ⚠️ O OMBRO É REFEITO ANTES DO POSTE, E FORA DA GUARDA DELE: o gradil não
     // pode depender de o GLB ter trazido a luminária.
@@ -403,8 +566,7 @@ export function buildMobiliarioUrbano(o: MobiliarioUrbanoOpts): MobiliarioUrbano
     if (!mastrosGLB || !difusoresGLB) return
 
     // repõe as primitivas que a rodada anterior tinha apagado
-    for (const i of escondidos) mastros.setMatrixAt(i, matrizes[i])
-    for (const i of escondidos) luminarias.setMatrixAt(i, matrizes[i])
+    for (const i of escondidos) setPrim(i, matrizes[i])
 
     perto.length = 0
     const r2 = RAIO_DETALHE * RAIO_DETALHE
@@ -423,16 +585,14 @@ export function buildMobiliarioUrbano(o: MobiliarioUrbanoOpts): MobiliarioUrbano
       difusoresGLB.setMatrixAt(k, matrizes[i])
       // o poste de primitiva do mesmo ponto some, senão os dois se
       // interpenetram e o fuste ganha uma casca dupla que brilha em z-fight
-      mastros.setMatrixAt(i, ZERO)
-      luminarias.setMatrixAt(i, ZERO)
+      setPrim(i, ZERO)
       escondidos.push(i)
     }
     mastrosGLB.count = n
     difusoresGLB.count = n
     mastrosGLB.instanceMatrix.needsUpdate = true
     difusoresGLB.instanceMatrix.needsUpdate = true
-    mastros.instanceMatrix.needsUpdate = true
-    luminarias.instanceMatrix.needsUpdate = true
+    flushPrim()
   }
 
   return {

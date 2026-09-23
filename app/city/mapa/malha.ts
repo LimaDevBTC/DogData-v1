@@ -1,9 +1,9 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // O TECIDO VIÁRIO E O PROGRAMA, PRÉ-PROCESSADOS PARA CANVAS 2D.
 //
-// Lê as MESMAS fontes que a cena 3D lê — public/city/cidade-malha.json
+// Lê as MESMAS fontes que a cena 3D lê: public/city/cidade-malha.json
 // (quarteirões, quartos, bulevares, lagos, anéis) e public/city/mapa-v1.json
-// (teia, avenidas, alça, água, programa, âncoras) — e faz só a conta de
+// (teia, avenidas, alça, água, programa, âncoras), e faz só a conta de
 // geometria que falta para desenhar linha e polígono uma vez, no carregamento,
 // em vez de recalcular seno e cosseno a cada quadro.
 //
@@ -17,12 +17,12 @@
 // mundo é x=leste, z=sul: wx = r·sin(rumo), wz = -r·cos(rumo).
 //
 // ⚠️ PROGRAMA E ÂNCORAS JÁ TÊM POLÍGONO ABSOLUTO. Os 70 itens de `programa` (e
-// as 7 âncoras dentro dele) trazem `poly` em coordenadas de mundo prontas — só
+// as 7 âncoras dentro dele) trazem `poly` em coordenadas de mundo prontas, só
 // os 70 diagnosticados por gerar-derivados.mjs como "sem poly" precisariam de
 // fallback por retângulo, e hoje (23/09) são zero. Se um dia existir algum, ele
 // simplesmente não desenha (silencioso, não quebra o mapa).
 //
-// ⚠️ ESTE MÓDULO NÃO DECIDE COR NEM NOME — isso é estilo.ts, que por sua vez
+// ⚠️ ESTE MÓDULO NÃO DECIDE COR NEM NOME: isso é estilo.ts, que por sua vez
 // importa de app/dogcity/dogcity-data.ts (a fonte pública única).
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -117,7 +117,7 @@ export async function carregarMalha(): Promise<Malha> {
     return { id: an.id, nome: an.nome, larguraM: an.larg, vertices: v }
   })
 
-  // a alça (AN7): É a via que NÃO é dodecágono — arco de círculo verdadeiro
+  // a alça (AN7): É a via que NÃO é dodecágono, arco de círculo verdadeiro
   // sobre a baía, de rumo 330° a 120° passando por 0° (memória do projeto).
   const alca: ArcoAlca = {
     r: mapaV1.alca.avenida.r,

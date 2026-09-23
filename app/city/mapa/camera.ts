@@ -5,7 +5,7 @@
 // ⚠️ ESTADO FORA DO REACT DE PROPÓSITO. Um pointermove dispara a 60-120 Hz;
 // se cada um virasse setState, o React re-renderizaria o painel e a legenda
 // junto com o canvas a cada pixel de arrasto. A câmera vive num objeto mutável
-// e chama `aoMudar()` direto — só o clique (que É raro) toca o React.
+// e chama `aoMudar()` direto: só o clique (que é raro) toca o React.
 //
 // ⚠️ ESCALA É PX POR METRO, IGUAL NOS DOIS EIXOS. O mundo não tem distorção
 // (x leste, z sul, sem projeção), então zoom é um escalar só: arc() do canvas
@@ -76,7 +76,7 @@ export function ligarCamera(canvas: HTMLCanvasElement, inicial: Camera, opt: Opc
     const [wx, wz] = telaParaMundo(cam, cw, ch, sx, sy)
     cam.escala *= fator
     clamp()
-    // mantém o ponto sob o cursor fixo na tela — é o que faz o zoom "mirar"
+    // mantém o ponto sob o cursor fixo na tela: é o que faz o zoom "mirar"
     const [sx2, sy2] = mundoParaTela(cam, cw, ch, wx, wz)
     cam.x += (sx2 - sx) / cam.escala
     cam.z += (sy2 - sy) / cam.escala
@@ -126,7 +126,7 @@ export function ligarCamera(canvas: HTMLCanvasElement, inicial: Camera, opt: Opc
       clamp()
       opt.aoMudar()
       // recentraliza no meio do pinça a cada quadro (aproximação simples e
-      // estável — pinça longa já é gesto grosso, não precisa ser exato ao pixel)
+      // estável: pinça longa já é gesto grosso, não precisa ser exato ao pixel)
       const localRect = canvas.getBoundingClientRect()
       const [wx, wz] = telaParaMundo(cam, localRect.width, localRect.height, mx - localRect.left, my - localRect.top)
       const [sx2, sy2] = mundoParaTela(cam, localRect.width, localRect.height, wx, wz)
@@ -163,10 +163,13 @@ export function ligarCamera(canvas: HTMLCanvasElement, inicial: Camera, opt: Opc
       const rect = canvas.getBoundingClientRect()
       zoomEm(rect.width / 2, rect.height / 2, fator)
     },
-    irPara(x: number, z: number, escala?: number) {
-      cam.x = x
-      cam.z = z
+    /** centraliza em (x,z). `deslocXPx` empurra o alvo para a ESQUERDA da
+     *  tela em pixels (0 = centro exato): usado por quem chega com o painel
+     *  já aberto, para o ponto não nascer embaixo dele (ver mapa-client.tsx). */
+    irPara(x: number, z: number, escala?: number, deslocXPx = 0) {
       if (escala !== undefined) cam.escala = escala
+      cam.x = x + deslocXPx / cam.escala
+      cam.z = z
       clamp()
       opt.aoMudar()
     },

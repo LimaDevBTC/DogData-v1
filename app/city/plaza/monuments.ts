@@ -161,6 +161,18 @@ interface TextSpec {
  * Com fator 0,5 a mesma placa cai para 0,78 MB: um quarto.
  */
 let ESCALA_PLACA = 1
+/**
+ * ⚠️ A MARCA DO DOG (`marcaDoDog`, mais abaixo) NÃO PODE USAR O MESMO FATOR DA
+ * PLACA, e a diferença é a FORMA, não o conteúdo: a placa é 1024x~512-560
+ * (retrato 2:1); a marca é 1024x1024, QUADRADA, o dobro dos pixels na mesma
+ * largura. Com `ESCALA_PLACA` = 0,5 ela caía em 512x512 — medido: 512×512×4
+ * bytes de RGBA8 = 1.048.576, ×4/3 de mipmap = 1.398.101 bytes ≈ **1,33 MiB,
+ * passando o teto de 1 MiB por peça no celular** que esta rodada de corte
+ * mira (a peça é a Pata inteira, e esta é a ÚNICA textura dela). Fator
+ * próprio, mais apertado (0,375 → 384x384, 0,75 MiB), só para esta peça; a
+ * placa e as demais continuam em `ESCALA_PLACA`, que já cabem.
+ */
+let ESCALA_MARCA = 1
 
 function textTexture(spec: TextSpec): THREE.CanvasTexture {
   const W = spec.w ?? 1024, H = spec.h ?? 512
@@ -256,6 +268,7 @@ export function monumentosEmObra(opts: MonumentsOpts): MonumentosEmObra {
   // nascerem depois. `cortaTextura` é a mesma bandeira que já manda podar mapa
   // secundário e é true nos dois perfis de celular (perf.ts:147 e 180).
   ESCALA_PLACA = opts.profile?.cortaTextura ? 0.5 : 1
+  ESCALA_MARCA = opts.profile?.cortaTextura ? 0.375 : 1
   const TEXT_CULL = opts.profile?.textCull ?? 1300
   const cullText = (o: THREE.Object3D, x: number, z: number) => opts.culler?.add(o, TEXT_CULL, new THREE.Vector3(x, 0, z))
   const disposables: { dispose: () => void }[] = []
@@ -360,6 +373,12 @@ export function monumentosEmObra(opts: MonumentsOpts): MonumentosEmObra {
   // qualquer forma — cada uma cabe folgada em 2.048, mas são NOVE, e nove
   // vezes 4,1 MB são 37 MB, a maior família da cena inteira. Teto não vê
   // família; ele só vê a maior peça. Por isso a decisão aqui é explícita.
+  // ⚠️ CONFERIDO NA RODADA DE 22-23/09 (custo de celular): as nove estelas já
+  // estão dentro do teto de 1 MiB por peça. Medido a partir do arquivo real
+  // (`identify`): `p*-half.webp` é 384x497. Em RGBA8 com mipmap são
+  // 384×497×4 = 763.392 bytes, ×4/3 ≈ 1.017.856 bytes ≈ 0,97 MiB — a página é
+  // a única textura de cada estela (o número no plinto usa `textTexture`, que
+  // já corta por `ESCALA_PLACA`). Nada precisou mudar aqui.
   const meiaPag = opts.profile?.cortaTextura ?? false
   const cxPages = caixa(Promise.all(STELAE.map((s) => loadTex(`/city/whitepaper/p${s.page}${meiaPag ? '-half' : ''}.webp`).catch((err) => {
     console.warn('[plaza] página do white paper não carregou', s.page, err)
@@ -620,12 +639,16 @@ export function monumentosEmObra(opts: MonumentsOpts): MonumentosEmObra {
   // fatia da Pata não ser a soma das seis.
   function* marcaDoDog(): Generator<void, THREE.CanvasTexture, unknown> {
     const rel = novoRelogio()
-    // ⚠️ MESMO FATOR DA PLACA, e pela mesma razão: 1024x1024 em RGBA8 com mipmap
-    // são 5,6 MB crus. O disco é desenhado em coordenadas de S e gravado em
-    // `S * ESCALA_PLACA`, então nenhum raio nem nenhuma parada do gradiente muda.
+    // ⚠️ FATOR PRÓPRIO (`ESCALA_MARCA`), NÃO O DA PLACA — ver a nota longa na
+    // declaração de `ESCALA_MARCA`, acima: esta peça é quadrada (1024x1024),
+    // o dobro dos pixels de uma placa 1024x~512 na mesma escala, e o fator
+    // 0,5 da placa a deixava em 512x512 = 1,33 MiB com mipmap, passando o
+    // teto de 1 MiB por peça no celular. 0,375 grava em 384x384 = 0,75 MiB.
+    // O disco é desenhado em coordenadas de S e gravado em `S * ESCALA_MARCA`,
+    // então nenhum raio nem nenhuma parada do gradiente muda.
     const S = 1024
     const c = document.createElement('canvas')
-    c.width = Math.max(2, Math.round(S * ESCALA_PLACA))
+    c.width = Math.max(2, Math.round(S * ESCALA_MARCA))
     c.height = c.width
     const ctx = c.getContext('2d')!
     ctx.scale(c.width / S, c.height / S)

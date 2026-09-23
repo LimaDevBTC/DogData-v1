@@ -57,6 +57,15 @@ export async function buildDscGallery(opts: {
     // (ver `texLado` em perf.ts). `dsc-atlas-half.webp` é 2048 x 640, 5,2 MB, e
     // nunca existe o pico. A parede da coleção é vista de longe e com
     // `NearestFilter` de propósito: o pixel do ordinal continua legível.
+    //
+    // ⚠️ E ESTA É A ÚNICA TEXTURA DO DECK QUE FICA ACIMA DO TETO DE 1 MiB POR
+    // PEÇA DA RODADA DE 22-23/09 (medido: 2048×640×4 bytes de RGBA8 = 5,24 MB,
+    // ×4/3 de mipmap ≈ 6,7 MiB), E DE PROPÓSITO: ela é o conteúdo, não
+    // decoração — as 306 inscrições REAIS da coleção, uma peça por dono. Cortar
+    // mais um passo (1024x320) já borraria o PFP a ponto de o pixel do ordinal
+    // deixar de ser legível, que é a única razão de existir do `NearestFilter`
+    // acima. O escudo e a placa logo abaixo, que ERAM desperdício (não olhavam
+    // para o perfil), foram os cortados nesta rodada.
     new Promise<THREE.Texture | null>((res) => {
       const meio = opts.cortaTextura ?? false
       new THREE.TextureLoader().load(meio ? '/city/dsc-atlas-half.webp' : '/city/dsc-atlas.webp', (t) => { t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.anisotropy = 8; res(t) }, undefined, () => res(null))
@@ -156,7 +165,19 @@ export async function buildDscGallery(opts: {
   group.add(crown)
 
   // ── o escudo do clube, no eixo, à frente do muro ─────────────────────────
-  const logo = await new Promise<THREE.Texture | null>((res) => new THREE.TextureLoader().load('/city/dsc-logo.webp', (t) => { t.colorSpace = THREE.SRGBColorSpace; res(t) }, undefined, () => res(null)))
+  // ⚠️ ESTE ERA O ÚNICO ARQUIVO DA PEÇA QUE NÃO OLHAVA PARA O PERFIL, e é
+  // exatamente o descuido que o fundador suspeitou (22/09): carregava os
+  // mesmos 512x512 RGBA no celular e no desktop. Medido: 512×512×4 bytes =
+  // 1.048.576, ×4/3 de mipmap = 1.398.101 bytes ≈ 1,33 MiB — sozinho já passa
+  // o teto de 1 MiB por peça no celular, por um escudo de 7×7 m que ninguém
+  // lê de perto como lê a parede da coleção. `dsc-logo-half.webp` é o MESMO
+  // arquivo em 256x256 (gerado por redimensionamento, não recorte: o desenho
+  // não muda), 0,33 MiB com mipmap — o mesmo padrão de arquivo-próprio que
+  // `dsc-atlas-half.webp`, algumas linhas acima, já usa e que o comentário
+  // dele explica (o pico de decodificação do arquivo cheio é o que derruba o
+  // contexto WebGL, não o tamanho final).
+  const logoUrl = opts.cortaTextura ? '/city/dsc-logo-half.webp' : '/city/dsc-logo.webp'
+  const logo = await new Promise<THREE.Texture | null>((res) => new THREE.TextureLoader().load(logoUrl, (t) => { t.colorSpace = THREE.SRGBColorSpace; res(t) }, undefined, () => res(null)))
   if (logo) {
     track(logo)
     const shield = new THREE.Mesh(track(new THREE.PlaneGeometry(7, 7)), track(new THREE.MeshStandardMaterial({
@@ -177,10 +198,23 @@ export async function buildDscGallery(opts: {
 
   // ── a placa: o que é isto, com o pai da coleção ─────────────────────────
   {
+    // ⚠️ MESMO DESCUIDO DO ESCUDO, LOGO ACIMA: este canvas nascia em 1024x256
+    // sempre, sem olhar `cortaTextura`. Medido: 1024×256×4 bytes de RGBA8 =
+    // 1.048.576, ×4/3 de mipmap = 1.398.101 bytes ≈ 1,33 MiB — sozinha já
+    // passa o teto de 1 MiB por peça no celular, para uma placa de 8×2 m.
+    // ⚠️ A REDUÇÃO É NA TELA, NÃO NAS MEDIDAS, mesma técnica de `textTexture`
+    // em monuments.ts: o desenho abaixo continua em coordenadas de W×H (1024
+    // x256); quem muda é a resolução de gravação, via `ctx.scale`. Com fator
+    // 0,5 (512x128) cai para 512×128×4 = 262.144, ×4/3 ≈ 349.525 bytes =
+    // 0,33 MiB.
+    const ESCALA_SIGN = opts.cortaTextura ? 0.5 : 1
+    const SW = 1024, SH = 256
     const c = document.createElement('canvas')
-    c.width = 1024; c.height = 256
+    c.width = Math.max(2, Math.round(SW * ESCALA_SIGN))
+    c.height = Math.max(2, Math.round(SH * ESCALA_SIGN))
     const ctx = c.getContext('2d')!
-    ctx.fillStyle = '#121317'; ctx.fillRect(0, 0, 1024, 256)
+    ctx.scale(c.width / SW, c.height / SH)
+    ctx.fillStyle = '#121317'; ctx.fillRect(0, 0, SW, SH)
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
     ctx.fillStyle = '#F7931A'; ctx.font = '700 58px "JetBrains Mono", ui-monospace, monospace'
     ctx.fillText('DOG SOCIAL CLUB', 512, 62)
