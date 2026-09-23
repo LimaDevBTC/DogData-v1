@@ -1,36 +1,57 @@
 #!/bin/bash
-# Rodada de selagem da DogCity (masterplan §31 + §36): assar → gerar → vias → assar pontos → portão → merkle → escrituras → lookup dry-run → vias.json.
-# Para no primeiro erro. Logs em scripts/city/rodada.log/. NUNCA roda sobe_lookup sem --dry-run (a escrita em produção é do fundador).
-# Antes de rodar: dev server em :3000 e nenhum agente editando app/city/plaza/* (a superfície assada carrega a digital dos módulos).
+# Rodada de selagem da DogCity, NO PALCO (masterplan §31, §40, §42).
+#
+# ⚠️ NADA AQUI TOCA ARQUIVO RASTREADO. O bot de `cron` empurra a árvore inteira para
+# produção de hora em hora, então a rodada inteira acontece fora dela: os dados em
+# $PALCO/data e os arquivos da cena em public/city/_v4teste/ (gitignored), que a cena
+# lê com `?reg=_v4teste`. Publicar é outro script, `publica_rodada.sh`, e só depois de
+# o portão aprovar o palco.
 set -o pipefail
 cd /home/bitmax/Projects/bitcoin-fullstack/DogData-v1 || exit 1
-L=scripts/city/rodada.log
-mkdir -p $L
+REPO=$PWD
+PALCO=${PALCO:-/home/bitmax/Projects/bitcoin-fullstack/dogcity-palco}
+REG=_v4teste
+L=$PALCO/log
+mkdir -p $PALCO/data $PALCO/public $PALCO/app/dogcity $L public/city/$REG/mapa
+# o gerador grava em $PALCO/public/city/..., que É public/city/_v4teste (servido pela cena)
+[ -L $PALCO/public/city ] || ln -s $REPO/public/city/$REG $PALCO/public/city
+: > $L/resumo.txt
+log() { echo "$*  $(date +%H:%M:%S)" | tee -a $L/resumo.txt; }
 passo() { # nome, comando...
   local n=$1; shift
-  echo "== $n  $(date +%H:%M:%S)" | tee -a $L/resumo.txt
+  log "== $n"
   "$@" > $L/$n.log 2>&1
   local rc=$?
-  echo "   rc=$rc  $(date +%H:%M:%S)  $(tail -1 $L/$n.log | cut -c1-160)" | tee -a $L/resumo.txt
-  if [ $rc -ne 0 ]; then echo "PAROU em $n" | tee -a $L/resumo.txt; tail -25 $L/$n.log; exit $rc; fi
+  log "   rc=$rc  $(tail -1 $L/$n.log | cut -c1-160)"
+  [ $rc -eq 0 ] || { log "PAROU em $n (nada rastreado foi tocado)"; exit $rc; }
 }
-: > $L/resumo.txt
-# ⚠️ §40: DUAS PASSADAS DO GERADOR. A primeira publica os canais e arteriais no lugar
-# novo; o chão da cena (que cava o canal a partir de cidade-malha.json) só muda depois
-# dela, e a impressão digital do chão NÃO vê dado, só módulo. Então: gera, reassa, gera.
-passo 1_assar        node scripts/city/assar_superficie.mjs
-passo 2a_gerar       python3 scripts/gerar_cidade.py
-passo 2b_reassar     node scripts/city/assar_superficie.mjs
-passo 2c_gerar       python3 scripts/gerar_cidade.py
-# o dump da rede ANTES do portão: o teste lote × rua mede contra ele
-passo 2d_vias_json   node scripts/city/mapa/assar-vias.mjs
-passo 3_vias         node scripts/city/vias-varredura.mjs --cel=6 --dilata=1
-passo 4_assar_pontos node scripts/city/assar_superficie.mjs --pontos=data/dogcity_lotes.csv
-passo 5_portao       python3 scripts/city/conferir_lotes.py
-grep -q "^APROVADO" $L/5_portao.log || { echo "PORTÃO NÃO APROVOU" | tee -a $L/resumo.txt; grep -E "FALHA|REPROV" $L/5_portao.log | head; exit 2; }
-passo 6_merkle       python3 scripts/city/merkle.py
-passo 7_escrituras   node scripts/city/gerar_escrituras.mjs
-passo 8_lookup_dry   python3 scripts/city/sobe_lookup.py --dry-run
-passo 9_vias_json    node scripts/city/mapa/assar-vias.mjs
-echo "RODADA 5 COMPLETA $(date +%H:%M:%S)" | tee -a $L/resumo.txt
-grep -E "root|lotes|lapides" data/dogcity_merkle.json | head -4
+GERA="env SAIDA_DIR=$PALCO SUPERFICIE_DIR=$PALCO/data python3 scripts/gerar_cidade.py"
+
+# ⚠️ §40: DUAS PASSADAS DO GERADOR. A primeira põe canais e arteriais no lugar novo; o
+# chão da cena (que cava o canal a partir da malha) só muda depois dela, e a impressão
+# digital do chão vê módulo, não dado. Então: assa, gera, reassa, gera.
+passo 1_assar        node scripts/city/assar_superficie.mjs --reg=$REG --saida=$PALCO/data
+passo 2a_gerar       $GERA
+passo 2b_reassar     node scripts/city/assar_superficie.mjs --reg=$REG --saida=$PALCO/data
+passo 2c_gerar       $GERA
+passo 2d_vias_json   node scripts/city/mapa/assar-vias.mjs --reg=$REG --saida=$PALCO/public/city/mapa/vias.json
+passo 3_vias         node scripts/city/vias-varredura.mjs --reg=$REG --cel=6 --dilata=1
+passo 4_assar_pontos node scripts/city/assar_superficie.mjs --reg=$REG --saida=$PALCO/data \
+                          --pontos=$PALCO/data/dogcity_lotes.csv
+# a página muda junto com a cidade: a cópia do palco leva a razão entregue (§42: 1,000)
+sed 's/^  mediana: "[0-9.]*",/  mediana: "1.000",/' app/dogcity/dogcity-data.ts \
+    > $PALCO/app/dogcity/dogcity-data.ts
+passo 5_portao       python3 scripts/city/conferir_lotes.py --cidade=$PALCO \
+                          --superficie=$PALCO/data --vias=$PALCO/public/city/mapa/vias.json \
+                          --entrega=$PALCO/app/dogcity/dogcity-data.ts
+grep -q "^APROVADO" $L/5_portao.log || { log "REPROVADO: $(grep -E '^ *FALHA' $L/5_portao.log | cut -c1-110 | tr '\n' '|')"; exit 2; }
+passo 6_merkle       python3 scripts/city/merkle.py --csv=$PALCO/data/dogcity_lotes.csv \
+                          --cemiterio=$PALCO/data/dogcity_cemiterio.csv \
+                          --bin=$PALCO/public/city/cidade-lotes-v4.bin \
+                          --cidade-json=$PALCO/public/city/cidade.json --saida=$PALCO/data
+passo 7_escrituras   node scripts/city/gerar_escrituras.mjs --csv=$PALCO/data/dogcity_lotes.csv \
+                          --cemiterio=$PALCO/data/dogcity_cemiterio.csv \
+                          --merkle=$PALCO/data/dogcity_merkle.json --saida=$PALCO/public/city
+passo 8_lookup_dry   python3 scripts/city/sobe_lookup.py --dry-run --csv=$PALCO/data/dogcity_lotes.csv \
+                          --cemiterio=$PALCO/data/dogcity_cemiterio.csv
+log "PALCO APROVADO E SELADO. Publicar: bash scripts/city/publica_rodada.sh"

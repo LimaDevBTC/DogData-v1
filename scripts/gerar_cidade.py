@@ -1695,7 +1695,11 @@ def _carrega_superficie():
     """a grade assada da cena, ou None se não houver (e aí o gerador aborta)."""
     global _SUP
     import hashlib
-    meta_p, f32_p = p('data/superficie.json'), p('data/superficie.f32')
+    # ⚠️ §42: `SUPERFICIE_DIR` lê o chão assado no PALCO da rodada (fora do git);
+    # sem ele, o de sempre em data/.
+    _sd = os.environ.get('SUPERFICIE_DIR')
+    meta_p = os.path.join(_sd, 'superficie.json') if _sd else p('data/superficie.json')
+    f32_p = os.path.join(_sd, 'superficie.f32') if _sd else p('data/superficie.f32')
     if not (os.path.exists(meta_p) and os.path.exists(f32_p)):
         return None
     meta = json.load(open(meta_p, encoding='utf-8'))
@@ -5704,6 +5708,14 @@ def uma_passada():
 # 52.988 de 52.991, sem um aviso. Agora o piso é provado antes de bisseccionar:
 # k cai pela metade até caber, e se nem assim couber o script morre alto.
 alvo = CAP_AREA * 0.97
+# ⚠️ §42 (23/09/2026, decisão do fundador): A CURVA É EXATA, E O k NÃO PASSA DELA.
+# Com a célula a terra rende ~18% a mais do que a curva publicada pede; o fundador
+# escolheu entregar EXATAMENTE o número que a landing mostrou (razão 1,000 em todos
+# os distritos) e deixar a sobra como anel de expansão do projeto. A bisseção
+# continua achando o maior k que cabe, mas com teto em `K_PUBLICADA`: se a curva
+# publicada cabe, ela é a cidade. `CURVA_EXATA=0` volta a encher a terra toda.
+K_TETO = K_PUBLICADA if os.environ.get('CURVA_EXATA', '1') == '1' else float('inf')
+K_AREA = min(K_AREA, K_TETO)
 k_bom, saida_boa = None, None
 # ⚠️ A COTA VIAJA JUNTO COM A CÓPIA. `saida_boa = list(saida)` congela a cidade
 # de uma passada, mas `COTA` é um dicionário vivo que a passada SEGUINTE limpa e
@@ -5733,6 +5745,8 @@ for tentativa in range(12):
           f'  {"cabe" if coube else "NAO CABE"}', file=sys.stderr)
     if coube:
         k_bom, saida_boa, k_lo, cota_boa, orc_boa = K_AREA, list(saida), K_AREA, dict(COTA), dict(ORC)
+        if K_AREA >= K_TETO - 1e-12:
+            break                                  # a curva publicada cabe: é ela
         if k_hi is None:
             # ⚠️ §40: O SALTO SÓ SOBE. Com o lote de retângulo a passada desperdiçava
             # área (obtido < alvo) e dividir pela razão subia k. Com a célula, o piso
@@ -5740,7 +5754,7 @@ for tentativa in range(12):
             # obtido > alvo, e a mesma conta DESCIA k a cada passada que cabia,
             # guardando o menor. Agora: mira o desperdício quando há, e sobe no
             # mínimo 3% quando não há, até a primeira passada que não cabe.
-            K_AREA *= max(1.03, min(1.8, alvo / max(1.0, obtido)))
+            K_AREA = min(K_TETO, K_AREA * max(1.03, min(1.8, alvo / max(1.0, obtido))))
             continue
     else:
         k_hi = K_AREA
