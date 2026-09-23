@@ -84,7 +84,16 @@ if os.path.exists(cam_col):
 # de verdade e NÃO estão na fila residencial: elas saíram dela no snapshot e
 # ganharam lote no Distrito Financeiro. Contá-las como carteira da fila fazia o
 # portão acusar 85.822 de 85.797, ou seja reprovar por excesso de gente.
-quero = {r['address'] for r in fila if r['dog'] > 0}
+# ⚠️ E A TAG INSTITUCIONAL SAI DA FILA AQUI TAMBÉM (22/09). O arquivo de ordem é
+# de 13/09 e já vinha sem as 21 daquele dia; quando a tag cresceu para 27 (a
+# quente da Kraken e mais cinco de custódia rotulada), as seis continuaram no
+# arquivo de ordem e o portão passou a contá-las como carteira da fila: acusava
+# `69.995 de 69.989`. A tag é a fonte, não o arquivo de ordem.
+_tag_inst = set()
+_ct = os.path.join(BASE, 'data/snapshots/dog_966670_tag_institucional.json')
+if os.path.exists(_ct):
+    _tag_inst = {l['address'] for l in (json.load(open(_ct)).get('linhas') or [])}
+quero = {r['address'] for r in fila if r['dog'] > 0 and r['address'] not in _tag_inst}
 projeto = [r['address'] for r in linhas if r['address'].startswith('__projeto')]
 institucional = [r['address'] for r in linhas
                  if not r['address'].startswith('__projeto') and r['address'] not in quero]

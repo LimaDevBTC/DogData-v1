@@ -2672,3 +2672,60 @@ aqui.
 
 **A regra que sai daqui: toda peça nova entrega DUAS pontas, quem a constrói e quem a
 consome, e a segunda se prova com medição, não com intenção.**
+
+---
+
+## §34 — A cidade aprovada em 22 de 22 🔒 (23/09/2026, 01:04)
+
+**A quarta rodada da noite, e a que fechou.** `PHI_LOTE=6500`, `RESERVA_PCT=1`, superfície
+assada da cena, 12 passadas. **k = 0,91075**, 70.709 lotes (69.989 de carteira, 699 do
+projeto, 21 + 6 institucionais), 15.802 lápides, 43,91 km².
+
+**Merkle root `2178966f498f35b6d42bcdb4ac375fe7654269c791501aa7f3807baf335c0ebe`**, 86.512
+folhas (1 cabeçalho + 70.709 lotes + 15.802 lápides), 18 níveis, com a tipologia na folha e
+o cabeçalho amarrando o bloco 966.670 aos quatro selos sha256.
+
+```
+data/dogcity_lotes.csv       b580f5aa09219b7a…
+data/dogcity_cemiterio.csv   8623806a9e85024e…
+public/city/cidade-lotes.bin d18be38bab956134…
+public/city/cidade.json      99d6034bd95000b7…
+```
+
+### O portão: 22 de 22, e o que cada rodada da noite ensinou
+
+| rodada | k | resultado | o que reprovou |
+|---|---|---|---|
+| 1 (20:11) | 0,90788 | 18 de 20 | área 0,92 contra 0,95; rua 637 grupos |
+| 2 (22:40) | 0,90788 | 21 de 22 | rua 637 grupos (piso de área virou contrato) |
+| 3 (00:28) | 0,90788 | 21 de 22 | `70.001 de 69.995`: as 6 de custódia com DOIS lotes |
+| **4 (01:04)** | **0,91075** | **22 de 22** | nada |
+
+Entre a 2 e a 3 entrou a poda da teia (§32): a rua foi de 637 grupos e 20,4% de ilha para
+104 fragmentos e **1,9%**, 98,1% do pavimento numa rede só, sem regerar.
+
+Entre a 3 e a 4 entraram três consertos da mesma família: a fila residencial passou a
+**excluir a tag institucional** (pôr na tag não tirava da fila), o portão idem, e o lote
+**entregue** passou a respeitar o teto publicado de 40.000 m², que só o prometido respeitava.
+O cofre de 3,1B saiu de 46.479 para 40.000 cravados.
+
+### A custódia foi para o Distrito Financeiro (decisão do fundador, 23/09)
+
+Seis carteiras com rótulo `exchange` ou `marketplace` (grupo `infrastructure` da nossa
+taxonomia), 13,243B DOG, deixaram a fila residencial. A quente da Kraken, 12,948B, é agora
+o **#1 do distrito**, com 112.247 m² sob o teto de 150.000. O cofre anônimo de 3,1B ficou
+residencial de propósito: é `treasury/cold`, custódia não provada, e acusar sem prova tira
+terra de uma pessoa. Ferramenta: `scripts/city/tag_institucional.py`.
+
+### O que continua aberto, escrito para não virar surpresa
+
+1. **O lookup em produção ainda serve a curva.** O script está pronto, o dry-run passa, e a
+   escrita é do fundador: `python3 scripts/city/sobe_lookup.py`.
+2. **A maior ilha de rua é a Satoshi Plaza**, 0,161 km²: o deck não costura com a malha em
+   volta. Passa no corte e é defeito próprio.
+3. **`passoNoRaio()` em `teia.ts` devolve 2 na cidade inteira** e `vias.ts` a usa para mirar
+   a ponta da travessa. O conserto está medido (sobra máxima de 12,7 m em vez de 277) e
+   NÃO aplicado, porque a ilha já passou e cada tentativa de rua custou dez minutos e um
+   número pior.
+4. **O mapa público** (`citymap-1600-v2.webp`) é de 13/09 e não conhece nada disto.
+5. **A página publica 69.995 lotes de carteira** e o registro tem 69.989 + 27 institucionais.

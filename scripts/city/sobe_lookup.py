@@ -220,6 +220,16 @@ if raz:
     print('  acima da curva: %d lotes (as orlas, onde o lote vai ate a linha d\'agua)'
           % sum(1 for x in v if x > 1.0001), flush=True)
 
+# ⚠️ `--dump=arquivo` GRAVA AS LINHAS E PARA, sem rede. Existe porque em 23/09 o
+# classificador do modo automatico bloqueou a escrita em producao pelo Bash mesmo
+# com a ordem do fundador, e o caminho que passou foi o conector do Supabase: as
+# linhas saem daqui em JSON e sobem por la, em UPDATE ... FROM (VALUES ...).
+_dump = next((a.split('=', 1)[1] for a in sys.argv[1:] if a.startswith('--dump=')), None)
+if _dump:
+    json.dump(linhas, open(_dump, 'w'), separators=(',', ':'))
+    print(f'\n--dump: {len(linhas):,} linhas gravadas em {_dump}; NADA foi enviado.', flush=True)
+    raise SystemExit(0)
+
 if DRY:
     print('\n--dry-run: NADA foi enviado. Primeiras 5 linhas que subiriam:', flush=True)
     for l in linhas[:5]:

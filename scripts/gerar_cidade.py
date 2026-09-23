@@ -4246,8 +4246,16 @@ soma_raiz = sum(elig[a] ** EXPOENTE for _, _, _, a in carteiras)
 # PROFUNDIDADE ia a centímetros: 5,00 x 0,04 m não é lote, é uma linha no chão.
 # Piso de 24 m² (5 x 4,8 m) é a banca da tipologia Galeria, e custa 0,384 km²,
 # ou 2,0% da área, para virar 23.323 riscos em parcela de verdade.
+# ⚠️ O TETO PUBLICADO VALE PARA O LOTE ENTREGUE, NÃO SÓ PARA O PROMETIDO. A
+# página publica 40.000 m² como teto residencial, `area_prometida()` aplica o
+# teto, e `area_de()` NÃO aplicava: para 99,99% da cidade tanto faz, mas um cofre
+# de 3,1B DOG recebia 46.479 m² contra um teto publicado de 40.000, e o lookup
+# se recusava a subir por isso (medido em 22/09, rodada 3). O Distrito
+# Financeiro tem teto próprio (FIN_TETO) e não passa por aqui.
+TETO_RESIDENCIAL = 40000.0
 def area_de(dog, r):
-    return max(PISO_LOTE, K_AREA * (dog ** EXPOENTE) * ((r / R_INICIO) ** GRADIENTE))
+    return max(PISO_LOTE, min(TETO_RESIDENCIAL,
+               K_AREA * (dog ** EXPOENTE) * ((r / R_INICIO) ** GRADIENTE)))
 def _mg():
     sm = w = 0.0
     for i in range(2000):
