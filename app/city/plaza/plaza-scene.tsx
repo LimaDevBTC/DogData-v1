@@ -56,6 +56,7 @@ import { buildArborizacao, type Arborizacao, type Cova } from './arborizacao'
 import { buildCanais, type Canais } from './canais'
 import { buildMobiliarioUrbano, type MobiliarioUrbano } from './mobiliario-urbano'
 import { aneisDaCidade, anelRaio } from './teia'
+import { regBase } from './registro-dev'
 // ⚠️ SÓ O TIPO, E ISSO É ORÇAMENTO DE REDE, NÃO ESTILO. `type` é apagado na
 // compilação e não custa um byte no pacote; a função entra por `import()`
 // dinâmico lá embaixo, dentro da bandeira. O padrão é o de `pos.ts`, que já
@@ -2428,7 +2429,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // ⚠️ A MALHA VEM ANTES DO TERRENO porque o terreno precisa CAVAR a vala
         // dos canais. Sem isso a água é desenhada 1 m abaixo do chão e o regolito
         // fica por cima: medido, canal enterrado 4 m, sem erro nenhum aparecer.
-        const _malhaCava = await fetch('/city/cidade-malha.json')
+        const _malhaCava = await fetch(`${regBase()}/cidade-malha.json`)
           .then((r) => r.json()).catch(() => null)
         const _cn = _malhaCava?.canais
         // ⚠️ A VALA PRECISA DO FIM, NÃO SÓ DO COMEÇO. Esta linha passava
@@ -2612,7 +2613,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             // ⚠️ O CONTORNO VAI JUNTO. Sem ele a abóbada volta a ser um círculo sobre
             // uma cidade que é superelipse: sobraria 1,5 km de casca de um lado e
             // ela cortaria a cidade do outro.
-            const _malhaDomo = await fetch('/city/cidade-malha.json')
+            const _malhaDomo = await fetch(`${regBase()}/cidade-malha.json`)
               .then((r) => r.json() as Promise<{
                 contorno?: [number, number][]
                 vale?: { x: number; z: number; raio: number; flecha?: number }
@@ -2761,7 +2762,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             // seção do canal e `cidade-malha.json` publica a geometria. Se este
             // módulo e o gerador discordarem, sai água sobre lote ou vala seca.
             try {
-              const mc = await fetch('/city/cidade-malha.json').then((r) => r.json())
+              const mc = await fetch(`${regBase()}/cidade-malha.json`).then((r) => r.json())
               const cn = mc?.canais
               // ⚠️ O GUARD ERA `cn?.aneis?.length` E ISSO VIROU BOMBA em 30/08:
               // quando os sete anéis de canal saíram (eles eram círculos brigando
@@ -3286,7 +3287,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           // sendo o ponto mais alto da cidade e a chapa mente.
           if (qDomo.get('vias') !== '0') {
             // ⚠️ a cidade publicada: é dela que sai o programa a encaixar
-            const _cidadeJson = await fetch('/city/cidade.json')
+            const _cidadeJson = await fetch(`${regBase()}/cidade.json`)
               .then((r) => r.json()).catch(() => null)
             // ⚠️ O PROGRAMA ENCAIXA ANTES DA RUA, e a ordem é a decisão. A rua
             // usa as parcelas como máscara: assim ela para exatamente na divisa
@@ -5704,7 +5705,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     }
     if (wantStats) {
       ;(window as unknown as { __plazaPeca?: (id: string) => unknown }).__plazaPeca = async (id: string) => {
-        const meta = await fetch('/city/cidade.json').then((r) => r.json())
+        const meta = await fetch(`${regBase()}/cidade.json`).then((r) => r.json())
         const q = (meta.programa as { id: string; nome: string; x: number; z: number; a: number; b: number }[])
           .find((k) => k.id === id.toUpperCase())
         if (!q) return `sem peça ${id}`

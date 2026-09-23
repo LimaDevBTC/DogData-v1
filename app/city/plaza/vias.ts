@@ -57,6 +57,7 @@ import {
 } from './orla-baia'
 import { look2 } from './look'
 import { superficie, vestir, type Superficie } from './materiais'
+import { regBase } from './registro-dev'
 
 export interface ViasOpts {
   /** ⚠️ A SUPERFÍCIE REAL, não a desenhada. Só serve para quem precisa de
@@ -1135,17 +1136,15 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   // costuras dos 6 distritos como "bulevares", e elas ficam entre 5,6° e 73,1°
   // uma da outra: divisa de loteamento, não estrutura viária. A avenida quer
   // simetria e mora na teia. Ver a nota longa em `teia.ts`.
-  // ⚠️ SÓ DESENVOLVIMENTO: `?reg=_v4teste` aponta a malha e o `cidade.json`
-  // publicados para `public/city/_v4teste/` em vez de `public/city/` (pasta
-  // gitignored, registro v4 de teste do masterplan.md §41). Sem o parâmetro
-  // nada muda; e quem já veio com `o.malha`/`o.meta` prontos (chamador que
-  // buscou por conta própria) nem passa por aqui.
-  const regBase = typeof window !== 'undefined'
-    && new URLSearchParams(window.location.search).get('reg') === '_v4teste'
-    ? '/city/_v4teste' : '/city'
+  // ⚠️ SÓ DESENVOLVIMENTO: `?reg=NOME` aponta a malha e o `cidade.json`
+  // publicados para `public/city/NOME/` em vez de `public/city/` (ver
+  // `registro-dev.ts`). Sem o parâmetro nada muda; e quem já veio com
+  // `o.malha`/`o.meta` prontos (chamador que buscou por conta própria) nem
+  // passa por aqui.
+  const base = regBase()
   const [malha, meta] = await Promise.all([
-    o.malha ?? fetch(`${regBase}/cidade-malha.json`).then((r) => r.json() as Promise<Malha>),
-    o.meta ?? fetch(`${regBase}/cidade.json`).then((r) => r.json() as Promise<Meta>),
+    o.malha ?? fetch(`${base}/cidade-malha.json`).then((r) => r.json() as Promise<Malha>),
+    o.meta ?? fetch(`${base}/cidade.json`).then((r) => r.json() as Promise<Meta>),
   ])
   // ⚠️ TROCA AS COSTURAS PUBLICADAS PELAS 12 AVENIDAS SIMÉTRICAS. O gerador
   // publica as divisas dos 6 distritos no campo `bulevares`, e elas ficam entre

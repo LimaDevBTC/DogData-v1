@@ -98,11 +98,17 @@ const pontosCsv = arg('pontos', '')
 // lotes de 100 k o pico fica em ~2 MB e o progresso é visível, que importa
 // porque a cena leva minutos para abrir e ninguém deve ficar no escuro.
 const LOTE = +arg('lote', 100000)
+// ⚠️ SÓ DESENVOLVIMENTO (tarefa da selagem fora do git, 23/09): `--reg=NOME`
+// acrescenta `&reg=NOME` à URL da cena, o MESMO override de `registro-dev.ts`
+// (`app/city/plaza/*`) que aponta cidade.json/malha/bins para
+// `public/city/NOME/`. Sem `--reg=`, a URL sai idêntica à de sempre.
+const reg = arg('reg', '')
+const regQS = reg ? `&reg=${encodeURIComponent(reg)}` : ''
 
 mkdirSync(saida, { recursive: true })
 const nav = await chromium.launch()
 const pag = await (await nav.newContext({ viewport: { width: 1280, height: 800 } })).newPage()
-const url = 'http://localhost:3000/city?stats=1&quality=high&view=deck&ilhas=1&live=0'
+const url = `http://localhost:3000/city?stats=1&quality=high&view=deck&ilhas=1&live=0${regQS}`
 console.log(`carregando ${url}`)
 await pag.goto(url, { waitUntil: 'domcontentloaded' })
 await pag.waitForFunction(() => !!window.__plazaPerfil, null, { timeout: prazo })

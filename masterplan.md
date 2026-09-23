@@ -3056,3 +3056,30 @@ continuam, derivados, até o último leitor migrar.
 
 **Folha merkle v3:** `L|lot_id|address|p0x_cm|p0z_cm|p1x_cm|p1z_cm|p2x_cm|p2z_cm|p3x_cm|p3z_cm|
 area_m2|cota_cm|forma|geo`; o cabeçalho `H|3|...` sela CSV, cemitério, bin v4 e `cidade.json`.
+
+## §42 — Curva exata, rodada no palco (23/09/2026, noite)
+
+**O loteador por célula está no gerador** (`scripts/city/celula.py` + `tecido` novo em
+`gerar_cidade.py`) e a primeira cidade dele (rascunho, réplica analítica do chão) passou nos
+testes de geometria do portão v4: **0 pares de lotes sobrepostos** (eram 10.465), **todo lote
+dentro da sua célula** (68.482 em 2.271 células), nenhum sobre peça ou água, bin v4 fiel ao
+CSV, malha conexa. 70.750 lotes, 5.719 trechos de travessa, menor lote 119 m² (o piso de
+5 m de frente com o fundo inteiro da fileira).
+
+🔒 **Decisão do fundador: curva exata.** Com a célula a terra rende ~18% além do que a curva
+publicada pede (o tecido saía com 1,177× a curva e as orlas com 1,000×, e o teste de
+equidade reprovava). O fundador escolheu entregar **exatamente o número que a landing
+mostrou**, razão 1,000 em todos os distritos, e deixar a sobra (~8 km² de células na borda)
+como **anel de expansão** do projeto. No gerador: `K_TETO = K_PUBLICADA`; a bisseção para
+na curva publicada se ela cabe (`CURVA_EXATA=0` volta a encher a terra). Sem disclaimer de
+área. Correções achadas no caminho: a folga lateral da célula é resolvida no canto (tan δ =
+k·cos α / (1 ± k·sin α)), o salto da bisseção só sobe, a área do registro é a dos cantos
+como gravados (mm), e a passada vencedora é refeita no fim (malha, cantos e lotes da mesma
+cidade).
+
+**A rodada roda no palco e a publicação é separada.** O classificador bloqueou a rodada no
+repositório como deploy de produção, com razão: o bot empurra a árvore inteira de hora em
+hora. Agora `scripts/city/rodada.sh` roda tudo fora do git (dados em `dogcity-palco/`, cena
+lendo `public/city/_v4teste/` com `?reg=`) e para no portão; `scripts/city/publica_rodada.sh`
+copia o palco APROVADO para a árvore (é o deploy, fica com o fundador) e depois o fundador
+roda `sobe_lookup.py` para o lookup de produção.

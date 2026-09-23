@@ -38,19 +38,50 @@
 #   python3 scripts/city/conferir_lotes.py [--cidade=DIR] [--tolerancia=<m>]
 #       [--conexao=<arquivo>] [--csv=ARQ] [--bin=ARQ] [--cemiterio=ARQ]
 #       [--cidade-json=ARQ] [--malha=ARQ] [--cotas=ARQ] [--vias=ARQ]
-#       [--aceita-legado]
+#       [--superficie=DIR] [--entrega=ARQ] [--aceita-legado]
 #
-#   --cidade=DIR      BASE para todo arquivo que os testes leem (registro,
-#                      manifesto, malha, superfície assada, snapshots...),
-#                      como sempre foi (padrão: a raiz do repositório).
+# ⚠️ FONTE (o que o GERADOR LÊ) NUNCA SEGUE `--cidade=` (23/09/2026, palco).
+# Um PALCO é uma saída fora do git (o gerador novo por célula escreve
+# `PALCO/data/dogcity_lotes.csv`, `PALCO/data/dogcity_cemiterio.csv`,
+# `PALCO/public/city/{cidade.json,cidade-malha.json,cidade-lotes(-v4).bin,
+# cidade-cotas.bin}`); ele NUNCA tem uma cópia de `scripts/gerar_cidade.py`,
+# `app/city/plaza/teia.ts`, `data/snapshots/*` ou `public/city/mapa-v1.json`
+# ao lado, porque essas são as FONTES que o gerador leu para produzir a
+# saída, não parte dela. Rodar `--cidade=PALCO` contra a versão de antes desta
+# nota fazia o portão procurar essas fontes DENTRO do palco, não achar, e
+# reprovar por motivo errado: `_tag_inst` vinha vazio e as 6 carteiras de
+# custódia voltavam a contar como fila residencial comum (69.995 em vez de
+# 69.989), a escada de `forma_de` vinha "não achei no gerador" e pulava a
+# subconferência de forma, e `app/dogcity/dogcity-data.ts` dava
+# FileNotFoundError. As fontes abaixo são RAIZ, sempre, sem opção: são
+# `data/snapshots/dog_966670_tag_institucional.json`,
+# `scripts/gerar_cidade.py` e `public/city/mapa-v1.json` (o próprio cabeçalho
+# dele diz "o gerador de lotes CONSOME este arquivo").
+#
+#   --cidade=DIR      BASE para toda SAÍDA da rodada (CSV de lotes e
+#                      cemitério, os .bin, cidade.json, cidade-malha.json,
+#                      vias.json), como sempre foi (padrão: a raiz do
+#                      repositório, que também É a saída enquanto a rodada
+#                      selada mora ali).
 #   --csv=/--bin=/--cemiterio=/--cidade-json=/--malha=/--cotas=/--vias=
-#                      sobrepõe UM caminho por vez, relativo à raiz do
-#                      repositório (ou absoluto), sem mudar os demais. É assim
-#                      que se aponta o CSV e o .bin para
-#                      `public/city/_v4teste/` (que não espelha a árvore do
-#                      repositório) e deixa tudo o mais (manifesto de
-#                      snapshot, superfície assada, `app/dogcity/dogcity-data.ts`)
-#                      saindo da raiz de verdade.
+#                      sobrepõe UM caminho de SAÍDA por vez, relativo à raiz
+#                      do repositório (ou absoluto), sem mudar os demais.
+#   --superficie=DIR   onde estão `superficie.json`, `superficie.f32` e
+#                      `superficie_lotes.csv` (a superfície assada e a sonda
+#                      dos lotes contra a cena): é SAÍDA do processo de
+#                      assadura, então o padrão também é `--cidade=DIR/data`,
+#                      mas ela pode morar em outro lugar que não o palco (por
+#                      exemplo, a assadura de produção, reaproveitada contra
+#                      um palco que só mudou o loteamento).
+#   --entrega=ARQ      `app/dogcity/dogcity-data.ts`, para o teste "mediana
+#                      entregue bate com a publicada". É um arquivo de FONTE
+#                      (mora em `app/`, o gerador não escreve lá), mas o
+#                      NÚMERO dentro dele (`ENTREGA.mediana`) é saída da
+#                      rodada: a página só pode mudar esse número junto com a
+#                      cidade. Por isso ganha opção própria em vez de seguir
+#                      a regra geral de fonte: o padrão é o do repositório,
+#                      e `--entrega=PALCO/app/dogcity/dogcity-data.ts` aponta
+#                      para a cópia que o palco atualizou para a rodada dele.
 #   --tolerancia=<m>   sobreposição: no v3 o padrão continua 0,02 m (a
 #                      resolução do registro antigo); no v4 o padrão passa a
 #                      0,05 m (masterplan §37, tarefa 4a). Passar o valor
@@ -68,14 +99,22 @@ FILA = arg('fila', os.path.join(RAIZ, 'data/snapshots/dog_966670_ordem_residenci
 ACEITA_LEGADO = flag('aceita-legado')
 
 
-def caminho(nome_canonico, override):
-    """Sem override, o de sempre: BASE (--cidade=) + o nome canônico. Com
-    override (--csv=, --bin=, ...), relativo à RAIZ DO REPOSITÓRIO (ou
-    absoluto), nunca a BASE: dá para apontar um artefato só para a pasta de
-    teste sem arrastar manifesto, malha, superfície e snapshots junto."""
+def caminho(nome_canonico, override, base=None):
+    """Sem override, o padrão é `base` (BASE, ou seja `--cidade=`, quando
+    `base` não é dado) + o nome canônico. Com override (--csv=, --bin=,
+    --entrega=, ...), relativo à RAIZ DO REPOSITÓRIO (ou absoluto), NUNCA a
+    BASE: dá para apontar um artefato de saída para o palco sem arrastar as
+    fontes (que nunca seguem `--cidade=`, ver nota no topo do arquivo)."""
     if override:
         return override if os.path.isabs(override) else os.path.join(RAIZ, override)
-    return os.path.join(BASE, nome_canonico)
+    return os.path.join(base if base is not None else BASE, nome_canonico)
+
+
+# ⚠️ FONTES: SEMPRE A RAIZ DO REPOSITÓRIO, SEM OPÇÃO. O gerador as lê de lá
+# não importa onde a saída dele for escrita, e um palco nunca as copia junto.
+FONTE_TAG_INSTITUCIONAL = os.path.join(RAIZ, 'data/snapshots/dog_966670_tag_institucional.json')
+FONTE_GERADOR = os.path.join(RAIZ, 'scripts/gerar_cidade.py')
+FONTE_MAPA_V1 = os.path.join(RAIZ, 'public/city/mapa-v1.json')
 
 
 # ⚠️ A TOLERÂNCIA É A RESOLUÇÃO DO REGISTRO, NÃO UM GOSTO. O registro v3 (o
@@ -96,6 +135,14 @@ CAM_CIDADE_JSON = caminho('public/city/cidade.json', arg('cidade-json'))
 CAM_MALHA = caminho('public/city/cidade-malha.json', arg('malha'))
 CAM_COTAS = caminho('public/city/cidade-cotas.bin', arg('cotas'))
 CAM_VIAS = caminho('public/city/mapa/vias.json', arg('vias'))
+# ⚠️ SUPERFÍCIE ASSADA: SAÍDA, MAS COM DIRETÓRIO PRÓPRIO. `--superficie=DIR`
+# vale para os três arquivos juntos (superficie.json, superficie.f32,
+# superficie_lotes.csv); sem a opção, cai em BASE/data como sempre caiu.
+CAM_SUPERFICIE_DIR = caminho('data', arg('superficie'))
+# ⚠️ `--entrega=`: caso especial, documentado no cabeçalho do arquivo. Padrão
+# é a RAIZ do repositório (não BASE), porque dogcity-data.ts é fonte de lugar
+# (mora em app/), mas o número que o teste lê é saída de rodada.
+CAM_ENTREGA = caminho('app/dogcity/dogcity-data.ts', arg('entrega'), base=RAIZ)
 
 with open(CAM_CSV, newline='') as _f:
     _leitor = csv.DictReader(_f)
@@ -296,7 +343,7 @@ if os.path.exists(CAM_CEM):
 # arquivo de ordem e o portão passou a contá-las como carteira da fila: acusava
 # `69.995 de 69.989`. A tag é a fonte, não o arquivo de ordem.
 _tag_inst = set()
-_ct = os.path.join(BASE, 'data/snapshots/dog_966670_tag_institucional.json')
+_ct = FONTE_TAG_INSTITUCIONAL
 if os.path.exists(_ct):
     _tag_inst = {l['address'] for l in (json.load(open(_ct)).get('linhas') or [])}
 quero = {r['address'] for r in fila if r['dog'] > 0 and r['address'] not in _tag_inst}
@@ -714,7 +761,7 @@ def _sobrepoe_multi(polys, poly):
     return any(_sobrepoe(p, poly) for p in polys)
 
 _pecas = []
-_cam_mapa = os.path.join(BASE, 'public/city/mapa-v1.json')
+_cam_mapa = FONTE_MAPA_V1
 if os.path.exists(_cam_mapa):
     for _a_ in (json.load(open(_cam_mapa)).get('ancoras') or []):
         if _a_.get('poly'):
@@ -1058,10 +1105,10 @@ item('área entregue é equânime (p1 sobre mediana)', _med > 0 and _p1/_med >= 
 # diverge, e foi cópia de chão que custou 15.834 cotas erradas neste mesmo dia.
 _pub, _pub_erro = None, ''
 try:
-    _t = open(os.path.join(BASE, 'app/dogcity/dogcity-data.ts'), encoding='utf-8').read()
+    _t = open(CAM_ENTREGA, encoding='utf-8').read()
     _m = re.search(r'ENTREGA[^{]*\{[^}]*?mediana:\s*"?([0-9.]+)', _t, re.S)
     if _m: _pub = float(_m.group(1))
-    else: _pub_erro = 'não achei ENTREGA.mediana em app/dogcity/dogcity-data.ts'
+    else: _pub_erro = f'não achei ENTREGA.mediana em {CAM_ENTREGA}'
 except Exception as _e:
     _pub_erro = f'{type(_e).__name__}: {_e}'
 if _pub is None:
@@ -1164,8 +1211,8 @@ COTA_TOL_GRADE = 1.0   # o teto medido do erro da grade de 15 m (ver 6d)
 def _le_superficie():
     """a grade assada da cena: a MESMA fonte que o gerador usa para plantar."""
     import array
-    mj = os.path.join(BASE, 'data/superficie.json')
-    mf = os.path.join(BASE, 'data/superficie.f32')
+    mj = os.path.join(CAM_SUPERFICIE_DIR, 'superficie.json')
+    mf = os.path.join(CAM_SUPERFICIE_DIR, 'superficie.f32')
     if not (os.path.exists(mj) and os.path.exists(mf)): return None
     m = json.load(open(mj, encoding='utf-8'))
     a = array.array('f'); a.fromfile(open(mf, 'rb'), m['n'] * m['n'])
@@ -1174,7 +1221,8 @@ def _le_superficie():
 _sup = _le_superficie()
 if _sup is None:
     indisponivel('cota gravada cai dentro do chão que a cidade desenha',
-                 'falta data/superficie.f32; asse com '
+                 f'falta superficie.f32/.json em {CAM_SUPERFICIE_DIR} (use --superficie=DIR '
+                 'se ela mora em outro lugar); asse com '
                  'node scripts/city/assar_superficie.mjs (dev server no ar)')
 else:
     _m, _a = _sup
@@ -1233,12 +1281,12 @@ else:
 # sobre isso e continuam duas ordens de grandeza abaixo do defeito que a réplica
 # analítica produzia.
 SUP_P99, SUP_PIOR = 0.5, 1.5
-_pl = os.path.join(BASE, 'data/superficie_lotes.csv')
+_pl = os.path.join(CAM_SUPERFICIE_DIR, 'superficie_lotes.csv')
 if _sup is None:
     pass                    # já reprovou no 6c, não repete a mesma queixa
 elif not os.path.exists(_pl):
     indisponivel('a superfície assada é fiel à cena',
-                 'falta data/superficie_lotes.csv; sonde com '
+                 f'falta superficie_lotes.csv em {CAM_SUPERFICIE_DIR}; sonde com '
                  'node scripts/city/assar_superficie.mjs --pontos=data/dogcity_lotes.csv')
 else:
     _ex = {}
@@ -1291,7 +1339,7 @@ if colum:
 # projeto no mesmo balde, e `posto` é só a fila residencial. A institucional tem
 # fonte própria (`dog_966670_tag_institucional.json`) e ela é lida aqui.
 _fonte_dog = {r['address']: float(r.get('dog') or 0) for r in fila}
-_cam_inst = os.path.join(BASE, 'data/snapshots/dog_966670_tag_institucional.json')
+_cam_inst = FONTE_TAG_INSTITUCIONAL
 _n_inst = 0
 if os.path.exists(_cam_inst):
     for _l in (json.load(open(_cam_inst)).get('linhas') or []):
@@ -1303,7 +1351,7 @@ if os.path.exists(_cam_inst):
 _escada = []
 try:
     import re as _re2
-    _src_ger = open(os.path.join(BASE, 'scripts/gerar_cidade.py'), encoding='utf-8').read()
+    _src_ger = open(FONTE_GERADOR, encoding='utf-8').read()
     _bloco = _src_ger[_src_ger.index('def forma_de(u):'):][:400]
     _escada = [(int(a), int(b)) for a, b in _re2.findall(r'if u <= (\d+): *return (\d+)', _bloco)]
     _ult = _re2.search(r'\n *return (\d+)', _bloco)

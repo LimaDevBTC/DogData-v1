@@ -65,6 +65,11 @@ const arg = (k, d) => (process.argv.find((a) => a.startsWith(`--${k}=`)) || `--$
 const PORTA = arg('porta', 3000)
 const SAIDA = arg('saida', 'public/city/mapa/vias.json')
 const PRAZO = +arg('prazo', 900000)
+// ⚠️ SÓ DESENVOLVIMENTO (tarefa da selagem fora do git, 23/09): `--reg=NOME`
+// acrescenta `&reg=NOME` à URL da cena, o MESMO override de `registro-dev.ts`
+// que aponta cidade.json/malha/bins para `public/city/NOME/`. Sem `--reg=`,
+// a URL sai idêntica à de sempre e o dump lê `public/city/` normal.
+const REG = arg('reg', '')
 const TETO_BYTES = 3 * 1024 * 1024
 
 mkdirSync(SAIDA.split('/').slice(0, -1).join('/') || '.', { recursive: true })
@@ -76,8 +81,8 @@ mkdirSync(SAIDA.split('/').slice(0, -1).join('/') || '.', { recursive: true })
 // de corpo d'água (essa continua vindo de dentro da cena, para tudo que não é
 // avenida — ver o cabeçalho).
 function carregarSuperficie() {
-  const meta = JSON.parse(readFileSync(resolve(RAIZ, 'data/superficie.json'), 'utf8'))
-  const buf = readFileSync(resolve(RAIZ, 'data/superficie.f32'))
+  const meta = JSON.parse(readFileSync(resolve(process.env.SUPERFICIE_DIR || resolve(RAIZ, 'data'), 'superficie.json'), 'utf8'))
+  const buf = readFileSync(resolve(process.env.SUPERFICIE_DIR || resolve(RAIZ, 'data'), 'superficie.f32'))
   const H = new Float32Array(buf.buffer.slice(buf.byteOffset, buf.byteOffset + meta.n * meta.n * 4))
   return { H, n: meta.n, R: meta.raio, cel: (2 * meta.raio) / (meta.n - 1) }
 }
@@ -233,7 +238,7 @@ function encadear(segs) {
 const nav = await chromium.launch()
 try {
   const pag = await (await nav.newContext({ viewport: { width: 1280, height: 800 } })).newPage()
-  const url = `http://localhost:${PORTA}/city?stats=1&quality=high&view=deck&live=0&look=2`
+  const url = `http://localhost:${PORTA}/city?stats=1&quality=high&view=deck&live=0&look=2${REG ? `&reg=${encodeURIComponent(REG)}` : ''}`
   console.log(`carregando ${url}`)
   await pag.goto(url, { waitUntil: 'domcontentloaded' })
   await pag.waitForFunction(() => !!window.__plazaScene && !!window.__plazaPerfil, null, { timeout: PRAZO })

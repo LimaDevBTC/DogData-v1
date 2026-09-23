@@ -77,6 +77,7 @@ import {
   PESO_ANEL, PESO_ANEL_PADRAO, PESO_BANDA, bandaDe, comAcento, distritoDe,
 } from './especies'
 import type { Contexto, EspecieId, ClasseBulevar } from './especies'
+import { regBase } from './registro-dev'
 
 export interface Cova { x: number; z: number; r: number }
 
@@ -228,22 +229,19 @@ interface DadoDistrito { rumo: number; abertura: number }
 type TravessasPorK = Record<string, { z0: number; z1: number }[]>
 
 export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao> {
-  // ⚠️ SÓ DESENVOLVIMENTO: `?reg=_v4teste` aponta a malha e o `cidade.json`
-  // publicados para `public/city/_v4teste/` em vez de `public/city/` (pasta
-  // gitignored, registro v4 de teste do masterplan.md §41). Sem o parâmetro
-  // nada muda.
-  const regBase = typeof window !== 'undefined'
-    && new URLSearchParams(window.location.search).get('reg') === '_v4teste'
-    ? '/city/_v4teste' : '/city'
+  // ⚠️ SÓ DESENVOLVIMENTO: `?reg=NOME` aponta a malha e o `cidade.json`
+  // publicados para `public/city/NOME/` em vez de `public/city/` (ver
+  // `registro-dev.ts`). Sem o parâmetro nada muda.
+  const base = regBase()
   const [malha, meta] = await Promise.all([
-    fetch(`${regBase}/cidade-malha.json`).then((r) => r.json() as Promise<{
+    fetch(`${base}/cidade-malha.json`).then((r) => r.json() as Promise<{
       constantes: {
         setores: number; quarteirao: number; viaContorno: number; bulevar: number
         bandas?: DadoBanda[]; distritosDef?: DadoDistrito[]; travessasPorK?: TravessasPorK
       }
       quarteiroes: Quarteirao[]; bulevares: Bulevar[]
     }>),
-    fetch(`${regBase}/cidade.json`).then((r) => r.json() as Promise<{
+    fetch(`${base}/cidade.json`).then((r) => r.json() as Promise<{
       programa: Peca[]; raioBorda: number; raioInicio: number; aneis?: Anel[]
     }>),
   ])

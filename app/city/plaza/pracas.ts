@@ -26,6 +26,7 @@
 import * as THREE from 'three'
 import { look2 } from './look'
 import { vestir, type Superficie } from './materiais'
+import { regBase } from './registro-dev'
 
 /** metros de mundo por unidade de UV das fitas da praça. ⚠️ O UV É DE MUNDO,
  *  NÃO DO QUAD: a praça é feita de quads de tamanhos diferentes (o tabuleiro de
@@ -116,9 +117,13 @@ class Fita {
 }
 
 export async function buildPracas(o: PracasOpts): Promise<Pracas> {
+  // ⚠️ SÓ DESENVOLVIMENTO: `?reg=NOME` aponta a malha e o `cidade.json` para
+  // `public/city/NOME/` em vez de `public/city/` (ver `registro-dev.ts`). Sem
+  // o parâmetro nada muda.
+  const base = regBase()
   const [malha, meta] = await Promise.all([
-    fetch('/city/cidade-malha.json').then((r) => r.json() as Promise<Malha>),
-    fetch('/city/cidade.json').then((r) => r.json() as Promise<{ programa: Peca[]; raioBorda: number }>),
+    fetch(`${base}/cidade-malha.json`).then((r) => r.json() as Promise<Malha>),
+    fetch(`${base}/cidade.json`).then((r) => r.json() as Promise<{ programa: Peca[]; raioBorda: number }>),
   ])
   const group = new THREE.Group()
   group.name = 'pracas'

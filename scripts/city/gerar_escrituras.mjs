@@ -52,12 +52,16 @@
 // o polígono lê o CSV, não este índice.
 //
 // USO: node scripts/city/gerar_escrituras.mjs
-//      [--csv=ARQ] [--cemiterio=ARQ] [--merkle=ARQ] [--saida=DIR]
-// Sem opções, os quatro caminhos são os de sempre (data/ e public/city/ na raiz
-// do repositório). Cada opção sobrepõe UM caminho, relativo à raiz do
-// repositório (ou absoluto): é assim que se aponta para
-// `public/city/_v4teste/` sem escrever em cima do `public/city/escrituras.bin`
-// de produção: `--saida=` manda o .bin e o .json de teste para outro lugar.
+//      [--cidade=DIR] [--csv=ARQ] [--cemiterio=ARQ] [--merkle=ARQ] [--saida=DIR]
+// Este arquivo não tem FONTE nenhuma (só lê os quatro artefatos que ele
+// mesmo confere e indexa), então `--cidade=DIR` (um PALCO, uma saída de
+// rodada fora do git) muda os quatro de uma vez: CSV, cemitério, merkle.json
+// e para onde escreve o índice. Sem `--cidade=`, o padrão é a raiz do
+// repositório, como sempre foi. `--csv=`/`--cemiterio=`/`--merkle=`/`--saida=`
+// sobrepõem UM caminho por vez, relativo à raiz do repositório (ou
+// absoluto), sem mudar os demais: é assim que se aponta só o `--saida=`
+// para não escrever em cima do `public/city/escrituras.bin` de produção
+// enquanto os outros três continuam vindo do palco.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
@@ -66,20 +70,27 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
+const BASE = (() => {
+  const achado = process.argv.slice(2).find((a) => a.startsWith('--cidade='))
+  if (!achado) return RAIZ
+  const v = achado.slice('--cidade='.length)
+  return path.isAbsolute(v) ? v : path.join(RAIZ, v)
+})()
 
 // caminho por opção (--chave=valor), relativo à RAIZ (ou absoluto); sem a
-// opção, cai no padrão de sempre.
-function opcao(chave, padrao) {
+// opção, cai em BASE (--cidade=, ou a raiz do repositório se ela também não
+// foi dada) + o nome canônico.
+function opcao(chave, nomeCanonico) {
   const achado = process.argv.slice(2).find((a) => a.startsWith(`--${chave}=`))
-  if (!achado) return padrao
+  if (!achado) return path.join(BASE, nomeCanonico)
   const v = achado.slice(chave.length + 3)
   return path.isAbsolute(v) ? v : path.join(RAIZ, v)
 }
 
-const LOTES = opcao('csv', path.join(RAIZ, 'data', 'dogcity_lotes.csv'))
-const CEMITERIO = opcao('cemiterio', path.join(RAIZ, 'data', 'dogcity_cemiterio.csv'))
-const MERKLE = opcao('merkle', path.join(RAIZ, 'data', 'dogcity_merkle.json'))
-const SAIDA_DIR = opcao('saida', path.join(RAIZ, 'public', 'city'))
+const LOTES = opcao('csv', path.join('data', 'dogcity_lotes.csv'))
+const CEMITERIO = opcao('cemiterio', path.join('data', 'dogcity_cemiterio.csv'))
+const MERKLE = opcao('merkle', path.join('data', 'dogcity_merkle.json'))
+const SAIDA_DIR = opcao('saida', path.join('public', 'city'))
 const SAIDA_BIN = path.join(SAIDA_DIR, 'escrituras.bin')
 const SAIDA_JSON = path.join(SAIDA_DIR, 'escrituras.json')
 

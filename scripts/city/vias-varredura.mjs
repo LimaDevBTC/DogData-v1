@@ -34,12 +34,16 @@ const arg = (k, d) => (process.argv.find((a) => a.startsWith(`--${k}=`)) || `--$
 const CEL = +arg('cel', 6)
 const SAIDA = arg('saida', '/tmp/vias')
 const PRAZO = +arg('prazo', 900000)
+// ⚠️ SÓ DESENVOLVIMENTO (tarefa da selagem fora do git, 23/09): `--reg=NOME`
+// acrescenta `&reg=NOME` à URL da cena, o MESMO override de `registro-dev.ts`.
+// Sem `--reg=`, a URL sai idêntica à de sempre.
+const REG = arg('reg', '')
 
 mkdirSync(SAIDA, { recursive: true })
 const nav = await chromium.launch()
 try {
   const pag = await (await nav.newContext({ viewport: { width: 1280, height: 800 } })).newPage()
-  const url = 'http://localhost:3000/city?stats=1&quality=high&view=deck&live=0&look=2'
+  const url = `http://localhost:3000/city?stats=1&quality=high&view=deck&live=0&look=2${REG ? `&reg=${encodeURIComponent(REG)}` : ''}`
   console.log(`carregando ${url}`)
   await pag.goto(url, { waitUntil: 'domcontentloaded' })
   await pag.waitForFunction(() => !!window.__plazaScene && !!window.__plazaPerfil, null, { timeout: PRAZO })

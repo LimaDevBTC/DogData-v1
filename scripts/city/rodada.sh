@@ -34,7 +34,7 @@ passo 1_assar        node scripts/city/assar_superficie.mjs --reg=$REG --saida=$
 passo 2a_gerar       $GERA
 passo 2b_reassar     node scripts/city/assar_superficie.mjs --reg=$REG --saida=$PALCO/data
 passo 2c_gerar       $GERA
-passo 2d_vias_json   node scripts/city/mapa/assar-vias.mjs --reg=$REG --saida=$PALCO/public/city/mapa/vias.json
+passo 2d_vias_json   env SUPERFICIE_DIR=$PALCO/data node scripts/city/mapa/assar-vias.mjs --reg=$REG --saida=$PALCO/public/city/mapa/vias.json
 passo 3_vias         node scripts/city/vias-varredura.mjs --reg=$REG --cel=6 --dilata=1
 passo 4_assar_pontos node scripts/city/assar_superficie.mjs --reg=$REG --saida=$PALCO/data \
                           --pontos=$PALCO/data/dogcity_lotes.csv

@@ -38,6 +38,7 @@ import { buildPecas, type Peca } from './pecas'
 import { look2 } from './look'
 import { vestir } from './materiais'
 import { detectTier } from './perf'
+import { regBase } from './registro-dev'
 
 export interface TecidoOpts {
   heightAt: (x: number, z: number) => number
@@ -131,7 +132,7 @@ interface LoteRec {
  * pedir) quebra o giro assim que o lote não é quadrado, porque as duas conven
  * ções discordam por um sinal. A prova de round-trip: converter o v3 de hoje
  * para v4 (geo=3, já feito em `_v4teste`) e ler de volta com ESTA fórmula tem
- * de desenhar o MESMO retângulo que o v3 desenha — é a chapa do item 6.
+ * de desenhar o MESMO retângulo que o v3 desenha: é a chapa do item 6.
  */
 function insetQuad(c: readonly [number, number][], d: number): [number, number][] {
   if (d <= 0 || c.length < 3) return c.map((p) => [p[0], p[1]] as [number, number])
@@ -161,16 +162,13 @@ function insetQuad(c: readonly [number, number][], d: number): [number, number][
 }
 
 export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
-  // ⚠️ SÓ DESENVOLVIMENTO: `?reg=_v4teste` aponta cidade.json e o bin de lote
-  // para `public/city/_v4teste/` em vez de `public/city/`. A pasta é
-  // gitignored e tem o registro v4 de teste (masterplan.md §41); sem o
-  // parâmetro nada muda, o mesmo caminho de sempre. O bot de hora em hora só
-  // publica v3 em `public/city/` (regra da casa), então a produção nunca vê
-  // este ramo.
-  const regBase = typeof window !== 'undefined'
-    && new URLSearchParams(window.location.search).get('reg') === '_v4teste'
-    ? '/city/_v4teste' : '/city'
-  const meta = await fetch(`${regBase}/cidade.json`).then((r) => r.json() as Promise<Meta>)
+  // ⚠️ SÓ DESENVOLVIMENTO: `?reg=NOME` aponta cidade.json e o bin de lote para
+  // `public/city/NOME/` em vez de `public/city/` (ver `registro-dev.ts`). Sem
+  // o parâmetro nada muda, o mesmo caminho de sempre. O bot de hora em hora
+  // só publica v3 em `public/city/` (regra da casa), então a produção nunca
+  // vê este ramo.
+  const base = regBase()
+  const meta = await fetch(`${base}/cidade.json`).then((r) => r.json() as Promise<Meta>)
   // ⚠️ O REGISTRO PASSOU DE 11 PARA 13 BYTES. Os dois a mais são o GIRO DO LOTE,
   // uint16 em centésimos de grau. Até aqui a orientação era reconstruída como
   // `setor * 7,5°`, o que funcionava enquanto havia um giro por setor; agora o
@@ -193,13 +191,13 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
   const v4 = meta.registroVersao === 4
   const REG = v4 ? (meta.registroBytes ?? 21) : 15
   const binNome = v4 ? (meta.registroArquivo ?? 'cidade-lotes-v4.bin') : 'cidade-lotes.bin'
-  const buf = await fetch(`${regBase}/${binNome}`).then((r) => r.arrayBuffer())
+  const buf = await fetch(`${base}/${binNome}`).then((r) => r.arrayBuffer())
   const dv = new DataView(buf)
   const n = Math.floor(buf.byteLength / REG)
   // ⚠️ LER O LOTE, v3 OU v4, NUM SÓ LUGAR. Os dois laços do módulo (a massa e
   // os marcos de esquina) liam o `DataView` cru cada um por conta própria;
   // duplicar a leitura seria duplicar o dia em que o v4 chegar. Em v3 os 4
-  // cantos ficam `null` porque não existem no arquivo — quem precisa deles
+  // cantos ficam `null` porque não existem no arquivo: quem precisa deles
   // (a moldura) reconstrói o retângulo do jeito de sempre, giro e tudo.
   const lerLote = (i: number): LoteRec => {
     const off = i * REG
@@ -231,7 +229,7 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
       // corda para dentro do lote de verdade (57° no Distrito Financeiro
       // chegam a 114 m). A massa usa a corda da aresta MAIS CURTA como
       // largura e |r_frente − r_fundo| como fundo, centrada no MEIO da fatia
-      // e girada pelo RUMO do meio — nunca pendura fora.
+      // e girada pelo RUMO do meio: nunca pendura fora.
       const rF = (Math.hypot(p0[0], p0[1]) + Math.hypot(p1[0], p1[1])) / 2
       const rT = (Math.hypot(p2[0], p2[1]) + Math.hypot(p3[0], p3[1])) / 2
       let a0 = rumoDe(p0[0], p0[1]), a1 = rumoDe(p1[0], p1[1])
@@ -675,7 +673,7 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
     for (let i = 0; i < n; i++) {
       // ⚠️ v3 OU v4, PELO MESMO `lerLote`: em v4 frente/prof/giroLote são
       // DERIVADOS dos 4 cantos (célula, fatia ou retângulo legado), mas o
-      // marco não precisa do canto exato do arquivo — ele é um poste de
+      // marco não precisa do canto exato do arquivo: ele é um poste de
       // 0,5x1,5x0,5 m, e a esquina aproximada da caixa já é a história que
       // ele conta.
       const { x, z, setor, frente, prof, giroLote } = lerLote(i)

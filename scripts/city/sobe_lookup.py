@@ -41,28 +41,44 @@ Rodar o 5 antes do 1 publica a cidade velha; rodar o 5 sem o 2 publica cidade re
 REGISTRO v3 (retangulo) OU v4 (4 cantos, masterplan §41): este script nao veste a
 diferenca. So le 'address' e 'area_m2' de dogcity_lotes.csv (no v4 area_m2 vira a
 area EXATA do poligono, mas continua sendo a coluna que decide o que sobe) e
-'address' de dogcity_cemiterio.csv. --csv=/--cemiterio= apontam para outro
-arquivo (relativo a RAIZ, ou absoluto) sem mexer nos demais caminhos -- e' assim
-que se testa contra public/city/_v4teste/ sem tocar em producao.
+'address' de dogcity_cemiterio.csv.
+
+PALCO (23/09/2026): dogcity_lotes.csv e dogcity_cemiterio.csv sao SAIDA da rodada
+e podem morar fora do git; --cidade=DIR troca os dois de uma vez (DIR/data/...),
+e --csv=/--cemiterio= trocam um de cada vez (relativo a raiz do repositorio, ou
+absoluto). dog_snapshot_966670.json e a tag institucional sao FONTE (o gerador
+as le) e NUNCA seguem --cidade=: ficam sempre na raiz do repositorio.
 """
 import json, io, os, csv, sys, math, time, statistics, urllib.request
 
 RAIZ = '/home/bitmax/Projects/bitcoin-fullstack/DogData-v1'
 SNAP = os.path.join(RAIZ, 'data', 'snapshots')
-REG = os.path.join(RAIZ, 'data')
 
 DRY = '--dry-run' in sys.argv[1:]
 
 
-def _opcao(chave, padrao):
-    achado = next((a.split('=', 1)[1] for a in sys.argv[1:] if a.startswith(f'--{chave}=')), None)
+def _arg(chave, padrao=None):
+    return next((a.split('=', 1)[1] for a in sys.argv[1:] if a.startswith(f'--{chave}=')), padrao)
+
+
+_cidade_arg = _arg('cidade')
+BASE = (_cidade_arg if os.path.isabs(_cidade_arg) else os.path.join(RAIZ, _cidade_arg)) if _cidade_arg else RAIZ
+
+
+def _opcao(chave, nome_canonico):
+    """override relativo a RAIZ (ou absoluto); sem override, BASE (--cidade=,
+    ou a raiz do repositorio) + o nome canonico."""
+    achado = _arg(chave)
     if achado is None:
-        return padrao
+        return os.path.join(BASE, nome_canonico)
     return achado if os.path.isabs(achado) else os.path.join(RAIZ, achado)
 
 
-CAM_LOTES = _opcao('csv', os.path.join(REG, 'dogcity_lotes.csv'))
-CAM_CEM = _opcao('cemiterio', os.path.join(REG, 'dogcity_cemiterio.csv'))
+CAM_LOTES = _opcao('csv', os.path.join('data', 'dogcity_lotes.csv'))
+CAM_CEM = _opcao('cemiterio', os.path.join('data', 'dogcity_cemiterio.csv'))
+# ⚠️ FONTE, SEMPRE RAIZ: o snapshot e a tag institucional sao o que o gerador
+# LEU para produzir o registro, nao fazem parte da saida dele, e um palco nunca
+# tem copia disso ao lado (mesma regra do portao, conferir_lotes.py).
 CAM_SNAP = os.path.join(SNAP, 'dog_snapshot_966670.json')
 CAM_FIN = os.path.join(SNAP, 'dog_966670_tag_institucional.json')
 

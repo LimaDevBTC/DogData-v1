@@ -195,6 +195,7 @@ import * as THREE from 'three'
 import { superficie, vestir, type Superficie } from './materiais'
 import type { DistanceCuller } from './perf'
 import { ANEIS, AVENIDAS, naAlcaDeTerra } from './teia'
+import { regBase } from './registro-dev'
 
 // ── as constantes do projeto ───────────────────────────────────────────────
 
@@ -817,8 +818,11 @@ function alca(
 // ── a montagem ─────────────────────────────────────────────────────────────
 
 export async function buildAutopistas(o: AutopistasOpts): Promise<Autopistas> {
+  // ⚠️ SÓ DESENVOLVIMENTO: `?reg=NOME` aponta a malha para `public/city/NOME/`
+  // em vez de `public/city/` (ver `registro-dev.ts`). Sem o parâmetro nada
+  // muda; quem já veio com `o.malha` pronto nem passa por aqui.
   const malha: MalhaAutopistas = o.malha
-    ?? ((await fetch('/city/cidade-malha.json').then((r) => r.json())) as MalhaAutopistas)
+    ?? ((await fetch(`${regBase()}/cidade-malha.json`).then((r) => r.json())) as MalhaAutopistas)
   const agua = o.cotaAgua ?? -40
   const heightAt = o.heightAt
 
