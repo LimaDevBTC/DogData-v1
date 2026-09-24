@@ -25,7 +25,7 @@ passo() { # nome, comando...
   log "   rc=$rc  $(tail -1 $L/$n.log | cut -c1-160)"
   [ $rc -eq 0 ] || { log "PAROU em $n (nada rastreado foi tocado)"; exit $rc; }
 }
-GERA="env SAIDA_DIR=$PALCO SUPERFICIE_DIR=$PALCO/data python3 scripts/gerar_cidade.py"
+GERA="env SAIDA_DIR=$PALCO SUPERFICIE_DIR=$PALCO/data VIAS_MASCARA=$PALCO/public/city/mapa/vias.json python3 scripts/gerar_cidade.py"
 
 # ⚠️ §40: DUAS PASSADAS DO GERADOR. A primeira põe canais e arteriais no lugar novo; o
 # chão da cena (que cava o canal a partir da malha) só muda depois dela, e a impressão

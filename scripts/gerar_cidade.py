@@ -4095,10 +4095,51 @@ for _ru in CANAL_RADIAIS:
 TEIA_CEL = CEL.Teia(TEIA_ANEIS, _NIVEIS[-1][1], TEIA_N_RAD, TEIA_HR, TRAVESSA / 2.0,
                     _AV_MEIA, _ART_MEIA, _CANAIS_CEL)
 
+# ⚠️ §42: O GERADOR PERGUNTA À CENA ONDE ESTÁ A RUA. `VIAS_MASCARA` aponta o
+# `vias.json` que a cena despejou (a rodada do palco usa o da passada anterior): toda
+# faixa de via desenhada vira máscara, menos a travessa INTERNA da célula, que nasce
+# daqui. A rede não depende dos lotes (anel, radial, avenida, arterial, orla de lago e
+# de baía), então a passada anterior diz a verdade. Achado no palco de 23/09: dois
+# radiais que a cena desenha tortos (a ponta desvia 2,7 m do eixo) e uma via de margem
+# de lago dentro de célula; a célula não tinha como saber de nenhum dos dois.
+# A faixa bloqueia a partir de 0,2 m para dentro da borda: o dump grava a 0,1 m, e a
+# célula encosta na borda da rua por construção, então sem isso a ponta de toda
+# fileira seria descartada à toa.
+_VM_G = collections.defaultdict(list)
+_VM_ARQ = os.environ.get('VIAS_MASCARA')
+if _VM_ARQ and os.path.exists(_VM_ARQ):
+    _vm_n = 0
+    for _v in json.load(open(_VM_ARQ)):
+        (_x0, _z0), (_x1, _z1) = _v['pontos'][0], _v['pontos'][-1]
+        _L = math.hypot(_x1 - _x0, _z1 - _z0)
+        if _L < 1e-6: continue
+        if _v['tipo'] == 'travessa':
+            _mx, _mz = (_x0 + _x1) / 2, (_z0 + _z1) / 2
+            if abs((_x1 - _x0) * _mz - (_z1 - _z0) * _mx) > 0.1 * _L * math.hypot(_mx, _mz):
+                continue                     # paralela à face: travessa interna da célula
+        _h = _v['larg'] / 2 - 0.2
+        _sg = (_x0, _z0, _x1, _z1, _h)
+        for _gx in range(int((min(_x0, _x1) - _h) // 50), int((max(_x0, _x1) + _h) // 50) + 1):
+            for _gz in range(int((min(_z0, _z1) - _h) // 50), int((max(_z0, _z1) + _h) // 50) + 1):
+                _VM_G[(_gx, _gz)].append(_sg)
+        _vm_n += 1
+    print(f'máscara de via lida da cena: {_vm_n:,} trechos de {_VM_ARQ}', file=sys.stderr)
+elif _VM_ARQ:
+    print(f'⚠️  VIAS_MASCARA={_VM_ARQ} não existe: sem máscara de via da cena', file=sys.stderr)
+
+def em_via_desenhada(x, z):
+    for x0, z0, x1, z1, h in _VM_G.get((int(x // 50), int(z // 50)), ()):
+        dx, dz = x1 - x0, z1 - z0
+        t = max(0.0, min(1.0, ((x - x0) * dx + (z - z0) * dz) / (dx * dx + dz * dz)))
+        if math.hypot(x - x0 - t * dx, z - z0 - t * dz) < h:
+            return True
+    return False
+
 def livre_tecido(x, z):
     """`livre()` sem as ruas que a cena não desenha (ver a nota acima)."""
     r = math.hypot(x, z)
     if r < R_INICIO: return False
+    if em_via_desenhada(x, z): return False
     if phi(x, z) > PHI_BORDA: return False
     if math.hypot(x-PCX, z-PCZ) < parque_alcance(x, z) + 2: return False
     if dentro_do_coliseu(x, z, 2.0): return False
@@ -4924,6 +4965,11 @@ class FitaOrla:
             r_c = t['r'] + t['sentido'] * (OB_PROF / 2 - OB_RECUO)
             r_fr = r_c - t['sentido'] * OB_PROF / 2
             r_fu = r_c + t['sentido'] * OB_PROF / 2
+            # ⚠️ §42: 1 m DE FOLGA NA ARESTA DE FORA. O raio de projeto da fileira
+            # (4.180,5 e 4.708,5) passava 0,6 a 0,7 m do meio-fio da via de orla que a
+            # cena desenha (4.179,8 e 4.707,9): 707 lotes encostados na pista.
+            if r_fu > r_fr: r_fu -= 1.0
+            else: r_fr -= 1.0
             return {'cantos': CEL.cantos_fatia(r_fr, r_fu, t0, t1), 'geo': 1,
                     'area': CEL.area_fatia(r_fr, r_fu, t0, t1), 'prof': OB_PROF,
                     'centro': CEL.centroide_fatia(r_fr, r_fu, t0, t1),
@@ -4953,7 +4999,7 @@ class FitaOrla:
             t = min(cand, key=lambda t: t['cur'] / t['comp'])
             x, z, giro = self._geo(t, t['cur'], w * t['fator'])
             g = self._forma(t, t['cur'], w * t['fator'])
-            if _ob_livre(x, z, giro, w) and not _sobre_avenida(g):
+            if _ob_livre(x, z, giro, w) and not _sobre_avenida(g) and not _sobre_via(g):
                 t['cur'] += w * t['fator']
                 t['n'] = t.get('n', 0) + 1
                 return x, z, giro, t['q'], t['n'], g
@@ -4974,6 +5020,19 @@ class FitaOrla:
 # ⚠️ O MOTIVO DA REJEIÇÃO SE CONTA, NÃO SE ADIVINHA. Na primeira rodada
 # (21/09) só 1.149 dos 2.062 couberam e a linha inteira foi consumida: sem
 # separar os motivos, "não coube" é diagnóstico vazio e o conserto vira chute.
+def _sobre_via(g):
+    """§42: algum canto (recuado 0,3 m) ou meio de aresta cai numa faixa de via que a
+    cena desenha? Só funciona com `VIAS_MASCARA`; sem ela, nunca bloqueia."""
+    C = g['cantos']
+    cx = sum(p[0] for p in C) / 4; cz = sum(p[1] for p in C) / 4
+    pts = []
+    for (x0, z0), (x1, z1) in zip(C, C[1:] + C[:1]):
+        pts.append(((x0 + x1) / 2, (z0 + z1) / 2))
+    for x, z in C:
+        d = max(0.3, math.hypot(cx - x, cz - z))
+        pts.append((x + (cx - x) * 0.3 / d, z + (cz - z) * 0.3 / d))
+    return any(em_via_desenhada(x, z) for x, z in pts)
+
 def _sobre_avenida(g, folga=2.0):
     """§42: a forma cai em cima de uma das 12 avenidas que a CENA desenha (a cada 30°,
     44 m nos cardeais e 34 nas demais, de AV_R_INICIO a AV_R_FIM)? A Orla da Baía não
@@ -5096,7 +5155,7 @@ def planta_orla_baia():
     fita = _ob_fita()
     out, fora = [], []
     for a in fila:
-        w = max(OB_TESTADA_MIN, elig_area(a) / OB_PROF)
+        w = max(OB_TESTADA_MIN, elig_area(a) / (OB_PROF - 1.0))   # §42: fundo útil 1 m menor
         pos = fita.proximo(w)
         if pos is None:
             fora.append(a); continue
