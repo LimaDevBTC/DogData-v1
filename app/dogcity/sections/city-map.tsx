@@ -53,6 +53,9 @@ import { SNAPSHOT } from "../dogcity-data"
  *  fronteira. Dizer "no ranking" para quem tem menos de 20k era falso: o
  *  DOG-tempo ordena todo mundo.
  *
+ *  ⚠️ 24/09: a arte virou `citymap-1600-v4.webp` (a carta do jogo novo, com a
+ *  legenda "DOG LIVES WHERE" por tier); o texto abaixo é da v3.
+ *
  *  ⚠️ RESOLVIDO EM 23/09: a arte trocou para `citymap-1600-v3.webp`, a carta
  *  cadastral desenhada do registro selado (bloco 966.670), e não pinta mais
  *  anel de tier nenhum. Ela colore QUARTEIRÃO POR SETOR (S01 a S09), que é uma
@@ -110,15 +113,15 @@ export function CityMap() {
             countdown é quem tem de pintar primeiro. Ela carrega logo em
             seguida, sem disputar a primeira dobra com o número. */}
         <Image
-          src="/landing/citymap-1600-v3.webp"
-          alt="Cadastral chart of DogCity: nine districts around Satoshi Plaza, the spit along the bay, and the AN7 ring expressway, each district a different colour."
+          src="/landing/citymap-1600-v4.webp"
+          alt="City plan of DogCity: Satoshi Plaza under the dome, the road web of rings and radials, the spit along the bay and the AN7 ring expressway, every lot coloured by where its holder lives."
           width={1600}
           height={1600}
           sizes="(min-width: 1024px) 44vw, 100vw"
           className="w-full h-auto"
         />
         <a
-          href="/city/carta.svg"
+          href="/city/carta-v4.svg"
           target="_blank"
           rel="noopener"
           className={`absolute bottom-0 right-0 border-l border-t ${HAIR} bg-void/85 backdrop-blur-sm
@@ -130,7 +133,7 @@ export function CityMap() {
       <figcaption className={`mt-3 border-t ${HAIR_SOFT} pt-3 font-mono text-[9px] md:text-[10px] tracking-[0.14em] text-mist leading-relaxed`}>
         SEALED AT BLOCK{" "}
         <span className="tabular-nums text-lava">{SNAPSHOT.block.toLocaleString("en-US")}</span>{" "}
-        · EVERY WALLET WAS PLACED · COLOUR READS BY DISTRICT, NOT BY TIER
+        · EVERY WALLET WAS PLACED · COLOUR READS BY WHERE THE HOLDER LIVES
       </figcaption>
     </figure>
   )
