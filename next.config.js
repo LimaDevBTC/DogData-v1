@@ -155,6 +155,11 @@ const nextConfig = {
       '/api/dogcity/lookup': [
         './public/city/escrituras.bin',
       ],
+      // o /profile le o mesmo registro selado (LIGAR.md FS3); sem isto a funcao
+      // cai no plano B do leitor e baixa os 3 MiB pela URL a cada instancia fria
+      '/api/profile': [
+        './public/city/escrituras.bin',
+      ],
     },
     outputFileTracingExcludes: {
       '*': [
