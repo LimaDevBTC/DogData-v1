@@ -31,21 +31,30 @@ import { useIsAdmin } from "@/lib/admin/use-is-admin"
 import { useDonate } from "@/components/donate/donate-modal"
 import { WALLETS } from "@/lib/wallet"
 import { handleProblem, normalizeHandle } from "@/lib/identity/handle"
+import { PISO_LOTE_M2, alvoDaCurva } from "@/app/dogcity/dogcity-data"
 
 // ── tipos ──────────────────────────────────────────────────────────────────
 
-interface Lot {
-  street: string | null
-  number: number | null
-  zone: string
-  district: number
-  kind: "build" | "open"
-  prestige: number
-  height_tier: number
-  last_balance: number
-  utxo_count: number
-  age_score: number
-  state: string
+// O lugar da carteira na cidade, do registro selado no bloco 966.670 (mesma
+// regra de /api/dogcity/lookup; ver o cabecalho de app/api/profile/route.ts).
+// Substitui o `Lot` antigo, que vinha de `dogcity_lots` (registro da
+// CrossChainCity) e mostrava um lote que a cidade nova nao tem.
+interface CityDeed {
+  block: number
+  status: "lot" | "headstone" | "not_in_snapshot" | "unavailable"
+  dog: number | null
+  position: "ok" | "unavailable"
+  lot: {
+    lot_id: string
+    sector: number
+    district: string | null
+    typology: string | null
+    dsc: boolean
+    area_m2: number
+    map: string
+  } | null
+  headstone: { id: string; place: string; map: string } | null
+  lot_floor_dog: number
 }
 
 interface ProfilePayload {
@@ -55,7 +64,7 @@ interface ProfilePayload {
   claimed_at: string | null
   avatar_inscription_id: string | null
   avatar_number: number | null
-  lot: Lot | null
+  city: CityDeed | null
   chat_count: number
 }
 
@@ -151,6 +160,138 @@ function Head({ eyebrow, title, sub }: { eyebrow: string; title: string; sub?: s
       <div className="mt-3 w-14 h-px bg-lava/70" />
       <h2 className="font-display font-bold text-2xl md:text-3xl text-snow mt-4 leading-tight">{title}</h2>
       {sub && <p className="text-[13px] text-mist mt-3 leading-relaxed">{sub}</p>}
+    </div>
+  )
+}
+
+// ── o lugar na cidade ─────────────────────────────────────────────────────
+// ⚠️ O TEXTO E CONTRATO (feedback_contrato_publico_manda): as frases do
+// memorial e do "chegou depois" repetem as da landing (wallet-lookup.tsx), e o
+// alvo da curva sai de `alvoDaCurva`, a mesma funcao da landing. Nada aqui
+// promete terra a quem recebe lapide.
+function CityDeedCard({ city, address }: { city: CityDeed | null; address: string }) {
+  const abrir = `/city?addr=${encodeURIComponent(address)}`
+  const bloco = (city?.block ?? 966_670).toLocaleString("en-US")
+  const botoes = (mapa: string | null) => (
+    <div className="flex flex-wrap items-center gap-3">
+      <Link
+        href={abrir}
+        className="inline-flex items-center gap-1.5 border border-lava/50 bg-lava/[0.08] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-lava hover:bg-lava/[0.16] transition-colors"
+      >
+        Open in DogCity <ArrowUpRight className="w-3 h-3" />
+      </Link>
+      {mapa && (
+        <Link
+          href={mapa}
+          className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-dusty hover:text-lava transition-colors"
+        >
+          On the map <ArrowUpRight className="w-3 h-3" />
+        </Link>
+      )}
+    </div>
+  )
+  const selo = (
+    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-dusty">
+      Registered at block {bloco}
+    </p>
+  )
+
+  if (!city || city.status === "unavailable") {
+    return (
+      <div className="space-y-3">
+        <p className="text-[12px] text-mist leading-relaxed">
+          The city registry is not reachable right now. Whatever this address holds in it was
+          sealed at block {bloco} and does not change; try again in a moment.
+        </p>
+        {botoes(null)}
+      </div>
+    )
+  }
+
+  if (city.status === "not_in_snapshot") {
+    return (
+      <div className="space-y-3">
+        <p className="font-display font-bold text-xl text-snow">Arrived after the founding</p>
+        <p className="text-[12px] text-mist leading-relaxed">
+          The city grows in rings. Ring 1 closed at block {bloco} and this address was not in
+          it. Its land comes with Ring 2, at a future block that will be announced.
+        </p>
+        <Link
+          href="/city"
+          className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-lava hover:underline"
+        >
+          See the city <ArrowUpRight className="w-3 h-3" />
+        </Link>
+      </div>
+    )
+  }
+
+  if (city.status === "headstone") {
+    const h = city.headstone
+    return (
+      <div className="space-y-3">
+        <p className="font-display font-bold text-xl text-snow">
+          {h ? `Headstone ${h.id}` : "A headstone"}
+        </p>
+        <p className="text-[12px] text-mist leading-relaxed">
+          At block {bloco} this address held{" "}
+          {city.dog != null ? `${n0(city.dog)} $DOG` : "less $DOG"}, below the{" "}
+          {city.lot_floor_dog.toLocaleString("en-US", { minimumFractionDigits: 2 })} $DOG that the
+          smallest lot the city builds ({PISO_LOTE_M2} m2) takes. It keeps its own marble headstone
+          {h ? ` at ${h.place}` : " in the city cemetery"}, sealed in the same registry as every lot.
+        </p>
+        <p className="text-[12px] text-dusty leading-relaxed">
+          The headstone is a right to mint a lot later, not a closed door. A wallet that holds
+          above that balance again, takes a building licence and mints the deed receives land in
+          the expansion ring, at a future block that has not been announced yet.
+        </p>
+        {selo}
+        {botoes(h?.map ?? null)}
+      </div>
+    )
+  }
+
+  // status "lot"
+  const l = city.lot
+  const alvo = l && city.dog != null ? alvoDaCurva(city.dog, l.area_m2) : null
+  const linhas: [string, string][] = l
+    ? [
+        ["Area", `${n0(l.area_m2)} m2`],
+        ["Curve target", alvo != null ? `${n0(alvo)} m2` : "n/a"],
+        ["Sector", l.district ? `${l.sector} · ${l.district}` : String(l.sector)],
+        ["Typology", l.typology ?? "n/a"],
+      ]
+    : []
+  return (
+    <div className="space-y-3">
+      {/* ⚠️ sem break-all: no celular ele partia o id no meio de um numero
+          ("L00" e "6" em duas linhas); o id quebra no hifen, se precisar */}
+      <p className="font-display font-bold text-lg md:text-xl text-snow break-words">
+        {l ? `Lot ${l.lot_id}` : "Your lot"}
+      </p>
+      {l ? (
+        <div className="grid grid-cols-2 gap-px bg-white/10 border border-white/10">
+          {linhas.map(([k, v]) => (
+            <div key={k} className="bg-void p-3">
+              <Eyebrow>{k}</Eyebrow>
+              <p className="font-mono text-[12px] text-snow mt-1.5">{v}</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-[12px] text-mist leading-relaxed">
+          This address has a lot in the registry. Its exact place is not reachable right now; try
+          again in a moment.
+        </p>
+      )}
+      {l && alvo != null && l.area_m2 < alvo && (
+        <p className="text-[11px] text-dusty leading-relaxed">
+          The area is what the registry holds for this address. The target is what the curve asks
+          for; ground is finite, so a lot can land under it where a block ran out of depth.
+        </p>
+      )}
+      {selo}
+      {botoes(l?.map ?? null)}
     </div>
   )
 }
@@ -861,50 +1002,16 @@ export default function ProfilePage() {
           <Head
             eyebrow="◆ dogcity"
             title="Your seat in the city"
-            sub="Every wallet with DOG gets a plot on the lunar map. Donors get a plaque in the Founders Register."
+            sub="Every wallet that held DOG at block 966,670 is in the sealed city registry: a lot if its balance reached the smallest lot the city builds, a headstone if it did not. Donors get a plaque in the Founders Register."
           />
 
           <div className="grid md:grid-cols-2 gap-px bg-white/10 border border-white/10">
             <div className="bg-void p-5 md:p-6">
               <PlateHead icon={Building2}>plot</PlateHead>
-              {profile?.lot ? (
-                <div className="space-y-3">
-                  <p className="font-display font-bold text-xl text-snow">
-                    {profile.lot.street ?? "Unnamed street"}
-                    {profile.lot.number != null ? ` ${profile.lot.number}` : ""}
-                  </p>
-                  <div className="grid grid-cols-3 gap-px bg-white/10 border border-white/10">
-                    {[
-                      ["Kind", profile.lot.kind === "build" ? "Building" : "Open space"],
-                      ["Prestige", "★".repeat(profile.lot.prestige)],
-                      ["District", `#${profile.lot.district}`],
-                    ].map(([k, v]) => (
-                      <div key={k} className="bg-void p-3">
-                        <Eyebrow>{k}</Eyebrow>
-                        <p className="font-mono text-[12px] text-snow mt-1.5">{v}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <Link
-                    href="/city"
-                    className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-lava hover:underline"
-                  >
-                    Visit the plaza <ArrowUpRight className="w-3 h-3" />
-                  </Link>
-                </div>
+              {profile && address ? (
+                <CityDeedCard city={profile.city ?? null} address={address} />
               ) : (
-                <div className="space-y-3">
-                  <p className="text-[12px] text-mist leading-relaxed">
-                    No plot registered for this address yet. The city registry mints lots from the
-                    holder snapshot: hold DOG and the map builds your address in.
-                  </p>
-                  <Link
-                    href="/city"
-                    className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-lava hover:underline"
-                  >
-                    See the city <ArrowUpRight className="w-3 h-3" />
-                  </Link>
-                </div>
+                <p className="text-[12px] text-dusty leading-relaxed">Reading the city registry.</p>
               )}
             </div>
 

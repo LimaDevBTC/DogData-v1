@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { redisClient } from '@/lib/upstash'
 import { supabase } from '@/lib/supabase'
 import { validateHandle } from '@/lib/identity/handle'
+import { comPrazo, falhaPrivada } from '@/lib/api/prazo'
+import { escrituras, buscarEscritura } from '@/lib/city/escrituras'
+import {
+  CORTE_CEMITERIO_DOG, CORTE_CEMITERIO_PUBLICADO, SNAPSHOT_PROOF,
+  BAIRRO_DO_SETOR, TIPOLOGIA_DA_FORMA, COLUMBARIO_NOME, linkDoMapa,
+} from '@/app/dogcity/dogcity-data'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -26,10 +32,104 @@ async function getSession(req: NextRequest): Promise<WalletSession | null> {
 // GET /api/profile            perfil da sessao atual
 // GET /api/profile?address=x   parte publica de qualquer endereco
 //
-// A resposta junta o que tres tabelas sabem daquele endereco: o handle
-// (dogcity_profiles), o lote na cidade (dogcity_lots) e quantas vezes ele ja
-// falou na praca (dogcity_chat). `verified` so e true para o endereco da
+// A resposta junta o handle e a foto (dogcity_profiles), quantas vezes o
+// endereco ja falou na praca (dogcity_chat) e o LUGAR DELE NA CIDADE, que sai
+// do registro selado no bloco 966.670. `verified` so e true para o endereco da
 // sessao: os outros campos sao publicos, a posse nao.
+//
+// ⚠️ O LOTE NAO VEM MAIS DE `dogcity_lots` (24/09, LIGAR.md FS3). Aquela tabela
+// e o registro antigo da CrossChainCity (rua, numero, prestigio, distrito) e
+// nao e a cidade que o jogo desenha: o /profile mostrava um lote que nao
+// existe. Agora `city` segue a MESMA regra de /api/dogcity/lookup, para a
+// landing e o /profile nunca dizerem coisas diferentes do mesmo endereco:
+//   * `dog_snapshot_lookup` (uma consulta pela chave primaria) decide o RAMO:
+//     lote ou lapide (coluna `destino`, com o saldo como plano B para linha
+//     anterior a migracao 031), ou fora do snapshot;
+//   * `public/city/escrituras.bin` (buscarEscritura) da a POSICAO e a AREA
+//     gravada no registro. A area da tabela nao entra: ela ainda serve a curva
+//     (ver o cabecalho da rota de lookup), e misturar as duas fontes e o erro
+//     que aquela rota documenta.
+// Se o indice nao responder a tempo, `position: 'unavailable'` e o lote sai
+// sem lot_id nem area; nunca um lote inventado. O ALVO DA CURVA (area
+// prometida) nao e servido: a tela calcula com `alvoDaCurva(dog, area_m2)`,
+// como a landing.
+const PRAZO_MS = 5000
+// teto so da posicao, mesmo da rota de lookup: o indice carrega em paralelo e,
+// se nao chegar ate aqui, a resposta sai sem posicao
+const POSICAO_MS = 1500
+
+type CidadePerfil = {
+  block: number
+  status: 'lot' | 'headstone' | 'not_in_snapshot' | 'unavailable'
+  dog: number | null
+  position: 'ok' | 'unavailable'
+  lot: {
+    lot_id: string
+    sector: number
+    district: string | null
+    typology: string | null
+    dsc: boolean
+    area_m2: number
+    map: string
+  } | null
+  headstone: { id: string; place: string; map: string } | null
+  lot_floor_dog: number
+}
+
+async function cidadeDe(
+  endereco: string,
+  indicePromise: ReturnType<typeof escrituras>,
+  signal: AbortSignal,
+): Promise<CidadePerfil> {
+  const base: CidadePerfil = {
+    block: SNAPSHOT_PROOF.block, status: 'unavailable', dog: null, position: 'unavailable',
+    lot: null, headstone: null, lot_floor_dog: CORTE_CEMITERIO_PUBLICADO,
+  }
+  const { data: row, error } = await supabase
+    .from('dog_snapshot_lookup')
+    .select('dog, destino, bloco')
+    .eq('address', endereco)
+    .abortSignal(signal)
+    .maybeSingle()
+  if (error) {
+    console.error('[api/profile GET city]', error.message)
+    return base
+  }
+  if (!row) return { ...base, status: 'not_in_snapshot' }
+
+  const dog = Number(row.dog)
+  const block = Number(row.bloco) || SNAPSHOT_PROOF.block
+  const indice = await Promise.race([
+    indicePromise.catch(() => null),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), POSICAO_MS)),
+  ])
+  const esc = indice ? buscarEscritura(indice, endereco) : null
+
+  const lapide = row.destino === 'lapide' || (row.destino == null && dog < CORTE_CEMITERIO_DOG)
+  if (lapide) {
+    const h = esc?.kind === 'lapide' ? esc : null
+    return {
+      ...base, block, dog, status: 'headstone', position: h ? 'ok' : 'unavailable',
+      headstone: h ? { id: h.id, place: COLUMBARIO_NOME, map: linkDoMapa(h.id) } : null,
+    }
+  }
+  const l = esc?.kind === 'lote' ? esc : null
+  return {
+    ...base, block, dog, status: 'lot', position: l ? 'ok' : 'unavailable',
+    lot: l
+      ? {
+          lot_id: l.lotId,
+          sector: l.setor,
+          district: BAIRRO_DO_SETOR[l.setor] ?? null,
+          typology: TIPOLOGIA_DA_FORMA[l.forma] ?? null,
+          dsc: l.dsc,
+          area_m2: l.area_m2,
+          map: linkDoMapa(l.lotId),
+        }
+      : null,
+  }
+}
+
 export async function GET(req: NextRequest) {
   const session = await getSession(req)
   const sessionAddress = session?.address?.toLowerCase() ?? null
@@ -40,46 +140,50 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       address: null, verified: false, handle: null, claimed_at: null,
       avatar_inscription_id: null, avatar_number: null,
-      lot: null, chat_count: 0, wallet_id: null,
+      city: null, chat_count: 0, wallet_id: null,
     })
   }
 
-  const [profileRes, lotRes, chatRes] = await Promise.all([
-    supabase
-      .from('dogcity_profiles')
-      .select('handle, created_at, avatar_inscription_id, avatar_content_type, avatar_number')
-      .eq('address', address)
-      .maybeSingle(),
-    // O registro da cidade grava o endereco como a carteira o escreve; os
-    // bech32 ja sao minusculos, mas um base58 nao e, entao pergunta pelas duas
-    // formas em vez de assumir.
-    supabase.from('dogcity_lots')
-      .select('street, number, zone, district, kind, prestige, height_tier, last_balance, utxo_count, age_score, state')
-      .in('address', Array.from(new Set([address, asked].filter(Boolean))))
-      .limit(1),
-    supabase.from('dogcity_chat').select('id', { count: 'exact', head: true }).eq('address', address),
-  ])
+  // O perfil guarda tudo em minusculas, mas o registro da cidade nao: bech32 e
+  // canonicamente minusculo, base58 (1... e 3...) e sensivel a caixa. Mesma
+  // normalizacao de /api/dogcity/lookup e do gerador das escrituras.
+  const bruto = asked || session?.address || ''
+  const enderecoCidade = bruto.toLowerCase().startsWith('bc1') ? bruto.toLowerCase() : bruto
+  const origin = req.nextUrl.origin || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
+  const indicePromise = escrituras(origin)
 
-  if (profileRes.error) {
-    console.error('[api/profile GET]', profileRes.error.message)
-    return NextResponse.json({ error: 'internal' }, { status: 500 })
-  }
-  // Lote e chat sao enfeite do perfil: se o registro da cidade estiver fora do
-  // ar a pagina ainda tem que abrir com a identidade, entao o erro vira null.
-  if (lotRes.error) console.error('[api/profile GET lot]', lotRes.error.message)
-  if (chatRes.error) console.error('[api/profile GET chat]', chatRes.error.message)
+  return comPrazo(async (signal) => {
+    const [profileRes, city, chatRes] = await Promise.all([
+      supabase
+        .from('dogcity_profiles')
+        .select('handle, created_at, avatar_inscription_id, avatar_content_type, avatar_number')
+        .eq('address', address)
+        .abortSignal(signal)
+        .maybeSingle(),
+      cidadeDe(enderecoCidade, indicePromise, signal),
+      supabase.from('dogcity_chat').select('id', { count: 'exact', head: true }).eq('address', address).abortSignal(signal),
+    ])
 
-  return NextResponse.json({
-    address,
-    verified: !!sessionAddress && sessionAddress === address,
-    handle: profileRes.data?.handle ?? null,
-    claimed_at: profileRes.data?.created_at ?? null,
-    avatar_inscription_id: profileRes.data?.avatar_inscription_id ?? null,
-    avatar_number: profileRes.data?.avatar_number ?? null,
-    lot: lotRes.error ? null : lotRes.data?.[0] ?? null,
-    chat_count: chatRes.count ?? 0,
-    wallet_id: sessionAddress === address ? session?.walletId ?? null : null,
-  })
+    if (profileRes.error) {
+      console.error('[api/profile GET]', profileRes.error.message)
+      return NextResponse.json({ error: 'internal' }, { status: 500 })
+    }
+    // Cidade e chat sao enfeite do perfil: se o registro estiver fora do ar a
+    // pagina ainda tem que abrir com a identidade (city.status 'unavailable').
+    if (chatRes.error) console.error('[api/profile GET chat]', chatRes.error.message)
+
+    return NextResponse.json({
+      address,
+      verified: !!sessionAddress && sessionAddress === address,
+      handle: profileRes.data?.handle ?? null,
+      claimed_at: profileRes.data?.created_at ?? null,
+      avatar_inscription_id: profileRes.data?.avatar_inscription_id ?? null,
+      avatar_number: profileRes.data?.avatar_number ?? null,
+      city,
+      chat_count: chatRes.count ?? 0,
+      wallet_id: sessionAddress === address ? session?.walletId ?? null : null,
+    })
+  }, { ms: PRAZO_MS, falha: falhaPrivada })
 }
 
 // POST /api/profile {handle} → cria o handle da carteira logada (upsert por

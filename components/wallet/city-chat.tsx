@@ -8,7 +8,10 @@ import { ProfileModal } from '@/components/wallet/profile-modal'
 // Contrato: GET /api/profile → {address, verified, handle}; POST /api/chat
 // {text} exige sessão verified + handle já criado (403 sem handle, 401 sem
 // prova, 422 texto fora de 1..280, 429 limite de envio).
-type ChatMessage = { id: number; handle: string; address: string; text: string; at: string }
+type ChatMessage = {
+  id: number; handle: string; address: string; text: string; at: string
+  avatar_inscription_id?: string | null
+}
 type ProfileState = { verified: boolean; handle: string | null }
 
 function timeShort(iso: string): string {
@@ -55,7 +58,17 @@ export function CityChat({ open, onClose }: { open: boolean; onClose: () => void
       const r = await fetch('/api/chat')
       if (!r.ok) return
       const j = await r.json()
-      if (Array.isArray(j.messages)) setMessages(j.messages)
+      if (!Array.isArray(j.messages)) return
+      const vindas = j.messages as ChatMessage[]
+      // ⚠️ o GET tem cache de 2 s na borda e pode vir sem a mensagem que
+      // acabou de ser enviada daqui. O que o POST devolveu fica na lista
+      // enquanto o GET nao alcanca (id maior que o ultimo que veio), senao a
+      // mensagem pisca: aparece, some no poll seguinte e volta depois.
+      setMessages((antes) => {
+        const ultimo = vindas.reduce((m, x) => Math.max(m, Number(x.id) || 0), 0)
+        const locais = antes.filter((x) => Number(x.id) > ultimo)
+        return locais.length ? [...vindas, ...locais].slice(-50) : vindas
+      })
     } catch {
       /* silencioso: o próximo poll de 5s tenta de novo */
     }
@@ -94,7 +107,15 @@ export function CityChat({ open, onClose }: { open: boolean; onClose: () => void
       if (r.ok) {
         setInput('')
         stickToBottomRef.current = true
-        await loadMessages()
+        // a propria resposta do POST entra na lista na hora; o GET logo
+        // depois poderia vir da borda sem ela (cache de 2 s)
+        const j = await r.json().catch(() => null)
+        const nova = j?.message as ChatMessage | undefined
+        if (nova && nova.id != null) {
+          setMessages((antes) => antes.some((x) => x.id === nova.id) ? antes : [...antes, nova].slice(-50))
+        } else {
+          await loadMessages()
+        }
       } else if (r.status === 401) {
         setNotice('Connect your wallet to chat.')
       } else if (r.status === 403) {
