@@ -105,13 +105,14 @@ const ler = (p) => JSON.parse(readFileSync(resolve(RAIZ, p), 'utf8'))
 const cidade = ler(`${DADOS}/cidade.json`)
 const malha = ler(`${DADOS}/cidade-malha.json`)
 const mapa = ler('public/city/mapa-v1.json')
-const merkle = ler('data/dogcity_merkle.json')
+// ⚠️ §42: a rodada do palco sela fora do repo; `--merkle=` lê o selo dela
+const merkle = ler(arg('merkle', 'data/dogcity_merkle.json'))
 // ⚠️ A REDE VIÁRIA VEM DE public/city/mapa/vias.json, NÃO MAIS DE mapa-v1.json
 // (a doutrina inteira mora na CAMADA 4, mais abaixo, onde a malha entra em
 // uso). mapa-v1 continua sendo a fonte para tudo que NÃO é rua: alça (arco de
 // terra, usado só para posicionar o rótulo da Orla Nobre), canais, programa,
 // âncoras, Founders Club.
-const VIAS_PATH = 'public/city/mapa/vias.json'
+const VIAS_PATH = arg('vias', 'public/city/mapa/vias.json')   // §42: o dump do palco com --vias=
 const viasExiste = existsSync(resolve(RAIZ, VIAS_PATH))
 if (!viasExiste) {
   console.warn(`AVISO: ${VIAS_PATH} ausente. Rode scripts/city/mapa/assar-vias.mjs antes de gerar a `
@@ -120,8 +121,9 @@ if (!viasExiste) {
 const vias = viasExiste ? ler(VIAS_PATH) : []
 
 const SUP = (() => {
-  const meta = ler('data/superficie.json')
-  const buf = readFileSync(resolve(RAIZ, 'data/superficie.f32'))
+  const _sup = arg('superficie', 'data')   // §42: o chão assado do palco com --superficie=
+  const meta = ler(`${_sup}/superficie.json`)
+  const buf = readFileSync(resolve(RAIZ, `${_sup}/superficie.f32`))
   // cópia para um ArrayBuffer alinhado: Float32Array sobre o buffer do Node
   // quebra quando o byteOffset não é múltiplo de 4
   const H = new Float32Array(buf.buffer.slice(buf.byteOffset, buf.byteOffset + meta.n * meta.n * 4))

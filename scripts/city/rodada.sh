@@ -54,4 +54,10 @@ passo 7_escrituras   node scripts/city/gerar_escrituras.mjs --csv=$PALCO/data/do
                           --merkle=$PALCO/data/dogcity_merkle.json --saida=$PALCO/public/city
 passo 8_lookup_dry   python3 scripts/city/sobe_lookup.py --dry-run --csv=$PALCO/data/dogcity_lotes.csv \
                           --cemiterio=$PALCO/data/dogcity_cemiterio.csv
+mkdir -p $PALCO/landing
+passo 9_carta        node scripts/city/carta.mjs --dados=$PALCO/public/city \
+                          --merkle=$PALCO/data/dogcity_merkle.json --vias=$PALCO/public/city/mapa/vias.json \
+                          --superficie=$PALCO/data --svg=$PALCO/carta.svg \
+                          --webp=$PALCO/landing/citymap-1600-v4.webp --png3200=$PALCO/landing/citymap-3200-v4.png \
+                          --png1600=$L/citymap-1600-v4.png
 log "PALCO APROVADO E SELADO. Publicar: bash scripts/city/publica_rodada.sh"

@@ -18,6 +18,13 @@ for f in $PALCO/data/dogcity_*.csv $PALCO/data/dogcity_*.json $PALCO/data/dogcit
   [ -f "$f" ] && cp -v "$f" data/
 done
 cp -v $PALCO/app/dogcity/dogcity-data.ts app/dogcity/dogcity-data.ts
+# ⚠️ a carta muda de NOME (v3 -> v4): o CDN serve a imagem velha pelo nome velho
+if [ -f $PALCO/landing/citymap-1600-v4.webp ]; then
+  cp -v $PALCO/landing/citymap-1600-v4.webp $PALCO/landing/citymap-3200-v4.png public/landing/
+  cp -v $PALCO/carta.svg public/city/carta.svg
+  sed -i 's/citymap-1600-v3\.webp/citymap-1600-v4.webp/g' app/dogcity/sections/map-full.tsx app/dogcity/sections/city-map.tsx
+  echo "landing aponta para citymap-1600-v4.webp"
+fi
 echo
 echo "publicado na árvore; o bot empurra na próxima hora cheia."
 echo "root: $(python3 -c "import json;print(json.load(open('data/dogcity_merkle.json'))['root'])")"
