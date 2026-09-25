@@ -43,7 +43,9 @@ const ARQS_JOGO = 'manifesto\\.json|creditos\\.json'
 async function rewritesDoJogo() {
   return {
     beforeFiles: [
-      { source: '/city', destination: `${ORIGEM_JOGO}/city/index.html` },
+      // `via=dogdata` e a marca de que o pedido veio por aqui: a origem do jogo
+      // manda quem abre o endereco da Vercel direto (sem a marca) para esta /city.
+      { source: '/city', destination: `${ORIGEM_JOGO}/city/index.html?via=dogdata` },
       { source: `/city/:dir(${DIRS_JOGO})/:path*`, destination: `${ORIGEM_JOGO}/city/:dir/:path*` },
       { source: `/city/:arq(${ARQS_JOGO})`, destination: `${ORIGEM_JOGO}/city/:arq` },
     ],
