@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-09-24T22:45:44+00:00",
- "tip_height": 968459,
- "tip_time": 1790289447,
+ "generated_at": "2026-09-25T00:45:33+00:00",
+ "tip_height": 968474,
+ "tip_time": 1790296847,
  "collection": {
   "parent_id": "fdb2df5d2b16db1ebcbf09e2d23b3f4e417db44b58e712c99b61f26b52c7cbb5i0",
   "parent_number": 63026232,
@@ -17,32 +17,32 @@
   "parent_fee_sats": 59838660
  },
  "custody": {
-  "holders": 62541,
+  "holders": 62539,
   "stones": 112384,
   "avg": 1.8,
   "median": 1,
   "max": 686,
-  "gini": 0.4196,
+  "gini": 0.4197,
   "buckets": [
    {
     "label": "1",
-    "holders": 52241,
-    "stones": 52241
+    "holders": 52239,
+    "stones": 52239
    },
    {
     "label": "2-4",
-    "holders": 7727,
-    "stones": 18880
+    "holders": 7726,
+    "stones": 18876
    },
    {
     "label": "5-9",
-    "holders": 1447,
-    "stones": 8899
+    "holders": 1448,
+    "stones": 8905
    },
    {
     "label": "10-49",
     "holders": 999,
-    "stones": 17007
+    "stones": 17006
    },
    {
     "label": "50-99",
@@ -52,7 +52,7 @@
    {
     "label": "100-499",
     "holders": 46,
-    "stones": 8313
+    "stones": 8314
    },
    {
     "label": "500+",
@@ -61,9 +61,9 @@
    }
   ],
   "share_top10": 4.01,
-  "share_top100": 12.39,
+  "share_top100": 12.4,
   "share_top1000": 27.68,
-  "singletons": 52241
+  "singletons": 52239
  },
  "dormancy": {
   "never_moved": 29446,
@@ -72,43 +72,43 @@
   "age_buckets": [
    {
     "label": "2y+",
-    "stones": 74861,
-    "pct": 66.61
+    "stones": 74873,
+    "pct": 66.62
    },
    {
     "label": "1-2y",
-    "stones": 21844,
-    "pct": 19.44
+    "stones": 21831,
+    "pct": 19.43
    },
    {
     "label": "6-12m",
-    "stones": 8822,
+    "stones": 8821,
     "pct": 7.85
    },
    {
     "label": "3-6m",
-    "stones": 2434,
-    "pct": 2.17
+    "stones": 2433,
+    "pct": 2.16
    },
    {
     "label": "1-3m",
-    "stones": 3019,
+    "stones": 3021,
     "pct": 2.69
    },
    {
     "label": "<30d",
-    "stones": 1404,
+    "stones": 1405,
     "pct": 1.25
    }
   ],
   "by_month": [
    {
     "month": "2024-03",
-    "stones": 41322
+    "stones": 41321
    },
    {
     "month": "2024-04",
-    "stones": 18707
+    "stones": 18706
    },
    {
     "month": "2024-05",
@@ -208,7 +208,7 @@
    },
    {
     "month": "2026-05",
-    "stones": 788
+    "stones": 786
    },
    {
     "month": "2026-06",
@@ -224,7 +224,7 @@
    },
    {
     "month": "2026-09",
-    "stones": 1031
+    "stones": 1035
    }
   ]
  },
@@ -232,25 +232,25 @@
   "cohort_addresses": 75497,
   "cohort_stones": 112411,
   "snapshot_block": 840000,
-  "still_here": 44295,
-  "left": 31202,
+  "still_here": 44293,
+  "left": 31204,
   "entered": 18246,
-  "stones_veteran": 70019,
-  "stones_new": 42365,
+  "stones_veteran": 70016,
+  "stones_new": 42368,
   "matrix": {
    "stone_and_dog": 24896,
-   "stone_no_dog": 19399,
+   "stone_no_dog": 19397,
    "no_stone_dog": 2002,
-   "no_stone_no_dog": 29200
+   "no_stone_no_dog": 29202
   },
-  "untouched": 40382,
+  "untouched": 40380,
   "accumulated": 3142,
   "reduced": 771,
   "by_behavior": [
    {
     "pattern": "paper_hands",
-    "addresses": 20693,
-    "stones_today": 34850
+    "addresses": 20691,
+    "stones_today": 34846
    },
    {
     "pattern": "diamond_paws",
@@ -295,7 +295,7 @@
    {
     "pattern": "btc_maximalist",
     "addresses": 93,
-    "stones_today": 671
+    "stones_today": 672
    },
    {
     "pattern": "steady_holder",
@@ -556,8 +556,8 @@
  },
  "verification": {
   "unique_outputs": 111871,
-  "outputs_unspent": 111867,
-  "outputs_spent": 4,
+  "outputs_unspent": 111871,
+  "outputs_spent": 0,
   "stones_without_height": 0,
   "independent_sample": {
    "n": 25,
@@ -757,6 +757,17 @@
   },
   {
    "rank": 17,
+   "address": "bc1pc725cujnye99az8fn9sx8wdpdk5xdg55lthy5prd7s9xtdghljasz4mmga",
+   "stones": 193,
+   "share": 0.172,
+   "veteran": true,
+   "stones_at_airdrop": 2,
+   "dog_now": 12139550.47622,
+   "behavior": "btc_maximalist",
+   "never_moved": 0
+  },
+  {
+   "rank": 18,
    "address": "bc1pecup8fdprnrsmz4pptq4h6qs68r27ntch84u8kcfagu0jvdftuqqjzum0t",
    "stones": 193,
    "share": 0.172,
@@ -764,17 +775,6 @@
    "stones_at_airdrop": null,
    "dog_now": null,
    "behavior": null,
-   "never_moved": 0
-  },
-  {
-   "rank": 18,
-   "address": "bc1pc725cujnye99az8fn9sx8wdpdk5xdg55lthy5prd7s9xtdghljasz4mmga",
-   "stones": 192,
-   "share": 0.171,
-   "veteran": true,
-   "stones_at_airdrop": 2,
-   "dog_now": 12139550.47622,
-   "behavior": "btc_maximalist",
    "never_moved": 0
   },
   {
