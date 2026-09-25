@@ -6,7 +6,7 @@ import { comPrazo, falhaPrivada } from '@/lib/api/prazo'
 import { escrituras, buscarEscritura } from '@/lib/city/escrituras'
 import {
   CORTE_CEMITERIO_DOG, CORTE_CEMITERIO_PUBLICADO, SNAPSHOT_PROOF,
-  BAIRRO_DO_SETOR, TIPOLOGIA_DA_FORMA, COLUMBARIO_NOME, linkDoMapa,
+  BAIRRO_DO_SETOR, TIPOLOGIA_DA_FORMA, COLUMBARIO_NOME, linkDaCidade,
 } from '@/app/dogcity/dogcity-data'
 
 export const runtime = 'nodejs'
@@ -110,7 +110,7 @@ async function cidadeDe(
     const h = esc?.kind === 'lapide' ? esc : null
     return {
       ...base, block, dog, status: 'headstone', position: h ? 'ok' : 'unavailable',
-      headstone: h ? { id: h.id, place: COLUMBARIO_NOME, map: linkDoMapa(h.id) } : null,
+      headstone: h ? { id: h.id, place: COLUMBARIO_NOME, map: linkDaCidade(endereco) } : null,
     }
   }
   const l = esc?.kind === 'lote' ? esc : null
@@ -124,7 +124,7 @@ async function cidadeDe(
           typology: TIPOLOGIA_DA_FORMA[l.forma] ?? null,
           dsc: l.dsc,
           area_m2: l.area_m2,
-          map: linkDoMapa(l.lotId),
+          map: linkDaCidade(endereco),
         }
       : null,
   }

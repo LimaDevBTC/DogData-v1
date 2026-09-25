@@ -147,7 +147,7 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
               }`} />
               <span className="relative whitespace-nowrap">Explorer</span>
             </a>
-            {/* DogCity: a praca ao vivo em /city */}
+            {/* DogCity: o jogo em /city (rewrite externo). <a> cru, nunca <Link> */}
             <a
               href="/city"
               className={`relative flex items-center justify-center px-2.5 py-1.5 text-[11px] font-mono font-medium tracking-wide transition-all duration-300 flex-shrink-0 rounded-lg group ${

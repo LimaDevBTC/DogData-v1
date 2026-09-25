@@ -28,3 +28,87 @@ push, env da Vercel e migracao sao do fundador.
 - [FS3] conferencia com `next dev -p 3107` nesta worktree, env lida por link temporario para o `.env.local` da arvore principal (apagado depois; so GET): `/api/profile` contra `/api/dogcity/lookup` em 5 enderecos (lote bc1p, lote base58 `3FX8...`, lapide, lote com handle, fora do snapshot): status, dog, lot_id, setor, tipologia, area e lapide iguais nos 5. `/api/chat`: 22 mensagens, 5 com foto, header `public, s-maxage=2`. `/api/war/trades`: 200 trades, header certo. `/api/profile/batch`: 3 perfis de 4 enderecos validos + 1 invalido (o sem perfil e o invalido nao voltam), 400 sem lista e com 51, cookie nao muda a resposta
 - [FS3] chapas headless (chrome-headless-shell, sem janela) do cartao em desktop 1280 e celular 390 nos 3 casos: `dogcity-mundo/chapas/ligar/FS3/profile_{lote,lapide,fora}_{desktop,celular}.png` (nao commitadas la). Todo pedido que nao era GET foi abortado no navegador (6 `POST /api/ads/track`) e o analytics ficou desligado por opt-out: nada escrito em producao. No celular o id do lote partia no meio de um numero com `break-all`; trocado por `break-words` e `text-lg`
 - [FS] `npx tsc --noEmit` verde no fim. Sem `next build` (instrucao: derruba o dev); o build verde com e sem env continua sendo o passo `[F]` antes do merge
+
+## Adeus cidade antiga (24/09, depois das 22:30)
+
+Decisao do fundador: "Esquece a cidade antiga, pode tirar do ar e fica como gitignored, agora e so
+jogo!". Worktree `DogData-v1-adeus`, branch `adeus-cidade-antiga`, feita da `troca-city` e depois
+rebaseada no `origin/main` que ja tem a troca (`734121a14f`). Nada empurrado nem mesclado.
+
+- [ADEUS] copia integral ANTES de mexer: `../cidade-antiga-backup/` (fora de repo), com `LEIAME.md`.
+  Veio da arvore principal em `3da52aa79f` (identica a `e443d58b9a` e a `734121a14f` nesses caminhos):
+  `app/city` inteira (170 arquivos, inclusive `explore/` e `luna/`, que ja eram so locais) e os 35 scripts
+- [ADEUS] saem do repo e entram no `.gitignore`: `app/city/**` (155 rastreados) e 35 ferramentas que
+  importam `app/city` (quebrariam o `tsc` do `next build`): `scripts/_sitio2.ts`, `scripts/_sitio_est.ts`,
+  17 `scripts/city/*.ts`, `scripts/city/_tmp/`. `public/city` FICA (conferido: nao casa com o .gitignore)
+- [ADEUS] imports de fora para dentro de `app/city`: so esses 35 scripts; nenhuma pagina, componente ou
+  lib importava `app/city`. O inverso fica de proposito (a copia local precisa compilar):
+  `components/radiola/*`, `components/wallet/city-chat.tsx` e `linkDoMapa` so tem chamador na cidade
+  antiga. As ferramentas .mjs/.py de `scripts/city` que so citam `app/city` por caminho ficaram
+- [ADEUS] `next.config.js`: rewrite da `/city` sem saida (`?classic=1`, `?view=war` e a env
+  `DOGCITY_GUERRA_ANTIGA` acabaram); a env `DOGCITY_MUNDO_ORIGEM` so diz onde o jogo esta. `redirects`
+  308, com ou sem env: `/city/:antiga(war|plan|explore|luna|plaza)/:resto*` e `/city/mapa` EXATO (em
+  `public/city/mapa/` ha arquivos servidos) para `/city`, repassando a query (`?lot=`, `?addr=`)
+- [ADEUS] `middleware.ts`: `/city?view=war` e `/city?classic=...` dao 307 para a `/city` sem esses dois
+  parametros e com o resto intacto. No middleware porque redirect do next.config repassa a query e
+  voltaria para si mesmo. O matcher so casa com essas consultas (a /city normal nao invoca middleware).
+  307 e nao 308: a batalha nova do jogo vai usar `?view=war`; quando chegar, tirar a regra do matcher
+- [ADEUS] links: todo link para `/city` e `<a href>` cru (o `<Link>` navega no cliente, nao passa pelo
+  rewrite e faz prefetch do RSC). Eram `<Link>`: `map-full.tsx` ("Enter DogCity", montado na /dogcity),
+  `mempool-band.tsx`, as portas da `hero-live.tsx` (01 era `?view=home`, 02 era `?view=war`: as duas
+  viraram `/city`; a /galaxy segue `<Link>`), `resume-pill.tsx` e os tres do cartao da `/profile`.
+  `park.tsx` e `plaza-live.tsx` perderam o `?view=park`. Header e footer ja eram `<a>`. Nao ha
+  `router.push`/`prefetch` para a /city; sitemap e robots nao citam a /city
+- [ADEUS] `/api/dogcity/lookup` e `/api/profile`: `map` (lote e lapide) virou `linkDaCidade(endereco)` =
+  `/city?addr=<endereco normalizado>` (novo em `dogcity-data.ts`). Na `/profile` o botao "On the map"
+  saiu (repetia o "Open in DogCity")
+- [ADEUS] prova: `npx tsc --noEmit` verde (tambem `--incremental false`). `next build` verde sem a env e
+  com `DOGCITY_MUNDO_ORIGEM=https://dogcity-mundo.vercel.app` (env do Upstash/Supabase por link
+  temporario para os `.env` da arvore principal, apagado depois); nenhuma rota `/city` no build. Regex
+  do routes-manifest contra os 335 arquivos de `public/city` (git e disco): zero colisoes.
+  `next start -p 3117` com a env: `/city` e `/city?addr=` 200 com `id="carga"`; `?view=war`,
+  `?classic=1` 307 para `/city` (`?view=war&addr=X&utm_source=x` para `/city?addr=X&utm_source=x`);
+  `/city/mapa?lot=L` 308 para `/city?lot=L`; `/city/war`, `/city/plan/*`, `/city/explore`,
+  `/city/luna`, `/city/plaza` 308; seguindo o redirect, o jogo. 16 arquivos de `public/city` (cartas,
+  hero-mapa, mapa-topo, escrituras, GLBs e posters, `mapa/*`) com o mesmo sha256 do disco; `/dogcity`,
+  `/dogcity/docs`, `/dogcity/founders` 200 com CSP. Lookup (lote bc1p, lapide, lote base58) e
+  `/api/profile` devolvem `map: /city?addr=<endereco>`. Clique headless (chrome-headless-shell, nao-GET
+  abortado, analytics por opt-out): header desktop e menu celular em /explorer, footer em /markets,
+  "Enter DogCity" e CTA final da /dogcity e o "SEE IT ON THE MAP" do lookup fazem pedido de DOCUMENTO
+  `/city` e abrem o jogo (`#carga`); zero prefetch/RSC da `/city`. Servidor parado pelo PID da porta
+- [ADEUS] para o fundador decidir (copy, nao mexi): a porta 02 da `hero-live` ("$DOG PRICE WAR, Watch
+  the battle") e os "FLY TO THE PARK"/"STAND AT THE GATE" apontam para o jogo, que ainda nao tem batalha
+  nem voo ao parque (as tres secoes estao desmontadas da /dogcity hoje); o "SEE IT ON THE MAP" do lookup
+  abre o jogo, e para lapide o jogo responde "no lot" (o jogo nao tem lapides)
+
+### Para o coordenador: empurrar (entre HH:40 e HH:58, com a trava do bot)
+```bash
+cd ~/Projects/bitcoin-fullstack/DogData-v1-adeus          # branch adeus-cidade-antiga
+flock -n /tmp/dogdata-update.lock -c 'git fetch -q origin main && git merge --no-edit origin/main && git push origin HEAD:main'; echo saida=$?
+```
+`saida=1` sem mais nada = o bot esta rodando; esperar e repetir. A producao builda com a env que ja
+esta la. Conferir depois do Ready:
+```bash
+curl -s  https://www.dogdata.xyz/city | grep -c 'id="carga"'                             # 1
+curl -sI "https://www.dogdata.xyz/city?view=war" | grep -iE '^(HTTP|location)'           # 307, location /city
+curl -sI "https://www.dogdata.xyz/city/mapa?lot=X" | grep -iE '^(HTTP|location)'         # 308, location /city?lot=X
+curl -sI  https://www.dogdata.xyz/city/carta-v4.svg | head -1                              # 200
+```
+
+### Restaurar a cidade antiga LOCAL (ignorada) na arvore principal, SO DEPOIS do pull do bot
+O pull do bot apaga do disco os 190 arquivos rastreados (as pastas ignoradas `explore/` e `luna/`
+ficam). Restaurar antes do pull nao adianta: o pull apaga de novo. Sob a trava, para nao cruzar com o
+`git add -A` do bot:
+```bash
+cd ~/Projects/bitcoin-fullstack/DogData-v1
+git ls-files app/city | wc -l                                  # tem que dar 0 (o pull ja entrou)
+git check-ignore -q app/city/page.tsx && echo ignorado         # ignorado
+flock /tmp/dogdata-update.lock -c '
+  cp -a -n ../cidade-antiga-backup/app/city/. app/city/ &&
+  (cd ../cidade-antiga-backup && find scripts -type f) | while read f; do
+    mkdir -p "$(dirname "$f")" && cp -a -n "../cidade-antiga-backup/$f" "$f"; done'
+git status --short app/city scripts                            # vazio: o bot nao ve nada
+git status --short --ignored app/city | head -2                 # !! app/city/
+```
+Sem a env local, `next dev` na arvore principal serve a praca antiga em `/city`; as subrotas antigas
+(`/city/war`, `/city/mapa`, `/city/plan`) redirecionam para `/city` tambem ali.

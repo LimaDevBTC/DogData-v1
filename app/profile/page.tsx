@@ -170,24 +170,20 @@ function Head({ eyebrow, title, sub }: { eyebrow: string; title: string; sub?: s
 // alvo da curva sai de `alvoDaCurva`, a mesma funcao da landing. Nada aqui
 // promete terra a quem recebe lapide.
 function CityDeedCard({ city, address }: { city: CityDeed | null; address: string }) {
+  // o jogo acha o lote pelo endereco; os ids da cidade antiga nao valem nele.
+  // O "On the map" (/city/mapa?lot=) saiu com a cidade antiga em 24/09: o
+  // `map` da API agora e este mesmo link. <a> cru, nunca <Link>: a /city e
+  // rewrite externo (next.config.js) e o <Link> navegaria no cliente.
   const abrir = `/city?addr=${encodeURIComponent(address)}`
   const bloco = (city?.block ?? 966_670).toLocaleString("en-US")
-  const botoes = (mapa: string | null) => (
+  const botoes = (
     <div className="flex flex-wrap items-center gap-3">
-      <Link
+      <a
         href={abrir}
         className="inline-flex items-center gap-1.5 border border-lava/50 bg-lava/[0.08] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-lava hover:bg-lava/[0.16] transition-colors"
       >
         Open in DogCity <ArrowUpRight className="w-3 h-3" />
-      </Link>
-      {mapa && (
-        <Link
-          href={mapa}
-          className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-dusty hover:text-lava transition-colors"
-        >
-          On the map <ArrowUpRight className="w-3 h-3" />
-        </Link>
-      )}
+      </a>
     </div>
   )
   const selo = (
@@ -203,7 +199,7 @@ function CityDeedCard({ city, address }: { city: CityDeed | null; address: strin
           The city registry is not reachable right now. Whatever this address holds in it was
           sealed at block {bloco} and does not change; try again in a moment.
         </p>
-        {botoes(null)}
+        {botoes}
       </div>
     )
   }
@@ -216,12 +212,12 @@ function CityDeedCard({ city, address }: { city: CityDeed | null; address: strin
           The city grows in rings. Ring 1 closed at block {bloco} and this address was not in
           it. Its land comes with Ring 2, at a future block that will be announced.
         </p>
-        <Link
+        <a
           href="/city"
           className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-lava hover:underline"
         >
           See the city <ArrowUpRight className="w-3 h-3" />
-        </Link>
+        </a>
       </div>
     )
   }
@@ -246,7 +242,7 @@ function CityDeedCard({ city, address }: { city: CityDeed | null; address: strin
           the expansion ring, at a future block that has not been announced yet.
         </p>
         {selo}
-        {botoes(h?.map ?? null)}
+        {botoes}
       </div>
     )
   }
@@ -291,7 +287,7 @@ function CityDeedCard({ city, address }: { city: CityDeed | null; address: strin
         </p>
       )}
       {selo}
-      {botoes(l?.map ?? null)}
+      {botoes}
     </div>
   )
 }

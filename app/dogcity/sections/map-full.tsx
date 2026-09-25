@@ -20,7 +20,6 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import Image from "next/image"
-import Link from "next/link"
 import { HAIR, HAIR_SOFT } from "../motion"
 import { LUNAR_SITE } from "../dogcity-data"
 
@@ -65,9 +64,10 @@ export default function MapFull() {
 
         <p className="font-mono text-[12px] md:text-sm text-snow mt-6 text-center">
           The city already exists, and you can walk it.{" "}
-          <Link href="/city" className="text-lava hover:text-lava-light underline underline-offset-2">
+          {/* <a> cru: a /city e rewrite externo, o <Link> navegaria no cliente */}
+          <a href="/city" className="text-lava hover:text-lava-light underline underline-offset-2">
             Enter DogCity →
-          </Link>
+          </a>
         </p>
       </div>
     </section>

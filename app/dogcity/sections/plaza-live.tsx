@@ -202,7 +202,7 @@ export default function Section() {
             </Reveal>
 
             <Reveal delay={0.82} y={10} className="mt-4">
-              <a href="/city?view=park" className="font-mono text-[10px] tracking-[0.22em] text-lava hover:text-lava-light transition-colors">
+              <a href="/city" className="font-mono text-[10px] tracking-[0.22em] text-lava hover:text-lava-light transition-colors">
                 FLY TO THE PARK ↗
               </a>
             </Reveal>
