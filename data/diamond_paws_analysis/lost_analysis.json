@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-25T20:03:05.758248+00:00",
+  "generated_at": "2026-09-25T21:46:15.794492+00:00",
   "data_source": {
     "forensic_behavioral_analysis": "data/forensic_behavioral_analysis.json",
     "chain_stats_jsonl": "data/diamond_paws_analysis/chain_stats.jsonl",
@@ -16,41 +16,41 @@
     }
   },
   "totals": {
-    "diamond_paws_with_stats": 19231,
+    "diamond_paws_with_stats": 19230,
     "diamond_paws_missing_stats": 0,
-    "total_airdrop_dog": 19751023782.0,
-    "pct_of_supply": 19.751023781999997
+    "total_airdrop_dog": 19750133976.0,
+    "pct_of_supply": 19.750133976
   },
   "lost_relaxed": {
-    "count": 5886,
-    "pct_of_diamond_paws": 30.606832718007382,
-    "dog_locked": 5604887994.0,
-    "pct_of_diamond_paws_dog": 28.377708699373787,
-    "pct_of_supply": 5.604887993999999
+    "count": 5885,
+    "pct_of_diamond_paws": 30.603224128965156,
+    "dog_locked": 5603998188.0,
+    "pct_of_diamond_paws_dog": 28.374481888628583,
+    "pct_of_supply": 5.603998188
   },
   "lost_strict": {
     "count": 2,
-    "pct_of_diamond_paws": 0.010399875201497582,
+    "pct_of_diamond_paws": 0.010400416016640665,
     "dog_locked": 1779612.0,
-    "pct_of_diamond_paws_dog": 0.00901022660719917,
+    "pct_of_diamond_paws_dog": 0.009010632546404758,
     "pct_of_supply": 0.0017796119999999999
   },
   "active_after_airdrop": {
     "count": 13345,
-    "pct_of_diamond_paws": 69.39316728199262,
+    "pct_of_diamond_paws": 69.39677587103485,
     "dog_held": 14146135788.0,
     "spent_txo_buckets": {
       "100+": 1838,
-      "21-100": 3617,
+      "21-100": 3616,
       "6-20": 3277,
       "2-5": 2681,
-      "1": 1932
+      "1": 1933
     },
     "note": "These wallets sent something (BTC, other runes\u2026) but their DOG balance equals the airdrop amount \u2014 they're alive HODLers, not lost."
   },
   "funded_after_airdrop_but_unspent": {
-    "count": 5886,
-    "dog_in_these_wallets": 5604887994.0,
+    "count": 5885,
+    "dog_in_these_wallets": 5603998188.0,
     "interpretation": "Received passive deposits (dust attacks, later airdrops, etc.) but never spent. Still 'lost relaxed' \u2014 incoming proves nothing about key control.",
     "extra_deposits_distribution": {
       "1_to_2": {
@@ -58,8 +58,8 @@
         "dog": 1779612.0
       },
       "3_to_5": {
-        "wallets": 646,
-        "dog": 579263706.0
+        "wallets": 645,
+        "dog": 578373900.0
       },
       "6_to_20": {
         "wallets": 4009,
@@ -77,7 +77,7 @@
   },
   "address_type_breakdown": {
     "lost_relaxed": {
-      "p2tr": 5510,
+      "p2tr": 5509,
       "p2pkh": 67,
       "p2sh": 50,
       "p2wpkh/p2wsh": 259
