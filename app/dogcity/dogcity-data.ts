@@ -471,9 +471,20 @@ export const TIPOLOGIA_DA_FORMA: readonly string[] = ["House", "Courtyard", "Low
 // o campo do cemitério (peça K01 do programa, "Campo do Columbário")
 export const COLUMBARIO_NOME = "the Columbarium"
 
-// ⚠️ O MAPA NAVEGÁVEL É /city/mapa E RECEBE `?lot=<id>`. Um id de lote é
-// S03-Q12-B004-L017; uma lápide é L01234. A rota e o cartão montam o link por
-// esta função para o parâmetro não divergir entre os dois.
+// ⚠️ O LINK DA CARTEIRA NA CIDADE É /city?addr=<endereço>. Desde 24/09 22:30 a
+// /city é SÓ o jogo novo (dogcity-mundo), que acha o lote pelo endereço; os ids
+// da cidade antiga NÃO valem nele. /api/dogcity/lookup e /api/profile devolvem
+// este link no campo `map` (lote e lápide) e montam por esta função para não
+// divergir. O endereço entra como a rota já normalizou (bech32 minúsculo,
+// base58 intacto).
+export function linkDaCidade(endereco: string): string {
+  return `/city?addr=${encodeURIComponent(endereco)}`
+}
+
+// ⚠️ SÓ A CIDADE ANTIGA USA ISTO, e ela não está mais no repositório: fica
+// ignorada na máquina do fundador (app/city/mapa/estilo.ts importa daqui).
+// Tirar esta função quebra o tsc da cópia local. /city/mapa agora redireciona
+// 308 para /city (next.config.js).
 export function linkDoMapa(id: string): string {
   return `/city/mapa?lot=${encodeURIComponent(id)}`
 }

@@ -5,7 +5,7 @@ import { resolveIdentity } from '@/lib/dog/identity'
 import { escrituras, buscarEscritura } from '@/lib/city/escrituras'
 import {
   CORTE_CEMITERIO_DOG, CORTE_CEMITERIO_PUBLICADO, LAPIDES,
-  BAIRRO_DO_SETOR, TIPOLOGIA_DA_FORMA, COLUMBARIO_NOME, linkDoMapa,
+  BAIRRO_DO_SETOR, TIPOLOGIA_DA_FORMA, COLUMBARIO_NOME, linkDaCidade,
 } from '@/app/dogcity/dogcity-data'
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -67,9 +67,9 @@ import {
 //                LOTE da cidade (24 m², masterplan §17). Ela recebe lápide no
 //                cemitério, não lote, e a tela não pode anunciar metro quadrado
 //                para ela. Checada antes de `in_snapshot` porque as duas leem a
-//                mesma linha da tabela. Ganha `headstone` (id e link do mapa).
+//                mesma linha da tabela. Ganha `headstone` (id e link /city?addr=).
 //   3. in_snapshot: a carteira está em `dog_snapshot_lookup` e alcança o lote.
-//                Ganha `lot` (lot_id, setor, bairro, tipologia, link do mapa).
+//                Ganha `lot` (lot_id, setor, bairro, tipologia, link /city?addr=).
 //   4. not_in_snapshot: nenhuma das anteriores.
 //
 // ⚠️ QUEM DECIDE O RAMO É A TABELA, NÃO O ÍNDICE. Se um dia os dois divergirem
@@ -206,7 +206,7 @@ export async function GET(req: NextRequest) {
           headstone: {
             id: h.id,
             place: COLUMBARIO_NOME,
-            map: linkDoMapa(h.id),
+            map: linkDaCidade(address),
             ...(full && { x_m: h.x_m, z_m: h.z_m }),
           },
         }),
@@ -241,7 +241,7 @@ export async function GET(req: NextRequest) {
             typology: TIPOLOGIA_DA_FORMA[l.forma] ?? null,
             form: l.forma,
             dsc: l.dsc,
-            map: linkDoMapa(l.lotId),
+            map: linkDaCidade(address),
             ...(full && { x_m: l.x_m, z_m: l.z_m, elevation_m: l.cota_m }),
           },
         }),

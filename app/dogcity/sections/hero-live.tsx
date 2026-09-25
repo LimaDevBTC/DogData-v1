@@ -11,7 +11,7 @@
 // fossem produtos.
 //
 // Os dados de acesso dizem que a casa tem TRÊS produtos: a cidade (/city), a
-// batalha de preço (/city?view=war) e a galáxia (/galaxy). Os três agora abrem
+// batalha de preço e a galáxia (/galaxy). Os três agora abrem
 // a página, lado a lado, cada um com um VERBO diferente (ENTER / WATCH / FIND),
 // uma promessa de uma linha, um número VIVO e o custo de entrada dito em voz
 // alta. As três não flutuam como cards: são um instrumento só, dividido por fio
@@ -34,17 +34,13 @@
 //    EASE_CSS, HAIR, GRIDLINE), que não têm gate nenhum.
 //
 // 2. AS TRÊS STRINGS DE DESTINO SÃO LOAD-BEARING. Estão comentadas uma a uma no
-//    array PORTAS. Resumo:
-//    · /city?view=home  — NUNCA /city cru. plaza-scene.tsx:452 tem
-//      `entradaGuerra = !viewParam && !emLite`: sem parâmetro a câmera cai em
-//      'warentry', ou seja EM CIMA DA BATALHA. Sem o ?view=home as portas 01 e
-//      02 abririam no mesmo primeiro quadro e a promessa da hero morre.
-//    · /city?view=war   — a batalha DENTRO do mundo.
-//    · /galaxy
+//    array PORTAS. Desde 24/09 22:30 a /city é SÓ o jogo novo (a praça antiga,
+//    com o ?view=home e o ?view=war dela, saiu do ar): as portas 01 e 02 vão
+//    para /city limpa até a batalha nova existir no jogo. A /galaxy segue.
 //
-// 3. /city/war É PROIBIDO. O palco solo existe só para o navegador de carteira,
-//    onde a cidade inteira não roda. Mandar quem está no desktop para lá tira a
-//    pessoa do mundo: ela vê a guerra sem cidade em volta e sem para onde ir.
+// 3. PORTA PARA A /city É <a href> CRU, NUNCA <Link>. A /city é servida por
+//    rewrite externo (next.config.js) e o <Link> navega no cliente: não passa
+//    pelo rewrite e ainda faz prefetch do RSC. Só a /galaxy usa <Link>.
 //
 // 4. border-white/8 e border-white/12 NÃO COMPILAM nesta escala de opacidade
 //    (a do projeto é a padrão, múltiplos de 5) e caem no #D1D5DB do preflight,
@@ -68,7 +64,7 @@
 //    hero mentir.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useEffect, useState, type CSSProperties } from "react"
+import { useEffect, useState, type CSSProperties, type ElementType } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { motion, useReducedMotion } from "framer-motion"
@@ -133,9 +129,8 @@ const PORTAS = [
     // Agora as três abrem por `$DOG`, que é o ticker e o dono de tudo isto.
     nome: "$DOG CITY",
     verbo: "ENTER",
-    // ⚠️ NUNCA /city cru: sem ?view= a câmera entra em cima da batalha
-    // (plaza-scene.tsx:452) e esta porta abriria no mesmo quadro da porta 02.
-    href: "/city?view=home",
+    // o jogo novo; o ?view=home era da praça antiga, que saiu do ar em 24/09
+    href: "/city",
     src: "/landing/plaza/plaza-home.webp",
     alt: "Satoshi Plaza on the Moon: the Needle at the centre of the deck, Kray Tower and BitFlow HQ on the ring, DOG ships in orbit above",
     // a chapa tem céu preto vazio no alto; o foco desce para o disco da praça
@@ -151,9 +146,9 @@ const PORTAS = [
     idx: "02",
     nome: "$DOG PRICE WAR",
     verbo: "WATCH",
-    // ⚠️ A BATALHA DA VITRINE É A DA CIDADE. /city/war é o palco solo, feito
-    // para o navegador de carteira, onde a cidade inteira não roda.
-    href: "/city?view=war",
+    // ⚠️ A batalha era a da praça antiga (/city?view=war), que saiu do ar em
+    // 24/09 22:30. Até a batalha nova existir no jogo, a porta leva à /city.
+    href: "/city",
     src: "/landing/plaza/plaza-war-front.webp",
     alt: "The war crater at night: Shiba soldiers on the left and bears on the right, a fire column rising at the front line over the price rails",
     // recorte já apertado na fonte: no desktop não precisa de mais zoom
@@ -383,6 +378,8 @@ export default function HeroLive() {
         <div className={`hero-portas mt-4 lg:mt-6 grid lg:grid-cols-3 gap-px ${GRIDLINE} border ${HAIR}`}>
           {PORTAS.map((p, i) => {
             const m = medidores[p.idx]
+            // /city é rewrite externo: <a> cru (regra 3 do cabeçalho)
+            const Porta: ElementType = p.href.startsWith("/city") ? "a" : Link
             return (
               <motion.div key={p.idx} className="relative bg-void" {...entra(0.18 + i * 0.08)}>
                 {/* a marca da porta primária: barra ABSOLUTA, não border, para
@@ -395,7 +392,7 @@ export default function HeroLive() {
                                lg:bottom-auto lg:top-0 lg:right-0 lg:h-[2px] lg:w-auto"
                   />
                 )}
-                <Link
+                <Porta
                   href={p.href}
                   aria-label={`${p.cta}: ${p.nome}, ${m.aria}`}
                   className="group flex h-full flex-row items-center gap-3 p-2.5
@@ -530,7 +527,7 @@ export default function HeroLive() {
                       </span>
                     </span>
                   </span>
-                </Link>
+                </Porta>
               </motion.div>
             )
           })}

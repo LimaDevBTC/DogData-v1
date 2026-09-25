@@ -334,7 +334,7 @@ export default function Section({}) {
                 SCROLL TO WALK THE PARK ↓
               </p>
               <a
-                href="/city?view=park"
+                href="/city"
                 className="mt-2 inline-block font-mono text-[10px] tracking-[0.2em] text-lava hover:text-lava-light transition-colors"
               >
                 OR STAND AT THE GATE, LIVE ↗

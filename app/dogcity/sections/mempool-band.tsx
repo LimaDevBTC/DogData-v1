@@ -32,7 +32,6 @@
 // Nada de Reveal/IntersectionObserver aqui: a faixa nasce acima da dobra e os
 // reveals deste projeto têm zona morta no topo (motion.tsx) — o conteúdo ficaria
 // invisível justamente onde ele mais importa.
-import Link from "next/link"
 import { ArrowUpRight } from "lucide-react"
 import { useMempoolFeed, minutesAgo, MEMPOOL_STALE_S } from "../use-mempool"
 import { formatDog } from "../dogcity-data"
@@ -61,7 +60,8 @@ export default function MempoolBand() {
 
   return (
     <div className="sticky top-0 z-40 bg-void/95 backdrop-blur border-b border-white/10">
-      <Link
+      {/* <a> cru: a /city e rewrite externo, o <Link> navegaria no cliente */}
+      <a
         href="/city"
         className="group flex items-center gap-3 md:gap-6 px-4 md:px-8 h-9 overflow-hidden whitespace-nowrap
                    font-mono text-[10px] md:text-[11px] tracking-[0.1em] md:tracking-[0.16em] text-mist hover:text-snow transition-colors"
@@ -95,7 +95,7 @@ export default function MempoolBand() {
           WATCH IT FLY
           <ArrowUpRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
         </span>
-      </Link>
+      </a>
     </div>
   )
 }

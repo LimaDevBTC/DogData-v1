@@ -21,7 +21,30 @@ import { NextResponse, type NextRequest } from 'next/server'
  */
 const ROTAS_COM_ENDERECO = /^\/dogcity(\/|$)/
 
+/**
+ * AS SAIDAS DA PRACA ANTIGA NA PROPRIA /city (24/09 22:30, a cidade antiga saiu
+ * do ar). `/city?view=war` era a porta 02 da landing e o portao da WebView, e
+ * `/city?classic=1` o rollback por pessoa. Os dois viram a /city limpa, com o
+ * resto da consulta (`?addr=`, `?lot=`, utm) intacto.
+ *
+ * ⚠️ POR QUE AQUI E NAO NO next.config. Um redirect de la repassa a query do
+ * pedido ao destino: `/city?view=war` voltaria para `/city?view=war`, em laco.
+ * Aqui a consulta sai de verdade. O matcher so casa com essas consultas, entao
+ * a /city normal nunca invoca o middleware (nem custo, nem latencia).
+ *
+ * ⚠️ 307, NAO 308: a batalha nova do jogo (src/guerra) vai usar `?view=war`.
+ * Um 308 ficaria no cache do navegador e sequestraria o link depois; quando a
+ * batalha chegar, basta tirar a regra do matcher abaixo.
+ */
+function semSaidaAntiga(req: NextRequest) {
+  const url = req.nextUrl.clone()
+  if (url.searchParams.getAll('view').includes('war')) url.searchParams.delete('view')
+  url.searchParams.delete('classic')
+  return NextResponse.redirect(url, 307)
+}
+
 export function middleware(req: NextRequest) {
+  if (req.nextUrl.pathname === '/city') return semSaidaAntiga(req)
   if (!ROTAS_COM_ENDERECO.test(req.nextUrl.pathname)) return NextResponse.next()
 
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64')
@@ -54,5 +77,10 @@ export function middleware(req: NextRequest) {
 
 export const config = {
   // ⚠️ NÃO casar com _next/static nem com imagem: middleware em ativo estatico e custo puro.
-  matcher: ['/dogcity/:path*', '/dogcity'],
+  matcher: [
+    '/dogcity/:path*',
+    '/dogcity',
+    { source: '/city', has: [{ type: 'query', key: 'view', value: 'war' }] },
+    { source: '/city', has: [{ type: 'query', key: 'classic' }] },
+  ],
 }

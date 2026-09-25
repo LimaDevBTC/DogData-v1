@@ -1,37 +1,39 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Troca da /city: o jogo novo (projeto Vercel `dogcity-mundo`) servido aqui
+// A /city e o jogo novo (projeto Vercel `dogcity-mundo`), servido aqui
 // ═══════════════════════════════════════════════════════════════════════════
 // Plano em dogcity-mundo/LIGAR.md, secao 2. O jogo vira `www.dogdata.xyz/city`
 // por rewrite externo, na MESMA origem: cookie `dg_wallet`, `dog_vid`,
 // `dogdata-wallet-account` e as rotas `/api/*` valem sem CORS e sem relogar.
 //
-// ⚠️ INERTE SEM A ENV. Sem `DOGCITY_MUNDO_ORIGEM` (ou com valor fora do
-// formato `https://host`, sem barra no fim) a chave `rewrites` nem existe no
-// config e `headers()` devolve exatamente a lista de antes: a tabela de rotas
-// do build e byte a byte a de hoje. Ligar = pôr a env na Vercel e Redeploy.
-// Desligar (rollback da troca inteira) = apagar a env e Redeploy. NUNCA
-// Instant Rollback neste projeto: desliga a promocao automatica e congela os
-// dados do bot.
+// ⚠️ A CIDADE ANTIGA SAIU (decisao do fundador, 24/09 22:30: "agora e so
+// jogo"). `app/city` nao esta mais no repositorio (fica so na maquina do
+// fundador, ignorada pelo .gitignore) e nao ha mais saida para a praca antiga:
+// `?classic=1`, `?view=war` e a env DOGCITY_GUERRA_ANTIGA acabaram.
+//
+// A ENV SO DIZ ONDE O JOGO ESTA. Sem `DOGCITY_MUNDO_ORIGEM` valida (formato
+// `https://host`, sem barra no fim) nao ha rewrite e a /city nao existe num
+// clone limpo (404); na arvore do fundador cai na cidade antiga ignorada, so
+// local. Com ela, os tres rewrites abaixo. Rollback agora e so do lado do jogo
+// (Instant Rollback ou `scripts/desviar.sh` no dogcity-mundo). NUNCA Instant
+// Rollback neste projeto: desliga a promocao automatica e congela os dados do
+// bot.
 //
 // ⚠️ TRES REGRAS DURAS, todas medidas no levantamento de 24/09:
-//   1. `beforeFiles`, nunca `afterFiles`: em afterFiles o `app/city/page.tsx`
-//      prerenderizado ganha e o rewrite nunca roda.
+//   1. `beforeFiles`, nunca `afterFiles`: em afterFiles uma `app/city/page.tsx`
+//      (a copia local ignorada do fundador) ganharia e o rewrite nunca rodaria.
 //   2. Diretorios do jogo LISTADOS POR NOME. `/city/:path*` engoliria os
-//      115 MB de `public/city`, e dali saem `/city/carta.svg` e `hero-mapa.jpg`
-//      (landing /dogcity), `/city/mapa-topo.svg` (/dogcity/docs), os GLB e
-//      posters de /dogcity/partners e `/city/escrituras.bin`, que e a reserva
-//      por URL do leitor de `/api/dogcity/lookup`. Nenhum dos seis nomes
-//      abaixo existe em `public/city` nem em `app/city`. Arquivo novo do jogo
-//      mora num dos seis; pasta nova do jogo exige mudar esta lista.
+//      115 MB de `public/city`, e dali saem `/city/carta.svg`, `carta-v4.svg`
+//      e `hero-mapa.jpg` (landing /dogcity), `/city/mapa-topo.svg`
+//      (/dogcity/docs), os GLB e posters de /dogcity/partners e
+//      `/city/escrituras.bin`, que e a reserva por URL do leitor de
+//      `/api/dogcity/lookup` e `/api/profile`. Nenhum dos seis nomes abaixo
+//      existe em `public/city`. Arquivo novo do jogo mora num dos seis; pasta
+//      nova do jogo exige mudar esta lista.
 //   3. Nunca sob `/dogcity`: a CSP com nonce do middleware bloqueia o script
 //      estatico do jogo.
 //
-// Continuam na praca antiga (Next): `/city?classic=1` sempre (rollback por
-// pessoa) e `/city?view=war` enquanto a batalha nao existir no jogo (a porta
-// 02 da landing e o portao da WebView apontam para la). Para entregar
-// `?view=war` ao jogo, depois que a batalha nova estiver pronta (G7), basta
-// `DOGCITY_GUERRA_ANTIGA=0`. `/city/mapa`, `/city/war` e `/city/plan` nao casam
-// com nenhuma regra e seguem no Next.
+// Links internos para a /city sao `<a href>` cru, NUNCA `<Link>` do Next: o
+// Link navega no cliente, nao passa pelo rewrite e ainda faz prefetch do RSC.
 const ORIGEM_JOGO = /^https?:\/\/[^/]+$/.test(process.env.DOGCITY_MUNDO_ORIGEM || '')
   ? process.env.DOGCITY_MUNDO_ORIGEM
   : ''
@@ -39,17 +41,30 @@ const DIRS_JOGO = 'assets|dados|modelos|texturas|draco|basis'
 const ARQS_JOGO = 'manifesto\\.json|creditos\\.json'
 
 async function rewritesDoJogo() {
-  const naPracaAntiga = [{ type: 'query', key: 'classic' }]
-  if (process.env.DOGCITY_GUERRA_ANTIGA !== '0') {
-    naPracaAntiga.push({ type: 'query', key: 'view', value: 'war' })
-  }
   return {
     beforeFiles: [
-      { source: '/city', missing: naPracaAntiga, destination: `${ORIGEM_JOGO}/city/index.html` },
+      { source: '/city', destination: `${ORIGEM_JOGO}/city/index.html` },
       { source: `/city/:dir(${DIRS_JOGO})/:path*`, destination: `${ORIGEM_JOGO}/city/:dir/:path*` },
       { source: `/city/:arq(${ARQS_JOGO})`, destination: `${ORIGEM_JOGO}/city/:arq` },
     ],
   }
+}
+
+// Rotas da cidade antiga que o jogo nao tem: 308 para a /city, com ou sem a
+// env (o que morreu nao volta). O Next repassa a query do pedido ao destino,
+// entao `/city/mapa?lot=X` vira `/city?lot=X` e `/city/war?addr=Y` vira
+// `/city?addr=Y` (o jogo le `?addr=` e `?lot=`). `mapa` so EXATO: em
+// `public/city/mapa/` ha arquivos servidos, e `/city/mapa/:path*` os engoliria.
+// Nenhum dos outros nomes existe em `public/city`. As consultas antigas da
+// propria /city (`?view=war`, `?classic=1`) saem no middleware.ts, porque um
+// redirect daqui repassaria a query e voltaria para si mesmo.
+const ROTAS_ANTIGAS = 'war|plan|explore|luna|plaza'
+
+async function redirectsDaCidadeAntiga() {
+  return [
+    { source: `/city/:antiga(${ROTAS_ANTIGAS})/:resto*`, destination: '/city', permanent: true },
+    { source: '/city/mapa', destination: '/city', permanent: true },
+  ]
 }
 
 // Cache de borda do rewrite externo, so com a env. O que tem hash no nome
@@ -78,6 +93,7 @@ const HEADERS_DO_JOGO = ORIGEM_JOGO
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   ...(ORIGEM_JOGO ? { rewrites: rewritesDoJogo } : {}),
+  redirects: redirectsDaCidadeAntiga,
   // Um segundo `next dev` (revisao visual, screenshot) nao pode disputar o
   // .next do servidor que ja esta rodando: com NEXT_DIST_DIR ele compila num
   // diretorio proprio. Sem a variavel, nada muda.
