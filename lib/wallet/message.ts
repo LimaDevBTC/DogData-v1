@@ -9,6 +9,16 @@
 
 export const CHALLENGE_TTL_SECONDS = 300
 
+// O desafio diz para QUEM a posse esta sendo provada. Sem esta linha um site
+// falso podia repassar o nosso desafio a vitima e ficar com a sessao
+// (phishing de sessao) sem nada no popup da carteira que o denunciasse; com
+// ela, o dominio aparece no texto assinado. E fixa no dominio
+// canonico, inclusive quando o pedido vem da /city servida pelo rewrite do
+// jogo novo (mesma origem) ou de um preview: o que se prova e posse perante o
+// DOG DATA, nao perante um host de deploy. Mudar o texto nao invalida desafio
+// ja emitido (o verify compara com a string guardada no Redis).
+export const CHALLENGE_URI = 'https://www.dogdata.xyz'
+
 export function buildChallengeMessage(address: string, nonce: string, issuedAt: string): string {
   return [
     'DOG DATA · Proof of ownership',
@@ -16,6 +26,7 @@ export function buildChallengeMessage(address: string, nonce: string, issuedAt: 
     'Sign this message to prove this address is yours.',
     'It is free, it moves no coins and it grants no spending permission.',
     '',
+    `URI: ${CHALLENGE_URI}`,
     `Address: ${address}`,
     `Nonce: ${nonce}`,
     `Issued: ${issuedAt}`,

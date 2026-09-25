@@ -47,8 +47,14 @@ export default function Conversao({ data }: { data: TFunil }) {
   // 27/08. Enquanto estiverem em zero, um funil desenhado normalmente diria
   // "100% de perda" onde na verdade não houve medição — e essa é a diferença
   // que este trabalho inteiro veio proteger.
+  // ⚠️ PELO NOME, nao pela posicao: a migracao 032 poe "Entered the city" e
+  // "Found their lot" no meio do funil, e com indice fixo a nota passaria a
+  // olhar as etapas da cidade. Assim le certo com 5 ou com 7 etapas.
+  const etapaN = (nome: string) => data.etapas.find((e) => e.etapa === nome)?.n
   const meioVazio =
-    data.etapas.slice(2, 4).every((e) => e.n === 0) && data.etapas[4]?.n > 0
+    etapaN("Copied the address") === 0 &&
+    etapaN("Connected a wallet") === 0 &&
+    (etapaN("Donated 10k+ DOG") ?? 0) > 0
 
   return (
     <div className="space-y-12 md:space-y-16">
