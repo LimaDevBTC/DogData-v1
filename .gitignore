@@ -140,3 +140,32 @@ tmp/
 data/foundation/
 scripts/city/rodada.log/
 public/city/_v4teste/
+
+# A CIDADE ANTIGA SAIU DO REPOSITORIO (decisao do fundador, 24/09/2026 22:30:
+# "a /city e so o jogo"). A praca, a guerra, o mapa e o plano do Next ficam SO
+# na maquina do fundador, ignorados, para o bot de hora em hora (git add -A)
+# nunca os devolver ao repo publico. A /city de producao e o jogo dogcity-mundo,
+# servido pelo rewrite do next.config.js. Copia integral fora de qualquer repo:
+# ../cidade-antiga-backup (LEIAME.md la dentro diz de que commit veio).
+/app/city/
+# ferramentas da cidade antiga que importam app/city (sem ela quebram o tsc do build)
+/scripts/_sitio2.ts
+/scripts/_sitio_est.ts
+/scripts/city/_tmp/
+/scripts/city/baia-sonda.ts
+/scripts/city/conferir-terra.ts
+/scripts/city/congelar-mapa.ts
+/scripts/city/derby-sitio.ts
+/scripts/city/estruturas.ts
+/scripts/city/gerar-tabela-alca.ts
+/scripts/city/lotear.ts
+/scripts/city/verificar-alca.ts
+/scripts/city/verificar-aquatics.ts
+/scripts/city/verificar-atletismo-carga.ts
+/scripts/city/verificar-atletismo.ts
+/scripts/city/verificar-campus.ts
+/scripts/city/verificar-derby-carga.ts
+/scripts/city/verificar-derby.ts
+/scripts/city/verificar-orla-cor.ts
+/scripts/city/verificar-orla.ts
+/scripts/city/verificar-sphere-jardim.ts
