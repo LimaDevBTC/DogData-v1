@@ -72,12 +72,13 @@ export default function Mistakes() {
                   @R_irion66036
                 </a>{" "}
                 pointed this out publicly, on X. The criticism was correct, and the ruler was
-                rebuilt from scratch: today all 85,818 wallets in the snapshot are ordered by
-                measured on-chain accumulation, whether they ever received the airdrop or not.
+                rebuilt from scratch: today all 85,818 wallets in the snapshot sit on the same
+                ladder of tiers, measured by on-chain accumulation, whether they ever received the
+                airdrop or not.
               </p>
               <p className="text-[13px] text-mist mt-2.5 leading-relaxed">
                 The airdrop itself became the{" "}
-                <span className="text-snow font-semibold">Genesis Badge</span>: identity and
+                <span className="text-snow font-semibold">Original Airdrop Receiver badge</span>: identity and
                 legacy, never land and never a return, a mark and not a lot.
               </p>
             </div>

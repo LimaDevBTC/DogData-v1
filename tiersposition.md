@@ -77,20 +77,26 @@ régua de convicção do `masterplan.md` §12 ordena dentro dela; desenho em
 
 | # | tier | carteiras | com airdrop | sem airdrop |
 |---|---|---|---|---|
-| 1 | Satoshi Visionary | 1.923 | 86 | 1.837 |
+| 1 | Satoshi Visionary | 1.902 | 86 | 1.816 |
 | 2 | BTC Maximalist | 672 | 100 | 572 |
 | 3 | Rune Master | 983 | 260 | 723 |
-| 4 | Ordinal Believer | 1.545 | 708 | 837 |
-| 5 | DOG Supporter | 2.617 | 1.367 | 1.250 |
-| 6 | Diamond Paws | 21.346 | 19.270 | 2.076 |
-| 7 | **$DOG Soldier** (tier de base, nome do fundador em 28/09) | 45.594 | 4 | 45.590 |
-| 8 | HODL Hero | 570 | 299 | 271 |
+| 4 | Ordinal Believer | 1.548 | 713 | 835 |
+| 5 | DOG Supporter | 2.594 | 1.349 | 1.245 |
+| 6 | Diamond Paws | 21.354 | 19.278 | 2.076 |
+| 7 | **$DOG Soldier** (tier de base, nome do fundador em 28/09) | 45.590 | 0 | 45.590 |
+| 8 | HODL Hero | 572 | 301 | 271 |
 | 9 | Steady Holder | 693 | 411 | 282 |
-| 10 | Profit Taker | 1.520 | 822 | 698 |
-| 11 | Early Exit | 1.464 | 823 | 641 |
-| 12 | Panic Seller | 1.371 | 712 | 659 |
-| 13 | Paper Hands | 5.016 | 2.081 | 2.935 |
-| | sem histórico (buraco da `dog_genealogy`, a tapar) | 504 | 0 | 504 |
+| 10 | Profit Taker | 1.521 | 823 | 698 |
+| 11 | Early Exit | 1.463 | 822 | 641 |
+| 12 | Panic Seller | 1.373 | 714 | 659 |
+| 13 | Paper Hands | 5.016 | 2.082 | 2.934 |
+| | em conciliação (sem primeira aquisição na `dog_genealogy`) | 504 | 0 | 504 |
+| | **fora da escada: empresas (Satoshi Plaza)** | 33 | 4 | 29 |
+
+Base de quem recebeu o airdrop: o airdrop inteiro (os tiers oficiais do airdrop, sem mudança). Base
+de quem comprou: a primeira aquisição. As 33 empresas (27 da tag institucional, 3 rotuladas sem
+prova, Merlin Chain e as tesourarias Dog of Bitcoin e DogData) saem antes da contagem. Soma: 85.818.
+Estes são os números publicados em `/dogcity/docs` §2 em 28/09/2026.
 
 **Histórico, revogado:** a tabela de 10/09 que estava aqui dava lugar pelo tier do airdrop
 (tiers 1 a 3 na Orla Nobre, 4 e 5 na orla da baía, 6 no tecido, o resto e os "sem tier" no

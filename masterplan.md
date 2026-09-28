@@ -3126,17 +3126,17 @@ uma badge de Original Airdrop Receiver, e ponto."*
 7. **A região nobre da baía** (as duas penínsulas, as pontas das cunhas e a beira da baía) vira
    orla de altíssimo padrão para os acumuladores; pode mover lote antes do mint.
 
-Contagem de 28/09: Satoshi Visionary 1.923, BTC Maximalist 672, Rune Master 983, Ordinal
-Believer 1.545, DOG Supporter 2.617, Diamond Paws 21.346, $DOG Soldier 45.594, HODL Hero 570,
-Steady Holder 693, Profit Taker 1.520, Early Exit 1.464, Panic Seller 1.371, Paper Hands 5.016,
-sem histórico 504.
+Contagem publicada em 28/09 (`/dogcity/docs` §2), sem as 33 empresas: Satoshi Visionary 1.902, BTC
+Maximalist 672, Rune Master 983, Ordinal Believer 1.548, DOG Supporter 2.594, Diamond Paws 21.354,
+$DOG Soldier 45.590, HODL Hero 572, Steady Holder 693, Profit Taker 1.521, Early Exit 1.463, Panic
+Seller 1.373, Paper Hands 5.016, em conciliação 504. Quem recebeu o airdrop usa o airdrop inteiro
+como base (os tiers oficiais do airdrop não mudam); o tier escolhe o bairro e a régua de DOG-tempo
+(§12) ordena dentro dele.
 
 **Revoga:** o tier como coisa só do airdrop (`tiersposition.md` §1 antigo), o lugar pelo tier do
 airdrop (§9 de 10/09, §10, §18.1, §22; caderno §3.1 a §3.6, §3.9, §3.13), o Distrito
 Financeiro fora da ilha (§18.2, §33, §34) e o texto da página pública `/dogcity/docs` §2 e §4,
 que ainda precisa ser reescrito.
 
-**Pendente:** base de quem recebeu o airdrop (primeira chegada ou airdrop inteiro); confirmar
-que o tier escolhe a faixa e a régua de DOG-tempo (§12) ordena dentro dela; tapar as 504 sem
-histórico; gravar em código (gerador, jogo, `lib/airdrop-tiers.ts`).
+**Pendente:** tapar as 504 em conciliação; gravar em código (gerador, jogo, `lib/airdrop-tiers.ts`) e redesenhar a Spit, a Bay Shore e a Satoshi Plaza pela escada.
 

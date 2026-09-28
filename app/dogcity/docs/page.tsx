@@ -427,8 +427,8 @@ export default function DogCityDocsPage() {
                 <Row label="sha256" value="ccac1c2f5fd64b31359a8f37c52236cc3543f9a950904296e9aeabe44ca96bdf" />
               </DataBlock>
               <P>
-                The first file holds one row per wallet: balance, coin age, UTXO count, tier,
-                Runestone count. The second holds every counted UTXO, by wallet.
+                The first file holds one row per wallet: balance, coin age, UTXO count, airdrop
+                history, Runestone count. The second holds every counted UTXO, by wallet.
               </P>
 
               <Sub>Who the snapshot found</Sub>
@@ -448,25 +448,52 @@ export default function DogCityDocsPage() {
                 kept the Runestone that brought it to them. On chain, that is the longest patience
                 the data can show.
               </P>
-              <P>
-                Holder tier counts at the snapshot. These tiers are the ranks of the Genesis
-                Badge, earned by airdrop history. The badge is a mark, never a payout, and it never
-                changes how much land a wallet gets: the curve in section 3 sizes every lot in the
-                city, badge or no badge. For the first five tiers it does decide the neighborhood,
-                and only the neighborhood, because the city has two waterfronts and they are
-                finite:
+              <Sub>Every wallet has a tier</Sub>
+              <P className="mt-3">
+                Every wallet in the snapshot sits on the same ladder of thirteen tiers, whether or
+                not it ever received the airdrop. The ladder measures what a wallet did with its
+                $DOG from the day it first acquired it: the first acquisition is the starting point
+                and the balance at block 966,670 is the result. For a wallet that received the
+                original airdrop, the starting point is the airdrop itself, measured exactly as the
+                airdrop page always has. A wallet that bought on the open market and showed the
+                same conviction lands in the same tier.
               </P>
               <Table
-                head={["Tier", "Wallets"]}
+                head={["Tier", "From the first acquisition", "Wallets"]}
                 rows={[
-                  ["Satoshi Visionary", "88"],
-                  ["BTC Maximalist", "100"],
-                  ["Rune Master", "261"],
-                  ["Ordinal Believer", "713"],
-                  ["DOG Supporter", "1,349"],
-                  ["Diamond Paws", "19,279"],
+                  ["Satoshi Visionary", "+1,000% or more", "1,902"],
+                  ["BTC Maximalist", "+500% to +1,000%", "672"],
+                  ["Rune Master", "+200% to +500%", "983"],
+                  ["Ordinal Believer", "+50% to +200%", "1,548"],
+                  ["DOG Supporter", "above 0% and below +50%", "2,594"],
+                  ["Diamond Paws", "holds exactly its first acquisition", "21,354"],
+                  ["$DOG Soldier", "never sold, below one airdrop allocation", "45,590"],
+                  ["HODL Hero", "90% or more retained", "572"],
+                  ["Steady Holder", "75% to 90% retained", "693"],
+                  ["Profit Taker", "50% to 75% retained", "1,521"],
+                  ["Early Exit", "25% to 50% retained", "1,463"],
+                  ["Panic Seller", "10% to 25% retained", "1,373"],
+                  ["Paper Hands", "less than 10% retained", "5,016"],
                 ]}
               />
+              <P>
+                Three rules hold the ladder together. To sit in any accumulation tier, or in
+                Diamond Paws, a wallet must hold at least one full airdrop allocation, 889,806
+                $DOG, at the snapshot: that is where every airdrop wallet started, so the bar is the
+                same for everyone. A wallet whose first acquisition was below 10,000 $DOG does not
+                climb the multiplier ladder, however much it grew, and counts as a DOG Supporter.
+                The six selling tiers measure what was sold, so they carry no minimum.
+              </P>
+              <P>
+                Receiving the airdrop earns the Original Airdrop Receiver badge (26,943 wallets). A
+                wallet that held a Runestone at the snapshot gets the stone planted in the front
+                garden of its lot (29,011 wallets). Neither one changes a tier, a lot size or an
+                address. Companies, known by a public label or by the institutional behavior
+                measured in section 4, are not on the ladder: the 33 found at the snapshot have
+                their own address inside Satoshi Plaza (section 5). The first acquisition of 504
+                wallets is still being reconciled against the chain, and their tier will be
+                published when it is.
+              </P>
             </Section>
 
             {/* ═══════════════════════════ 3 ═══════════════════════════ */}
@@ -587,21 +614,21 @@ export default function DogCityDocsPage() {
                 take an entry in the Founders&apos; draw (section 6 covers all three).
               </P>
               <P>
-                The airdrop itself did not disappear from the picture. It became the Genesis Badge:
-                every wallet that received the original airdrop carries this mark permanently, on
-                the record as part of the first community. The Genesis Badge is identity and
-                legacy, never land and never a return: it pays out nothing and it never changes lot
-                size, because the curve sizes every lot in the city, badge or no badge.
+                The airdrop itself did not disappear from the picture. It became the Original
+                Airdrop Receiver badge: every wallet that received the original airdrop carries this
+                mark permanently, on the record as part of the first community. The badge is
+                identity and legacy, never land and never a return: it pays out nothing, it never
+                changes lot size, and since 28 September 2026 it no longer decides a tier or an
+                address either.
               </P>
               <P>
-                What it does decide, for the first five tiers, is the address. The bay has two
-                shores and neither can hold everyone, so the badge ranks who gets them. Tiers 1 to
-                3, the 446 oldest and steadiest wallets, take the Spit: two rows of large lots on
-                the causeway that closes the bay, facing the water. Tiers 4 and 5, 2,062 wallets,
-                take the Bay Shore on the opposite margin, looking back at the Spit across the
-                water: a beach row, two peninsulas, five rows and two canals. Tier 6, Diamond Paws,
-                is the body of the city and has no fixed district. Everyone else is placed by the
-                position ruler alone.
+                The address follows the tier from section 2, the same ladder for every wallet. The
+                tier chooses the district, and the DOG-time ruler described below orders the wallets
+                inside it. The two waterfronts are finite, so they go to the top of the ladder in
+                that order: first the Spit, the causeway that closes the bay, facing the water; then
+                the Bay Shore on the opposite margin, with its beach row and its two peninsulas;
+                then the rows behind them, the canal fronts and the body of the city. Companies are
+                not on the ladder and have their own address inside Satoshi Plaza (section 5).
               </P>
 
               <Sub>Why the problem exists</Sub>
@@ -839,6 +866,13 @@ export default function DogCityDocsPage() {
                 remains, without touching the water. The largest institutional lot, Gate.io at
                 54,300 m2, reaches 36% of the raised cap.
               </P>
+              <P>
+                Since 28 September 2026 the rule is wider: every company goes here, whether it is
+                known by a public label (an exchange, a marketplace, a bridge, a desk, a treasury) or
+                by the institutional behavior measured in section 4. That is 33 wallets at the
+                snapshot. None of them competes with a person for a residential lot, and none of
+                them sits outside the plaza.
+              </P>
 
               <Sub>How land is sized inside the district</Sub>
               <P className="mt-3">
@@ -874,7 +908,8 @@ export default function DogCityDocsPage() {
                 to be generated and every wallet had to land somewhere. Any wallet marked this way
                 has the right of appeal described below, and a successful appeal moves it to a
                 residential lot of the same standard from the reserve. An exchange that has not
-                reached out and was not marked is not placed there by deduction.
+                reached out and was not marked is not placed there by deduction. A wallet that
+                carries a public label as a company is placed there by that label.
               </P>
 
               <Sub>The right of appeal</Sub>
@@ -909,7 +944,7 @@ export default function DogCityDocsPage() {
               <P className="mt-0">
                 Founders are a separate track from the residential city: a way to fund and unlock
                 the city&apos;s construction, layered on top of a wallet&apos;s own lot from section
-                3, never a substitute for it. A wallet&apos;s Genesis Badge, tier, and lot never
+                3, never a substitute for it. A wallet&apos;s Original Airdrop Receiver badge, tier, and lot never
                 change because of anything in this section.
               </P>
 
@@ -1023,7 +1058,7 @@ export default function DogCityDocsPage() {
                 items={[
                   {
                     lead: "No lot has an announced address.",
-                    text: "The snapshot decides how much land a wallet receives, not where in the city that land sits. The working record that places every wallet is kept in the open while it is drawn, and it is still being redrawn: no address in it has been announced and none of it is final. The version that counts is the one published with the same method, numbers, and fingerprint used here, on the day the city is sealed.",
+                    text: "The snapshot decides how much land a wallet receives, not where in the city that land sits. The working record that places every wallet is kept in the open while it is drawn, and it is still being redrawn: no address in it has been announced and none of it is final. The version that counts is the one published with the same method, numbers, and fingerprint used here, on the day the city is sealed. It is being redrawn now to follow the tier ladder of section 2.",
                   },
                   {
                     lead: "No deed has been minted.",
@@ -1035,7 +1070,7 @@ export default function DogCityDocsPage() {
                   },
                   {
                     lead: "The Financial District is drawn, and nothing in it has been issued.",
-                    text: "Its 21 lots are sized by the same curve under the raised cap, and section 5 publishes their total area. What has not happened is the deed: nothing there has been minted, and every wallet placed there by measurement keeps the right of appeal.",
+                    text: "Its 21 lots are sized by the same curve under the raised cap, and section 5 publishes their total area. What has not happened is the deed: nothing there has been minted, and every wallet placed there by measurement keeps the right of appeal. Since 28 September 2026 it takes every company, 33 wallets at the snapshot.",
                   },
                   {
                     lead: "The city is not reproducible by outsiders yet.",
