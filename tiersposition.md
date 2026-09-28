@@ -77,26 +77,26 @@ régua de convicção do `masterplan.md` §12 ordena dentro dela; desenho em
 
 | # | tier | carteiras | com airdrop | sem airdrop |
 |---|---|---|---|---|
-| 1 | Satoshi Visionary | 1.902 | 86 | 1.816 |
-| 2 | BTC Maximalist | 672 | 100 | 572 |
-| 3 | Rune Master | 983 | 260 | 723 |
-| 4 | Ordinal Believer | 1.548 | 713 | 835 |
-| 5 | DOG Supporter | 2.594 | 1.349 | 1.245 |
-| 6 | Diamond Paws | 21.354 | 19.278 | 2.076 |
-| 7 | **$DOG Soldier** (tier de base, nome do fundador em 28/09) | 45.590 | 0 | 45.590 |
-| 8 | HODL Hero | 572 | 301 | 271 |
-| 9 | Steady Holder | 693 | 411 | 282 |
-| 10 | Profit Taker | 1.521 | 823 | 698 |
-| 11 | Early Exit | 1.463 | 822 | 641 |
-| 12 | Panic Seller | 1.373 | 714 | 659 |
-| 13 | Paper Hands | 5.016 | 2.082 | 2.934 |
-| | em conciliação (sem primeira aquisição na `dog_genealogy`) | 504 | 0 | 504 |
+| 1 | Satoshi Visionary | 1.908 | 86 | 1.822 |
+| 2 | BTC Maximalist | 673 | 100 | 573 |
+| 3 | Rune Master | 986 | 260 | 726 |
+| 4 | Ordinal Believer | 1.550 | 713 | 837 |
+| 5 | DOG Supporter | 2.614 | 1.349 | 1.265 |
+| 6 | Diamond Paws | 21.423 | 19.278 | 2.145 |
+| 7 | **$DOG Soldier** (tier de base, nome do fundador em 28/09) | 45.999 | 0 | 45.999 |
+| 8 | HODL Hero | 564 | 301 | 263 |
+| 9 | Steady Holder | 691 | 411 | 280 |
+| 10 | Profit Taker | 1.524 | 823 | 701 |
+| 11 | Early Exit | 1.466 | 822 | 644 |
+| 12 | Panic Seller | 1.372 | 714 | 658 |
+| 13 | Paper Hands | 5.015 | 2.082 | 2.933 |
+| | base pelos UTXOs do snapshot (fora da genealogia; já contadas acima) | 158 | 0 | 158 |
 | | **fora da escada: empresas (Satoshi Plaza)** | 33 | 4 | 29 |
 
 Base de quem recebeu o airdrop: o airdrop inteiro (os tiers oficiais do airdrop, sem mudança). Base
 de quem comprou: a primeira aquisição. As 33 empresas (27 da tag institucional, 3 rotuladas sem
 prova, Merlin Chain e as tesourarias Dog of Bitcoin e DogData) saem antes da contagem. Soma: 85.818.
-Estes são os números publicados em `/dogcity/docs` §2 em 28/09/2026.
+Estes são os números publicados em `/dogcity/docs` §2 em 28/09/2026, depois de a genealogia ser religada (as 504 que faltavam foram tapadas: 346 pela genealogia, 158 pelos UTXOs do snapshot). Arquivo: `data/snapshots/dog_966670_tiers.json`, gravado por `scripts/city/tiers_966670.py`.
 
 **Histórico, revogado:** a tabela de 10/09 que estava aqui dava lugar pelo tier do airdrop
 (tiers 1 a 3 na Orla Nobre, 4 e 5 na orla da baía, 6 no tecido, o resto e os "sem tier" no
