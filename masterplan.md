@@ -431,6 +431,8 @@ fundador, no mesmo mare, e não sítios polares isolados. Isso casa com a decis�
 é domo novo ao lado, não cidade nova em outro hemisfério. NÃO IMPLEMENTADO: `sites.ts`
 continua polar até alguém mexer.
 
+> ⚠️ **REVOGADO EM 28/09/2026 (quem mora na alça).** A escolha dos moradores pelos "três primeiros tiers do classificador de airdrop" caiu: toda carteira tem tier pela primeira aquisição e o airdrop é só badge. Regra vigente: §43 e `wiki-dogdata/dogcity/tiers.md`.
+
 🔒 **2026-09-10, dono: A ORLA NOBRE DA ALÇA.** A alça de terra que abraça a baía passa a
 ser o endereço mais nobre da cidade, acima do centro. Ver o desenho inteiro no §10.
 
@@ -476,6 +478,8 @@ entre alargar o número de lotes ou cortar por saldo dentro do tier de menor pri
 ---
 
 ## §10 — A Orla Nobre da alça 🔒
+
+> ⚠️ **REVOGADO EM 28/09/2026 (quem mora na alça).** A geometria da alça continua valendo; a escolha dos moradores pelo tier do airdrop não. Regra vigente: §43 e `wiki-dogdata/dogcity/tiers.md`.
 
 A faixa de terra entre a baía e a água externa, arco 346° a 116,5°, 15,85 km de eixo.
 Decidida em 2026-09-10 (registro no §9). Os números são medidos, não estimados: vêm das
@@ -831,6 +835,8 @@ inclusive a dele.
 ---
 
 ## §12 — A régua de posição: DOG-tempo 🔒 (2026-09-12)
+
+> ⚠️ **REVOGADO EM 28/09/2026 (emenda).** O tier NÃO é mais só emblema do airdrop: toda carteira recebe tier da escada de 13 pela primeira aquisição, e o airdrop vira o badge Original Airdrop Receiver. A régua de DOG-tempo abaixo continua valendo; a proposta é que ela ordene DENTRO de cada tier (pendente de confirmação). Regra vigente: §43 e `wiki-dogdata/dogcity/tiers.md`.
 
 **DECIDIDO pelo dono.** *"Organizar tudo por nível de acumulação, independentemente do
 airdrop. Quem for do airdrop ganha um emblema. Joga todas as carteiras pelo mesmo filtro."*
@@ -1523,6 +1529,8 @@ reserva intercalada, que é o land bank de 15% do contrato público §5.
 
 ### §18.1 — Orla Nobre, como ficou
 
+> ⚠️ **REVOGADO EM 28/09/2026 (quem mora na alça).** Registro do que foi construído com tiers do airdrop; não repetir. Regra vigente: §43 e `wiki-dogdata/dogcity/tiers.md`.
+
 Geometria LIDA da cena (`AVENIDA_ALCA` em `teia.ts`), nunca copiada: via em r 6.950 com
 44 m, arco de terra de 346° a 116,5°. Duas fileiras com testada na avenida, a da frente
 crescendo para a baía e a de trás para a praia dos fundos. Testada final medida: **74,0 m na
@@ -1539,6 +1547,8 @@ testada desigual na mesma fileira) ou quebrava a fórmula única (lote fixo de 1
 vezes o que a curva promete às 446).
 
 ### §18.2 — Distrito Financeiro, como ficou
+
+> ✅ **CONSISTENTE COM 28/09 NO CONCEITO, com dois ajustes.** Aqui o distrito ficou DENTRO da Satoshi Plaza (r 915 a 1.055 na cidade antiga), que é a regra vigente. (1) Em 28/09 o fundador ampliou: toda empresa, por NOME ou por COMPORTAMENTO, vai para dentro da praça. (2) No jogo novo a Satoshi Plaza é a ilha r < 900 e o setor 8 foi plantado FORA dela (r 1.516 a 1.561): isso é defeito a corrigir. Ver §43 e `wiki-dogdata/dogcity/baia-e-orla.md`.
 
 As 21 institucionais na faixa seca entre a muralha do precinto (r 915) e a margem interna do
 Lago da Praça (r 1.055), de frente para a água, ordenadas por saldo, com a curva publicada e
@@ -1695,6 +1705,8 @@ INTERNA que cabe, e mais interna é a própria ordem da fila.
 
 ## §19 — Banda rígida por tier: NÃO 🔒 (medido 21/09/2026)
 
+> ⚠️ **REVOGADO EM 28/09/2026 (emenda).** A medição foi feita com os tiers do airdrop. Com a escada de todas as carteiras, "o tier escolhe a faixa" voltou como proposta (pendente). Regra vigente: §43 e `wiki-dogdata/dogcity/tiers.md`.
+
 O caderno de tiers (§3.4 a §3.8, de 10/09) manda o tier decidir o ANEL onde a carteira mora.
 Três medições independentes dizem que isso não cabe, e a própria constituição já tinha
 decidido contra: **o §12, travado em 12/09, dois dias depois, escreve que o tier deixa de
@@ -1806,6 +1818,8 @@ teste, e todos produzem cidade plausível. Só medição cruzada entre as duas p
 ---
 
 ## §22 — A Orla da Baía 🔒 (21/09/2026)
+
+> ⚠️ **REVOGADO EM 28/09/2026 (quem mora na orla da baía).** A forma (as duas penínsulas, praia, canais) continua como estudo; os moradores por tier 4 e 5 do airdrop caíram. A orla da baía é agora a orla de altíssimo padrão dos acumuladores da escada nova (`wiki-dogdata/dogcity/baia-e-orla.md`). Regra vigente: §43 e `wiki-dogdata/dogcity/tiers.md`.
 
 A última peça grande do registro. Caderno completo em `tiersposition.md` §3.13; aqui fica
 só o que é lei de plano-diretor.
@@ -2605,6 +2619,8 @@ media. Regredimos E o alvo sempre esteve longe. As duas coisas são verdade.
 
 ## §33 — Custódia recebendo lote residencial 🔓 (22/09/2026)
 
+> ⚠️ **REVOGADO EM 28/09/2026 (destino das empresas).** Empresa por nome OU por comportamento sai da escada e vai para dentro da Satoshi Plaza. Regra vigente: §43 e `wiki-dogdata/dogcity/tiers.md`.
+
 **A pergunta foi do fundador**, olhando um aviso de log sobre 3.058 carteiras marcadas
 `elegivel: false` que mesmo assim recebem lote. O palpite dele (carteiras pós-snapshot)
 estava errado pelo mecanismo e certo pelo instinto.
@@ -2676,6 +2692,8 @@ consome, e a segunda se prova com medição, não com intenção.**
 ---
 
 ## §34 — A cidade aprovada em 22 de 22 🔒 (23/09/2026, 01:04)
+
+> ⚠️ **REVOGADO EM 28/09/2026 (destino das empresas).** A decisão de manter no residencial a treasury/cold "não provada" caiu: comportamento de empresa basta para ir à Satoshi Plaza. Regra vigente: §43 e `wiki-dogdata/dogcity/tiers.md`.
 
 **A quarta rodada da noite, e a que fechou.** `PHI_LOTE=6500`, `RESERVA_PCT=1`, superfície
 assada da cena, 12 passadas. **k = 0,91075**, 70.709 lotes (69.989 de carteira, 699 do
@@ -3083,3 +3101,42 @@ hora. Agora `scripts/city/rodada.sh` roda tudo fora do git (dados em `dogcity-pa
 lendo `public/city/_v4teste/` com `?reg=`) e para no portão; `scripts/city/publica_rodada.sh`
 copia o palco APROVADO para a árvore (é o deploy, fica com o fundador) e depois o fundador
 roda `sobe_lookup.py` para o lookup de produção.
+
+---
+
+## §43: Tiers de todas as carteiras 🔒 (28/09/2026)
+
+**DECIDIDO pelo fundador.** Fonte única e detalhada: `wiki-dogdata/dogcity/tiers.md`.
+
+*"Todas as carteiras que têm DOG no dia do snapshot precisam ser categorizadas por nível de
+acumulação e convicção, assim como fizemos com quem recebeu o AirDrop. Isso significa que um
+cara que foi acumulando a mercado com mais convicção tem o mesmo tier do outro cara que fez a
+mesma coisa porém começou ganhando o AirDrop. O fato dele ter recebido o AirDrop faz ele ganhar
+uma badge de Original Airdrop Receiver, e ponto."*
+
+1. **A escada é a mesma para as 85.818 carteiras**, com a primeira aquisição no lugar do valor
+   do airdrop (Supabase `dog_genealogy.first_amount_dog`) e o saldo do bloco 966.670.
+2. **Piso de uma cota (889.806 DOG no snapshot)** para os tiers de acumulação e para Diamond
+   Paws. Os tiers de venda não têm piso.
+3. **Entrada abaixo de 10.000 DOG não sobe na escada de multiplicação** (fica DOG Supporter).
+4. **$DOG Soldier** é o tier de base: tem DOG, não vendeu e tem menos de uma cota.
+5. **Badges:** Original Airdrop Receiver (26.943); Runestone no snapshot vira pedra no jardim
+   da frente (29.011).
+6. **Empresa, por nome ou comportamento, sai da escada e vai para dentro da Satoshi Plaza.**
+7. **A região nobre da baía** (as duas penínsulas, as pontas das cunhas e a beira da baía) vira
+   orla de altíssimo padrão para os acumuladores; pode mover lote antes do mint.
+
+Contagem de 28/09: Satoshi Visionary 1.923, BTC Maximalist 672, Rune Master 983, Ordinal
+Believer 1.545, DOG Supporter 2.617, Diamond Paws 21.346, $DOG Soldier 45.594, HODL Hero 570,
+Steady Holder 693, Profit Taker 1.520, Early Exit 1.464, Panic Seller 1.371, Paper Hands 5.016,
+sem histórico 504.
+
+**Revoga:** o tier como coisa só do airdrop (`tiersposition.md` §1 antigo), o lugar pelo tier do
+airdrop (§9 de 10/09, §10, §18.1, §22; caderno §3.1 a §3.6, §3.9, §3.13), o Distrito
+Financeiro fora da ilha (§18.2, §33, §34) e o texto da página pública `/dogcity/docs` §2 e §4,
+que ainda precisa ser reescrito.
+
+**Pendente:** base de quem recebeu o airdrop (primeira chegada ou airdrop inteiro); confirmar
+que o tier escolhe a faixa e a régua de DOG-tempo (§12) ordena dentro dela; tapar as 504 sem
+histórico; gravar em código (gerador, jogo, `lib/airdrop-tiers.ts`).
+

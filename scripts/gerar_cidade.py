@@ -4563,6 +4563,12 @@ def area_nominal(dog, s):
 # ═══════════════════════════════════════════════════════════════════════════
 # A ORLA NOBRE: OS TIERS 1 A 3 NA ALÇA DA BAÍA
 #
+# ⚠️ REVOGADO EM 28/09/2026 (fundador): quem mora aqui NÃO sai mais do tier do AIRDROP.
+# Toda carteira do snapshot tem tier pela primeira aquisição (escada de 13, com o
+# $DOG Soldier de base); o airdrop é só badge. Regra: wiki-dogdata/dogcity/tiers.md e
+# masterplan.md §43. A geometria abaixo continua valendo; a seleção de moradores por
+# tier do airdrop tem de ser trocada antes do próximo registro.
+#
 # Especificação em `tiersposition.md` §3.1 e §3.2, geometria lida da cena
 # (`AVENIDA_ALCA` em teia.ts). Duas fileiras com testada na avenida circular de
 # r 6.950: a da frente cresce para DENTRO, rumo à praia da baía, a de trás
@@ -4879,6 +4885,12 @@ def planta_orla_nobre():
 
 # ═══════════════════════════════════════════════════════════════════════════
 # A ORLA DA BAÍA: OS TIERS 4 E 5 NA MARGEM QUE OLHA A ALÇA
+#
+# ⚠️ REVOGADO EM 28/09/2026 (fundador): quem mora aqui NÃO sai mais do tier do AIRDROP.
+# Toda carteira do snapshot tem tier pela primeira aquisição (escada de 13, com o
+# $DOG Soldier de base); o airdrop é só badge. Regra: wiki-dogdata/dogcity/tiers.md e
+# masterplan.md §43. A geometria abaixo continua valendo; a seleção de moradores por
+# tier do airdrop tem de ser trocada antes do próximo registro.
 #
 # Caderno em `tiersposition.md` §3.3 (o lugar, fechado em 10/09) e §3.10 (a
 # forma, fechada em 21/09). Geometria lida de `orla-baia.ts`, que é quem
