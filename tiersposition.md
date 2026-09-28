@@ -24,77 +24,87 @@
 >
 > ⚠️ **Repo público.** Este arquivo é visível. Não colocar aqui nada que não possa ser
 > lido por qualquer pessoa.
+>
+> ⚠️⚠️ **28/09/2026: A REGRA DE TIER MUDOU. LEIA ANTES DE QUALQUER COISA.** Toda carteira do
+> snapshot tem tier (13, com o $DOG Soldier de base), calculado pela primeira aquisição; o
+> airdrop é só o badge Original Airdrop Receiver; empresa (nome ou comportamento) vai para a
+> Satoshi Plaza. A fonte única é `wiki-dogdata/dogcity/tiers.md`. Toda seção abaixo que dá
+> lugar pelo tier do AIRDROP está revogada e marcada. Esse erro aconteceu três ou quatro vezes
+> porque agentes seguiram este caderno.
 
 ---
 
 ## 1. De onde vem o tier
 
-**MEDIDO.** Fonte única: `data/forensic_behavioral_analysis.json`, gerado por
-`scripts/update_forensic_analysis.py`. Rótulos em `lib/airdrop-tiers.ts`.
+⚠️ **REESCRITO EM 28/09/2026 (fundador). A regra anterior está revogada.** Fonte única da
+regra de tier: `wiki-dogdata/dogcity/tiers.md`. Este resumo aponta para lá.
 
-A régua tem dois campos em cascata:
-
-```
-change_pct = (saldo_hoje − airdrop) / airdrop * 100   → decide os 6 primeiros tiers
-retention  =  saldo_hoje / airdrop * 100              → decide os 6 últimos
-```
-
-⚠️ **DUAS RÉGUAS MEDEM COMPORTAMENTO NESTE PROJETO, E ELAS NÃO SÃO A MESMA.** Esta aqui, a
-escada de 12 tiers, é do AIRDROP: as duas contas acima dividem pelo valor recebido no drop,
-então quem comprou no mercado não tem denominador e fica sem tier. A outra é a RÉGUA DE
-CUSTÓDIA (ritmo circadiano por teste de Rayleigh, sobreposição de contrapartes, volume, taxa
-de marketplace), que foi rodada sobre a CIDADE INTEIRA, está publicada em `/dogcity/docs`
-seção 4 e documentada em `wiki-dogdata/dogcity/custodia-e-distrito-financeiro.md`, e é ela
-que separa pessoa de serviço e manda 21 carteiras institucionais para o Distrito Financeiro.
-Ler "o tier cobre 31%" como "só 31% da cidade foi analisada" é erro, e custou uma sessão
-inteira em 20/09/2026.
-
-⚠️ **O tier cobre um terço da cidade, não a cidade.** Medido em 10/09/2026 cruzando com
-`data/holders_by_age.csv`:
+**DECIDIDO.** TODA carteira do snapshot (85.818, bloco 966.670) recebe um tier da mesma
+escada, pela variação entre a **primeira aquisição** da carteira e o saldo no snapshot. Ter
+recebido o airdrop NÃO muda tier nem lugar: vira só o badge **Original Airdrop Receiver**.
+Quem tinha Runestone no snapshot ganha a pedra no jardim da frente do lote. Empresa, por nome
+ou por comportamento, sai da escada e vai para dentro da Satoshi Plaza (§3.12.5).
 
 ```
-holders hoje:      85.791
-com tier:          26.954  (31,4%)
-sem tier nenhum:   58.837  (68,6%)   ← compraram DOG, nunca receberam airdrop
+base  = primeira aquisição (Supabase dog_genealogy.first_amount_dog)
+saldo = DOG no bloco 966.670 (dog_snapshot_lookup.dog)
+cota  = 889.806 DOG
+
+saldo < base                  -> venda por retenção: HODL Hero >= 90% | Steady >= 75 |
+                                 Profit Taker >= 50 | Early Exit >= 25 | Panic Seller >= 10 |
+                                 Paper Hands
+saldo >= base e < cota        -> $DOG Soldier
+saldo = base                  -> Diamond Paws
+saldo > base e base < 10.000  -> DOG Supporter
+saldo > base                  -> variação >= 1000% Satoshi Visionary | >= 500 BTC Maximalist |
+                                 >= 200 Rune Master | >= 50 Ordinal Believer | senão DOG Supporter
 ```
 
-Qualquer regra de posição baseada em tier PRECISA dizer o que fazer com os 68,6%. Ver §4.
+**Histórico, revogado:** até 28/09 este parágrafo dizia que a escada de 12 tiers era do
+airdrop (a conta dividia pelo valor recebido no drop) e que quem comprou no mercado ficava sem
+tier. Essa leitura levou vários agentes ao mesmo erro: dar lugar pelo tier do airdrop. Não
+use. A régua de custódia (pessoa contra serviço) continua valendo, mas o destino das empresas
+é a Satoshi Plaza.
 
 ---
 
 ## 2. A tabela mestra
 
-**MEDIDO** (contagens de 10/09/2026, 19:39). **DECIDIDO/PENDENTE** por linha.
+**MEDIDO em 28/09/2026** (Supabase `dog_genealogy` x `dog_snapshot_lookup`; consulta em
+`wiki-dogdata/dogcity/tiers.md`). **Lugar: PENDENTE** (proposta: o tier escolhe a faixa e a
+régua de convicção do `masterplan.md` §12 ordena dentro dela; desenho em
+`wiki-dogdata/dogcity/baia-e-orla.md`).
 
-⚠️ **ESTAS CONTAGENS SÃO PRÉ-SNAPSHOT E NÃO SÃO A CONTA FINAL.** Elas são de
-10/09, dois dias antes do bloco 966.670. A contagem que vale é a do snapshot
-fechado, publicada em `/dogcity/docs`: por exemplo o tier 4 tem **713** e não
-715, e o tier 5 tem **1.349** e não 1.347. A tabela fica aqui porque é o
-registro da decisão; para citar número, use o docs ou o próprio snapshot.
-
-| # | tier | carteiras | posição | estado |
+| # | tier | carteiras | com airdrop | sem airdrop |
 |---|---|---|---|---|
-| 1 | Satoshi Visionary | 88 | Orla Nobre, frente, **23,2° a 77,7°** (centro do arco) | 🔒 **fechado** (§3.1, §3.2) |
-| 2 | BTC Maximalist | 99 | Orla Nobre, frente, os dois flancos | 🔒 **fechado** (§3.1, §3.2) |
-| 3 | Rune Master | 258 | Orla Nobre, fileira de trás | 🔒 **fechado** (§3.1, §3.2) |
-| 4 | Ordinal Believer | 713 | Orla da baía: dedos e praia, **de frente para as mansões** | 🔒 **fechado** (§3.3 lugar, §3.13 forma) |
-| 5 | DOG Supporter (`dog_legend`) | 1.349 | Orla da baía: os quatro anéis de canal, **atrás do tier 4** | 🔒 **fechado** (§3.3 lugar, §3.13 forma) |
-| 6 | Diamond Paws | 19.289 | **Tecido de bairros** (miolo entre a praça e o cinturão) | 🔒 lugar decidido (§3.4) |
-| 7 | HODL Hero | 301 | O Grupo (§3.5) | 🔒 regra decidida |
-| 8 | Steady Holder | 411 | O Grupo (§3.5) | 🔒 regra decidida |
-| 9 | Profit Taker | 823 | O Grupo (§3.5) | 🔒 regra decidida |
-| 10 | Early Exit | 824 | O Grupo (§3.5) | 🔒 regra decidida |
-| 11 | Panic Seller | 715 | O Grupo (§3.5) | 🔒 regra decidida |
-| 12 | Paper Hands | 50.627 (só 2.084 ainda holders) | O Grupo (§3.5) | 🔒 regra decidida |
-| — | **sem tier** (nunca receberam airdrop) | **58.827** + 15 de infra | O Grupo (§3.5) | 🔒 regra decidida |
+| 1 | Satoshi Visionary | 1.923 | 86 | 1.837 |
+| 2 | BTC Maximalist | 672 | 100 | 572 |
+| 3 | Rune Master | 983 | 260 | 723 |
+| 4 | Ordinal Believer | 1.545 | 708 | 837 |
+| 5 | DOG Supporter | 2.617 | 1.367 | 1.250 |
+| 6 | Diamond Paws | 21.346 | 19.270 | 2.076 |
+| 7 | **$DOG Soldier** (tier de base, nome do fundador em 28/09) | 45.594 | 4 | 45.590 |
+| 8 | HODL Hero | 570 | 299 | 271 |
+| 9 | Steady Holder | 693 | 411 | 282 |
+| 10 | Profit Taker | 1.520 | 822 | 698 |
+| 11 | Early Exit | 1.464 | 823 | 641 |
+| 12 | Panic Seller | 1.371 | 712 | 659 |
+| 13 | Paper Hands | 5.016 | 2.081 | 2.935 |
+| | sem histórico (buraco da `dog_genealogy`, a tapar) | 504 | 0 | 504 |
 
-Os 6 primeiros somam **21.796 carteiras e 28,13% do supply**: a coorte OG.
+**Histórico, revogado:** a tabela de 10/09 que estava aqui dava lugar pelo tier do airdrop
+(tiers 1 a 3 na Orla Nobre, 4 e 5 na orla da baía, 6 no tecido, o resto e os "sem tier" no
+Grupo). Não use.
 
 ---
 
 ## 3. Decisões fechadas
 
 ### 3.1 — Orla Nobre da alça, tiers 1 a 3 (🔒 2026-09-10)
+
+> ⚠️ **REVOGADO COMO REGRA DE QUEM MORA (28/09/2026).** Esta decisão dá lugar pelo tier do
+> airdrop. Desde 28/09 toda carteira tem tier pela primeira aquisição e o airdrop é só
+> badge (§1 e `wiki-dogdata/dogcity/tiers.md`). A geometria da alça (testada, fundo até a praia, bônus) continua valendo; quem mora nela sai da escada nova.
 
 Registro completo no `masterplan.md` §10, com o 🔒 no §9. Resumo operacional:
 
@@ -180,6 +190,10 @@ nem no lote do projeto.*
 
 ### 3.2 — O arranjo dentro da alça: P1, P2 e P3 (🔒 2026-09-10)
 
+> ⚠️ **REVOGADO COMO REGRA DE QUEM MORA (28/09/2026).** Esta decisão dá lugar pelo tier do
+> airdrop. Desde 28/09 toda carteira tem tier pela primeira aquisição e o airdrop é só
+> badge (§1 e `wiki-dogdata/dogcity/tiers.md`). O arranjo geométrico pode ser reaproveitado; a atribuição por tier do airdrop não.
+
 **DECIDIDO. A ordem dentro do tier sai do próprio `change_pct`**, o mesmo número que já
 define o tier, em ordem decrescente **do centro do arco para as pontas**. Quem multiplicou
 mais o airdrop fica mais perto do centro. Não introduz critério novo: o tier diz o bairro
@@ -229,6 +243,10 @@ de forma assimétrica para zerar esse desvio; o invariante é **o trecho SV cent
 
 ### 3.3 — Orla interna da baía, tiers 4 e 5 (🔒 2026-09-10)
 
+> ⚠️ **REVOGADO COMO REGRA DE QUEM MORA (28/09/2026).** Esta decisão dá lugar pelo tier do
+> airdrop. Desde 28/09 toda carteira tem tier pela primeira aquisição e o airdrop é só
+> badge (§1 e `wiki-dogdata/dogcity/tiers.md`). A orla da baía agora é a orla de altíssimo padrão dos acumuladores da escada nova (`wiki-dogdata/dogcity/baia-e-orla.md`).
+
 **DECIDIDO.** O **Ordinal Believer (715)** fica na margem oposta da baía, **de frente para
 as mansões da alça**. O **DOG Supporter (1.347)** fica na **segunda faixa, atrás dele**,
 repetindo o padrão que a alça estabeleceu: primeira fileira na água, segunda atrás olhando
@@ -265,6 +283,10 @@ e a margem mais próxima da baía está em r 3.536, 36 m além. Não é conflito
 terra que o gerador ainda não alcança. Ver §5.
 
 ### 3.4 — Tecido de bairros, tier 6 Diamond Paws (🔒 2026-09-10)
+
+> ⚠️ **REVOGADO COMO REGRA DE QUEM MORA (28/09/2026).** Esta decisão dá lugar pelo tier do
+> airdrop. Desde 28/09 toda carteira tem tier pela primeira aquisição e o airdrop é só
+> badge (§1 e `wiki-dogdata/dogcity/tiers.md`). Diamond Paws agora inclui quem comprou e segurou com pelo menos uma cota.
 
 **DECIDIDO.** Os **19.289 Diamond Paws** ocupam o **tecido de bairros propriamente dito**,
 o miolo entre a Praça Central e o cinturão. **A ordem é a intensidade de uso da carteira,
@@ -319,6 +341,10 @@ outro arquivo.**
 
 ### 3.5 — O Grupo: tiers 7 a 12 e os sem tier (🔒 2026-09-10)
 
+> ⚠️ **REVOGADO COMO REGRA DE QUEM MORA (28/09/2026).** Esta decisão dá lugar pelo tier do
+> airdrop. Desde 28/09 toda carteira tem tier pela primeira aquisição e o airdrop é só
+> badge (§1 e `wiki-dogdata/dogcity/tiers.md`). "O Grupo" e os "sem tier" deixaram de existir: toda carteira tem tier.
+
 **MEDIDO.** A conta da cidade fecha em três blocos:
 
 ```
@@ -363,6 +389,10 @@ Ou seja **44% do Grupo já tinha destino escrito** antes desta rodada. A ordena�
 para as 31.092 acima de 20k, que é onde estão 53,26B e as 631 carteiras com 10M+.
 
 ### 3.6 — A regra de precedência: o tier decide o anel (🔒 2026-09-10)
+
+> ⚠️ **REVOGADO COMO REGRA DE QUEM MORA (28/09/2026).** Esta decisão dá lugar pelo tier do
+> airdrop. Desde 28/09 toda carteira tem tier pela primeira aquisição e o airdrop é só
+> badge (§1 e `wiki-dogdata/dogcity/tiers.md`). A ideia de o tier escolher a faixa e um critério ordenar dentro dela continua como proposta, com a escada nova e a régua de convicção do masterplan §12.
 
 **DECIDIDO. O TIER DECIDE O ANEL; O CRITÉRIO PRÓPRIO DO TIER ORDENA DENTRO DO ANEL.**
 
@@ -511,6 +541,10 @@ dos tiers intermediários vem do lugar que o perfil de comportamento já dá a e
 que já existe: 8 radiais de 96 m e 5 anéis de 56 m, que dão frente de água a 12.625 lotes.
 
 ### 3.9 — A orla da baía: pedra mais DOG (🔒 2026-09-11)
+
+> ⚠️ **REVOGADO COMO REGRA DE QUEM MORA (28/09/2026).** Esta decisão dá lugar pelo tier do
+> airdrop. Desde 28/09 toda carteira tem tier pela primeira aquisição e o airdrop é só
+> badge (§1 e `wiki-dogdata/dogcity/tiers.md`). O Runestone vira a pedra no jardim da frente; não escolhe lugar.
 
 **MEDIDO, e muda o enquadramento: o airdrop do DOG foi distribuído para holders de
 Runestone.** Por isso ter os dois não é raro, é o estado natural. Cruzando
@@ -677,6 +711,10 @@ fora 13 que tinham. O rastreio para trás é por posição de sat e está valida
 casos de dono inequívoco (ver o cabeçalho do artefato).
 
 ### 3.13 — A orla da baía: a FORMA, não só o lugar (🔒 2026-09-21)
+
+> ⚠️ **REVOGADO COMO REGRA DE QUEM MORA (28/09/2026).** Esta decisão dá lugar pelo tier do
+> airdrop. Desde 28/09 toda carteira tem tier pela primeira aquisição e o airdrop é só
+> badge (§1 e `wiki-dogdata/dogcity/tiers.md`). A FORMA (as duas penínsulas em 11,3° e 91,3°, praia, canais) continua valendo como estudo; quem mora nela sai da escada nova.
 
 A §3.3 fechou **onde** os tiers 4 e 5 moram e disse com todas as letras que testada, área
 e ordem interna ficavam para depois. Isto aqui é o depois. Desenho aprovado pelo fundador
@@ -1281,6 +1319,13 @@ Quando for reconstruir, o gerador precisa:
 
 ## 6. Registro de mudanças deste arquivo
 
+- **2026-09-28**: **A regra de tier foi refeita pelo fundador.** Toda carteira tem tier pela
+  primeira aquisição (escada de 13, com o $DOG Soldier de base, piso de uma cota do airdrop e
+  entrada mínima de 10.000 para subir na escada de multiplicação); o airdrop vira badge; a
+  Runestone vira pedra no jardim; empresa (nome ou comportamento) vai para a Satoshi Plaza. §1
+  e §2 reescritos; §3.1 a §3.6, §3.9 e §3.13 marcados como revogados para quem mora; §3.12.5
+  reafirmado. Detalhe e números em `wiki-dogdata/dogcity/tiers.md` e `dogcity/baia-e-orla.md`.
+
 - **2026-09-22**, a rodada dos cadernos antes da regeração final. Seis decisões do fundador
   e duas correções de texto vencido, todas medidas contra o registro selado de 22/09 02:27
   (`data/dogcity_lotes.csv`, portão 15 de 15, merkle root `9c16f4bd...f4c4`):
@@ -1388,6 +1433,10 @@ Quando for reconstruir, o gerador precisa:
 
 
 ## §3.12 — Distrito Financeiro (decisão em aberto, 2026-09-13)
+
+> ⚠️ **O LUGAR ABAIXO ("a coroa entre AN1 e AN2") FOI REVOGADO** em §3.12.5 (13/09) e de novo em
+> 28/09/2026: toda empresa, por nome ou comportamento, vai para DENTRO da Satoshi Plaza. Leia
+> §3.12.5 e `wiki-dogdata/dogcity/tiers.md`.
 
 **O problema:** a régua de DOG-tempo joga a Kraken (maior saldo da cidade, 12,95 B) para a
 posição 82.761. O fundador: "as corretoras que a gente busca listagem, a gente joga pro final
@@ -1658,6 +1707,11 @@ Atenuante que NÃO dispensa o conserto: nenhuma das 21 carteiras marcadas hoje �
 então hoje nenhum recurso cai na Orla da Baía; a frase publicada, porém, é conferível.
 
 ### §3.12.5 — O Distrito Financeiro vai para DENTRO da Satoshi Plaza 🔒 (2026-09-13)
+
+> ✅ **REAFIRMADO E AMPLIADO EM 28/09/2026 (fundador):** TODA empresa, conhecida pelo NOME
+> ou pelo COMPORTAMENTO, vai para dentro da Satoshi Plaza. Isso inclui as carteiras rotuladas
+> sem prova de custódia que o `masterplan.md` §34 tinha deixado no residencial. O anel fora da
+> ilha em que o jogo plantou o setor 8 (r 1.516 a 1.561) contraria esta decisão.
 
 **REVOGA a decisão 1 de §3.12.1**, que o punha na coroa entre AN1 e AN2. O fundador levantou
 que a Plaza é grande demais para o que tem hoje, e a medida confirma.

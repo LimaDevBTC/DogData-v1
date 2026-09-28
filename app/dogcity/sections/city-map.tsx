@@ -70,6 +70,10 @@ import { SNAPSHOT } from "../dogcity-data"
  *  ⚠️ E "oldest UTXO" saiu daqui junto com o resto: a régua é DOG-tempo desde
  *  12/09 (masterplan §12), saldo vezes idade somado moeda a moeda. */
 const BASE_RELEVO = "#6F5C45"
+// ⚠️ REVOGADO EM 28/09/2026 (fundador): esta legenda dá lugar pelo tier do AIRDROP (1 a 3 na
+// Spit, 4 e 5 na Bay Shore). Desde 28/09 toda carteira tem tier pela primeira aquisição e o
+// airdrop é só badge (wiki-dogdata/dogcity/tiers.md, masterplan.md §43). Não remontar esta
+// seção nem reaproveitar esta tabela sem refazê-la pela regra nova.
 export const TIERS_MAPA: { cor: string; op: number; nome: string; onde: string }[] = [
   { cor: "#FFCE7A", op: 0.86, nome: "1 · Satoshi Visionary", onde: "the spit, front row, centre of the arc" },
   { cor: "#F79B34", op: 0.86, nome: "2 · BTC Maximalist", onde: "the spit, front row, both flanks" },

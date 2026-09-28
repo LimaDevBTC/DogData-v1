@@ -412,6 +412,9 @@ export default function Snapshot() {
             <div className="font-mono text-[9px] md:text-[10px] tracking-[0.25em] text-mist">
               WHO LIVES WHERE
             </div>
+            {/* ⚠️ REVOGADO EM 28/09/2026: a frase abaixo ("Airdrop behaviour decides the district")
+                e a legenda dizem a regra antiga. Toda carteira tem tier pela primeira aquisição; o
+                airdrop é só badge (wiki-dogdata/dogcity/tiers.md). Refazer antes de remontar a seção. */}
             <ChaveTiers className="mt-3" />
             <p className="mt-4 text-[11px] md:text-xs text-dusty leading-relaxed">
               Airdrop behaviour decides the district. Wallet age decides the street.
