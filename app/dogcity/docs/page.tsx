@@ -461,19 +461,19 @@ export default function DogCityDocsPage() {
               <Table
                 head={["Tier", "From the first acquisition", "Wallets"]}
                 rows={[
-                  ["Satoshi Visionary", "+1,000% or more", "1,902"],
-                  ["BTC Maximalist", "+500% to +1,000%", "672"],
-                  ["Rune Master", "+200% to +500%", "983"],
-                  ["Ordinal Believer", "+50% to +200%", "1,548"],
-                  ["DOG Supporter", "above 0% and below +50%", "2,594"],
-                  ["Diamond Paws", "holds exactly its first acquisition", "21,354"],
-                  ["$DOG Soldier", "never sold, below one airdrop allocation", "45,590"],
-                  ["HODL Hero", "90% or more retained", "572"],
-                  ["Steady Holder", "75% to 90% retained", "693"],
-                  ["Profit Taker", "50% to 75% retained", "1,521"],
-                  ["Early Exit", "25% to 50% retained", "1,463"],
-                  ["Panic Seller", "10% to 25% retained", "1,373"],
-                  ["Paper Hands", "less than 10% retained", "5,016"],
+                  ["Satoshi Visionary", "+1,000% or more", "1,908"],
+                  ["BTC Maximalist", "+500% to +1,000%", "673"],
+                  ["Rune Master", "+200% to +500%", "986"],
+                  ["Ordinal Believer", "+50% to +200%", "1,550"],
+                  ["DOG Supporter", "above 0% and below +50%", "2,614"],
+                  ["Diamond Paws", "holds exactly its first acquisition", "21,423"],
+                  ["$DOG Soldier", "never sold, below one airdrop allocation", "45,999"],
+                  ["HODL Hero", "90% or more retained", "564"],
+                  ["Steady Holder", "75% to 90% retained", "691"],
+                  ["Profit Taker", "50% to 75% retained", "1,524"],
+                  ["Early Exit", "25% to 50% retained", "1,466"],
+                  ["Panic Seller", "10% to 25% retained", "1,372"],
+                  ["Paper Hands", "less than 10% retained", "5,015"],
                 ]}
               />
               <P>
@@ -490,9 +490,9 @@ export default function DogCityDocsPage() {
                 garden of its lot (29,011 wallets). Neither one changes a tier, a lot size or an
                 address. Companies, known by a public label or by the institutional behavior
                 measured in section 4, are not on the ladder: the 33 found at the snapshot have
-                their own address inside Satoshi Plaza (section 5). The first acquisition of 504
-                wallets is still being reconciled against the chain, and their tier will be
-                published when it is.
+                their own address inside Satoshi Plaza (section 5). For 158 wallets the chain record
+                of the first acquisition is incomplete, so the starting point is the oldest coin
+                each one still held at the snapshot.
               </P>
             </Section>
 
