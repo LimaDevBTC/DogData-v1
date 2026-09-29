@@ -50,7 +50,8 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'DogCity: block 966,670 decided your address on the Moon',
     description:
-      "The snapshot was taken at block 966,670. 85,818 wallets hold a lot in DogCity. No claim, no signature, nothing to register.",
+      // 29/09/2026: a frase de 22/09 sobreviveu aqui, no cartao do X: as 15.802 lapides nao sao lote
+      "The snapshot was taken at block 966,670. 70,016 wallets hold a lot in DogCity, and 15,802 a headstone. No claim, no signature, nothing to register.",
     images: [OG],
   },
 }

@@ -154,7 +154,7 @@ export const PHASES: DogCityPhase[] = [
       "The plan follows the terrain. The monumental avenue is traced, district boundaries respond to elevation, and every eligible wallet receives a demarcated lot.",
     screenReaderSummary:
       "Phase 2 of 5. The same terrain now carries the staked masterplan: the primary avenue, organic district outlines, the plaza ring and a vast field of faintly glowing demarcated lots.",
-    metric: "97,673 lots demarcated",
+    metric: "70,714 lots demarcated",
     image: "/landing/phase-02.webp",
     alt: "Lunar terrain etched with glowing masterplan lines: avenue, district boundaries and thousands of faint lot markers",
   },
@@ -216,8 +216,8 @@ export const PHASE_ANNOTATIONS: PhaseAnnotation[][] = [
       text: "Roads, lots and buildings will rise over mapped lunar terrain, a real place on the Moon." },
   ],
   [ // 02 · survey
-    { id: "lots", u: 0.8611, v: 0.3049, title: "97,673 LOTS DEMARCATED", primary: true,
-      text: "Every eligible wallet receives a lot, segmented across BTC, SOL and STX holders." },
+    { id: "lots", u: 0.8611, v: 0.3049, title: "70,714 LOTS DEMARCATED", primary: true,
+      text: "Every wallet of block 966,670 above 591.95 $DOG receives a lot; below that line, a headstone." },
     { id: "plaza", u: 0.4781, v: 0.4699, title: "CENTRAL PLAZA · STAKED" },
   ],
   [ // 03 · foundations
@@ -360,8 +360,10 @@ export function shortAddr(addr: string): string {
 //
 // ⚠️ ESTE NÚMERO VIVE EM TRÊS LUGARES E TEM DE MUDAR NOS TRÊS JUNTOS: aqui (a
 // página e a rota), em `scripts/city/sobe_lookup.py` (a tabela que a consulta
-// lê) e em `scripts/gerar_cidade.py` (`K_PUBLICADA` e `DOG_MIN_LOTE`, que é
-// quem corta de verdade). Divergir não quebra build nenhum: a página anuncia
+// lê) e na lista de carteiras que o jogo lê (`dogcity-palco/data/dogcity_lotes.csv`,
+// coluna area_m2, que já sai da curva e do corte; o gerador antigo deste repositório,
+// `scripts/gerar_cidade.py`, saiu com a cidade antiga em 29/09/2026). Divergir não
+// quebra build nenhum: a página anuncia
 // um corte e a cidade aplica outro, e ninguém vê.
 //
 // ⚠️ O NÚMERO PUBLICADO ARREDONDA PARA CIMA. O corte exato é 591,9410967, e
@@ -372,7 +374,9 @@ export const PISO_LOTE_M2 = 24
 export const CORTE_CEMITERIO_DOG = (PISO_LOTE_M2 / CURVA_K) ** 2          // 591,9410967
 export const CORTE_CEMITERIO_PUBLICADO = Math.ceil(CORTE_CEMITERIO_DOG * 100) / 100   // 591,95
 export const LAPIDES = 15802
-export const LOTES_DE_CARTEIRA = 69995
+// 29/09/2026: o registro saiu do Mundo (scripts/city/registro_do_mundo.py): 70.016 carteiras
+// com lote = 69.984 nos bairros + 32 empresas na Satoshi Plaza (a Merlin Chain tem 1 $DOG: lápide)
+export const LOTES_DE_CARTEIRA = 69984
 
 // ── OS DOIS TETOS DA CURVA ─────────────────────────────────────────────────
 // O teto residencial é publicado na §3 da página; o elevado, na §5, e vale só
@@ -428,19 +432,20 @@ export function alvoDaCurva(dog: number, areaEntregue: number): number {
 //     abaixo de 0,90 ..... 85 -> 10
 //     abaixo de 0,50 ..... 21 ->  1
 //     p1 sobre mediana ... 0,9892 (piso 0,95)
+// ⚠️ REMEDIDO EM 29/09/2026 sobre o registro do Mundo (70.016 lotes de carteira, 32 deles
+// empresas sob o teto de 150.000 m2), `sobe_lookup.py --dry-run`: a cidade agora entrega
+// MAIS que a curva na mediana (1,0763): a ponta de fileira se reparte entre os lotes da
+// fileira e as orlas vão até a água. Mínimo 0,7199, p1 0,9989; abaixo de 0,95 só 2 lotes,
+// os dois de empresa na Satoshi Plaza (setor 8), e nenhum abaixo de 0,50.
 export const ENTREGA = {
-  medidaEm: "22 September 2026",
-  mediana: "0.920",
-  minimo: "0.365",
-  abaixoDe095: "67348",
-  abaixoDe090: "10",
-  abaixoDe050: "1",
-  // ⚠️ A CAUDA NÃO É ESPALHADA, e dizer isso é o que separa "falta de tecido"
-  // de "escolha sobre carteira". Medido em 22/09: os 21 lotes abaixo de 0,50
-  // estão TODOS no setor 4, e 82 dos 85 abaixo de 0,90 também. Se numa rodada
-  // futura a cauda espalhar por vários setores, esta frase morre junto com os
-  // números e a §3 tem de perder a afirmação, não só trocar o dígito.
-  abaixoDe090NoPiorSetor: "82",
+  medidaEm: "29 September 2026",
+  mediana: "1.08",
+  minimo: "0.72",
+  abaixoDe095: "2",
+  abaixoDe090: "1",
+  abaixoDe050: "0",
+  // a cauda que sobrou é toda do setor 8 (as empresas na praça), não do tecido
+  abaixoDe090NoPiorSetor: "1",
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -461,15 +466,17 @@ export const BAIRRO_DO_SETOR: Readonly<Record<number, string>> = {
   9: "Bay Shore",
 }
 
-// ⚠️ A TIPOLOGIA É SAÍDA DE `forma_de(utxo_count)` em scripts/gerar_cidade.py
+// ⚠️ A TIPOLOGIA É SAÍDA DE `forma_de(utxo_count)` (a mesma conta de scripts/city/merkle.py, que recusa o registro se divergir)
 // (masterplan §9, regra 3), e o índice aqui é o código gravado no registro:
 //   0 massa única (casa no centro, fazenda na borda)   1 pátio, geminada
 //   2 condomínio baixo   3 torre   4 quarteirão com várias torres
 // Uma palavra cada, porque é linha de escritura, não aula.
 export const TIPOLOGIA_DA_FORMA: readonly string[] = ["House", "Courtyard", "Low-rise", "Tower", "Towers"]
 
-// o campo do cemitério (peça K01 do programa, "Campo do Columbário")
-export const COLUMBARIO_NOME = "the Columbarium"
+// o cemitério da cidade (peça CEMITERIO do dogcity-mundo, 29/09/2026): o nome que o jogo
+// grava no portão e na placa. "the Columbarium" era do palco e contradizia o próprio §3
+// da docs ("a field, not a wall of niches").
+export const CEMITERIO_NOME = "the City Cemetery"
 
 // ⚠️ O LINK DA CARTEIRA NA CIDADE É /city?addr=<endereço>. Desde 24/09 22:30 a
 // /city é SÓ o jogo novo (dogcity-mundo), que acha o lote pelo endereço; os ids

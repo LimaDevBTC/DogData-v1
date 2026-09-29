@@ -68,9 +68,10 @@ function pad(n: number, w: number): string {
   return String(n).padStart(w, '0')
 }
 
-// mesmo padrão do CSV: S03-Q12-B004-L017 e L01234
+// mesmo padrão do CSV: S09-Q00-B0063-L001 e L01234 (29/09/2026: o registro do Mundo tem
+// quarteirão de 4 dígitos; scripts/city/gerar_escrituras.mjs usa a mesma conta)
 export const lotIdDe = (s: number, q: number, b: number, l: number) =>
-  `S${pad(s, 2)}-Q${pad(q, 2)}-B${pad(b, 3)}-L${pad(l, 3)}`
+  `S${pad(s, 2)}-Q${pad(q, 2)}-B${pad(b, 4)}-L${pad(l, 3)}`
 export const lapideIdDe = (n: number) => `L${pad(n, 5)}`
 
 function validar(bytes: Uint8Array): Indice | null {

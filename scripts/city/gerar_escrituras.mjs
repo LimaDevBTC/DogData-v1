@@ -11,7 +11,7 @@
 // fonte da verdade sobre onde cada lote fica é o CSV que o merkle root sela.
 //
 // ⚠️ ESTE SCRIPT SÓ LÊ OS CSVs. Ele não regenera cidade nenhuma e não escreve
-// em `data/`. Quem muda o CSV é `scripts/gerar_cidade.py`, e só o fundador roda.
+// em `data/`. Quem muda o CSV é `scripts/city/registro_do_mundo.py` (29/09/2026), a partir do jogo.
 // Se o CSV mudar, roda-se este script de novo e o .bin acompanha.
 //
 // FORMATO (little-endian, sem dependência, lido por lib/city/escrituras.ts):
@@ -137,7 +137,8 @@ function chave(address) {
 }
 
 const pad = (n, w) => String(n).padStart(w, '0')
-const lotIdDe = (s, q, b, l) => `S${pad(s, 2)}-Q${pad(q, 2)}-B${pad(b, 3)}-L${pad(l, 3)}`
+// ⚠️ 29/09/2026: o registro saiu do Mundo (registro_do_mundo.py), e no Mundo o quarteirão tem 4 dígitos (S09-Q00-B0063-L001)
+const lotIdDe = (s, q, b, l) => `S${pad(s, 2)}-Q${pad(q, 2)}-B${pad(b, 4)}-L${pad(l, 3)}`
 
 // ── lê os dois registros ───────────────────────────────────────────────────
 // ⚠️ SÓ O CSV SELADO ENTRA. data/dogcity_merkle.json grava o sha256 dos dois
@@ -205,8 +206,8 @@ for (const r of lapides) {
   const n = +r.lapide.replace(/^L/, '')
   if (!Number.isInteger(n) || n < 1 || n > 65535) { rejeitados.fora_da_faixa++; continue }
   const x = Math.round(+r.x_m * 100), z = Math.round(+r.z_m * 100)
-  // o cemitério não grava cota; o Campo do Columbário está no platô do pódio,
-  // e a rota devolve 0 aqui e não finge precisão que o registro não tem.
+  // o cemitério não grava cota (o campo é gramado drapeado no chão do Mundo), e a
+  // rota devolve 0 aqui e não finge precisão que o registro não tem.
   empurra(r.address, { kind: KIND_LAPIDE, setor: 0, quarto: 0, forma: 0, quarteirao: 0, lote: n, x, z, area: 0, cota: 0, flags: 0 })
 }
 

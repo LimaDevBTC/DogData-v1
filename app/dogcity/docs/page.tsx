@@ -5,7 +5,8 @@
 // 13/09/2026). ⚠️ DESDE 20/09 ESTA PÁGINA MANDA E O MARKDOWN NÃO. O markdown
 // ficou na curva de piso 1 m² com alvo de 46,66 km² (§3 dele), na reserva de
 // 15% e no split 30/15/55 da praça (§5 dele); aqui já valem piso 24 m², alvo
-// 46,17 km², reserva 1% e o split desmentido pela medição. Ressincronizar
+// 46,66 km² (29/09/2026: as 70.016 carteiras com lote, empresas sob o teto elevado;
+// era 46,17), reserva 1% e o split desmentido pela medição. Ressincronizar
 // esta página A PARTIR do markdown REVERTE o contrato público. O markdown
 // carrega um aviso no topo dizendo a mesma coisa; se aquele aviso sumir,
 // este comentário continua valendo. A liberdade de APRESENTAÇÃO continua
@@ -222,26 +223,25 @@ export default function DogCityDocsPage() {
           </div>
           <P className="max-w-2xl">
             What DogCity is, how the snapshot was built and verified, how land is sized, how the
-            project tells a person from a service, and what the Financial District is. This
-            document does not say where any wallet lives in the city. That comes later and will be
-            published the same way everything else here was: with the method, the numbers, and a
-            fingerprint.
+            project tells a person from a service, and what the Financial District is. Where each
+            wallet lives follows from the rules in section 4 and is drawn in the city plan below;
+            the lookup on the DogCity page answers it for any address, from the same registry.
           </P>
 
           {/* ── o mapa ──────────────────────────────────────────────────── */}
           <figure className="m-0 mt-8 max-w-3xl">
             <a
-              href="/city/mapa-topo.svg"
+              href="/city/carta-v5.svg"
               target="_blank"
               rel="noopener noreferrer"
               className={`group relative block border ${HAIR} bg-white/[0.02] overflow-hidden`}
             >
-              {/* SVG de 4,4 MB: NUNCA importado, servido direto de /public por
-                  URL. Uma tag <img> comum, não next/image (que não otimiza
-                  SVG e só adicionaria uma camada sem ganho). */}
+              {/* 29/09/2026: era o mapa topográfico de 13/09 (a cidade antiga). Agora a carta
+                  da cidade atual (dogcity-mundo, tag cidade-966670-v1): a imagem é o WebP de
+                  2000 px e o clique abre o SVG de 5,9 MB. <img> comum, não next/image. */}
               <img
-                src="/city/mapa-topo.svg"
-                alt="Topographic map of DogCity's lunar site: the ring roads, the spit, the bay and Satoshi Plaza over real Mare Tranquillitatis elevation data."
+                src="/landing/citymap-2000-v5.webp"
+                alt="City plan of DogCity at block 966,670: Satoshi Plaza, the road web, the Spit along the bay, the Bay Shore and its two peninsulas, the great lake with its front row, the park that closes Ring 1 and Ring 2 drawn beyond it, every lot coloured by tier."
                 className="w-full h-auto"
                 loading="lazy"
               />
@@ -253,7 +253,7 @@ export default function DogCityDocsPage() {
               </span>
             </a>
             <figcaption className={`mt-3 border-t ${HAIR_SOFT} pt-3 font-mono text-[9px] md:text-[10px] tracking-[0.14em] text-mist leading-relaxed`}>
-              THE TERRAIN THE CITY IS BUILT ON · CLICK TO OPEN AT FULL RESOLUTION
+              THE CITY AT BLOCK 966,670 · CLICK TO OPEN AT FULL RESOLUTION
             </figcaption>
           </figure>
         </div>
@@ -299,7 +299,7 @@ export default function DogCityDocsPage() {
               <P>
                 Every wallet that holds $DOG receives a place on that terrain. Not a place you
                 buy, not a place you pick: a place decided by that wallet&apos;s own history on the
-                Bitcoin blockchain. For 69,995 wallets that place is a lot. For the 15,802 that hold
+                Bitcoin blockchain. For 70,016 wallets that place is a lot. For the 15,802 that hold
                 less than the smallest lot the city can draw, it is a marble headstone in the city
                 cemetery, and the headstone carries the right to mint a lot later (section 3). The city is not a real-estate product. It is a permanent record of
                 on-chain activity, rendered as a place you can walk through.
@@ -489,8 +489,10 @@ export default function DogCityDocsPage() {
                 wallet that held a Runestone at the snapshot gets the stone planted in the front
                 garden of its lot (29,011 wallets). Neither one changes a tier, a lot size or an
                 address. Companies, known by a public label or by the institutional behavior
-                measured in section 4, are not on the ladder: the 33 found at the snapshot have
-                their own address inside Satoshi Plaza (section 5). For 158 wallets the chain record
+                measured in section 4, are not on the ladder: 33 were found at the snapshot, and 32
+                of them have their own address inside Satoshi Plaza (section 5). The 33rd, Merlin
+                Chain, held 1 $DOG at the block and receives a headstone like any wallet below the
+                line of section 3. For 158 wallets the chain record
                 of the first acquisition is incomplete, so the starting point is the oldest coin
                 each one still held at the snapshot.
               </P>
@@ -501,7 +503,8 @@ export default function DogCityDocsPage() {
               <P className="mt-0">Lot area grows with the square root of a wallet&apos;s $DOG balance, between a floor and a cap:</P>
               <DataBlock>
                 <Row label="area" value="clamp( 0.986443 x sqrt(DOG), 24 m2, 40,000 m2 )" />
-                <Row label="curve target" value="46.17 km2" note="(the sum over every wallet that receives a lot)" />
+                <Row label="curve target" value="46.66 km2" note="(the sum over every wallet that receives a lot, companies under the raised cap of section 5)" />
+                <Row label="ground in the registry" value="58.53 km2" note="(what the 70,016 lots actually hold, below)" />
               </DataBlock>
               <P>
                 Square root is the whole point. Doubling a balance does not double the land, it
@@ -520,28 +523,34 @@ export default function DogCityDocsPage() {
                 ]}
               />
               <P>
-                Six wallets reach that ceiling. Four of them were measured as institutional by the
-                ruler in section 4 and sit in the Financial District, where section 5 raises the
-                ceiling to 150,000 m2.
+                Six wallets reach that ceiling, and all six are companies: they sit in the Financial
+                District inside Satoshi Plaza, where section 5 raises the ceiling to 150,000 m2.
               </P>
               <P>The number that answers the whale question before it is asked:</P>
               <DataBlock>
                 <Row label="Top 20 wallets, share of supply" value="33.02%" />
-                <Row label="Top 20 wallets, share of land" value="1.14%" />
+                <Row label="Top 20 wallets, share of land" value="1.36%" />
               </DataBlock>
               <P>
                 The largest wallet on the chain holds 56 times more $DOG than the twentieth largest,
-                and receives 2.7 times the land. That is the square root curve at work: it rewards
-                size without letting size erase everyone smaller.
+                and receives 6.9 times the land, both of them companies in Satoshi Plaza under the
+                raised cap. That is the square root curve at work: it rewards size without letting
+                size erase everyone smaller.
               </P>
 
               <Sub>What the ground actually delivers</Sub>
               <P className="mt-3">
-                The curve is the target. Ground is finite, so a lot can land a little either side
-                of it: streets, water and slope take area the curve never accounted for, and some
-                lots come out larger than the target for the same reason. Your deed states the
-                area the registry holds, and that area, not the target, is what the fingerprint
-                seals and what this site answers when you look your wallet up.
+                The curve is the target. The ground is drawn in rows and blocks, and a row rarely
+                ends exactly where its last lot does: the ground left at the end of a row is shared
+                equally among the lots of that row, and never handed to a wallet from further down
+                the ladder. Lots that face the water run to the water line, and on the Spit a lot
+                runs from the perimeter avenue to the beach, so eight lots there pass the 40,000 m2
+                residential cap: the cap limits the target, not the ground a waterfront lot reaches.
+                Measured on the registry ({ENTREGA.medidaEm}), the median lot holds{" "}
+                {ENTREGA.mediana} times its target, and only {ENTREGA.abaixoDe095} lots hold less
+                than 0.95 of it, both of them company lots in Satoshi Plaza. Your
+                deed states the area the registry holds, and that area, not the target, is what the
+                fingerprint seals and what this site answers when you look your wallet up.
               </P>
 
               <Sub>Below the smallest lot: the cemetery</Sub>
@@ -557,26 +566,31 @@ export default function DogCityDocsPage() {
                 <Row label="balance a lot that size takes" value="591.95 $DOG" note="(0.986443 x sqrt(591.95) = 24)" indent />
                 <Row label="wallets below the line" value="15,802" note="(18.4% of the 85,818)" />
                 <Row label="their combined share of supply" value="0.0019%" indent />
-                <Row label="wallets that receive a lot" value="69,995" />
+                <Row label="wallets that receive a lot" value="70,016" note="(69,984 in the neighborhoods, 32 companies in Satoshi Plaza)" />
               </DataBlock>
               <P>
-                A wallet below the line receives a marble headstone with its address engraved, in an
-                open field cemetery: identical stones, aligned rows, constant spacing, in the
-                American pattern. It is a field, not a wall of niches and not a crypt. Where in the
-                city it sits has not been chosen yet.
+                A wallet below the line receives a marble headstone in the City Cemetery, an open
+                field cemetery in the American pattern: identical stones, aligned rows, constant
+                spacing. It is a field, not a wall of niches and not a crypt. It stands just
+                outside the perimeter avenue, facing Ring 2, the ring its wallets can come back
+                to, on the city&apos;s main axis opposite the mouth of the bay: 540 by 178 m at
+                bearing 231.25, about 7 km from Satoshi Plaza. A 790 m cypress avenue leads to
+                its gate from the arterial ring, across Ring 2 and under the perimeter avenue.
+                The stones face the city in balance order, so the wallet closest to the line
+                stands in the first row by the gate, and each stone carries its number, its
+                address and its balance at the block.
               </P>
               <P>
                 The headstone is a right to mint a lot later, not a closed door. A wallet that holds
                 above the line again, takes the same 10,000 $DOG building licence any other wallet
-                takes in order to build, and mints the deed, receives land in the expansion ring, at
-                a future block that has not been announced yet. Ring 1 froze at the snapshot and
+                takes in order to build, and mints the deed, receives land in Ring 2, the expansion
+                ring, at a future block that has not been announced yet. Ring 1 froze at the snapshot and
                 nobody moves into it afterward.
               </P>
               <P>
-                Those 15,802 addresses do not leave the record. They leave the map, not the proof:
-                the cemetery is a registry artifact with a state of its own, and it will go into the
-                registry&apos;s merkle root next to the lots, under the same single fingerprint that
-                seals the final list. Deleting 15,802 addresses in silence would break the public
+                Those 15,802 addresses do not leave the record. Every headstone has a fixed number
+                and position in the registry, and the cemetery goes into the registry&apos;s merkle
+                root next to the lots, under the same single fingerprint that seals the final list. Deleting 15,802 addresses in silence would break the public
                 audit, and the audit is what makes the map worth anything.
               </P>
             </Section>
@@ -624,11 +638,21 @@ export default function DogCityDocsPage() {
               <P>
                 The address follows the tier from section 2, the same ladder for every wallet. The
                 tier chooses the district, and the DOG-time ruler described below orders the wallets
-                inside it. The two waterfronts are finite, so they go to the top of the ladder in
-                that order: first the Spit, the causeway that closes the bay, facing the water; then
-                the Bay Shore on the opposite margin, with its beach row and its two peninsulas;
-                then the rows behind them, the canal fronts and the body of the city. Companies are
-                not on the ladder and have their own address inside Satoshi Plaza (section 5).
+                inside it. The waterfronts are finite, so they go to the top of the ladder in this
+                order: first the Spit, the causeway that closes the bay, facing the water on both
+                sides (592 lots); then the Bay Shore on the opposite margin, its beach row and its
+                two peninsulas; then the canal fronts and the front row that circles the great
+                lake; then the rows behind the Bay Shore, the lake and the canals; and then the
+                body of the city, from Satoshi Plaza outward. Each tier closes its own rows before
+                the next one starts, so a smaller lot from further down the ladder never fills a
+                gap left inside a higher tier&apos;s district. Companies are not on the ladder and
+                have their own address inside Satoshi Plaza (section 5).
+              </P>
+              <P>
+                Ring 1 ends in a park, a green belt about half a kilometre wide that wraps the last
+                row of lots. Past it, still inside the perimeter avenue, the ground is already drawn
+                as Ring 2: the expansion ring of section 3, which opens at a future block and holds
+                no lot from this snapshot.
               </P>
 
               <Sub>Why the problem exists</Sub>
@@ -863,15 +887,16 @@ export default function DogCityDocsPage() {
                 reserve and 55% civic core. That split counted dry land the plaza does not have:
                 the Plaza Lake takes 2.63 of the 3.79 km2 of the ring. The measured need turned out
                 far smaller than the estimate and fits three times over in the dry land that
-                remains, without touching the water. The largest institutional lot, Gate.io at
-                54,300 m2, reaches 36% of the raised cap.
+                remains, without touching the water. The largest company lot, 104,004 m2, reaches
+                69% of the raised cap.
               </P>
               <P>
                 Since 28 September 2026 the rule is wider: every company goes here, whether it is
                 known by a public label (an exchange, a marketplace, a bridge, a desk, a treasury) or
                 by the institutional behavior measured in section 4. That is 33 wallets at the
-                snapshot. None of them competes with a person for a residential lot, and none of
-                them sits outside the plaza.
+                snapshot, 32 of them with a lot here: Merlin Chain held 1 $DOG at the block and has a
+                headstone instead. None of them competes with a person for a residential lot, and
+                none of them sits outside the plaza.
               </P>
 
               <Sub>How land is sized inside the district</Sub>
@@ -880,14 +905,13 @@ export default function DogCityDocsPage() {
                 ceiling raised from 40,000 m2 to 150,000 m2. The residential cap of 40,000 m2 would
                 tie the four largest institutions at the same maximum size, which erases exactly the
                 size difference a financial district is supposed to show. Under the raised cap the
-                curve still holds, and the district is its own proof: its largest wallet holds 284
-                times the balance of its smallest, 3,030,049,556 $DOG against 10,659,069, and
-                receives 16.9 times the land, 54,300 m2 against 3,221. Measured against the closed
-                snapshot, the 21 institutional wallets
-                hold 13.66% of the supply and take 403,911 m2 in total, or 0.40 km2, with the
-                largest reaching 54,300 m2, roughly a third of the raised ceiling. The district is
-                built and the whole of it fits with room to spare in the dry ring between the
-                precinct wall and the Plaza Lake.
+                curve still holds, and the district is its own proof: its largest wallet holds
+                14,552 times the balance of its smallest, 12,948,142,549 $DOG against 889,806, and
+                receives 38.6 times the land, 104,004 m2 against 2,691. Measured against the
+                closed snapshot, the 32 companies with a lot hold 30.27% of the supply and take
+                600,476 m2 in total, or 0.60 km2, with the largest reaching 104,004 m2, about two
+                thirds of the raised ceiling. The district is built and the whole of it fits with
+                room to spare in the dry ring between the precinct wall and the Plaza Lake.
               </P>
               <P>
                 $DOG is listed on 20 exchanges today (source: CoinGecko, 13 September 2026), 14
@@ -923,8 +947,9 @@ export default function DogCityDocsPage() {
               </P>
               <P>
                 That right only works because the project holds a standing reserve everywhere it
-                might be needed. The project keeps 1% of the lots in the city&apos;s neighborhoods,
-                scattered throughout each one rather than gathered into a single block, so that a
+                might be needed. The project keeps 1% of the lots in every neighborhood of the city,
+                the Spit included, scattered throughout each one rather than gathered into a single
+                block, so that a
                 lot of comparable standing is always available near wherever an appeal happens to
                 land. The measurement in section 4 flagged 21 wallets, and the reserve covers every
                 possible appeal many times over.
@@ -1070,7 +1095,7 @@ export default function DogCityDocsPage() {
                   },
                   {
                     lead: "The Financial District is drawn, and nothing in it has been issued.",
-                    text: "Its 21 lots are sized by the same curve under the raised cap, and section 5 publishes their total area. What has not happened is the deed: nothing there has been minted, and every wallet placed there by measurement keeps the right of appeal. Since 28 September 2026 it takes every company, 33 wallets at the snapshot.",
+                    text: "Its 32 lots are sized by the same curve under the raised cap, and section 5 publishes their total area. What has not happened is the deed: nothing there has been minted, and every wallet placed there by measurement keeps the right of appeal. Since 28 September 2026 it takes every company: 33 wallets at the snapshot, 32 of them with a lot.",
                   },
                   {
                     lead: "The city is not reproducible by outsiders yet.",

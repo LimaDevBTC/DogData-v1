@@ -53,6 +53,10 @@ import { SNAPSHOT } from "../dogcity-data"
  *  fronteira. Dizer "no ranking" para quem tem menos de 20k era falso: o
  *  DOG-tempo ordena todo mundo.
  *
+ *  ⚠️ 29/09: a arte virou `citymap-1600-v5.webp`, a carta da cidade depois da revisão
+ *  do mapa (dogcity-mundo, tag cidade-966670-v1): Spit com 592 lotes, o parque que
+ *  fecha o Anel 1 e o Anel 2 hachurado até a AN7. Nome novo porque o CDN guarda o velho.
+ *
  *  ⚠️ 24/09: a arte virou `citymap-1600-v4.webp` (a carta do jogo novo, com a
  *  legenda "DOG LIVES WHERE" por tier); o texto abaixo é da v3.
  *
@@ -117,15 +121,15 @@ export function CityMap() {
             countdown é quem tem de pintar primeiro. Ela carrega logo em
             seguida, sem disputar a primeira dobra com o número. */}
         <Image
-          src="/landing/citymap-1600-v4.webp"
-          alt="City plan of DogCity: Satoshi Plaza under the dome, the road web of rings and radials, the spit along the bay and the AN7 ring expressway, every lot coloured by where its holder lives."
+          src="/landing/citymap-1600-v5.webp"
+          alt="City plan of DogCity: Satoshi Plaza under the dome, the road web of rings and radials, the spit along the bay and the AN7 ring expressway, every lot coloured by where its holder lives, the park that closes Ring 1 and Ring 2 drawn beyond it."
           width={1600}
           height={1600}
           sizes="(min-width: 1024px) 44vw, 100vw"
           className="w-full h-auto"
         />
         <a
-          href="/city/carta-v4.svg"
+          href="/city/carta-v5.svg"
           target="_blank"
           rel="noopener"
           className={`absolute bottom-0 right-0 border-l border-t ${HAIR} bg-void/85 backdrop-blur-sm

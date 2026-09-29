@@ -76,7 +76,6 @@ import FinalCta from "./sections/final-cta"
 //   que ocupa este lugar agora, com o bloco já selado.
 // import PlazaLive from "./sections/plaza-live"
 // import Galaxy from "./sections/galaxy"
-// import Ordinals from "./sections/ordinals"
 // import LunarTerrain from "./sections/lunar-terrain"
 // import Masterplan from "./sections/masterplan"
 // import Needle from "./sections/needle"
@@ -277,7 +276,6 @@ export default function LandingPage() {
             resposta sobre a carteira de quem chegou. */}
         {/* <Galaxy /> — censo de carteiras; pertence ao tour, não às sete
             dobras. */}
-        {/* <Ordinals /> — vitrine de inscrições da coleção. */}
         {/* <LunarTerrain /> — a explicação do terreno lunar é tour; a dobra 3
             (./sections/map-full.tsx) já cobre a autenticidade do dado da NASA
             na medida que o desenho pede. */}
@@ -287,12 +285,8 @@ export default function LandingPage() {
         {/* <Park /> e <ParkTour /> — o parque já tinha saído em 30/08 (os 150
             quadros foram assados numa posição do parque que não existe mais,
             ver sections/park-tour.tsx). */}
-        {/* <PlotDeed /> já estava fora desde 04/09: mostra o lote de uma
-            carteira antes do snapshot decidir, o que era posição publicada
-            antes de ser decidida (ver sections/plot-deed.tsx). O bloco já foi
-            minerado, mas o arquivo lê `data/snapshots/` com `fs`, que não
-            existe no build da Vercel — por isso a dobra 1 usa a rota nova
-            (/api/dogcity/lookup), não este componente. */}
+        {/* <PlotDeed /> e <Ordinals /> saíram do repositório com a cidade antiga
+            (29/09/2026); a dobra 1 usa /api/dogcity/lookup. */}
       </div>
       {mounted && createPortal(cta, document.body)}
       <ResumePill />

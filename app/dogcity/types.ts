@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // DogCity landing — shared shapes for the live APIs the sections consume.
-// /api/donate/leaderboard is fetched once by page.tsx and passed down;
-// /api/plot is fetched by the Plot Deed section itself, on submit.
+// /api/donate/leaderboard is fetched once by page.tsx and passed down.
+// (/api/plot and the Plot Deed section left with the old city, 29/09/2026.)
 // ═══════════════════════════════════════════════════════════════════════════
 
 export interface RecentEntry {

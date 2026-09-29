@@ -31,6 +31,14 @@
 > Satoshi Plaza. A fonte única é `wiki-dogdata/dogcity/tiers.md`. Toda seção abaixo que dá
 > lugar pelo tier do AIRDROP está revogada e marcada. Esse erro aconteceu três ou quatro vezes
 > porque agentes seguiram este caderno.
+>
+> ⚠️⚠️ **29/09/2026: A CIDADE É O MUNDO, E O LUGAR ESTÁ DECIDIDO.** Fundador: "não quero
+> confusão com versões antigas da cidade, o que temos agora é o que é". A cidade é a do jogo
+> (`dogcity-mundo`, tag `cidade-966670-v1`); o registro de direito (`data/dogcity_lotes.csv`,
+> `data/dogcity_cemiterio.csv`, merkle root `b8b79435…1904` desde que as lápides ganharam posição, `public/city/escrituras.bin`)
+> sai dela por `scripts/city/registro_do_mundo.py`. O palco e o gerador deste repositório
+> (`scripts/gerar_cidade.py`) deixaram de ser a fonte. O lugar de cada tier está na §2 (tabela
+> "Onde cada tier mora") e a revisão que o fechou em `wiki-dogdata/dogcity/fechamento-do-mapa.md`.
 
 ---
 
@@ -71,9 +79,8 @@ use. A régua de custódia (pessoa contra serviço) continua valendo, mas o dest
 ## 2. A tabela mestra
 
 **MEDIDO em 28/09/2026** (Supabase `dog_genealogy` x `dog_snapshot_lookup`; consulta em
-`wiki-dogdata/dogcity/tiers.md`). **Lugar: PENDENTE** (proposta: o tier escolhe a faixa e a
-régua de convicção do `masterplan.md` §12 ordena dentro dela; desenho em
-`wiki-dogdata/dogcity/baia-e-orla.md`).
+`wiki-dogdata/dogcity/tiers.md`). **Lugar: DECIDIDO e no código em 29/09/2026** (tabela logo
+abaixo desta).
 
 | # | tier | carteiras | com airdrop | sem airdrop |
 |---|---|---|---|---|
@@ -97,6 +104,32 @@ Base de quem recebeu o airdrop: o airdrop inteiro (os tiers oficiais do airdrop,
 de quem comprou: a primeira aquisição. As 33 empresas (27 da tag institucional, 3 rotuladas sem
 prova, Merlin Chain e as tesourarias Dog of Bitcoin e DogData) saem antes da contagem. Soma: 85.818.
 Estes são os números publicados em `/dogcity/docs` §2 em 28/09/2026, depois de a genealogia ser religada (as 504 que faltavam foram tapadas: 346 pela genealogia, 158 pelos UTXOs do snapshot). Arquivo: `data/snapshots/dog_966670_tiers.json`, gravado por `scripts/city/tiers_966670.py`.
+
+### Onde cada tier mora (DECIDIDO 28 e 29/09/2026, MEDIDO no registro do Mundo em 29/09)
+
+Regra: fila única pela escada (tier, depois DOG-tempo). A ordem dos lugares: a Spit; a fila da
+praia da Bay Shore e as duas línguas (11,3° e 91,3°); as frentes de canal e a fila da frente em
+volta do LAGO01; as fileiras de trás da Bay Shore; as faixas de lago e de canal; o corpo, da
+Satoshi Plaza para fora. Cada tier fecha as próprias fileiras antes do seguinte (selo por tier;
+a ponta de fileira se reparte entre os lotes dela). O Anel 1 termina num parque de ~500 m e o
+Anel 2 (§14 do masterplan) já está desenhado depois dele, dentro da AN7, sem lote. Reserva do
+projeto: 1% em todo bairro, a Spit incluída (6 lotes). Empresas: 33 no snapshot, 32 com lote na
+Satoshi Plaza (a Merlin Chain tem 1 $DOG e recebe lápide).
+
+| tier | Spit | fila da praia | línguas | faixa da baía | frente de canal | frente do lago | faixa do lago | faixa de canal | corpo | lápide |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Satoshi Visionary | 592 | 102 | 103 | 896 | 178 | 37 | | | | |
+| BTC Maximalist | | | | 673 | | | | | | |
+| Rune Master | | | | 986 | | | | | | |
+| Ordinal Believer | | | | 37 | | | 56 | 896 | 561 | |
+| DOG Supporter | | | | | | | | | 2.614 | |
+| Diamond Paws | | | | | | | | | 21.423 | |
+| $DOG Soldier | | | | | | | | | 33.551 | 12.448 |
+| os 6 de venda | | | | | | | | | 7.279 | 3.353 |
+
+No corpo, o raio mediano cresce pela escada: Ordinal Believer 1.538 m, DOG Supporter 1.925,
+Diamond Paws 3.256, $DOG Soldier 4.565, os seis de venda 4.737 a 4.937; parque de r ~5.000 a
+5.500, Anel 2 de ~5.700 até a AN7.
 
 **Histórico, revogado:** a tabela de 10/09 que estava aqui dava lugar pelo tier do airdrop
 (tiers 1 a 3 na Orla Nobre, 4 e 5 na orla da baía, 6 no tecido, o resto e os "sem tier" no
@@ -869,6 +902,16 @@ cresce com o número de pedras da carteira (§3.9, emenda do fundador).
 ---
 
 ### 3.14: o cemitério vai para o platô do pódio (🔒 2026-09-22)
+
+> ✅ **PLANTADO EM 29/09/2026 NO MUNDO** (`dogcity-mundo` `f607fec6`, peça `CEMITERIO`,
+> grade de `plano/src/cemiterio.py`). No Mundo o lugar não colide com nada: a VP02 e o
+> platô do palco não existem lá; o campo fica logo fora da AN7 (viaduto a 59 m neste rumo),
+> no chão cru já plano (cota 13, 0,3 m de desnível). 46 fileiras x 344 covas, L00001 na
+> primeira fileira junto do portão, a face das pedras para a cidade; alameda de acesso de
+> 789 m desde o anel arterial T24 no eixo. As colunas `x_m`/`z_m` de
+> `data/dogcity_cemiterio.csv` agora vêm do Mundo (`registro_do_mundo.py`), e isso mudou o
+> merkle root para `b8b79435…1904` (só o hash do CSV do cemitério mudou no cabeçalho). A
+> "peça órfã" do último parágrafo abaixo está resolvida: o gerador semeia as posições.
 
 **RESOLVIDO.** As 15.802 lápides do masterplan §17 ganham chão, e o chão é o **platô do
 pódio**: rumo **231,25**, raio **7.061**, retângulo de **540 x 178 m = 9,61 ha**. A conta do
