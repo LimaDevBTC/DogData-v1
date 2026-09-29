@@ -10,8 +10,11 @@ de tiers e reescreve os dois arquivos de direito, no formato que `merkle.py` e
 
   data/dogcity_lotes.csv      registro v4 (4 cantos em metro, geo 0 célula / 1 fatia):
                               um lote por linha, carteira, empresa ou reserva do projeto
-  data/dogcity_cemiterio.csv  as lápides (saldo abaixo de 591,95 $DOG), sem coordenada:
-                              o cemitério ainda não tem chão no Mundo (x_m, z_m vazios)
+  data/dogcity_cemiterio.csv  as lápides (saldo abaixo de 591,95 $DOG), com a posição da
+                              pedra no Mundo (x_m, z_m): o cemitério ganhou chão em 29/09
+                              no lugar travado em 22/09 (tiersposition.md §3.14), e a grade
+                              é de `dogcity-mundo/plano/src/cemiterio.py`
+                              (plano/saida/cemiterio.json)
 
 ⚠️ O QUE MUDA DE SIGNIFICADO EM RELAÇÃO AO PALCO:
   - `ordem` é a posição na fila única da escada (tier, depois DOG-tempo), a mesma que
@@ -86,6 +89,10 @@ for l in lotes:
                   + [round(v, 3) for p in C for v in p] + [int(l['geo'])])
 
 # as lápides: toda carteira do snapshot abaixo do corte, da maior para a menor
+# ⚠️ O ID E A POSIÇÃO VÊM DO MUNDO, e a ordem daqui tem de ser a mesma: o gerador de lá
+# ordena igual (saldo decrescente, desempate pelo endereço). Divergência derruba a rodada.
+with open(os.path.join(MUNDO, 'plano', 'saida', 'cemiterio.json')) as f:
+    cem_mundo = json.load(f)['lapides']
 cem_velho = {}
 cam_cem = os.path.join(RAIZ, 'data', 'dogcity_cemiterio.csv')
 if os.path.exists(cam_cem):
@@ -99,6 +106,11 @@ if dupla:
 sem_destino = [a for a in por_end if a not in com_lote and float(por_end[a]['dog']) >= CORTE]
 if sem_destino:
     recusa['carteira acima do corte sem lote'] = sem_destino
+
+if len(cem_mundo) != len(lapides) or any(
+        m[0] != 'L%05d' % i or m[1] != c['address'] for i, (m, c) in enumerate(zip(cem_mundo, lapides), 1)):
+    recusa['lapide do Mundo fora da ordem do registro'] = [
+        m[0] for m, c in zip(cem_mundo, lapides) if m[1] != c['address']][:3] or ['contagem %d x %d' % (len(cem_mundo), len(lapides))]
 
 if any(recusa.values()):
     for m, v in recusa.items():
@@ -118,12 +130,13 @@ with open(cam_cem, 'w', newline='') as f:
     w = csv.writer(f)
     w.writerow(['lapide', 'address', 'dog', 'utxo_count', 'posicao_residencial',
                 'airdrop', 'assinou', 'direito', 'x_m', 'z_m'])
-    for i, c in enumerate(lapides, 1):
+    for i, (c, m) in enumerate(zip(lapides, cem_mundo), 1):
         v = cem_velho.get(c['address'], {})
         w.writerow([f'L{i:05d}', c['address'], round(float(c['dog']), 2), v.get('utxo_count', ''),
                     c.get('posicao') if c.get('posicao') is not None else v.get('posicao_residencial', ''),
                     1 if c.get('airdrop') else 0, v.get('assinou', 0),
-                    'licença paga + mint do deed = lote no anel de expansão', '', ''])
+                    'saldo acima da linha + licença paga + mint do deed = lote no Anel 2',
+                    round(m[3], 2), round(m[4], 2)])
 emp = sum(1 for l in lotes if l['empresa'])
 proj = sum(1 for l in lotes if l['address'].startswith('__projeto'))
 print(f'registro_do_mundo: {len(linhas):,} lotes ({len(linhas) - emp - proj:,} carteiras, {emp} empresas, '

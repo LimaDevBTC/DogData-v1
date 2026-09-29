@@ -569,23 +569,28 @@ export default function DogCityDocsPage() {
                 <Row label="wallets that receive a lot" value="70,016" note="(69,984 in the neighborhoods, 32 companies in Satoshi Plaza)" />
               </DataBlock>
               <P>
-                A wallet below the line receives a marble headstone with its address engraved, in an
-                open field cemetery: identical stones, aligned rows, constant spacing, in the
-                American pattern. It is a field, not a wall of niches and not a crypt. Where in the
-                city it sits has not been chosen yet.
+                A wallet below the line receives a marble headstone in the City Cemetery, an open
+                field cemetery in the American pattern: identical stones, aligned rows, constant
+                spacing. It is a field, not a wall of niches and not a crypt. It stands just
+                outside the perimeter avenue, facing Ring 2, the ring its wallets can come back
+                to, on the city&apos;s main axis opposite the mouth of the bay: 540 by 178 m at
+                bearing 231.25, about 7 km from Satoshi Plaza. A 790 m cypress avenue leads to
+                its gate from the arterial ring, across Ring 2 and under the perimeter avenue.
+                The stones face the city in balance order, so the wallet closest to the line
+                stands in the first row by the gate, and each stone carries its number, its
+                address and its balance at the block.
               </P>
               <P>
                 The headstone is a right to mint a lot later, not a closed door. A wallet that holds
                 above the line again, takes the same 10,000 $DOG building licence any other wallet
-                takes in order to build, and mints the deed, receives land in the expansion ring, at
-                a future block that has not been announced yet. Ring 1 froze at the snapshot and
+                takes in order to build, and mints the deed, receives land in Ring 2, the expansion
+                ring, at a future block that has not been announced yet. Ring 1 froze at the snapshot and
                 nobody moves into it afterward.
               </P>
               <P>
-                Those 15,802 addresses do not leave the record. They leave the map, not the proof:
-                the cemetery is a registry artifact with a state of its own, and it will go into the
-                registry&apos;s merkle root next to the lots, under the same single fingerprint that
-                seals the final list. Deleting 15,802 addresses in silence would break the public
+                Those 15,802 addresses do not leave the record. Every headstone has a fixed number
+                and position in the registry, and the cemetery goes into the registry&apos;s merkle
+                root next to the lots, under the same single fingerprint that seals the final list. Deleting 15,802 addresses in silence would break the public
                 audit, and the audit is what makes the map worth anything.
               </P>
             </Section>

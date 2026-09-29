@@ -473,8 +473,10 @@ export const BAIRRO_DO_SETOR: Readonly<Record<number, string>> = {
 // Uma palavra cada, porque é linha de escritura, não aula.
 export const TIPOLOGIA_DA_FORMA: readonly string[] = ["House", "Courtyard", "Low-rise", "Tower", "Towers"]
 
-// o campo do cemitério (peça K01 do programa, "Campo do Columbário")
-export const COLUMBARIO_NOME = "the Columbarium"
+// o cemitério da cidade (peça CEMITERIO do dogcity-mundo, 29/09/2026): o nome que o jogo
+// grava no portão e na placa. "the Columbarium" era do palco e contradizia o próprio §3
+// da docs ("a field, not a wall of niches").
+export const CEMITERIO_NOME = "the City Cemetery"
 
 // ⚠️ O LINK DA CARTEIRA NA CIDADE É /city?addr=<endereço>. Desde 24/09 22:30 a
 // /city é SÓ o jogo novo (dogcity-mundo), que acha o lote pelo endereço; os ids

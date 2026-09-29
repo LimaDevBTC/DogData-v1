@@ -35,7 +35,7 @@
 > ⚠️⚠️ **29/09/2026: A CIDADE É O MUNDO, E O LUGAR ESTÁ DECIDIDO.** Fundador: "não quero
 > confusão com versões antigas da cidade, o que temos agora é o que é". A cidade é a do jogo
 > (`dogcity-mundo`, tag `cidade-966670-v1`); o registro de direito (`data/dogcity_lotes.csv`,
-> `data/dogcity_cemiterio.csv`, merkle root `75f1ab9d…7fab`, `public/city/escrituras.bin`)
+> `data/dogcity_cemiterio.csv`, merkle root `b8b79435…1904` desde que as lápides ganharam posição, `public/city/escrituras.bin`)
 > sai dela por `scripts/city/registro_do_mundo.py`. O palco e o gerador deste repositório
 > (`scripts/gerar_cidade.py`) deixaram de ser a fonte. O lugar de cada tier está na §2 (tabela
 > "Onde cada tier mora") e a revisão que o fechou em `wiki-dogdata/dogcity/fechamento-do-mapa.md`.
@@ -902,6 +902,16 @@ cresce com o número de pedras da carteira (§3.9, emenda do fundador).
 ---
 
 ### 3.14: o cemitério vai para o platô do pódio (🔒 2026-09-22)
+
+> ✅ **PLANTADO EM 29/09/2026 NO MUNDO** (`dogcity-mundo` `f607fec6`, peça `CEMITERIO`,
+> grade de `plano/src/cemiterio.py`). No Mundo o lugar não colide com nada: a VP02 e o
+> platô do palco não existem lá; o campo fica logo fora da AN7 (viaduto a 59 m neste rumo),
+> no chão cru já plano (cota 13, 0,3 m de desnível). 46 fileiras x 344 covas, L00001 na
+> primeira fileira junto do portão, a face das pedras para a cidade; alameda de acesso de
+> 789 m desde o anel arterial T24 no eixo. As colunas `x_m`/`z_m` de
+> `data/dogcity_cemiterio.csv` agora vêm do Mundo (`registro_do_mundo.py`), e isso mudou o
+> merkle root para `b8b79435…1904` (só o hash do CSV do cemitério mudou no cabeçalho). A
+> "peça órfã" do último parágrafo abaixo está resolvida: o gerador semeia as posições.
 
 **RESOLVIDO.** As 15.802 lápides do masterplan §17 ganham chão, e o chão é o **platô do
 pódio**: rumo **231,25**, raio **7.061**, retângulo de **540 x 178 m = 9,61 ha**. A conta do

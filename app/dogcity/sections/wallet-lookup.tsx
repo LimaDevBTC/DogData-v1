@@ -50,7 +50,7 @@
 // A POSIÇÃO ENTROU EM 23/09/2026. Até aí a regra era "nunca posição", porque
 // a tabela só tem as sete colunas públicas e o lote nominal não podia ir a
 // público. A cidade fechou e selou (29/09/2026: o registro do Mundo, 70.714 lotes e 15.802 lápides,
-// merkle 75f1ab9d…7fab) e o
+// merkle b8b79435…1904, com a posição das lápides) e o
 // CSV inteiro é público, então a rota passou a devolver `lot` (lot_id, setor,
 // bairro, tipologia, link do mapa) lido de public/city/escrituras.bin, e
 // `headstone` para quem recebe lápide. Este componente IMPRIME o que veio e
@@ -320,8 +320,8 @@ function Documento({ r }: { r: Resultado }) {
         </p>
         <p className="text-[13px] md:text-sm text-mist mt-3 leading-relaxed">
           The headstone is a right to mint a lot later, not a closed door. A wallet that holds
-          above that balance again, takes a building licence and mints the deed receives land in
-          the expansion ring, at a future block that has not been announced yet. Ring 1 froze at
+          above that balance again, takes the 10,000 $DOG building licence and mints the deed
+          receives land in Ring 2, at a future block that has not been announced yet. Ring 1 froze at
           the snapshot and nobody moves into it afterward.
         </p>
         {r.headstone && (

@@ -206,8 +206,8 @@ for (const r of lapides) {
   const n = +r.lapide.replace(/^L/, '')
   if (!Number.isInteger(n) || n < 1 || n > 65535) { rejeitados.fora_da_faixa++; continue }
   const x = Math.round(+r.x_m * 100), z = Math.round(+r.z_m * 100)
-  // o cemitério não grava cota; o Campo do Columbário está no platô do pódio,
-  // e a rota devolve 0 aqui e não finge precisão que o registro não tem.
+  // o cemitério não grava cota (o campo é gramado drapeado no chão do Mundo), e a
+  // rota devolve 0 aqui e não finge precisão que o registro não tem.
   empurra(r.address, { kind: KIND_LAPIDE, setor: 0, quarto: 0, forma: 0, quarteirao: 0, lote: n, x, z, area: 0, cota: 0, flags: 0 })
 }
 

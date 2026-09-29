@@ -5,7 +5,7 @@ import { resolveIdentity } from '@/lib/dog/identity'
 import { escrituras, buscarEscritura } from '@/lib/city/escrituras'
 import {
   CORTE_CEMITERIO_DOG, CORTE_CEMITERIO_PUBLICADO, LAPIDES,
-  BAIRRO_DO_SETOR, TIPOLOGIA_DA_FORMA, COLUMBARIO_NOME, linkDaCidade,
+  BAIRRO_DO_SETOR, TIPOLOGIA_DA_FORMA, CEMITERIO_NOME, linkDaCidade,
 } from '@/app/dogcity/dogcity-data'
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -21,7 +21,7 @@ import {
 //     data/dogcity_cemiterio.csv): lot_id, setor, forma, coordenada, cota. É
 //     quem responde a POSIÇÃO. Nunca banco: a cidade está fechada e selada
 //     (29/09/2026: o registro do Mundo, scripts/city/registro_do_mundo.py, merkle
-//     75f1ab9d…7fab) e o CSV que ela lê é o mesmo que o root sela.
+//     b8b79435…1904, com a posição das lápides) e o CSV que ela lê é o mesmo que o root sela.
 //
 // ⚠️ A POSIÇÃO ERA PROIBIDA AQUI ATÉ 22/09 (masterplan §3.12, §14: "só entra o
 // que pode ser público"). O argumento morreu quando a cidade fechou: o CSV
@@ -206,7 +206,7 @@ export async function GET(req: NextRequest) {
         ...(h && {
           headstone: {
             id: h.id,
-            place: COLUMBARIO_NOME,
+            place: CEMITERIO_NOME,
             map: linkDaCidade(address),
             ...(full && { x_m: h.x_m, z_m: h.z_m }),
           },
