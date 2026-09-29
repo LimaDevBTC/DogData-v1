@@ -22,9 +22,10 @@
 //   1. `beforeFiles`, nunca `afterFiles`: em afterFiles uma `app/city/page.tsx`
 //      (a copia local ignorada do fundador) ganharia e o rewrite nunca rodaria.
 //   2. Diretorios do jogo LISTADOS POR NOME. `/city/:path*` engoliria os
-//      115 MB de `public/city`, e dali saem `/city/carta.svg`, `carta-v4.svg`
-//      e `hero-mapa.jpg` (landing /dogcity), `/city/mapa-topo.svg`
-//      (/dogcity/docs), os GLB e posters de /dogcity/partners e
+//      115 MB de `public/city`, e dali saem `/city/carta-v5.svg` e
+//      `hero-mapa-v2.jpg` (landing /dogcity e /dogcity/docs; 29/09/2026: as
+//      cartas antigas carta.svg, carta-v4.svg, mapa-topo.svg e hero-mapa.jpg
+//      sairam com a cidade antiga), os GLB e posters de /dogcity/partners e
 //      `/city/escrituras.bin`, que e a reserva por URL do leitor de
 //      `/api/dogcity/lookup` e `/api/profile`. Nenhum dos seis nomes abaixo
 //      existe em `public/city`. Arquivo novo do jogo mora num dos seis; pasta

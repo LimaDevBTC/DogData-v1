@@ -176,6 +176,15 @@ try:
                                   if isinstance(_tag, dict) else _tag)}
 except (OSError, ValueError, KeyError, TypeError):
     FIN = set()
+# ⚠️ 29/09/2026: desde 28/09 empresa e' o grupo 'empresa' do arquivo de tiers (nome OU
+# comportamento, 33 enderecos), e todas moram no anel da ilha da Satoshi Plaza. A tag
+# institucional antiga (27) fica como fonte, somada ao grupo.
+try:
+    FIN |= {c['address'] for c in json.load(io.open(os.path.join(SNAP, 'dog_966670_tiers.json'),
+                                                     encoding='utf-8'))['carteiras']
+            if c.get('grupo') == 'empresa'}
+except (OSError, ValueError, KeyError, TypeError):
+    pass
 if not FIN:
     morre('dog_966670_tag_institucional.json nao entregou endereco nenhum. A area nao '
           'depende mais dela, mas a conferencia do teto de 150.000 m2 do Distrito '
@@ -183,7 +192,13 @@ if not FIN:
           'nenhuma.')
 
 acima_do_teto = sorted(a for a, m in area_de.items() if m > TETO)
-intrusos = [a for a in acima_do_teto if a not in FIN]
+# ⚠️ 29/09/2026: o lote da Spit (setor 7) vai da AN7 ate' a praia (bonus decidido pelo
+# fundador em 25/09) e passa do teto de 40.000 m2 quando a curva e' grande; o teto vale
+# para o ALVO, e a secao 3 dos docs diz isso. Ele sai da conferencia e e' contado aqui.
+SPIT = {r['address'] for r in lotes if r['setor'] == '7'}
+spit_acima = [a for a in acima_do_teto if a in SPIT]
+print(f'{len(spit_acima)} lotes da Spit acima de {TETO:,.0f} m2 (bonus ate a praia)', flush=True)
+intrusos = [a for a in acima_do_teto if a not in FIN and a not in SPIT]
 if intrusos:
     morre(f'{len(intrusos)} lotes fora do Distrito Financeiro passam do teto publicado '
           f'de {TETO:,.0f} m2 (ex.: {intrusos[:3]}). A secao 3 dos docs publica esse '

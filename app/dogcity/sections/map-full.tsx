@@ -15,7 +15,7 @@
 // de 2.000px (largura total, fica nítida em tela 2x); ./city-map.tsx usa a de
 // 1.600px. Nome novo (v4) de propósito, para furar o cache da CDN e do otimizador
 // de imagem. A resolução real mora atrás do link para o SVG
-// (public/city/carta-v4.svg, 5,8 MB, ~1,8 MB comprimido). A v3 e o carta.svg
+// (public/city/carta-v5.svg, 5,8 MB, ~1,8 MB comprimido). A v3 e o carta.svg
 // antigo continuam no public/ para quem linkou direto.
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -35,14 +35,14 @@ export default function MapFull() {
         </h2>
 
         <a
-          href="/city/carta-v4.svg"
+          href="/city/carta-v5.svg"
           target="_blank"
           rel="noopener"
           className={`group relative mt-7 block border ${HAIR} bg-white/[0.02] overflow-hidden`}
         >
           <Image
-            src="/landing/citymap-2000-v4.webp"
-            alt="City plan of DogCity: Satoshi Plaza under the dome, the road web of rings and radials, the spit along the bay and the AN7 ring expressway, every lot coloured by where its holder lives, drawn over the real elevation of Mare Tranquillitatis."
+            src="/landing/citymap-2000-v5.webp"
+            alt="City plan of DogCity: Satoshi Plaza under the dome, the road web of rings and radials, the spit along the bay and the AN7 ring expressway, every lot coloured by where its holder lives, the park that closes Ring 1 and Ring 2 drawn beyond it, drawn over the real elevation of Mare Tranquillitatis."
             width={2000}
             height={2000}
             sizes="100vw"

@@ -127,6 +127,12 @@ with open(CAM_CSV, newline='') as _f:
 VERSAO = 3 if V4 else 2
 NOME_BIN = 'public/city/cidade-lotes-v4.bin' if V4 else 'public/city/cidade-lotes.bin'
 CAM_BIN = caminho(NOME_BIN, arg('bin'))
+# ⚠️ 29/09/2026: o registro passou a sair do Mundo (registro_do_mundo.py) e o desenho que
+# o cabeçalho amarra é o do jogo, não mais o public/city/ do palco. --nome-bin= e
+# --nome-cidade-json= trocam o NOME gravado no cabeçalho, para ele dizer de onde o
+# artefato veio (ex.: dogcity-mundo@cidade-966670-v1:plano/saida/lotes.bin).
+NOME_BIN = arg('nome-bin', NOME_BIN)
+NOME_CIDADE_JSON = arg('nome-cidade-json', 'public/city/cidade.json')
 
 # ⚠️ ZERO É UMA TIPOLOGIA DE VERDADE, NÃO UM CAMPO VAZIO. `forma=0` quer dizer
 # "massa única, casa no centro", e 48.357 lotes de uma UTXO só são zero com toda
@@ -243,7 +249,7 @@ if len(set(chaves)) != len(chaves):
 ARTEFATOS = (('data/dogcity_lotes.csv', CAM_CSV),
              ('data/dogcity_cemiterio.csv', CAM_CEM),
              (NOME_BIN, CAM_BIN),
-             ('public/city/cidade.json', CAM_CIDADE_JSON))
+             (NOME_CIDADE_JSON, CAM_CIDADE_JSON))
 selos, faltam = {}, []
 for nome, cam in ARTEFATOS:
     if os.path.exists(cam):

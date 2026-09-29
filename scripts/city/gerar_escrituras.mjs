@@ -137,7 +137,8 @@ function chave(address) {
 }
 
 const pad = (n, w) => String(n).padStart(w, '0')
-const lotIdDe = (s, q, b, l) => `S${pad(s, 2)}-Q${pad(q, 2)}-B${pad(b, 3)}-L${pad(l, 3)}`
+// ⚠️ 29/09/2026: o registro saiu do Mundo (registro_do_mundo.py), e no Mundo o quarteirão tem 4 dígitos (S09-Q00-B0063-L001)
+const lotIdDe = (s, q, b, l) => `S${pad(s, 2)}-Q${pad(q, 2)}-B${pad(b, 4)}-L${pad(l, 3)}`
 
 // ── lê os dois registros ───────────────────────────────────────────────────
 // ⚠️ SÓ O CSV SELADO ENTRA. data/dogcity_merkle.json grava o sha256 dos dois
