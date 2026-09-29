@@ -3,7 +3,7 @@
 
 ⚠️ POR QUE ESTA TABELA EXISTE: `data/` esta no .gitignore para os artefatos pesados e a
 Vercel builda do clone do GitHub, entao a busca da landing NAO tem como ler arquivo. E
-`/api/plot` hoje le arquivo local com `fs` e serve numero diferente do registro.
+(`/api/plot`, que lia arquivo local, saiu com a cidade antiga em 29/09/2026.)
 
 🔒 DECISAO DO FUNDADOR, 22/09/2026: A TABELA SERVE A ESCRITURA, NAO A CURVA.
 Ate 22/09 este script saia do snapshot mais a curva publicada,
@@ -30,13 +30,14 @@ que permite mapear a cidade inteira a partir de fora.
 ⚠️ ESTE SCRIPT NAO RODA SOZINHO E NAO RODA POR AGENTE. Escrita em producao e do fundador.
 `--dry-run` mede tudo, imprime as primeiras linhas e NAO abre conexao nenhuma.
 
-ORDEM CERTA DEPOIS DA REGERACAO:
-  1. scripts/gerar_cidade.py            (reescreve lotes, cemiterio e o .bin)
-  2. python3 scripts/city/conferir_lotes.py   (o portao; tem de dar APROVADO)
-  3. python3 scripts/city/merkle.py     (sela o root)
-  4. python3 scripts/city/sobe_lookup.py --dry-run
-  5. python3 scripts/city/sobe_lookup.py
-Rodar o 5 antes do 1 publica a cidade velha; rodar o 5 sem o 2 publica cidade reprovada.
+ORDEM CERTA DEPOIS DA REGERACAO (29/09/2026: a cidade e' o dogcity-mundo):
+  1. no dogcity-mundo, a cidade fechada e aprovada (bash plano/pecas/fechar.sh: 0 falha)
+  2. python3 scripts/city/registro_do_mundo.py   (reescreve lotes e cemiterio a partir dela)
+  3. python3 scripts/city/merkle.py --bin=... --cidade-json=... --nome-bin=... --nome-cidade-json=...
+  4. node scripts/city/gerar_escrituras.mjs     (os enderecos que a rota serve)
+  5. python3 scripts/city/sobe_lookup.py --dry-run --csv=... --cemiterio=...
+  6. python3 scripts/city/sobe_lookup.py --csv=... --cemiterio=...
+Rodar o 6 antes do 2 publica a cidade velha; rodar o 2 sem o 1 publica cidade reprovada.
 
 REGISTRO v3 (retangulo) OU v4 (4 cantos, masterplan §41): este script nao veste a
 diferenca. So le 'address' e 'area_m2' de dogcity_lotes.csv (no v4 area_m2 vira a

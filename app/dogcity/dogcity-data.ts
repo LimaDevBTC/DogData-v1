@@ -360,8 +360,10 @@ export function shortAddr(addr: string): string {
 //
 // ⚠️ ESTE NÚMERO VIVE EM TRÊS LUGARES E TEM DE MUDAR NOS TRÊS JUNTOS: aqui (a
 // página e a rota), em `scripts/city/sobe_lookup.py` (a tabela que a consulta
-// lê) e em `scripts/gerar_cidade.py` (`K_PUBLICADA` e `DOG_MIN_LOTE`, que é
-// quem corta de verdade). Divergir não quebra build nenhum: a página anuncia
+// lê) e na lista de carteiras que o jogo lê (`dogcity-palco/data/dogcity_lotes.csv`,
+// coluna area_m2, que já sai da curva e do corte; o gerador antigo deste repositório,
+// `scripts/gerar_cidade.py`, saiu com a cidade antiga em 29/09/2026). Divergir não
+// quebra build nenhum: a página anuncia
 // um corte e a cidade aplica outro, e ninguém vê.
 //
 // ⚠️ O NÚMERO PUBLICADO ARREDONDA PARA CIMA. O corte exato é 591,9410967, e
@@ -464,7 +466,7 @@ export const BAIRRO_DO_SETOR: Readonly<Record<number, string>> = {
   9: "Bay Shore",
 }
 
-// ⚠️ A TIPOLOGIA É SAÍDA DE `forma_de(utxo_count)` em scripts/gerar_cidade.py
+// ⚠️ A TIPOLOGIA É SAÍDA DE `forma_de(utxo_count)` (a mesma conta de scripts/city/merkle.py, que recusa o registro se divergir)
 // (masterplan §9, regra 3), e o índice aqui é o código gravado no registro:
 //   0 massa única (casa no centro, fazenda na borda)   1 pátio, geminada
 //   2 condomínio baixo   3 torre   4 quarteirão com várias torres

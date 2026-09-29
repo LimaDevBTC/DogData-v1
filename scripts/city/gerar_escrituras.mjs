@@ -11,7 +11,7 @@
 // fonte da verdade sobre onde cada lote fica é o CSV que o merkle root sela.
 //
 // ⚠️ ESTE SCRIPT SÓ LÊ OS CSVs. Ele não regenera cidade nenhuma e não escreve
-// em `data/`. Quem muda o CSV é `scripts/gerar_cidade.py`, e só o fundador roda.
+// em `data/`. Quem muda o CSV é `scripts/city/registro_do_mundo.py` (29/09/2026), a partir do jogo.
 // Se o CSV mudar, roda-se este script de novo e o .bin acompanha.
 //
 // FORMATO (little-endian, sem dependência, lido por lib/city/escrituras.ts):

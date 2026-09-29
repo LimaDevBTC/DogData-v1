@@ -56,8 +56,8 @@ async function rewritesDoJogo() {
 // Rotas da cidade antiga que o jogo nao tem: 308 para a /city, com ou sem a
 // env (o que morreu nao volta). O Next repassa a query do pedido ao destino,
 // entao `/city/mapa?lot=X` vira `/city?lot=X` e `/city/war?addr=Y` vira
-// `/city?addr=Y` (o jogo le `?addr=` e `?lot=`). `mapa` so EXATO: em
-// `public/city/mapa/` ha arquivos servidos, e `/city/mapa/:path*` os engoliria.
+// `/city?addr=Y` (o jogo le `?addr=` e `?lot=`). `mapa` so EXATO (a pasta
+// `public/city/mapa/` do mapa 2D antigo saiu com a cidade antiga em 29/09/2026).
 // Nenhum dos outros nomes existe em `public/city`. As consultas antigas da
 // propria /city (`?view=war`, `?classic=1`) saem no middleware.ts, porque um
 // redirect daqui repassaria a query e voltaria para si mesmo.
