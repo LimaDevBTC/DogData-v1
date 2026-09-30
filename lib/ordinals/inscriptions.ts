@@ -67,44 +67,27 @@ function unisatHeaders(): Record<string, string> {
   return { Authorization: `Bearer ${token}`, 'User-Agent': 'DOG DATA/1.0' }
 }
 
-interface UnisatInscriptionRow {
-  inscriptionId: string
-  inscriptionNumber: number
-  contentType?: string
-}
+import { lerPaginaUnisat } from './unisat-pagina'
+
+export { lerPaginaUnisat }
 
 /**
- * Inscrições que o endereço segura AGORA, mais recentes primeiro.
- * `size` é o teto por página da UniSat (100); a tela pede bem menos.
+ * Inscricoes que o endereco segura AGORA, mais recentes primeiro.
+ * `size` e' o teto por pagina da UniSat (100). `proximo` e' o cursor da proxima
+ * pagina (em LINHAS da UniSat, nunca em itens: ver lerPaginaUnisat).
  */
 export async function listInscriptions(
   address: string,
   cursor = 0,
   size = 40,
-): Promise<{ items: OwnedInscription[]; total: number }> {
+): Promise<{ items: OwnedInscription[]; total: number; proximo: number }> {
   const url = `${UNISAT}/v1/indexer/address/${encodeURIComponent(address)}/inscription-data?cursor=${cursor}&size=${Math.min(size, 100)}`
   const res = await timedFetch(url, { headers: unisatHeaders() })
   if (!res.ok) throw new Error(`unisat ${res.status}`)
   const json = await res.json()
   if (json?.code !== 0) throw new Error(`unisat ${json?.msg ?? 'error'}`)
-
-  const rows: any[] = json.data?.inscription ?? []
-  const items: OwnedInscription[] = []
-  for (const row of rows) {
-    // A resposta vem por UTXO: um output pode carregar mais de uma inscrição.
-    const nested: UnisatInscriptionRow[] = row?.utxo?.inscriptions ?? []
-    for (const ins of nested) {
-      if (!ins?.inscriptionId) continue
-      items.push({
-        id: ins.inscriptionId,
-        number: Number(ins.inscriptionNumber ?? 0),
-        // ⚠️ VEM VAZIO NA MAIORIA DAS LINHAS. O indexador só preenche em parte
-        // dos casos, então quem decide se é imagem é o metadado do ordinals.com.
-        contentType: ins.contentType || null,
-      })
-    }
-  }
-  return { items, total: Number(json.data?.total ?? items.length) }
+  const p = lerPaginaUnisat(json)
+  return { items: p.items, total: p.total, proximo: cursor + p.linhas }
 }
 
 interface InscriptionMeta {

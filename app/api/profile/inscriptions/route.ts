@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
   const cursor = Math.max(0, Number(req.nextUrl.searchParams.get('cursor') ?? 0) || 0)
 
   try {
-    const { items, total } = await listInscriptions(session.address, cursor, PAGE)
+    const { items, total, proximo } = await listInscriptions(session.address, cursor, PAGE)
 
     // O indexador quase nunca traz o tipo de conteúdo; quem sabe é o metadado
     // público, e ele é imutável, então a segunda visita sai do cache.
@@ -57,7 +57,8 @@ export async function GET(req: NextRequest) {
       scanned: items.length,
       total,
       cursor,
-      next_cursor: cursor + items.length < total ? cursor + items.length : null,
+      // o cursor da UniSat anda em linhas, nao em itens (lib/ordinals/inscriptions.ts, lerPaginaUnisat)
+      next_cursor: proximo < total ? proximo : null,
     })
   } catch (e: any) {
     console.error('[api/profile/inscriptions]', e?.message)
