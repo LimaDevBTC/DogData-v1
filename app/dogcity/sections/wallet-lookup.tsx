@@ -50,7 +50,8 @@
 // A POSIÇÃO ENTROU EM 23/09/2026. Até aí a regra era "nunca posição", porque
 // a tabela só tem as sete colunas públicas e o lote nominal não podia ir a
 // público. A cidade fechou e selou (29/09/2026: o registro do Mundo, 70.714 lotes e 15.802 lápides,
-// merkle b8b79435…1904, com a posição das lápides) e o
+// merkle b8b79435…1904, com a posição das lápides; 12/10/2026: b067b8d2…8ef0, 192 lotes junto da água
+// cresceram para dentro das sobras, sem ninguém mudar de lote) e o
 // CSV inteiro é público, então a rota passou a devolver `lot` (lot_id, setor,
 // bairro, tipologia, link do mapa) lido de public/city/escrituras.bin, e
 // `headstone` para quem recebe lápide. Este componente IMPRIME o que veio e

@@ -1,19 +1,19 @@
 {
  "versao": 1,
- "geradoEm": "2026-09-29T05:14:10.873Z",
+ "geradoEm": "2026-10-13T04:42:46.391Z",
  "nota": "índice endereço -> posição, lido do registro selado; gerado por scripts/city/gerar_escrituras.mjs, lido por lib/city/escrituras.ts",
  "fontes": {
   "lotes": {
    "arquivo": "data/dogcity_lotes.csv",
    "linhas": 70714,
-   "sha256": "08658aa0d8a7811fe2cc5f7d0143c30b2821cda28ff297a0e0e26e2ffdddeae5"
+   "sha256": "2ab822a63895a0d5831d510c7b38ac767eaa16dc4534dd378b4b9a2b7509c4e3"
   },
   "cemiterio": {
    "arquivo": "data/dogcity_cemiterio.csv",
    "linhas": 15802,
    "sha256": "0172510cb8046ea1907b38705ae725408c2e6f91efd0f96e1d4efcbdcd0ec6c8"
   },
-  "merkleRoot": "b8b79435d191f3ee247217058198299ab5894ef00b31af073877eefc4c2b1904",
+  "merkleRoot": "b067b8d2f649e453114b51a6f5d68f654bf81b4f37ad1da809a1f1fc404b8ef0",
   "bloco": 966670
  },
  "registros": {
@@ -32,7 +32,7 @@
   "bytes": 3089464,
   "cabecalhoBytes": 16,
   "registroBytes": 36,
-  "sha256": "1d98dd56f8f496e09186a93041ba8a3f6d8feb317caf344f581fb52947707eab"
+  "sha256": "a95d9e75ea0aee0f228f4c3839416c9950c294f35231c1bbe43501e7459e33b6"
  },
  "chave": "sha256(address normalizado: bc1 em minúsculas, base58 intacto); hi = bytes 0-3 BE, lo = 4-7 BE, chk = 8-11 BE; registros ordenados por (hi, lo)",
  "esquema": "uint32 hi, uint32 lo, uint32 chk, uint8 kind(1 lote, 2 lápide), uint8 setor, uint8 quarto, uint8 forma, uint16 quarteirão, uint16 lote|lápide, int32 x_cm, int32 z_cm, uint32 area_m2, int16 cota_dm, uint8 flags(bit0 DSC), uint8 reservado",

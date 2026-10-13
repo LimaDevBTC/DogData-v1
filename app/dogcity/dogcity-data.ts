@@ -437,6 +437,8 @@ export function alvoDaCurva(dog: number, areaEntregue: number): number {
 // MAIS que a curva na mediana (1,0763): a ponta de fileira se reparte entre os lotes da
 // fileira e as orlas vão até a água. Mínimo 0,7199, p1 0,9989; abaixo de 0,95 só 2 lotes,
 // os dois de empresa na Satoshi Plaza (setor 8), e nenhum abaixo de 0,50.
+// ⚠️ REMEDIDO EM 12/10/2026 depois da partilha das sobras junto da água (192 lotes cresceram, 16 ha):
+// mediana 1,0768 (era 1,0763), mínimo 0,7199, p1 0,9989, abaixo de 0,95 os mesmos 2 lotes. Nenhum número publicado abaixo muda.
 export const ENTREGA = {
   medidaEm: "29 September 2026",
   mediana: "1.08",

@@ -21,7 +21,8 @@ import {
 //     data/dogcity_cemiterio.csv): lot_id, setor, forma, coordenada, cota. É
 //     quem responde a POSIÇÃO. Nunca banco: a cidade está fechada e selada
 //     (29/09/2026: o registro do Mundo, scripts/city/registro_do_mundo.py, merkle
-//     b8b79435…1904, com a posição das lápides) e o CSV que ela lê é o mesmo que o root sela.
+//     b8b79435…1904, com a posição das lápides; 12/10/2026: b067b8d2…8ef0, as sobras junto da água
+//     viraram bônus de 192 lotes) e o CSV que ela lê é o mesmo que o root sela.
 //
 // ⚠️ A POSIÇÃO ERA PROIBIDA AQUI ATÉ 22/09 (masterplan §3.12, §14: "só entra o
 // que pode ser público"). O argumento morreu quando a cidade fechou: o CSV
