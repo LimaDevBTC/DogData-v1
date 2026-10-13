@@ -231,16 +231,16 @@ export default function DogCityDocsPage() {
           {/* ── o mapa ──────────────────────────────────────────────────── */}
           <figure className="m-0 mt-8 max-w-3xl">
             <a
-              href="/city/carta-v5.svg"
+              href="/city/carta-v6.svg"
               target="_blank"
               rel="noopener noreferrer"
               className={`group relative block border ${HAIR} bg-white/[0.02] overflow-hidden`}
             >
               {/* 29/09/2026: era o mapa topográfico de 13/09 (a cidade antiga). Agora a carta
-                  da cidade atual (dogcity-mundo, tag cidade-966670-v1): a imagem é o WebP de
+                  da cidade atual (dogcity-mundo, tag cidade-966670-v2, 12/10: sobras junto da agua e trevos sem a reta): a imagem é o WebP de
                   2000 px e o clique abre o SVG de 5,9 MB. <img> comum, não next/image. */}
               <img
-                src="/landing/citymap-2000-v5.webp"
+                src="/landing/citymap-2000-v6.webp"
                 alt="City plan of DogCity at block 966,670: Satoshi Plaza, the road web, the Spit along the bay, the Bay Shore and its two peninsulas, the great lake with its front row, the park that closes Ring 1 and Ring 2 drawn beyond it, every lot coloured by tier."
                 className="w-full h-auto"
                 loading="lazy"
@@ -543,7 +543,10 @@ export default function DogCityDocsPage() {
                 The curve is the target. The ground is drawn in rows and blocks, and a row rarely
                 ends exactly where its last lot does: the ground left at the end of a row is shared
                 equally among the lots of that row, and never handed to a wallet from further down
-                the ladder. Lots that face the water run to the water line, and on the Spit a lot
+                the ladder. Near the water the same rule covers the scraps of ground left between
+                the front row and the blocks behind it: each scrap was added to the lot that touches
+                it, 192 lots in all, none of them past twice the size it had, and the dead-end lanes
+                that served no lot were removed. Lots that face the water run to the water line, and on the Spit a lot
                 runs from the perimeter avenue to the beach, so eight lots there pass the 40,000 m2
                 residential cap: the cap limits the target, not the ground a waterfront lot reaches.
                 Measured on the registry ({ENTREGA.medidaEm}), the median lot holds{" "}
