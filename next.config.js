@@ -63,10 +63,18 @@ async function rewritesDoJogo() {
 // redirect daqui repassaria a query e voltaria para si mesmo.
 const ROTAS_ANTIGAS = 'war|plan|explore|luna|plaza'
 
+// Desde 14/10/2026 o jogo mora em https://dogcity.space (dominio proprio,
+// projeto `dogcity-mundo`): a /city daqui so redireciona, com a query (o Next
+// a repassa), entao `/city?addr=X` vira `dogcity.space/?addr=X`. 307 enquanto o
+// dominio novo se firma; vira permanente depois. Os rewrites acima ficam para
+// quem ainda tem o HTML antigo em cache pedir os arquivos do jogo por aqui.
+const CASA_DO_JOGO = 'https://dogcity.space/'
+
 async function redirectsDaCidadeAntiga() {
   return [
-    { source: `/city/:antiga(${ROTAS_ANTIGAS})/:resto*`, destination: '/city', permanent: true },
-    { source: '/city/mapa', destination: '/city', permanent: true },
+    { source: '/city', destination: CASA_DO_JOGO, permanent: false },
+    { source: `/city/:antiga(${ROTAS_ANTIGAS})/:resto*`, destination: CASA_DO_JOGO, permanent: true },
+    { source: '/city/mapa', destination: CASA_DO_JOGO, permanent: true },
   ]
 }
 
