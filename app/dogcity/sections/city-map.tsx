@@ -53,6 +53,8 @@ import { SNAPSHOT } from "../dogcity-data"
  *  fronteira. Dizer "no ranking" para quem tem menos de 20k era falso: o
  *  DOG-tempo ordena todo mundo.
  *
+ *  ⚠️ 13/10: a arte virou `citymap-1600-v7.webp` (tag cidade-966670-v3: a orla do LAGO02 e os 19 lotes que sairam
+ *  da beira). Nome novo porque o CDN guarda o velho.
  *  ⚠️ 12/10: a arte virou `citymap-1600-v6.webp` (tag cidade-966670-v2: os lotes junto da agua que cresceram
  *  para dentro das sobras e os trevos sem a reta ate' a perimetral).
  *  ⚠️ 29/09: a arte virou `citymap-1600-v5.webp`, a carta da cidade depois da revisão
@@ -123,7 +125,7 @@ export function CityMap() {
             countdown é quem tem de pintar primeiro. Ela carrega logo em
             seguida, sem disputar a primeira dobra com o número. */}
         <Image
-          src="/landing/citymap-1600-v6.webp"
+          src="/landing/citymap-1600-v7.webp"
           alt="City plan of DogCity: Satoshi Plaza under the dome, the road web of rings and radials, the spit along the bay and the AN7 ring expressway, every lot coloured by where its holder lives, the park that closes Ring 1 and Ring 2 drawn beyond it."
           width={1600}
           height={1600}
@@ -131,7 +133,7 @@ export function CityMap() {
           className="w-full h-auto"
         />
         <a
-          href="/city/carta-v6.svg"
+          href="/city/carta-v7.svg"
           target="_blank"
           rel="noopener"
           className={`absolute bottom-0 right-0 border-l border-t ${HAIR} bg-void/85 backdrop-blur-sm
