@@ -55,6 +55,10 @@ export async function POST(req: NextRequest) {
 
   return comPrazo(
     async (signal) => {
+      // 0. teto por IP ANTES de qualquer outra leitura do Redis (14/10): um flood de corpos validos
+      // gastava ate' 5 comandos por pedido antes de chegar ao teto (a classe do incidente de IO de 26/08)
+      if (await estourouIp(req, 'ip', TETO_IP_MINUTO)) return sessao.comCookie(erro(429, 'ritmo', { retryMs: 30_000 }, { 'Retry-After': '30' }))
+
       // 1. reenvio da mesma mensagem (a resposta anterior se perdeu): a mesma, sem gastar a vez
       const chaveCid = `dogcity:nearby:cid:${sessao.id}:${pedido.cid}`
       if (!sessao.nova) {
@@ -79,7 +83,6 @@ export async function POST(req: NextRequest) {
       // 4. ritmo: SET NX PX reserva a vez num comando so' (sem corrida entre ler e gravar)
       const vez = await redisClient.set(`dogcity:nearby:rate:${sessao.id}`, '1', { nx: true, px: INTERVALO_MS })
       if (vez !== 'OK') return sessao.comCookie(erro(429, 'ritmo', { retryMs: INTERVALO_MS }, { 'Retry-After': '2' }))
-      if (await estourouIp(req, 'ip', TETO_IP_MINUTO)) return sessao.comCookie(erro(429, 'ritmo', { retryMs: 30_000 }, { 'Retry-After': '30' }))
 
       // 5. carimbo (quem, o que, onde, quando, para quem) e assinatura
       const nome = await nomeDaSessao(req, signal)
