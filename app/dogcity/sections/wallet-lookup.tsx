@@ -491,7 +491,7 @@ export function WalletLookupHero() {
       className="relative bg-void border-b border-white/10 overflow-hidden min-h-[62svh] md:min-h-[520px]"
     >
       {/* ── O MAPA REAL DA CIDADE COMO FUNDO ────────────────────────────────
-          public/city/hero-mapa-v2.jpg (29/09/2026: recorte da carta da cidade atual,
+          public/city/hero-mapa-v3.jpg (29/09/2026: recorte da carta da cidade atual,
           dogcity-mundo tag cidade-966670-v1; a v1 era a cidade antiga de 13/09) (1920x1080), a cidade enquadrada com a
           Satoshi Plaza no centro, já escurecida nas bordas na própria imagem.
           O que estava aqui antes era um render da praça (plaza-home.webp) a
@@ -517,7 +517,7 @@ export function WalletLookupHero() {
       <div aria-hidden className="absolute inset-x-0 top-0 h-full max-h-[660px] md:max-h-[760px]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/city/hero-mapa-v2.jpg"
+          src="/city/hero-mapa-v3.jpg"
           alt=""
           fetchPriority="high"
           decoding="async"
