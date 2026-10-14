@@ -18,7 +18,7 @@
  *
  * ⚠️ E NÃO VOLTE A DEFINIR `images` solto numa página. Importe daqui.
  */
-export const OG_URL = 'https://www.dogdata.xyz/og-dogcity.jpg?v=5'
+export const OG_URL = 'https://www.dogdata.xyz/og-dogcity-v2.jpg'
 
 export const OG_ALT =
   'DogCity city plan on real lunar terrain at Mare Tranquillitatis, showing the bay, ' +

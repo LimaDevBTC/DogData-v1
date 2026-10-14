@@ -50,7 +50,8 @@
 // A POSIÇÃO ENTROU EM 23/09/2026. Até aí a regra era "nunca posição", porque
 // a tabela só tem as sete colunas públicas e o lote nominal não podia ir a
 // público. A cidade fechou e selou (29/09/2026: o registro do Mundo, 70.714 lotes e 15.802 lápides,
-// merkle b8b79435…1904, com a posição das lápides) e o
+// merkle b8b79435…1904, com a posição das lápides; 13/10/2026: 39e645c1…a776, 19 lotes da beira do LAGO02 realocados, ninguém muda de lote; 12/10/2026: b067b8d2…8ef0, 192 lotes junto da água
+// cresceram para dentro das sobras, sem ninguém mudar de lote) e o
 // CSV inteiro é público, então a rota passou a devolver `lot` (lot_id, setor,
 // bairro, tipologia, link do mapa) lido de public/city/escrituras.bin, e
 // `headstone` para quem recebe lápide. Este componente IMPRIME o que veio e
@@ -490,7 +491,7 @@ export function WalletLookupHero() {
       className="relative bg-void border-b border-white/10 overflow-hidden min-h-[62svh] md:min-h-[520px]"
     >
       {/* ── O MAPA REAL DA CIDADE COMO FUNDO ────────────────────────────────
-          public/city/hero-mapa-v2.jpg (29/09/2026: recorte da carta da cidade atual,
+          public/city/hero-mapa-v3.jpg (29/09/2026: recorte da carta da cidade atual,
           dogcity-mundo tag cidade-966670-v1; a v1 era a cidade antiga de 13/09) (1920x1080), a cidade enquadrada com a
           Satoshi Plaza no centro, já escurecida nas bordas na própria imagem.
           O que estava aqui antes era um render da praça (plaza-home.webp) a
@@ -516,7 +517,7 @@ export function WalletLookupHero() {
       <div aria-hidden className="absolute inset-x-0 top-0 h-full max-h-[660px] md:max-h-[760px]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/city/hero-mapa-v2.jpg"
+          src="/city/hero-mapa-v3.jpg"
           alt=""
           fetchPriority="high"
           decoding="async"

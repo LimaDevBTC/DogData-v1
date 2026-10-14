@@ -231,16 +231,16 @@ export default function DogCityDocsPage() {
           {/* ── o mapa ──────────────────────────────────────────────────── */}
           <figure className="m-0 mt-8 max-w-3xl">
             <a
-              href="/city/carta-v5.svg"
+              href="/city/carta-v8.svg"
               target="_blank"
               rel="noopener noreferrer"
               className={`group relative block border ${HAIR} bg-white/[0.02] overflow-hidden`}
             >
               {/* 29/09/2026: era o mapa topográfico de 13/09 (a cidade antiga). Agora a carta
-                  da cidade atual (dogcity-mundo, tag cidade-966670-v1): a imagem é o WebP de
+                  da cidade atual (dogcity-mundo, tag cidade-966670-v3, 13/10: 19 lotes da beira do LAGO02 realocados para fora da nova orla; antes, v2 de 12/10: sobras junto da agua e trevos sem a reta): a imagem é o WebP de
                   2000 px e o clique abre o SVG de 5,9 MB. <img> comum, não next/image. */}
               <img
-                src="/landing/citymap-2000-v5.webp"
+                src="/landing/citymap-2000-v8.webp"
                 alt="City plan of DogCity at block 966,670: Satoshi Plaza, the road web, the Spit along the bay, the Bay Shore and its two peninsulas, the great lake with its front row, the park that closes Ring 1 and Ring 2 drawn beyond it, every lot coloured by tier."
                 className="w-full h-auto"
                 loading="lazy"
@@ -256,6 +256,23 @@ export default function DogCityDocsPage() {
               THE CITY AT BLOCK 966,670 · CLICK TO OPEN AT FULL RESOLUTION
             </figcaption>
           </figure>
+
+          {/* ── o atlas ─────────────────────────────────────────────────── */}
+          <section aria-labelledby="city-atlas" className={`mt-8 max-w-3xl border-t ${HAIR_SOFT} pt-6`}>
+            <Eyebrow>CITY ATLAS</Eyebrow>
+            <h2 id="city-atlas" className="font-display font-bold text-xl md:text-2xl text-snow mt-2">
+              The city as a book of 46 plates
+            </h2>
+            <P>
+              The atlas draws the same registry as the city plan: relief, tiers, streets, water, landmarks and 27
+              registry sheets that place every lot. Browse the plates, look up the sheet of any lot id, or download the
+              whole book.
+            </P>
+            <div className="mt-4 flex flex-wrap gap-4 font-mono text-[11px] tracking-[0.14em]">
+              <a href="/dogcity/atlas" className="text-lava hover:text-lava-light">OPEN THE ATLAS →</a>
+              <a href="/city/atlas/dogcity-atlas.pdf" className="text-lava hover:text-lava-light">DOWNLOAD THE PDF (28 MB) →</a>
+            </div>
+          </section>
         </div>
 
         {/* ── corpo: índice + seções ──────────────────────────────────────── */}
@@ -543,7 +560,10 @@ export default function DogCityDocsPage() {
                 The curve is the target. The ground is drawn in rows and blocks, and a row rarely
                 ends exactly where its last lot does: the ground left at the end of a row is shared
                 equally among the lots of that row, and never handed to a wallet from further down
-                the ladder. Lots that face the water run to the water line, and on the Spit a lot
+                the ladder. Near the water the same rule covers the scraps of ground left between
+                the front row and the blocks behind it: each scrap was added to the lot that touches
+                it, 192 lots in all, none of them past twice the size it had, and the dead-end lanes
+                that served no lot were removed. Around the second lake a shore road now closes the loop, and the 19 lots that stood on its edge were moved to the band just outside it: same wallets, same tier, same area. Lots that face the water run to the water line, and on the Spit a lot
                 runs from the perimeter avenue to the beach, so eight lots there pass the 40,000 m2
                 residential cap: the cap limits the target, not the ground a waterfront lot reaches.
                 Measured on the registry ({ENTREGA.medidaEm}), the median lot holds{" "}
