@@ -142,7 +142,7 @@ export const PHASES: DogCityPhase[] = [
     screenReaderSummary:
       "Phase 1 of 5. Untouched lunar terrain at Mare Tranquillitatis with a faint orange survey grid, the site boundary ring and a circular marker where the Central Event Plaza will stand.",
     metric: "0.674°N · 23.473°E · Mare Tranquillitatis",
-    image: "/landing/phase-01.webp",
+    image: "/landing/phase-01-v2.webp",
     alt: "Dark lunar terrain covered by a faint glowing survey grid, with a circular plaza marker at the centre",
   },
   {
@@ -155,7 +155,7 @@ export const PHASES: DogCityPhase[] = [
     screenReaderSummary:
       "Phase 2 of 5. The same terrain now carries the staked masterplan: the primary avenue, organic district outlines, the plaza ring and a vast field of faintly glowing demarcated lots.",
     metric: "70,714 lots demarcated",
-    image: "/landing/phase-02.webp",
+    image: "/landing/phase-02-v2.webp",
     alt: "Lunar terrain etched with glowing masterplan lines: avenue, district boundaries and thousands of faint lot markers",
   },
   {
@@ -167,7 +167,7 @@ export const PHASES: DogCityPhase[] = [
       "The Founding Era begins. The Central Plaza platform rises, tower foundations are poured and the first community properties break ground.",
     screenReaderSummary:
       "Phase 3 of 5. The raised circular plaza platform glows at the centre; tower foundations, construction cranes and the first community foundations appear on the surveyed terrain.",
-    image: "/landing/phase-03.webp",
+    image: "/landing/phase-03-v2.webp",
     alt: "Construction phase: glowing circular platform, tower foundations and cranes on surveyed lunar terrain",
   },
   {
@@ -180,7 +180,7 @@ export const PHASES: DogCityPhase[] = [
     screenReaderSummary:
       "Phase 4 of 5. The Central Tower, BitFlow HQ and Kray Tower stand around the plaza; a ring of outlined commercial lots surrounds them and one district of buildings glows to the west.",
     metric: "Commercial ring: 2 of 13 lots claimed",
-    image: "/landing/phase-04.webp",
+    image: "/landing/phase-04-v2.webp",
     alt: "First district built around the central plaza with three landmark towers and a ring of outlined commercial lots",
   },
   {
@@ -192,7 +192,7 @@ export const PHASES: DogCityPhase[] = [
       "A city shaped by DOG holders, built on real lunar terrain and connected to Bitcoin. Every new builder expands the map.",
     screenReaderSummary:
       "Phase 5 of 5. The complete city at night: eight glowing districts, the garden plaza with supertrees, the spaceport, stadiums, parks, the monorail loop and the Solana and Stacks satellite districts.",
-    image: "/landing/phase-05.webp",
+    image: "/landing/phase-05-v2.webp",
     alt: "The complete DogCity at night: glowing districts radiating from the garden plaza across dark lunar terrain",
   },
 ]

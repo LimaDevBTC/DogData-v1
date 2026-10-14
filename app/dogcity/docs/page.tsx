@@ -231,7 +231,7 @@ export default function DogCityDocsPage() {
           {/* ── o mapa ──────────────────────────────────────────────────── */}
           <figure className="m-0 mt-8 max-w-3xl">
             <a
-              href="/city/carta-v7.svg"
+              href="/city/carta-v8.svg"
               target="_blank"
               rel="noopener noreferrer"
               className={`group relative block border ${HAIR} bg-white/[0.02] overflow-hidden`}
@@ -240,7 +240,7 @@ export default function DogCityDocsPage() {
                   da cidade atual (dogcity-mundo, tag cidade-966670-v3, 13/10: 19 lotes da beira do LAGO02 realocados para fora da nova orla; antes, v2 de 12/10: sobras junto da agua e trevos sem a reta): a imagem é o WebP de
                   2000 px e o clique abre o SVG de 5,9 MB. <img> comum, não next/image. */}
               <img
-                src="/landing/citymap-2000-v7.webp"
+                src="/landing/citymap-2000-v8.webp"
                 alt="City plan of DogCity at block 966,670: Satoshi Plaza, the road web, the Spit along the bay, the Bay Shore and its two peninsulas, the great lake with its front row, the park that closes Ring 1 and Ring 2 drawn beyond it, every lot coloured by tier."
                 className="w-full h-auto"
                 loading="lazy"
@@ -256,6 +256,23 @@ export default function DogCityDocsPage() {
               THE CITY AT BLOCK 966,670 · CLICK TO OPEN AT FULL RESOLUTION
             </figcaption>
           </figure>
+
+          {/* ── o atlas ─────────────────────────────────────────────────── */}
+          <section aria-labelledby="city-atlas" className={`mt-8 max-w-3xl border-t ${HAIR_SOFT} pt-6`}>
+            <Eyebrow>CITY ATLAS</Eyebrow>
+            <h2 id="city-atlas" className="font-display font-bold text-xl md:text-2xl text-snow mt-2">
+              The city as a book of 46 plates
+            </h2>
+            <P>
+              The atlas draws the same registry as the city plan: relief, tiers, streets, water, landmarks and 27
+              registry sheets that place every lot. Browse the plates, look up the sheet of any lot id, or download the
+              whole book.
+            </P>
+            <div className="mt-4 flex flex-wrap gap-4 font-mono text-[11px] tracking-[0.14em]">
+              <a href="/dogcity/atlas" className="text-lava hover:text-lava-light">OPEN THE ATLAS →</a>
+              <a href="/city/atlas/dogcity-atlas.pdf" className="text-lava hover:text-lava-light">DOWNLOAD THE PDF (28 MB) →</a>
+            </div>
+          </section>
         </div>
 
         {/* ── corpo: índice + seções ──────────────────────────────────────── */}
