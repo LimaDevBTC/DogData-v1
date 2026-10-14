@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-14T20:39:13.623193+00:00",
+  "generated_at": "2026-10-14T21:36:47.580209+00:00",
   "data_source": {
     "forensic_behavioral_analysis": "data/forensic_behavioral_analysis.json",
     "chain_stats_jsonl": "data/diamond_paws_analysis/chain_stats.jsonl",
@@ -16,28 +16,28 @@
     }
   },
   "totals": {
-    "diamond_paws_with_stats": 19157,
+    "diamond_paws_with_stats": 19156,
     "diamond_paws_missing_stats": 0,
-    "total_airdrop_dog": 19680729108.0,
-    "pct_of_supply": 19.680729108
+    "total_airdrop_dog": 19679839302.0,
+    "pct_of_supply": 19.679839301999998
   },
   "lost_relaxed": {
-    "count": 5874,
-    "pct_of_diamond_paws": 30.662421047136817,
-    "dog_locked": 5593320516.0,
-    "pct_of_diamond_paws_dog": 28.420291165566507,
-    "pct_of_supply": 5.593320516
+    "count": 5873,
+    "pct_of_diamond_paws": 30.65880141992065,
+    "dog_locked": 5592430710.0,
+    "pct_of_diamond_paws_dog": 28.41705475426143,
+    "pct_of_supply": 5.59243071
   },
   "lost_strict": {
     "count": 2,
-    "pct_of_diamond_paws": 0.01044004802422091,
+    "pct_of_diamond_paws": 0.01044059302568386,
     "dog_locked": 1779612.0,
-    "pct_of_diamond_paws_dog": 0.009042408897730355,
+    "pct_of_diamond_paws_dog": 0.00904281774200841,
     "pct_of_supply": 0.0017796119999999999
   },
   "active_after_airdrop": {
     "count": 13283,
-    "pct_of_diamond_paws": 69.33757895286318,
+    "pct_of_diamond_paws": 69.34119858007935,
     "dog_held": 14087408592.0,
     "spent_txo_buckets": {
       "100+": 1828,
@@ -49,8 +49,8 @@
     "note": "These wallets sent something (BTC, other runes\u2026) but their DOG balance equals the airdrop amount \u2014 they're alive HODLers, not lost."
   },
   "funded_after_airdrop_but_unspent": {
-    "count": 5874,
-    "dog_in_these_wallets": 5593320516.0,
+    "count": 5873,
+    "dog_in_these_wallets": 5592430710.0,
     "interpretation": "Received passive deposits (dust attacks, later airdrops, etc.) but never spent. Still 'lost relaxed' \u2014 incoming proves nothing about key control.",
     "extra_deposits_distribution": {
       "1_to_2": {
@@ -62,8 +62,8 @@
         "dog": 577484094.0
       },
       "6_to_20": {
-        "wallets": 4002,
-        "dog": 3789683754.0
+        "wallets": 4001,
+        "dog": 3788793948.0
       },
       "21_to_100": {
         "wallets": 1113,
@@ -77,7 +77,7 @@
   },
   "address_type_breakdown": {
     "lost_relaxed": {
-      "p2tr": 5498,
+      "p2tr": 5497,
       "p2pkh": 67,
       "p2sh": 50,
       "p2wpkh/p2wsh": 259
