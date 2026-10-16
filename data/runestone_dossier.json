@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-10-16T01:54:09+00:00",
- "tip_height": 971626,
- "tip_time": 1792100287,
+ "generated_at": "2026-10-16T02:45:47+00:00",
+ "tip_height": 971653,
+ "tip_time": 1792118326,
  "collection": {
   "parent_id": "fdb2df5d2b16db1ebcbf09e2d23b3f4e417db44b58e712c99b61f26b52c7cbb5i0",
   "parent_number": 63026232,
@@ -17,7 +17,7 @@
   "parent_fee_sats": 59838660
  },
  "custody": {
-  "holders": 62465,
+  "holders": 62466,
   "stones": 112384,
   "avg": 1.8,
   "median": 1,
@@ -26,13 +26,13 @@
   "buckets": [
    {
     "label": "1",
-    "holders": 52161,
-    "stones": 52161
+    "holders": 52163,
+    "stones": 52163
    },
    {
     "label": "2-4",
-    "holders": 7725,
-    "stones": 18870
+    "holders": 7724,
+    "stones": 18868
    },
    {
     "label": "5-9",
@@ -63,7 +63,7 @@
   "share_top10": 4.08,
   "share_top100": 12.35,
   "share_top1000": 27.7,
-  "singletons": 52161
+  "singletons": 52163
  },
  "dormancy": {
   "never_moved": 29379,
@@ -72,27 +72,27 @@
   "age_buckets": [
    {
     "label": "2y+",
-    "stones": 76040,
+    "stones": 76042,
     "pct": 67.66
    },
    {
     "label": "1-2y",
-    "stones": 20572,
+    "stones": 20579,
     "pct": 18.31
    },
    {
     "label": "6-12m",
-    "stones": 8647,
-    "pct": 7.69
+    "stones": 8648,
+    "pct": 7.7
    },
    {
     "label": "3-6m",
-    "stones": 2256,
-    "pct": 2.01
+    "stones": 2247,
+    "pct": 2.0
    },
    {
     "label": "1-3m",
-    "stones": 3327,
+    "stones": 3326,
     "pct": 2.96
    },
    {
@@ -160,7 +160,7 @@
    },
    {
     "month": "2025-05",
-    "stones": 1691
+    "stones": 1690
    },
    {
     "month": "2025-06",
@@ -180,7 +180,7 @@
    },
    {
     "month": "2025-10",
-    "stones": 1080
+    "stones": 1079
    },
    {
     "month": "2025-11",
@@ -228,7 +228,7 @@
    },
    {
     "month": "2026-10",
-    "stones": 1050
+    "stones": 1052
    }
   ]
  },
@@ -236,25 +236,25 @@
   "cohort_addresses": 75497,
   "cohort_stones": 112411,
   "snapshot_block": 840000,
-  "still_here": 44196,
-  "left": 31301,
+  "still_here": 44197,
+  "left": 31300,
   "entered": 18269,
-  "stones_veteran": 69923,
-  "stones_new": 42461,
+  "stones_veteran": 69924,
+  "stones_new": 42460,
   "matrix": {
    "stone_and_dog": 24804,
-   "stone_no_dog": 19392,
+   "stone_no_dog": 19393,
    "no_stone_dog": 1982,
-   "no_stone_no_dog": 29319
+   "no_stone_no_dog": 29318
   },
-  "untouched": 40295,
+  "untouched": 40296,
   "accumulated": 3131,
   "reduced": 770,
   "by_behavior": [
    {
     "pattern": "paper_hands",
-    "addresses": 20691,
-    "stones_today": 34653
+    "addresses": 20692,
+    "stones_today": 34654
    },
    {
     "pattern": "diamond_paws",
@@ -560,13 +560,13 @@
  },
  "verification": {
   "unique_outputs": 111884,
-  "outputs_unspent": 111884,
-  "outputs_spent": 0,
+  "outputs_unspent": 111882,
+  "outputs_spent": 2,
   "stones_without_height": 0,
   "independent_sample": {
    "n": 25,
-   "matched": 3,
-   "errors": 22,
+   "matched": 25,
+   "errors": 0,
    "source": "ordinals.com recursive endpoint"
   }
  },
