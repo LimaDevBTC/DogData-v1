@@ -1,14 +1,15 @@
 import type { Metadata } from "next"
 import { OG_URL, OG_ALT, OG_IMAGE } from "@/lib/og"
+import { ATLAS_PLATES, ATLAS_SHEETS } from "./atlas-data"
 
 // page.tsx e "use client" (Layout da casa usa useRouter); a metadata mora aqui.
 export const metadata: Metadata = {
   title: "DogCity Atlas | DOG DATA",
   description:
-    "The DogCity Atlas: 46 plates of the city at Bitcoin block 966,670. City plan, relief, tiers, streets, water, landmarks and 27 registry sheets that place every lot.",
+    `The DogCity Atlas: ${ATLAS_PLATES.length} plates of the city at Bitcoin block 966,670. City plan, relief, water, tiers, streets, landmarks and ${ATLAS_SHEETS.length} registry sheets that place every lot, with a pre-release specimen of the on-chain deed.`,
   openGraph: {
     title: "DogCity Atlas: every lot on a numbered sheet",
-    description: "46 plates and 27 registry sheets for the city decided at Bitcoin block 966,670.",
+    description: `${ATLAS_PLATES.length} plates and ${ATLAS_SHEETS.length} registry sheets for the city fixed at Bitcoin block 966,670.`,
     type: "website",
     url: "https://www.dogdata.xyz/dogcity/atlas",
     siteName: "DOG DATA",
