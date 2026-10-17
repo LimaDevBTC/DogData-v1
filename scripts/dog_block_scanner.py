@@ -1148,6 +1148,41 @@ def save_block_txs(height, txs):
 
 # === Main Loop ===
 
+PENDING_FILE = DATA_DIR / 'supabase_pending.json'
+
+
+def _pending_load():
+    try:
+        return sorted(set(json.load(open(PENDING_FILE))))
+    except Exception:
+        return []
+
+
+def _pending_add(height):
+    p = _pending_load()
+    if height not in p:
+        p.append(height)
+    PENDING_FILE.write_text(json.dumps(sorted(p)))
+    log.error(f'Supabase: bloco {height} NAO gravado, na fila de reenvio ({len(p)} pendentes)')
+
+
+def retry_pending_supabase():
+    """Reenvia do arquivo local os blocos cujo push falhou (upsert idempotente por txid)."""
+    left = []
+    for h in _pending_load():
+        try:
+            txs = json.load(open(TX_LOG_DIR / f'block_{h:07d}.json'))['transactions']
+        except Exception as e:
+            log.error(f'pendente {h}: arquivo ilegivel ({e})')
+            left.append(h)
+            continue
+        if not push_to_supabase(txs, addresses=True):
+            left.append(h)
+    PENDING_FILE.write_text(json.dumps(left))
+    if left:
+        log.error(f'ALARME: {len(left)} blocos seguem fora do Supabase: {left[:10]}')
+
+
 def process_pending_blocks(utxo_set, state, single_block=None):
     """Process all pending blocks (or a single block)."""
     if single_block is not None:
@@ -1183,7 +1218,9 @@ def process_pending_blocks(utxo_set, state, single_block=None):
 
             save_block_txs(height, all_txs)
             push_to_redis(all_txs)
-            push_to_supabase(all_txs, addresses=True)
+            if not push_to_supabase(all_txs, addresses=True):
+                # nao deixa o last_block avancar sobre um push perdido: o bloco entra na fila de reenvio
+                _pending_add(height)
             total_dog_txs += len(all_txs)
 
             elapsed = time.time() - t
@@ -1213,6 +1250,7 @@ def daemon_loop(utxo_set, state, poll_interval=30):
 
     while True:
         try:
+            retry_pending_supabase()
             n = process_pending_blocks(utxo_set, state)
             if n > 0:
                 log.info(f'Processed {n} DOG transactions')
