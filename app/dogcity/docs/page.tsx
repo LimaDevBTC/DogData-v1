@@ -1131,6 +1131,10 @@ export default function DogCityDocsPage() {
               <a href="/dogcity" className="font-mono text-[11px] tracking-[0.14em] text-lava hover:text-lava-light">
                 ← BACK TO DOGCITY
               </a>
+              <p className="mt-6 font-mono text-[11px] text-dusty leading-relaxed">
+                CONTACT · <a href="mailto:support@dogcity.space" className="text-mist hover:text-snow">support@dogcity.space</a>
+                {" "}· <a href="/dogcity/support" className="text-mist hover:text-snow">Support page</a>
+              </p>
             </div>
           </div>
         </div>
