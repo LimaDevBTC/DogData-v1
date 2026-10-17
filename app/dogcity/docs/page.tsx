@@ -232,7 +232,7 @@ export default function DogCityDocsPage() {
           {/* ── o mapa ──────────────────────────────────────────────────── */}
           <figure className="m-0 mt-8 max-w-3xl">
             <a
-              href="/city/carta-v9.svg"
+              href="/city/carta-v10.svg"
               target="_blank"
               rel="noopener noreferrer"
               className={`group relative block border ${HAIR} bg-white/[0.02] overflow-hidden`}

@@ -57,4 +57,4 @@ export const ATLAS_PLATES: { num: string; title: string; file: string; chapter: 
 export const ATLAS_SHEETS: string[] = ["09.01", "09.02", "09.03", "09.04", "09.05", "09.06", "09.07", "09.08", "09.09", "09.10", "09.11", "09.12", "09.13", "09.14", "09.15", "09.16", "09.17", "09.18", "09.19", "09.20", "09.21", "09.22", "09.23", "09.24", "09.25", "09.26", "09.27"]
 
 export const ATLAS_LOTS = 70714
-export const ATLAS_PDF_MB = 31
+export const ATLAS_PDF_MB = 30

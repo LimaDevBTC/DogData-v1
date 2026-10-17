@@ -15,7 +15,7 @@
 // de 2.000px (largura total, fica nítida em tela 2x); ./city-map.tsx usa a de
 // 1.600px. Nome novo (v4) de propósito, para furar o cache da CDN e do otimizador
 // de imagem. A resolução real mora atrás do link para o SVG
-// (public/city/carta-v9.svg, 5,8 MB, ~1,8 MB comprimido). A v3 e o carta.svg
+// (public/city/carta-v10.svg, 5,8 MB, ~1,8 MB comprimido). A v3 e o carta.svg
 // antigo continuam no public/ para quem linkou direto.
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -35,7 +35,7 @@ export default function MapFull() {
         </h2>
 
         <a
-          href="/city/carta-v9.svg"
+          href="/city/carta-v10.svg"
           target="_blank"
           rel="noopener"
           className={`group relative mt-7 block border ${HAIR} bg-white/[0.02] overflow-hidden`}
