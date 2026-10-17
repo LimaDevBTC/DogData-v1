@@ -48,6 +48,10 @@ fila = sorted((c for c in carteiras if c.get('grupo') != 'empresa' and c.get('ti
 ordem = {c['address']: i for i, c in enumerate(fila)}
 
 
+# ⚠️ 17/10/2026: A ÁREA DO REGISTRO É A NOMINAL (`area_m2` do lotes.json do jogo), a mesma que o DID (DCL1) compromete,
+# arredondada ao m2 inteiro (a folha do merkle é em m2 inteiro). Até 13/10 era a área do polígono dos 4 cantos
+# (`area4`), que para lote de fatia/anel (geo 1) é uma corda do arco e dava menos que a nominal (3.602 lotes divergiam
+# do DID; o pior, S08-Q00-B0002-L004: 11.224,7 nominais contra 10.400,4). Decisão do fundador: vale a nominal.
 def area4(C):
     return abs(sum(C[i][0] * C[(i + 1) % 4][1] - C[(i + 1) % 4][0] * C[i][1] for i in range(4))) / 2.0
 
@@ -83,7 +87,7 @@ for l in lotes:
     prof = (math.dist(C[1], C[2]) + math.dist(C[3], C[0])) / 2.0
     linhas.append([lid, a, -1 if (projeto or l['empresa']) else ordem.get(a, -1), s, q, b, n,
                    round(cx, 2), round(cz, 2), round(math.hypot(cx, cz), 1), round(frente, 2), round(prof, 2),
-                   round(area4(C)), round(rumo(C[1][0] - C[0][0], C[1][1] - C[0][1]), 2),
+                   round(float(l['area_m2'])), round(rumo(C[1][0] - C[0][0], C[1][1] - C[0][1]), 2),
                    round(float(l['dog'])), int(l['utxo_count']) if not projeto else 0,
                    0 if projeto else int(l['forma']), 0, 0, 0, round(float(l.get('cota_frente_m') or 0.0), 2)]
                   + [round(v, 3) for p in C for v in p] + [int(l['geo'])])

@@ -567,8 +567,8 @@ export default function DogCityDocsPage() {
                 runs from the perimeter avenue to the beach, so eight lots there pass the 40,000 m2
                 residential cap: the cap limits the target, not the ground a waterfront lot reaches.
                 Measured on the registry ({ENTREGA.medidaEm}), the median lot holds{" "}
-                {ENTREGA.mediana} times its target, and only {ENTREGA.abaixoDe095} lots hold less
-                than 0.95 of it, both of them company lots in Satoshi Plaza. Your
+                {ENTREGA.mediana} times its target, and only {ENTREGA.abaixoDe095} lot holds less
+                than 0.95 of it, a company lot in Satoshi Plaza. Your
                 deed states the area the registry holds, and that area, not the target, is what the
                 fingerprint seals and what this site answers when you look your wallet up.
               </P>

@@ -439,11 +439,14 @@ export function alvoDaCurva(dog: number, areaEntregue: number): number {
 // os dois de empresa na Satoshi Plaza (setor 8), e nenhum abaixo de 0,50.
 // ⚠️ REMEDIDO EM 12/10/2026 depois da partilha das sobras junto da água (192 lotes cresceram, 16 ha):
 // mediana 1,0768 (era 1,0763), mínimo 0,7199, p1 0,9989, abaixo de 0,95 os mesmos 2 lotes. Nenhum número publicado abaixo muda.
+// ⚠️ REMEDIDO EM 17/10/2026 depois que a área do registro passou a ser a NOMINAL do jogo (a do DID), em vez da área do
+// polígono dos 4 cantos: 6.737 carteiras mudaram de área_m2 na tabela. Mediana 1,0768 (igual), mínimo 0,7269 (era 0,7199),
+// abaixo de 0,95 só 1 lote (era 2; o outro era de fatia/anel e a corda do arco o subestimava).
 export const ENTREGA = {
-  medidaEm: "29 September 2026",
+  medidaEm: "17 October 2026",
   mediana: "1.08",
-  minimo: "0.72",
-  abaixoDe095: "2",
+  minimo: "0.73",
+  abaixoDe095: "1",
   abaixoDe090: "1",
   abaixoDe050: "0",
   // a cauda que sobrou é toda do setor 8 (as empresas na praça), não do tecido
