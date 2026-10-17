@@ -14,6 +14,7 @@ import {
   TrendingUp,
   Search,
   Building2,
+  LifeBuoy,
 } from "lucide-react"
 import { WalletButton } from "@/components/wallet/wallet-button"
 
@@ -162,6 +163,13 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
               <span className="relative whitespace-nowrap">DogCity</span>
               <span className="ml-1.5 px-1 py-px text-[7px] font-bold bg-emerald-500/[0.12] text-emerald-400/80 border border-emerald-500/[0.2] rounded tracking-widest leading-none">LIVE</span>
             </a>
+            <a
+              href="/dogcity/support"
+              className="relative flex items-center justify-center px-2.5 py-1.5 text-[11px] font-mono font-medium tracking-wide transition-all duration-300 flex-shrink-0 rounded-lg group text-[#6B6B78] hover:text-snow/90"
+            >
+              <LifeBuoy className="relative w-3.5 h-3.5 mr-1.5 flex-shrink-0 text-[#4A4A52] group-hover:text-[#6B6B78] transition-colors duration-300" />
+              <span className="relative whitespace-nowrap">Support</span>
+            </a>
           </nav>
 
           {/* Right side */}
@@ -258,6 +266,13 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
               {/* a cidade abriu em 18/08: o SOON tinha sobrado so aqui no
                   menu movel, contradizendo o LIVE do desktop */}
               <span className="ml-auto px-1.5 py-px text-[8px] font-bold bg-emerald-500/[0.12] text-emerald-400/80 border border-emerald-500/[0.2] rounded tracking-widest">LIVE</span>
+            </a>
+            <a
+              href="/dogcity/support"
+              className="w-full flex items-center gap-3 px-3 py-2.5 font-mono text-sm tracking-wide transition-all duration-200 rounded-lg text-[#6B6B78] hover:text-snow hover:bg-white/[0.03]"
+            >
+              <LifeBuoy className="w-4 h-4 flex-shrink-0" />
+              Support
             </a>
             <div className="pt-1 mt-1 border-t border-white/[0.04]">
               <WalletButton variant="mobile" />

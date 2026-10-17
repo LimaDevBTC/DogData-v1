@@ -151,12 +151,12 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
                 { label: 'DOG OFFICIAL SITE', sub: 'dogofbitcoin.com', href: 'https://dogofbitcoin.com/', icon: Globe },
                 { label: 'ORDINALS PROTOCOL', sub: 'Official Documentation', href: 'https://ordinals.com', icon: Shield },
                 { label: 'MEMPOOL EXPLORER', sub: 'Bitcoin Network', href: 'https://mempool.space', icon: Zap },
+                { label: 'DOGCITY SUPPORT', sub: 'support@dogcity.space', href: '/dogcity/support', icon: Shield },
               ].map((item) => (
                 <li key={item.href}>
                   <a
                     href={item.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    {...(item.href.startsWith('/') ? {} : { target: '_blank', rel: 'noopener noreferrer' })}
                     className="text-dusty hover:text-snow/80 transition-all duration-200 flex items-center group py-2 px-2 rounded-lg hover:bg-white/[0.02]"
                   >
                     <div className="w-7 h-7 bg-white/[0.02] border border-white/[0.05] rounded-lg flex items-center justify-center mr-3 group-hover:border-lava/20 group-hover:bg-lava/[0.04] transition-all duration-200">
