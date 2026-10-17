@@ -133,7 +133,7 @@ export function CityMap() {
           className="w-full h-auto"
         />
         <a
-          href="/city/carta-v9.svg"
+          href="/city/carta-v10.svg"
           target="_blank"
           rel="noopener"
           className={`absolute bottom-0 right-0 border-l border-t ${HAIR} bg-void/85 backdrop-blur-sm

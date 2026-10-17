@@ -38,6 +38,7 @@ import { Layout } from "@/components/layout"
 // rodada, então ele não pode ser digitado aqui: vive em `ENTREGA`, em
 // ../dogcity-data.ts, com a data da medição e o comando que remede.
 import { ENTREGA } from "../dogcity-data"
+import { ATLAS_PLATES, ATLAS_SHEETS, ATLAS_PDF_MB } from "../atlas/atlas-data"
 
 // ── mesmas constantes de hairline de ../motion.tsx, copiadas localmente ────
 // (aquele arquivo é "use client"; esta página é Server Component de propósito
@@ -231,7 +232,7 @@ export default function DogCityDocsPage() {
           {/* ── o mapa ──────────────────────────────────────────────────── */}
           <figure className="m-0 mt-8 max-w-3xl">
             <a
-              href="/city/carta-v9.svg"
+              href="/city/carta-v10.svg"
               target="_blank"
               rel="noopener noreferrer"
               className={`group relative block border ${HAIR} bg-white/[0.02] overflow-hidden`}
@@ -261,16 +262,17 @@ export default function DogCityDocsPage() {
           <section aria-labelledby="city-atlas" className={`mt-8 max-w-3xl border-t ${HAIR_SOFT} pt-6`}>
             <Eyebrow>CITY ATLAS</Eyebrow>
             <h2 id="city-atlas" className="font-display font-bold text-xl md:text-2xl text-snow mt-2">
-              The city as a book of 46 plates
+              The city as a book of {ATLAS_PLATES.length} plates
             </h2>
             <P>
-              The atlas draws the same registry as the city plan: relief, tiers, streets, water, landmarks and 27
-              registry sheets that place every lot. Browse the plates, look up the sheet of any lot id, or download the
-              whole book.
+              The atlas draws the same registry as the city plan: relief, water, tiers, streets and landmarks, then{" "}
+              {ATLAS_SHEETS.length} registry sheets that place every lot. It closes with the cemetery, the indexes and a
+              pre-release specimen of the on-chain deed. Browse the plates, look up the sheet of any lot id, or download
+              the whole book.
             </P>
             <div className="mt-4 flex flex-wrap gap-4 font-mono text-[11px] tracking-[0.14em]">
               <a href="/dogcity/atlas" className="text-lava hover:text-lava-light">OPEN THE ATLAS →</a>
-              <a href="/city/atlas/dogcity-atlas.pdf" className="text-lava hover:text-lava-light">DOWNLOAD THE PDF (28 MB) →</a>
+              <a href="/city/atlas/dogcity-atlas.pdf" className="text-lava hover:text-lava-light">DOWNLOAD THE PDF ({ATLAS_PDF_MB} MB) →</a>
             </div>
           </section>
         </div>
