@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback, Rea
 import { sessionId, track, visitorId } from '@/lib/analytics/client'
 import type { ConnectedAccount, WalletId } from '@/lib/wallet/types'
 import { getConnector } from '@/lib/wallet'
+import { getUnisatProvider } from '@/lib/wallet/connectors/unisat'
 import { WalletConnectModal } from '@/components/wallet/wallet-connect-modal'
 
 const STORAGE_KEY = 'dogdata-wallet-account'
@@ -180,6 +181,33 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       /* ignore */
     }
   }, [account])
+
+  // A UniSat tem UMA conta ativa, que a pessoa troca dentro da carteira. Se a
+  // conta ou a rede mudar, a conta mostrada aqui (e a prova feita com ela)
+  // deixa de ser a da carteira: desconecta em vez de seguir com o endereço
+  // velho na tela. Porte do mesmo cuidado do OrdCards.
+  useEffect(() => {
+    if (account?.walletId !== 'unisat') return
+    const provider = getUnisatProvider() as any
+    if (!provider?.on) return
+    const conectado = account.ordinalsAddress.toLowerCase()
+    const onAccounts = (accounts: string[]) => {
+      const next = (accounts?.[0] ?? '').trim()
+      if (next && next.toLowerCase() === conectado) return
+      disconnect()
+      setError(next ? 'UniSat switched to another account. Connect again.' : null)
+    }
+    const onChain = () => {
+      disconnect()
+      setError('UniSat switched networks. DOG DATA is Bitcoin mainnet only.')
+    }
+    provider.on('accountsChanged', onAccounts)
+    provider.on('chainChanged', onChain)
+    return () => {
+      provider.removeListener?.('accountsChanged', onAccounts)
+      provider.removeListener?.('chainChanged', onChain)
+    }
+  }, [account?.walletId, account?.ordinalsAddress, disconnect])
 
   return (
     <WalletContext.Provider

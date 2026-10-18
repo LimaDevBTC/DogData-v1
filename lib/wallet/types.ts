@@ -1,14 +1,14 @@
 // Camada de conexão de carteira (connectwallet.md — Bloco A).
 // O app SÓ conhece esta interface: trocar/adicionar wallet = 1 adapter novo.
 
-export type WalletId = 'xverse' | 'okx' | 'kray'
+export type WalletId = 'xverse' | 'okx' | 'kray' | 'unisat'
 
 export interface ConnectedAccount {
   walletId: WalletId
   // Endereço taproot/ordinals (segura os DOG Runes de L1) — usado na prova de posse.
   ordinalsAddress: string
   ordinalsPublicKey?: string
-  // Endereço de pagamento (na Kray = mesmo taproot).
+  // Endereço de pagamento (na Kray = mesmo taproot; na UniSat = o único endereço da conta).
   paymentAddress: string
   paymentPublicKey?: string
   network: 'mainnet'

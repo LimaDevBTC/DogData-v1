@@ -1,0 +1,7 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "../..",
+    "paths": { "sats-connect": ["scripts/test-stubs/sats-connect.ts"], "@/*": ["./*"] }
+  }
+}
