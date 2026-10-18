@@ -125,7 +125,7 @@ export function CityMap() {
             countdown é quem tem de pintar primeiro. Ela carrega logo em
             seguida, sem disputar a primeira dobra com o número. */}
         <Image
-          src="/landing/citymap-1600-v9.webp"
+          src="/landing/citymap-1600-v10.webp"
           alt="City plan of DogCity: Satoshi Plaza under the dome, the road web of rings and radials, the spit along the bay and the AN7 ring expressway, every lot coloured by where its holder lives, the park that closes Ring 1 and Ring 2 drawn beyond it."
           width={1600}
           height={1600}
@@ -133,7 +133,7 @@ export function CityMap() {
           className="w-full h-auto"
         />
         <a
-          href="/city/carta-v10.svg"
+          href="/city/carta-v11.svg"
           target="_blank"
           rel="noopener"
           className={`absolute bottom-0 right-0 border-l border-t ${HAIR} bg-void/85 backdrop-blur-sm
