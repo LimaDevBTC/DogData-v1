@@ -270,7 +270,10 @@ function streetRows(l: LotFields) {
     <>
       {l.front_road && <DataRow label="FRONT ROAD">{l.front_road}</DataRow>}
       {!l.front_road && l.access && <DataRow label="ACCESS FROM">{`${l.access.road}, SIDE ${l.access.side}`}</DataRow>}
-      {!l.front_road && l.faces && <DataRow label="FRONT FACES">{l.faces}</DataRow>}
+      {/* os 32 lotes da praça (frente "z", sem rua e sem acesso): a escritura imprime
+          "ACCESS FROM THE PLAZA", e a busca diz o mesmo */}
+      {!l.front_road && !l.access && l.faces === "the plaza" && <DataRow label="ACCESS FROM">the plaza</DataRow>}
+      {!l.front_road && l.faces && !(l.faces === "the plaza" && !l.access) && <DataRow label="FRONT FACES">{l.faces}</DataRow>}
     </>
   )
 }
