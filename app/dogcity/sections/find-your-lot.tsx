@@ -436,7 +436,7 @@ function ResultPlate({ r, cd }: { r: Result; cd: CountdownState }) {
         </dl>
         <p className="dc-body mt-5 !text-[15px] !leading-[24px] text-dc-mist">
           Reserved for this wallet through the Founder and Whitelist phases, about 24 days from the day the mint opens.
-          Founders mint it free until the Whitelist ends; every other wallet pays US$1 in the Whitelist.
+          Founders mint it free until the Whitelist ends; every other wallet pays half its public price in the Whitelist, from US$1.
         </p>
         <div className="mt-6 flex flex-col dk:flex-row gap-3">
           {mintOpen

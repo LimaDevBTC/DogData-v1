@@ -1132,7 +1132,7 @@ export default function DogCityDocsPage() {
                   },
                   {
                     lead: "Whitelist, B+720 to B+3,744 (about 21 days).",
-                    text: "Every wallet with a lot in the registry mints its own lot, for US$1 plus the network fee and postage.",
+                    text: "Every wallet with a lot in the registry mints its own lot at half the price that lot will have in the Public phase, from US$1, plus the network fee and postage.",
                   },
                   {
                     lead: "Partners, B+3,744 to B+4,032 (about 48 hours).",
@@ -1160,6 +1160,11 @@ export default function DogCityDocsPage() {
                 city that puts lots between US$2 and about US$200: a typical DOG Soldier lot costs
                 US$3 and a typical Satoshi Visionary lot US$43. The price of every lot is fixed in a
                 list sealed with the city, and the mint charges from that list.
+              </P>
+              <P>
+                In the Whitelist the owner pays half: the same ruler with a US$5 anchor and a US$1
+                floor, so a lot costs from US$1 up to about US$100 there. Founders still mint their
+                own lot free.
               </P>
               <Table
                 head={["Tier", "250 m²", "1,041 m²", "5,000 m²", "25,000 m²"]}
