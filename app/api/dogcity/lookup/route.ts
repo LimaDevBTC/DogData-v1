@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { isValidAddress } from '@/app/api/holders/tree/_shared'
 import { resolveIdentity } from '@/lib/dog/identity'
 import { escrituras, buscarEscritura } from '@/lib/city/escrituras'
+import { lotInfo } from '@/lib/city/lot-info'
 import {
   CORTE_CEMITERIO_DOG, CORTE_CEMITERIO_PUBLICADO, LAPIDES,
   BAIRRO_DO_SETOR, TIPOLOGIA_DA_FORMA, CEMITERIO_NOME, linkDaCidade,
@@ -218,6 +219,10 @@ export async function GET(req: NextRequest) {
     // checagem 3: a carteira já tem lote
     if (row) {
       const l = escritura?.kind === 'lote' ? escritura : null
+      // landing v3 (18/10/2026): tier, distrito e rua do MESMO lote, lidos de
+      // data/dogcity_lot_info.json (o dado da escritura, sem endereço). Sem o
+      // arquivo a resposta só não traz esses campos; nada é deduzido aqui.
+      const info = l ? await lotInfo(l.lotId).catch(() => null) : null
       // a área é a do registro selado quando ele responde (ver o cabeçalho:
       // a tabela ainda serve a curva); a da tabela fica como alarme se divergir
       const areaTabela = Number(row.area_m2)
@@ -244,6 +249,17 @@ export async function GET(req: NextRequest) {
             form: l.forma,
             dsc: l.dsc,
             map: linkDaCidade(address),
+            ...(info && {
+              // o nome do tier vem da fonte única (lib/airdrop-tiers.ts, CITY_LADDER)
+              tier: info.tier ? { code: info.tier.code, rung: info.tier.rung, name: info.tier.label } : null,
+              // a área como a escritura imprime (uma casa); o índice selado guarda inteiro
+              deed_area_m2: info.area_m2,
+              deed_district: info.district,
+              district_name: info.districtName,
+              front_road: info.frontRoad,
+              access: info.access,
+              faces: info.faces,
+            }),
             ...(full && { x_m: l.x_m, z_m: l.z_m, elevation_m: l.cota_m }),
           },
         }),

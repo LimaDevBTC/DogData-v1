@@ -195,3 +195,24 @@ function decodificar(dv: DataView, o: number): Escritura | null {
     cota_m: dv.getInt16(o + 32, true) / 10,
   }
 }
+
+/**
+ * Busca por lot_id, SEM endereço (landing v3: o exemplo da busca e a galeria).
+ * Varredura linear nos 70 mil registros (36 bytes cada, poucos ms); só lotes de
+ * carteira estão no índice: os 698 lotes da reserva do projeto não têm registro
+ * aqui e voltam null. Não devolve nada que identifique a carteira.
+ */
+export function buscarLotePorId(ix: Indice, lotId: string): Escritura | null {
+  const m = /^S(\d{2})-Q(\d{2})-B(\d{4})-L(\d{3})$/.exec(lotId)
+  if (!m) return null
+  const [s, q, b, l] = [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4])]
+  const { dv, n } = ix
+  for (let i = 0; i < n; i++) {
+    const o = CAB + i * REG
+    if (dv.getUint8(o + 12) !== KIND_LOTE) continue
+    if (dv.getUint8(o + 13) !== s || dv.getUint8(o + 14) !== q) continue
+    if (dv.getUint16(o + 16, true) !== b || dv.getUint16(o + 18, true) !== l) continue
+    return decodificar(dv, o)
+  }
+  return null
+}

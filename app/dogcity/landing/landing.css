@@ -1,0 +1,345 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   DogCity landing v3 (/dogcity). Tudo aqui é escopado em [data-dogcity-landing]
+   ou em body:has([data-dogcity-landing]): navegar para outra rota do site leva
+   o arquivo junto (CSS global do app router), mas nenhuma regra casa lá.
+
+   Dois materiais e só dois (brief §2): o VISOR (texto sobre filme ou mapa, sem
+   caixa, legível por halo) e a PRANCHA (placa opaca #1B1915, fio de cabelo creme
+   a 12%, cantos retos, marcas de registro nos cantos). Nada de vidro.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* o quadriculado fixo de globals.css (body::before) e o preto puro do site
+   somem só nesta página: o fundo daqui é o void quente #15130F */
+body:has([data-dogcity-landing])::before { display: none; }
+body:has([data-dogcity-landing]) { background: #15130F; }
+body:has([data-dogcity-landing]) > div.min-h-screen { background: #15130F; }
+
+/* globals.css põe `main { overflow-x: hidden }`, e isso quebra position: sticky
+   (a passagem "Into the plaza" e o "Read a deed" dependem dele) */
+[data-dogcity-landing] main { overflow: visible; }
+
+[data-dogcity-landing] {
+  --dc-void: #15130F;
+  --dc-deep: #0D0C09;
+  --dc-plate: #1B1915;
+  --dc-snow: #F5E9D6;
+  --dc-mist: #A39C90;
+  --dc-dusty: #8E877B;
+  --dc-lava: #E8660D;
+  --dc-hot: #FF8A3D;
+  --dc-hair: rgba(245, 233, 214, 0.12);
+  --dc-hair-strong: rgba(245, 233, 214, 0.24);
+  --dc-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --dc-ease-pin: cubic-bezier(0.65, 0, 0.35, 1);
+  --dc-gutter: 20px;
+  background: var(--dc-void);
+  color: var(--dc-snow);
+  font-family: var(--font-body), 'Barlow', system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (min-width: 640px) and (min-height: 521px) {
+  [data-dogcity-landing] { --dc-gutter: clamp(20px, 4.4vw, 64px); }
+}
+
+/* o globals.css força .font-mono para JetBrains por nome; aqui a família é a mesma */
+[data-dogcity-landing] .font-mono { font-family: var(--font-mono), 'JetBrains Mono', monospace; }
+
+/* ── foco de teclado: anel lava de 2 px com 2 px de folga, em tudo ── */
+[data-dogcity-landing] :focus { outline: none; }
+[data-dogcity-landing] :focus-visible {
+  outline: 2px solid var(--dc-lava);
+  outline-offset: 2px;
+}
+
+/* ── o VISOR: halo de duas sombras (uma dura que recorta, uma larga que afasta o ruído) ── */
+.dc-halo { text-shadow: 0 1px 2px rgba(13, 12, 9, 0.9), 0 0 24px rgba(13, 12, 9, 0.65); }
+
+/* ── rótulo mono ── */
+.dc-label {
+  font-family: var(--font-mono), 'JetBrains Mono', monospace;
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  line-height: 1.5;
+}
+@media (min-width: 640px) and (min-height: 521px) { .dc-label { font-size: 11px; } }
+
+/* ── títulos ── */
+.dc-h2 {
+  font-family: var(--font-cond), 'Barlow Condensed', sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 44px;
+  line-height: 0.94;
+  letter-spacing: 0;
+}
+@media (min-width: 640px) and (min-height: 521px) { .dc-h2 { font-size: clamp(44px, 6vw, 96px); } }
+.dc-h2 { text-wrap: balance; }
+/* P4: o título da abertura de The city, sobre o plano do jogo em tela cheia */
+.dc-op-h2 { font-size: 56px; line-height: 0.9; }
+@media (min-width: 640px) and (min-height: 521px) { .dc-op-h2 { font-size: clamp(56px, 6.6vw, 112px); } }
+/* o texto de abertura de cada seção: logo abaixo do H2, até 40 caracteres */
+.dc-lede {
+  font-size: 19px; line-height: 28px; max-width: 40ch;
+  color: rgba(245, 233, 214, 0.88);
+  text-wrap: pretty;
+}
+@media (min-width: 640px) and (min-height: 521px) { .dc-lede { font-size: 24px; line-height: 34px; } }
+.dc-h3 {
+  font-family: var(--font-cond), 'Barlow Condensed', sans-serif;
+  font-weight: 600;
+  font-size: 26px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+@media (min-width: 640px) and (min-height: 521px) { .dc-h3 { font-size: 32px; } }
+.dc-body { font-size: 16px; line-height: 26px; max-width: 64ch; }
+@media (min-width: 640px) and (min-height: 521px) { .dc-body { font-size: 17px; line-height: 28px; } }
+
+/* ── a PRANCHA ── */
+.dc-plate {
+  position: relative;
+  background: var(--dc-plate);
+  border: 1px solid var(--dc-hair);
+}
+.dc-plate-hover { transition: border-color 320ms var(--dc-ease); }
+.dc-plate-hover:hover, .dc-plate-hover:focus-within { border-color: var(--dc-hair-strong); }
+/* marcas de registro nos cantos (os ticks da escritura). O contêiner é absoluto:
+   numa prancha em grid ele não pode virar célula */
+.dc-ticks { position: absolute; inset: 0; pointer-events: none; }
+.dc-ticks > i {
+  position: absolute; width: 10px; height: 10px; pointer-events: none;
+  border-color: rgba(245, 233, 214, 0.55); border-style: solid; border-width: 0;
+}
+.dc-ticks > i:nth-child(1) { top: -1px; left: -1px; border-top-width: 1px; border-left-width: 1px; }
+.dc-ticks > i:nth-child(2) { top: -1px; right: -1px; border-top-width: 1px; border-right-width: 1px; }
+.dc-ticks > i:nth-child(3) { bottom: -1px; left: -1px; border-bottom-width: 1px; border-left-width: 1px; }
+.dc-ticks > i:nth-child(4) { bottom: -1px; right: -1px; border-bottom-width: 1px; border-right-width: 1px; }
+
+/* ── botões: cantos retos ── */
+/* display em :where() (especificidade zero): `hidden` e `dk:inline-flex` do Tailwind
+   têm de vencer, e este arquivo carrega DEPOIS dos utilitários */
+:where(.dc-btn) { display: inline-flex; }
+.dc-btn {
+  position: relative; align-items: center; justify-content: center; gap: 10px;
+  height: 52px; padding: 0 24px; overflow: hidden; isolation: isolate;
+  font-family: var(--font-mono), 'JetBrains Mono', monospace; font-weight: 600;
+  font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; white-space: nowrap;
+  transition: color 240ms var(--dc-ease), border-color 240ms var(--dc-ease), background-color 240ms var(--dc-ease);
+}
+.dc-btn-sm { height: 40px; padding: 0 16px; font-size: 11px; letter-spacing: 0.14em; }
+/* telas de 320 px: o botão mais longo ("Download the PDF · 30 MB") não cabe com o respiro
+   cheio dentro de uma prancha; aperta o respiro e o espaçamento, nunca quebra a linha */
+@media (max-width: 359px) { .dc-btn { padding: 0 14px; letter-spacing: 0.1em; } }
+/* o halo do visor é herdado (text-shadow herda): no botão cheio ele borrava o texto escuro */
+.dc-btn-fill { background: var(--dc-lava); color: var(--dc-void); text-shadow: none; }
+.dc-btn-fill::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; background: var(--dc-hot);
+  transform: scaleX(0); transform-origin: left; transition: transform 240ms var(--dc-ease);
+}
+.dc-btn-line { border: 1px solid rgba(232, 102, 13, 0.85); color: var(--dc-snow); }
+@media (hover: hover) and (pointer: fine) {
+  .dc-btn-fill:hover::before { transform: scaleX(1); }
+  .dc-btn-line:hover { border-color: var(--dc-hot); color: var(--dc-hot); }
+}
+.dc-btn[aria-disabled="true"], .dc-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ── link de texto: o sublinhado em fio de cabelo se desenha ── */
+.dc-link {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-size: 100% 1px; background-position: 0 100%; background-repeat: no-repeat;
+  padding-bottom: 2px;
+  transition: background-size 320ms var(--dc-ease), color 240ms var(--dc-ease);
+}
+@media (hover: hover) and (pointer: fine) {
+  .dc-link { background-size: 0% 1px; background-image: linear-gradient(var(--dc-hot), var(--dc-hot)); }
+  .dc-link:hover { background-size: 100% 1px; }
+  .dc-link-quiet { background-image: linear-gradient(currentColor, currentColor); }
+}
+
+/* ── régua graduada (o trilho do fundo e a régua das fases) ── */
+.dc-ruler {
+  background-image:
+    repeating-linear-gradient(90deg, rgba(245, 233, 214, 0.34) 0 1px, transparent 1px 60px),
+    repeating-linear-gradient(90deg, rgba(245, 233, 214, 0.16) 0 1px, transparent 1px 12px);
+  background-size: 100% 100%, 100% 45%;
+  background-position: 0 0, 0 100%;
+  background-repeat: no-repeat;
+}
+
+/* ── pulsos ── */
+@keyframes dc-ping {
+  0% { transform: scale(1); opacity: 0.9; }
+  100% { transform: scale(3.4); opacity: 0; }
+}
+.dc-ping { animation: dc-ping 2.2s var(--dc-ease) infinite; }
+.dc-ping-3 { animation: dc-ping 1.1s var(--dc-ease) 3; }
+@keyframes dc-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.55; }
+  50% { transform: scale(1.9); opacity: 0; }
+}
+.dc-breathe { animation: dc-breathe 3.2s ease-in-out infinite; }
+@keyframes dc-sweep {
+  0% { transform: translate(-50%, -50%) scale(0.02); opacity: 0.9; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+.dc-sweep { animation: dc-sweep 1.6s cubic-bezier(0.22, 0.61, 0.36, 1) infinite; }
+@keyframes dc-fade-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.dc-fade-in { animation: dc-fade-in 300ms var(--dc-ease) both; }
+@keyframes dc-blink { 0% { opacity: 0.15; } 100% { opacity: 1; } }
+.dc-blink { animation: dc-blink 120ms steps(2, end) 1; }
+@keyframes dc-drop {
+  0% { transform: translate(-50%, -100%) translateY(-28px); opacity: 0; }
+  100% { transform: translate(-50%, -100%) translateY(0); opacity: 1; }
+}
+.dc-drop { animation: dc-drop 520ms var(--dc-ease) both; }
+
+/* ── a gaveta do menu ── */
+.dc-drawer-link {
+  font-family: var(--font-cond), 'Barlow Condensed', sans-serif;
+  font-weight: 600; text-transform: uppercase; line-height: 1;
+  font-size: 44px;
+}
+@media (min-width: 640px) and (min-height: 521px) { .dc-drawer-link { font-size: 56px; } }
+
+/* ── rolagem horizontal com encaixe (galeria e lugares) ── */
+.dc-rail {
+  display: flex; overflow-x: auto; overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory; scrollbar-width: none;
+  scroll-padding-inline: var(--dc-gutter);
+  padding-inline: var(--dc-gutter);
+}
+.dc-rail::-webkit-scrollbar { display: none; }
+.dc-rail > * { scroll-snap-align: start; flex: none; }
+
+/* ── movimento desligado (interruptor "Motion: off" ou o sistema) ──
+   a página inteira fica parada e funcional: nada pulsa, nada varre */
+[data-dogcity-landing][data-motion="off"] .dc-ping,
+[data-dogcity-landing][data-motion="off"] .dc-ping-3,
+[data-dogcity-landing][data-motion="off"] .dc-breathe,
+[data-dogcity-landing][data-motion="off"] .dc-sweep,
+[data-dogcity-landing][data-motion="off"] .dc-blink,
+[data-dogcity-landing][data-motion="off"] .dc-drop,
+[data-dogcity-landing][data-motion="off"] .dc-fade-in { animation: none; }
+html:has([data-dogcity-landing][data-motion="off"]) { scroll-behavior: auto; }
+@media (prefers-reduced-motion: reduce) {
+  html:has([data-dogcity-landing]) { scroll-behavior: auto; }
+}
+
+/* ── o trilho do herói: posicionado pela variável --dc-f (0 a 1), certo já no HTML ── */
+.dc-rail-shroud { transform: scaleX(calc(1 - var(--dc-f, 0))); transition: transform 900ms var(--dc-ease); }
+.dc-rail-move { transform: translateX(calc(var(--dc-f, 0) * 100%)); transition: transform 900ms var(--dc-ease); pointer-events: none; }
+.dc-rail-readout { transform: translateX(calc(var(--dc-f, 0) * -100%)); transition: transform 900ms var(--dc-ease); }
+[data-dogcity-landing][data-motion="off"] .dc-rail-shroud,
+[data-dogcity-landing][data-motion="off"] .dc-rail-move,
+[data-dogcity-landing][data-motion="off"] .dc-rail-readout { transition: none; }
+
+/* ── o cartão de título (primeira visita da sessão), TODO em CSS ──
+   O script pré-hidratação de app/dogcity/layout.tsx marca <html data-dc-intro> antes da
+   primeira pintura; o relógio destes keyframes é essa pintura, não a hidratação. Sem a
+   marca nada disto existe; tirar a marca (o JS faz isso a qualquer toque) = estado final.
+     0 a 500 ms     o ponto laranja acende como pino (a Satoshi Plaza)
+     500 a 1.400    o wordmark se revela do ponto para fora
+     1.200 a 2.200  o trilho se desenha; o número entra (o odômetro, se o JS chegou a tempo)
+     1.750 a 2.850  o trilho enche até a porcentagem
+     1.900 a 2.600  o wordmark voa para o lugar dele na navegação (só transform) */
+.dc-tc { display: none; }
+html[data-dc-intro] .dc-tc { display: flex; animation: dc-tc-out 140ms linear 2.55s both; }
+@keyframes dc-tc-out { to { opacity: 0; visibility: hidden; } }
+.dc-tc-mark { clip-path: inset(0 51.38% 0 48.62%); }
+/* a abertura do wordmark começa a 150 ms: na primeira visita ele é o LCP, e o Chrome
+   só o registra quando a máscara começa a abrir (com 500 ms, LCP = primeira pintura
+   + 0,5 s; medido em 18/10 no 4G lento) */
+html[data-dc-intro] .dc-tc-mark {
+  animation: dc-tc-reveal 1000ms var(--dc-ease) 150ms both, dc-tc-fly-m 700ms var(--dc-ease-pin) 1900ms both;
+}
+@keyframes dc-tc-reveal { from { clip-path: inset(0 51.38% 0 48.62%); } to { clip-path: inset(0 0 0 0); } }
+/* celular: encolhe e some na direção do D· (o wordmark não cabe a 32 px) */
+@keyframes dc-tc-fly-m {
+  from { transform: none; opacity: 1; }
+  to { transform: translate(calc(var(--dc-gutter) + 16px - 50vw), calc(28px - 0.26 * max(100svh, 600px))) scale(0.1); opacity: 0; }
+}
+/* desktop: o wordmark de 640 px vira o de 212 px no canto esquerdo da navegação */
+@media (min-width: 1024px) {
+  html[data-dc-intro] .dc-tc-mark {
+    animation: dc-tc-reveal 1000ms var(--dc-ease) 150ms both, dc-tc-fly-d 700ms var(--dc-ease-pin) 1900ms both;
+  }
+  html[data-dc-intro] .dc-tc { --dc-tc-left: calc(max(0px, (100vw - 1360px - 2 * var(--dc-gutter)) / 2) + var(--dc-gutter)); }
+}
+@keyframes dc-tc-fly-d {
+  from { transform: none; }
+  to { transform: translate(calc(var(--dc-tc-left) + 106px - 50vw), calc(36px - 0.21 * max(100svh, 640px))) scale(0.33125); }
+}
+.dc-tc-dot, .dc-tc-ring { opacity: 0; }
+html[data-dc-intro] .dc-tc-dot { animation: dc-tc-dot-in 380ms var(--dc-ease) both, dc-tc-dot-out 200ms linear 900ms forwards; }
+@keyframes dc-tc-dot-in { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes dc-tc-dot-out { from { opacity: 1; } to { opacity: 0; } }
+html[data-dc-intro] .dc-tc-ring { animation: dc-tc-ring 900ms var(--dc-ease) 80ms both; }
+@keyframes dc-tc-ring { from { transform: scale(1); opacity: 0.9; } to { transform: scale(5); opacity: 0; } }
+
+/* o wordmark (ou o D·) da navegação aparece quando o do cartão chega */
+html[data-dc-intro] #dc-nav-mark { animation: dc-nav-mark-in 160ms linear 2.5s both; }
+@keyframes dc-nav-mark-in { from { opacity: 0; } to { opacity: 1; } }
+/* o trilho se desenha da esquerda para a direita e enche até a porcentagem */
+html[data-dc-intro] .dc-rail-draw { animation: dc-rail-draw 1000ms var(--dc-ease) 1.2s both; }
+@keyframes dc-rail-draw { from { clip-path: inset(-8px 100% -8px 0); } to { clip-path: inset(-8px 0 -8px 0); } }
+html[data-dc-intro] .dc-rail-shroud { animation: dc-rail-shroud-in 1100ms var(--dc-ease) 1.75s both; }
+@keyframes dc-rail-shroud-in { from { transform: scaleX(1); } }
+html[data-dc-intro] .dc-rail-move { animation: dc-rail-move-in 1100ms var(--dc-ease) 1.75s both; }
+/* a leitura entra com o desenho do trilho, não antes dele */
+/* a leitura entra por último, quando o trilho já encheu */
+html[data-dc-intro] .dc-rail-readout { animation: dc-rail-move-in 1100ms var(--dc-ease) 1.75s both, dc-readout-in 300ms linear 2.85s both; }
+@keyframes dc-readout-in { from { opacity: 0; } to { opacity: 1; } }
+/* B7: os primeiros 1,2 s são só a cidade e o wordmark. Depois o visor se MONTA por
+   máscara (sobe de trás de uma borda), peça por peça; máscara e não opacidade, que
+   tiraria o texto da conta do LCP */
+@keyframes dc-mask-in {
+  from { clip-path: inset(110% -4% -4% -4%); transform: translate3d(0, 12px, 0); }
+  to { clip-path: inset(-4% -4% -4% -4%); transform: none; }
+}
+html[data-dc-intro] .dc-in-label { animation: dc-mask-in 500ms var(--dc-ease) 1.2s both; }
+html[data-dc-intro] .dc-in-unit { animation: dc-mask-in 500ms var(--dc-ease) 1.5s both; }
+html[data-dc-intro] .dc-in-h1 { animation: dc-mask-in 600ms var(--dc-ease) 1.65s both; }
+/* P-f: máscara por botão (no celular eles empilham e a máscara única, subindo de baixo,
+   mostrava ENTER THE CITY antes do botão cheio) */
+html[data-dc-intro] .dc-in-btns > * { animation: dc-mask-in 600ms var(--dc-ease) 1.8s both; }
+html[data-dc-intro] .dc-in-btns > *:nth-child(n+2) { animation-delay: 1.9s; }
+html[data-dc-intro] .dc-in-founder { animation: dc-mask-in 600ms var(--dc-ease) 1.95s both; }
+/* a legenda do take e a pausa do filme entram com a marca pousando na navegação: nos
+   primeiros 1,2 s só a cidade e o wordmark (B7), e antes do fim do cartão (3 s) */
+html[data-dc-intro] .dc-in-film { animation: dc-mask-in 500ms var(--dc-ease) 2.4s both; }
+@keyframes dc-rail-move-in { from { transform: translateX(0); } }
+/* o número só entra quando começa a rolar: "10,000,000 $DOG TO GO" parado seria falso.
+   Entra por MÁSCARA (sobe de trás de uma borda), não por opacidade: opacidade 0 tira o
+   elemento da conta do LCP e o Chrome só o registrava no fim da animação (2,9 s) */
+html[data-dc-intro] .dc-hero-number { animation: dc-num-in 550ms var(--dc-ease) 1.2s both; }
+@keyframes dc-num-in {
+  from { clip-path: inset(110% -4% -4% -4%); transform: translate3d(0, 14px, 0); }
+  to { clip-path: inset(-4% -4% -4% -4%); transform: none; }
+}
+
+/* ── o palco da abertura (sections/opening.tsx): o laço escreve as variáveis ── */
+.dc-stage .dc-media { opacity: var(--dc-media, 1); }
+.dc-stage .dc-veil { opacity: var(--dc-veil, 0); }
+.dc-stage .dc-visor { opacity: var(--dc-vis, 1); transform: translate3d(0, var(--dc-vis-y, 0px), 0); }
+.dc-stage .dc-rail-fly { opacity: var(--dc-rail-o, 1); transform-origin: 0 0; will-change: transform; }
+/* P-a: a leitura do trilho e os nomes das fases somem antes do voo */
+.dc-stage .dc-rail-read { opacity: var(--dc-read-o, 1); }
+/* sem movimento: dois estados e uma fusão simples de 400 ms (brief §8) */
+.dc-stage-still .dc-media,
+.dc-stage-still .dc-visor,
+.dc-stage-still .dc-rail-read,
+.dc-stage-still .dc-rail-fly { transition: opacity 400ms linear; }
+
+/* ── o número do contador: tamanho pela quantidade de caracteres (--dc-n) ──
+   0,46 em é a largura média de um algarismo da Barlow Condensed 600 com folga */
+.dc-num-size { font-size: min(88px, calc((100vw - 2 * var(--dc-gutter)) / (0.46 * var(--dc-n, 7)))); }
+.dc-num-size-film { font-size: min(88px, calc((100vw - 2 * var(--dc-gutter)) / (0.46 * var(--dc-n, 7)))); }
+@media (min-width: 640px) and (min-height: 521px) {
+  .dc-num-size { font-size: min(clamp(96px, 15vw, 224px), calc(58vw / (0.46 * var(--dc-n, 7)))); }
+  /* com o filme o número cede espaço para a cidade */
+  .dc-num-size-film { font-size: min(clamp(96px, 12vw, 176px), calc(58vw / (0.46 * var(--dc-n, 7)))); }
+}
+
+.dc-balance { text-wrap: balance; }
