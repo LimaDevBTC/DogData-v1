@@ -131,7 +131,7 @@ function Film({ reduced }: { reduced: boolean }) {
       )}
       {/* a legenda do take e a pausa: canto inferior direito (topo direito no celular).
           WCAG 2.2.2: o laço passa de 5 s, então o controle de pausa é visível. */}
-      <div className="absolute right-[var(--dc-gutter)] top-[64px] dk:top-auto dk:bottom-[112px] z-[2] flex flex-col items-end gap-1 text-right">
+      <div className="absolute right-[var(--dc-gutter)] top-[64px] dk:top-auto dk:bottom-[112px] z-[3] flex flex-col items-end gap-1 text-right">
       {cut && (
         <p key={blink} className={`dc-label text-dc-snow dc-halo ${reduced ? "" : "dc-blink"}`}>
           {String((take ?? 0) + 1).padStart(2, "0")} / {String(HERO_FILM.cuts.length).padStart(2, "0")} · {cut.place}
@@ -447,9 +447,11 @@ export default function Hero({
       {cardOn && <TitleCard onDone={() => { setCardOn(false); onIntroDone() }} />}
 
       {/* ── o bloco do contador (o visor): canto inferior esquerdo ── */}
-      <div className="absolute inset-x-0 bottom-[calc(70px+env(safe-area-inset-bottom))] dk:bottom-[112px] z-[2]">
+      {/* o contêiner é da largura da tela e não pode engolir o toque da pausa do filme:
+          só o bloco do contador recebe ponteiro */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-[calc(70px+env(safe-area-inset-bottom))] dk:bottom-[112px] z-[2]">
         <div className="mx-auto max-w-[calc(1360px+2*var(--dc-gutter))] px-[var(--dc-gutter)]">
-          <div id="build" className="max-w-[min(100%,780px)] dc-halo scroll-mt-24">
+          <div id="build" className="pointer-events-auto max-w-[min(100%,780px)] dc-halo scroll-mt-24">
             <p className="dc-label text-dc-lava">
               {intro && !reduced
                 ? <ScrambleLater text={cd.label} delay={1200} />
