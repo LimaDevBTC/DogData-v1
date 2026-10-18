@@ -94,11 +94,15 @@ export function useFilm({ reduced, active }: { reduced: boolean; active: boolean
     setSrc(f)
   }, [])
 
-  // entra depois da primeira pintura, e só se pode
+  // entra depois da primeira pintura, e só se pode. O `reduced` chega depois da
+  // hidratação (começa falso): a espera do idle é cancelada se ele virar verdadeiro,
+  // senão o filme montava e baixava 2 MB com o movimento reduzido ligado
   useEffect(() => {
     if (!HERO_FILM.exists) return
-    if (reduced || !filmAllowed()) { setBlocked(true); return }
-    idle(start)
+    if (reduced || !filmAllowed()) { setBlocked(true); setSrc(null); return }
+    let alive = true
+    idle(() => { if (alive) start() })
+    return () => { alive = false }
   }, [reduced, start])
 
   const play = useCallback(() => {
