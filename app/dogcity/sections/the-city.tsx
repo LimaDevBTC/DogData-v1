@@ -153,7 +153,7 @@ function PlaceCard({ p, active, onHover }: { p: (typeof PLACES)[number]; active:
             aria-hidden
             className="absolute inset-0 h-full w-full object-cover"
           >
-            {loop.webm && <source src={loop.webm} type="video/webm" />}
+            {loop.webm && <source src={loop.webm} type='video/webm; codecs="av01.0.05M.08"' />}
             {loop.mp4 && <source src={loop.mp4} type="video/mp4" />}
           </video>
         ) : crop ? (
@@ -336,7 +336,7 @@ function Opener() {
               onPlaying={() => setPlaying(true)}
               className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-[600ms] ${playing ? "opacity-100" : "opacity-0"}`}
             >
-              <source src={src.webm} type="video/webm" />
+              <source src={src.webm} type='video/webm; codecs="av01.0.08M.08"' />
               <source src={src.mp4} type="video/mp4" />
             </video>
           )}
@@ -346,7 +346,7 @@ function Opener() {
         <div aria-hidden className="absolute inset-x-0 bottom-0 h-[38%] bg-gradient-to-t from-dc-void via-dc-void/[0.55] to-transparent" />
         <div aria-hidden className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-dc-void/[0.7] to-transparent" />
 
-        <div className="absolute right-[var(--dc-gutter)] top-[72px] dk:top-auto dk:bottom-12 z-[2] flex flex-col items-end gap-1 text-right">
+        <div className="absolute right-[var(--dc-gutter)] top-[72px] dk:top-auto dk:bottom-12 z-[3] flex flex-col items-end gap-1 text-right">
           <p className="dc-label text-dc-snow/[0.9] dc-halo">IN THE GAME · {CITY_OPENER.place}</p>
           {src && (
             <button
@@ -365,7 +365,7 @@ function Opener() {
           )}
         </div>
 
-        <Frame className="absolute inset-x-0 bottom-0 z-[2] pb-14 dk:pb-16">
+        <Frame className="pointer-events-none absolute inset-x-0 bottom-0 z-[2] pb-14 dk:pb-16">
           <div
             className="transition-[clip-path,transform] duration-[900ms] ease-[cubic-bezier(0.16,1,0.3,1)]"
             style={reduced ? undefined : {

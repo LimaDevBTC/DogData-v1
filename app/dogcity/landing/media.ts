@@ -18,6 +18,8 @@ import { CITY_LADDER, COMPANY_LABEL, PROJECT_RESERVE_LABEL } from "@/lib/airdrop
 type Src = string | undefined
 interface VideoManifest {
   hero_desktop_webm?: Src; hero_desktop_mp4?: Src; hero_mobile_webm?: Src; hero_mobile_mp4?: Src
+  // T1 (a Terra sobre o domo): abre só a primeira reprodução, depois entra o laço
+  intro_desktop_webm?: Src; intro_desktop_mp4?: Src; intro_mobile_webm?: Src; intro_mobile_mp4?: Src
   poster_desktop_avif?: Src; poster_desktop_webp?: Src; poster_desktop_jpg?: Src
   poster_mobile_avif?: Src; poster_mobile_webp?: Src; poster_mobile_jpg?: Src
   cuts?: { t: number; place: string }[]
@@ -48,23 +50,35 @@ export const POSTER = {
   isPlaceholder: !VIDEO.poster_desktop_avif && !VIDEO.poster_desktop_webp && !VIDEO.poster_desktop_jpg,
 }
 
+const INTRO_DESKTOP = VIDEO.intro_desktop_webm || VIDEO.intro_desktop_mp4
+  ? { webm: VIDEO.intro_desktop_webm, mp4: VIDEO.intro_desktop_mp4 } : null
+const INTRO_MOBILE = VIDEO.intro_mobile_webm || VIDEO.intro_mobile_mp4
+  ? { webm: VIDEO.intro_mobile_webm, mp4: VIDEO.intro_mobile_mp4 } : null
+
 export const HERO_FILM = {
   desktop: { webm: VIDEO.hero_desktop_webm, mp4: VIDEO.hero_desktop_mp4 },
   mobile: { webm: VIDEO.hero_mobile_webm ?? VIDEO.hero_desktop_webm, mp4: VIDEO.hero_mobile_mp4 ?? VIDEO.hero_desktop_mp4 },
+  intro: { desktop: INTRO_DESKTOP, mobile: INTRO_MOBILE ?? INTRO_DESKTOP },
+  /** a legenda enquanto T1 roda (o nome é o do catálogo do jogo) */
+  introPlace: "THE DOME",
   cuts: VIDEO.cuts ?? [],
   exists: !!(VIDEO.hero_desktop_webm || VIDEO.hero_desktop_mp4 || VIDEO.hero_mobile_webm || VIDEO.hero_mobile_mp4),
 }
 
 // ── a abertura de The city (P4): T5, o iate entrando no canal entre o cais da
 // OrdCards e a Sphere, filmado no jogo com GPU (18/10). O pôster é o 1º quadro
-// do laço; o laço fecha com fusão de 14 quadros (o fim dissolve no começo).
+// do laço (quadro 14 da tomada); o laço fecha num mergulho ao preto de 10
+// quadros (a fusão do fim no começo dobrava o iate). 5,4 s, AV1 e H.264 Main.
 // Arquivos próprios desta frente, em public/landing/v3/city/.
 export const CITY_OPENER = {
   poster: {
     desktop: { avif: "/landing/v3/city/opener-desktop.avif", webp: "/landing/v3/city/opener-desktop.webp" },
     mobile: { avif: "/landing/v3/city/opener-mobile.avif", webp: "/landing/v3/city/opener-mobile.webp" },
   },
-  loop: null as null | {
+  loop: {
+    desktop: { webm: "/landing/v3/city/opener-desktop.webm", mp4: "/landing/v3/city/opener-desktop.mp4" },
+    mobile: { webm: "/landing/v3/city/opener-mobile.webm", mp4: "/landing/v3/city/opener-mobile.mp4" },
+  } as null | {
     desktop: { webm: string; mp4: string }
     mobile: { webm: string; mp4: string }
   },
