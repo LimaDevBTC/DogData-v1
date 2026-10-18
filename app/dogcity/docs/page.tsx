@@ -1057,7 +1057,7 @@ export default function DogCityDocsPage() {
                   {
                     name: "Commercial",
                     threshold: "50,000 $DOG",
-                    text: "Adds the commercial licence: a commercial building instead of a residence, on a lot that faces a wide street (section 8); an extended item pack (leisure ground, garden, lighting); and a lunar rover parked on the lot.",
+                    text: "Adds the commercial licence: a commercial building instead of a residence, on the lot the wallet owns (section 8); an extended item pack (leisure ground, garden, lighting); and a lunar rover parked on the lot.",
                   },
                   {
                     name: "Patron",
@@ -1316,7 +1316,7 @@ export default function DogCityDocsPage() {
                 head={["Licence", "$DOG", "What it builds"]}
                 rows={[
                   ["Personal", "10,000", "A residence from the district catalogue"],
-                  ["Commercial", "50,000", "A commercial building for a business of its own, on a lot facing a wide street, or a residence"],
+                  ["Commercial", "50,000", "A commercial building for a business of its own, or a residence"],
                   ["Patron", "500,000", "A custom building designed outside the catalogue"],
                 ]}
               />
@@ -1355,11 +1355,10 @@ export default function DogCityDocsPage() {
 
               <Sub>Where commercial buildings rise</Sub>
               <P className="mt-3">
-                Commerce sits on the wide streets, homes on the lanes. A commercial building can rise
-                only on a lot whose front road is a ring (R1 to R27), the Spit avenue AN7, the bay road
-                SHORE, a quay (QUAY) or a lake road (LK1, LK2), about 20,700 lots. The lanes inside the
-                blocks, coded L, stay residential. Every deed prints its front road, so anyone can check
-                which lots qualify.
+                On any lot. Whoever holds the commercial licence builds on the lot they own, on a ring
+                road or on a lane, in the language of the district. The catalogue has a commercial
+                model for every lot size, so a narrow lot gets a narrow shopfront and a large one a
+                larger building.
               </P>
 
               <Sub>Still being designed</Sub>
