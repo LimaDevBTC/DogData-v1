@@ -189,20 +189,22 @@ export function useFilm({ reduced, active }: { reduced: boolean; active: boolean
     ? HERO_FILM.introPlace
     : cut ? `${String((take ?? 0) + 1).padStart(2, "0")} / ${String(HERO_FILM.cuts.length).padStart(2, "0")} · ${cut.place}` : null
   const controls = (
-    <div className="dc-visor absolute right-[var(--dc-gutter)] top-[64px] dk:top-auto dk:bottom-[112px] z-[3] flex flex-col items-end gap-1 text-right">
+    // largura fixa e filhos esticados: o rótulo muda ("Play film", "Pause", a legenda de
+    // cada take) sem mover caixa nenhuma (CLS)
+    <div className="dc-visor absolute right-[var(--dc-gutter)] top-[64px] dk:top-auto dk:bottom-[112px] pointer-events-none z-[3] flex w-[min(72vw,360px)] flex-col items-stretch gap-1 text-right">
       {/* a linha da legenda existe sempre (vazia até o filme tocar): sem ela, a pausa
           descia uma linha quando a legenda entrava (CLS) */}
       <p
         key={`${phase}-${blink}`}
         aria-hidden={!caption || shown === "none"}
-        className={`dc-label min-h-[1.5em] text-dc-snow dc-halo ${caption && shown !== "none" ? (reduced ? "" : "dc-blink") : "invisible"}`}
+        className={`dc-label min-h-[1.5em] whitespace-nowrap text-dc-snow dc-halo ${caption && shown !== "none" ? (reduced ? "" : "dc-blink") : "invisible"}`}
       >
         {caption && shown !== "none" ? caption : "\u00a0"}
       </p>
       <button
         type="button"
         onClick={toggle}
-        className="dc-label !text-[11px] text-dc-snow dc-halo inline-flex items-center gap-2 h-9"
+        className="dc-label !text-[11px] text-dc-snow dc-halo pointer-events-auto inline-flex items-center justify-end gap-2 h-9 self-end w-[9.5rem]"
         aria-label={showPlay ? "Play film" : "Pause film"}
       >
         <span aria-hidden className="inline-flex h-[10px] w-[10px] items-center justify-center">
