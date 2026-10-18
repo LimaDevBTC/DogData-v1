@@ -1,5 +1,5 @@
 // Conector e doação da UniSat contra um provider falso no formato documentado
-// (unisat-wallet/unisat-dev-docs). Rodar: npx tsx --tsconfig scripts/test-stubs/tsconfig.json scripts/wallet-unisat-connector.test.mts
+// (unisat-wallet/unisat-dev-docs). Rodar: npx tsx --tsconfig scripts/test-stubs/tsconfig.json scripts/wallet-unisat-connector.test.ts
 // (o sats-connect real não carrega em Node; o tsconfig de teste troca por um stub que falha alto)
 import { createUnisatConnector } from '../lib/wallet/connectors/unisat'
 import { donationSupport, readDogBalance, sendBtcDonation, sendDogDonation, DOG_RUNE_ID } from '../lib/wallet/donate'
