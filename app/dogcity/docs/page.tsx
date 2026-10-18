@@ -176,7 +176,7 @@ function Signal({ title, children }: { title: string; children: React.ReactNode 
   )
 }
 
-// ── índice: seções 1 a 8 do documento ───────────────────────────────────────
+// ── índice: seções 1 a 9 do documento ───────────────────────────────────────
 const TOC = [
   { id: "what-is-dogcity", n: "1", label: "What DogCity is" },
   { id: "the-snapshot", n: "2", label: "The snapshot" },
@@ -185,7 +185,8 @@ const TOC = [
   { id: "financial-district", n: "5", label: "The Financial District" },
   { id: "founders-program", n: "6", label: "The Founders Program" },
   { id: "the-mint", n: "7", label: "How the mint works" },
-  { id: "not-yet", n: "8", label: "What this is not, yet" },
+  { id: "after-the-deed", n: "8", label: "After the deed" },
+  { id: "not-yet", n: "9", label: "What this is not, yet" },
 ]
 
 function Section({
@@ -1056,7 +1057,7 @@ export default function DogCityDocsPage() {
                   {
                     name: "Commercial",
                     threshold: "50,000 $DOG",
-                    text: "Adds an extended item pack (leisure ground, garden, lighting) and a lunar rover parked on the lot.",
+                    text: "Adds the commercial licence: a commercial building instead of a residence, on the lot the wallet owns (section 8); an extended item pack (leisure ground, garden, lighting); and a lunar rover parked on the lot.",
                   },
                   {
                     name: "Patron",
@@ -1136,7 +1137,7 @@ export default function DogCityDocsPage() {
                   },
                   {
                     lead: "Partners, B+3,744 to B+4,032 (about 48 hours).",
-                    text: "Holders of partner collections mint any unclaimed lot at its price on the lot ruler below. In the same window, a Founder whose wallet has no lot, and who contributed more than 592.22 $DOG, picks an unclaimed lot: free up to a US$10 lot, paying only the difference above that.",
+                    text: "Holders of partner collections mint any unclaimed lot at the midpoint between its Whitelist and Public price, from US$1.50. In the same window, a Founder whose wallet has no lot, and who contributed more than 592.22 $DOG, picks an unclaimed lot: free up to a US$10 lot at that price, paying only the difference above that.",
                   },
                   {
                     lead: "Public, from B+4,032 until every lot is minted.",
@@ -1147,8 +1148,8 @@ export default function DogCityDocsPage() {
 
               <Sub>How a lot is priced</Sub>
               <P className="mt-3">
-                In the Partners and Public phases every lot has its own price, set by two things
-                printed on its deed: its tier and its area. A higher tier pays more, and a bigger lot
+                Every lot has its own price, set by two things printed on its deed: its tier and its
+                area. A higher tier pays more, and a bigger lot
                 pays more, though not in the same proportion as its area.
               </P>
               <p className={`mt-4 border ${HAIR} px-4 py-3 font-mono text-[12px] md:text-[13px] text-snow max-w-3xl leading-relaxed`}>
@@ -1162,12 +1163,13 @@ export default function DogCityDocsPage() {
                 list sealed with the city, and the mint charges from that list.
               </P>
               <P>
-                In the Whitelist the owner pays half: the same ruler with a US$5 anchor and a US$1
-                floor, so a lot costs from US$1 up to about US$100 there. Founders still mint their
-                own lot free.
+                That is the Public price. In the Whitelist the owner pays half: the same ruler with a
+                US$5 anchor and a US$1 floor, so a lot costs from US$1 up to about US$100 there.
+                Holders of partner collections pay the midpoint between the two, in half dollars, from
+                US$1.50 up to about US$150. Founders still mint their own lot free.
               </P>
               <Table
-                head={["Tier", "250 m²", "1,041 m²", "5,000 m²", "25,000 m²"]}
+                head={["Tier · Public price", "250 m²", "1,041 m²", "5,000 m²", "25,000 m²"]}
                 rows={[
                   [<span key="t" className="whitespace-nowrap">1 · Satoshi Visionary</span>, "US$12", "US$25", "US$55", "US$122"],
                   [<span key="t" className="whitespace-nowrap">2 · BTC Maximalist</span>, "US$10", "US$21", "US$45", "US$102"],
@@ -1286,7 +1288,100 @@ export default function DogCityDocsPage() {
             </Section>
 
             {/* ═══════════════════════════ 8 ═══════════════════════════ */}
-            <Section id="not-yet" n="8" title="What this is not, yet">
+            <Section id="after-the-deed" n="8" title="After the deed: building and the living city">
+              <P>
+                Everything in sections 1 to 7 is about the land: who receives which lot, and the deed
+                that proves it. The city grows in three phases. This section says what is decided
+                about the next two and what is still being designed.
+              </P>
+              <BulletList
+                items={[
+                  {
+                    lead: "Phase 1, The Land.",
+                    text: "The deed of every lot, minted on the calendar of section 7. This is the phase the city is in now.",
+                  },
+                  {
+                    lead: "Phase 2, The Build.",
+                    text: "What rises on each lot. Building takes a licence, and the architecture follows the district.",
+                  },
+                  {
+                    lead: "Phase 3, The Living City.",
+                    text: "The city at work: commerce in the commercial buildings, items, events, games and partners, all in $DOG.",
+                  },
+                ]}
+              />
+
+              <Sub>Three licences</Sub>
+              <Table
+                head={["Licence", "$DOG", "What it builds"]}
+                rows={[
+                  ["Personal", "10,000", "A residence from the district catalogue"],
+                  ["Commercial", "50,000", "A commercial building for a business of its own, or a residence"],
+                  ["Patron", "500,000", "A custom building designed outside the catalogue"],
+                ]}
+              />
+              <P>
+                A Founder at one of these rungs already holds that licence (section 6). Any other
+                wallet takes the same licence for the same amount of $DOG. How it is paid after the
+                mint, and where that $DOG goes, will be published here before building opens.
+              </P>
+
+              <Sub>One architecture per district, one model per lot size</Sub>
+              <P className="mt-3">
+                Every district keeps its own architectural language, so a street reads as one place.
+                Inside that language the catalogue has a model for each of five lot sizes, so a
+                120 m² lot and a 70,000 m² estate each get a building that fits it.
+              </P>
+              <Table
+                head={["Size", "Area", "Lots in the city"]}
+                rows={[
+                  ["S", "up to 300 m²", "25,468"],
+                  ["M", "300 to 1,200 m²", "37,960"],
+                  ["L", "1,200 to 5,000 m²", "6,441"],
+                  ["XL", "5,000 to 20,000 m²", "761"],
+                  ["XXL", "20,000 m² and up", "84"],
+                ]}
+              />
+              <P>
+                Personality lives in the items around a building, not in the building itself. The
+                Patron&apos;s custom building is the one exception (section 6).
+              </P>
+              <P>
+                The Financial District is separate from the licences. A company whose wallets are
+                shown to be institutional (section 5) gets its own building around Satoshi Plaza,
+                carrying its brand. The commercial licence is something else: it is how a $DOG holder
+                opens a business inside the city.
+              </P>
+
+              <Sub>Where commercial buildings rise</Sub>
+              <P className="mt-3">
+                On any lot. Whoever holds the commercial licence builds on the lot they own, on a ring
+                road or on a lane, in the language of the district. The catalogue has a commercial
+                model for every lot size, so a narrow lot gets a narrow shopfront and a large one a
+                larger building.
+              </P>
+
+              <Sub>Still being designed</Sub>
+              <BulletList
+                items={[
+                  {
+                    lead: "What a building is on chain.",
+                    text: "Whether a building is inscribed as a child of the deed, permanent and verifiable by anyone, or kept as state in the game tied to the deed's owner.",
+                  },
+                  {
+                    lead: "The licence after the mint.",
+                    text: "How a licence is paid by a wallet that is not a Founder, and where that $DOG goes.",
+                  },
+                  {
+                    lead: "The Living City.",
+                    text: "What a commercial building does (storefront, item shop, advertising, a community's home), whether space can be rented between players, and how $DOG moves through the city. What does not change: no new token, no staking, no yield, everything in $DOG.",
+                  },
+                ]}
+              />
+            </Section>
+
+            {/* ═══════════════════════════ 9 ═══════════════════════════ */}
+            <Section id="not-yet" n="9" title="What this is not, yet">
               <BulletList
                 items={[
                   {
