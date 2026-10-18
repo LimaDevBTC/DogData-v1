@@ -92,10 +92,12 @@ export const metadata: Metadata = {
 // e o cliente busca como sempre. Nunca número de exemplo.
 async function fundoInicial(): Promise<{ raised: number; goal: number } | null> {
   try {
+    // ⚠️ só o `host`, nunca o x-forwarded-host (o cliente forja esse); na Vercel o host só
+    // chega aqui se for um domínio do projeto
     const h = await headers()
-    const host = h.get("x-forwarded-host") ?? h.get("host")
-    if (!host) return null
-    const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https")
+    const host = h.get("host")
+    if (!host || !/^[a-z0-9.-]+(:\d+)?$/i.test(host)) return null
+    const proto = /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host) ? "http" : "https"
     const r = await fetch(`${proto}://${host}/api/donate/leaderboard?slim=1`, {
       signal: AbortSignal.timeout(800),
       next: { revalidate: 60 },
@@ -103,6 +105,7 @@ async function fundoInicial(): Promise<{ raised: number; goal: number } | null> 
     if (!r.ok) return null
     const j = await r.json()
     if (typeof j?.total_received !== "number" || !Number.isFinite(j.total_received)) return null
+    if (j.total_received < 0 || j.total_received > 1e9) return null
     return { raised: j.total_received, goal: typeof j.goal === "number" && j.goal > 0 ? j.goal : 10_000_000 }
   } catch {
     return null

@@ -460,9 +460,7 @@ export default function Hero({
                 o bloco é ancorado embaixo, então nada pula quando o fundo responde (CLS) */}
             <p
               className={`dc-hero-number mt-2 dk:mt-3 font-cond font-semibold leading-[0.84] text-dc-snow transition-opacity duration-300 ${go ? "dc-num-go" : ""} ${cd.number != null ? "opacity-100" : "opacity-0"}`}
-              aria-label={cd.number != null ? cd.aria : undefined}
-              aria-hidden={cd.number == null}
-              role="text"
+              aria-hidden
             >
               <span className="block text-[88px] dk:text-[clamp(96px,15vw,224px)] tracking-[-0.01em]">
                 {cd.number == null
@@ -474,7 +472,9 @@ export default function Hero({
                     : cd.number}
               </span>
             </p>
-            <p className={`mt-2 dk:mt-3 font-mono text-[12px] dk:text-[14px] font-medium tracking-[0.22em] text-dc-snow ${cd.unit ? "" : "invisible"}`}>{cd.unit ?? "0"}</p>
+            <p aria-hidden className={`mt-2 dk:mt-3 font-mono text-[12px] dk:text-[14px] font-medium tracking-[0.22em] text-dc-snow ${cd.unit ? "" : "invisible"}`}>{cd.unit ?? "0"}</p>
+            {/* para leitor de tela: a frase inteira, não o odômetro (brief §11) */}
+            {cd.number != null && <p className="sr-only">{cd.aria}</p>}
             {cd.sub && <p className="mt-1.5 font-mono text-[11px] dk:text-[12px] tracking-[0.08em] text-dc-mist">{cd.sub}</p>}
 
             <h1 id="dc-hero-h1" className="mt-4 dk:mt-6 max-w-[36ch] font-body font-medium text-[18px] leading-[26px] dk:text-[26px] dk:leading-[34px] text-dc-snow">
