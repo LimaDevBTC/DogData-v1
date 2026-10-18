@@ -19,13 +19,6 @@ import { Btn, FaviconMark, TextLink, Wordmark, WORDMARK_RATIO, useReduced } from
 import type { CountdownState } from "./mint-state"
 import { CITY_URL, MINT_HOST, MINT_URL } from "./mint-state"
 
-const CENTER_LINKS = [
-  { label: "Find your lot", href: "#lookup" },
-  { label: "Deeds", href: "#deeds" },
-  { label: "City", href: "#city" },
-  { label: "Calendar", href: "#calendar" },
-  { label: "Docs", href: "/dogcity/docs" },
-]
 const DRAWER_LINKS = [
   { label: "Find your lot", href: "#lookup" },
   { label: "The deeds", href: "#deeds" },
@@ -86,18 +79,10 @@ export function Nav({
             <span className="lg:hidden"><FaviconMark size={32} alt="" /></span>
           </a>
 
-          {/* P7: os links do centro só SOBRE o herói (e só onde cabem); depois dele
-              moram na gaveta, e a navegação fica com a marca, a pílula viva e o menu */}
-          <ul className={`hidden flex-1 items-center justify-center gap-7 ${live ? "" : "navw:flex"}`}>
-            {CENTER_LINKS.map((l) => (
-              <li key={l.href}>
-                <a href={l.href} className="dc-label !text-[11px] !tracking-[0.2em] text-dc-snow/[0.85] hover:text-dc-snow transition-colors dc-halo">
-                  {l.label}
-                </a>
-              </li>
-            ))}
-          </ul>
-          <div className={`flex-1 ${live ? "" : "navw:hidden"}`} />
+          {/* P7 (2ª volta, 18/10): sem links no centro. Com o filme, a Terra de T1 nasce
+              no alto e no meio da tela, bem embaixo deles; a navegação fica com a marca,
+              a pílula viva e o menu (a gaveta tem todos os links) */}
+          <div className="flex-1" />
 
           {/* a pílula viva: SEMPRE no layout (o trilho do herói voa até ela, então a
               caixa dela tem de existir), invisível até o voo terminar */}

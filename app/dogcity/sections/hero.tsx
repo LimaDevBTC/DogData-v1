@@ -191,7 +191,7 @@ export function useFilm({ reduced, active }: { reduced: boolean; active: boolean
   const controls = (
     // largura fixa e filhos esticados: o rótulo muda ("Play film", "Pause", a legenda de
     // cada take) sem mover caixa nenhuma (CLS)
-    <div className="dc-visor absolute right-[var(--dc-gutter)] top-[64px] dk:top-auto dk:bottom-[112px] pointer-events-none z-[3] flex w-[min(72vw,360px)] flex-col items-stretch gap-1 text-right">
+    <div className="dc-visor dc-in-film absolute right-[var(--dc-gutter)] top-[64px] dk:top-auto dk:bottom-[112px] pointer-events-none z-[3] flex w-[min(72vw,360px)] flex-col items-stretch gap-1 text-right">
       {/* a linha da legenda existe sempre (vazia até o filme tocar): sem ela, a pausa
           descia uma linha quando a legenda entrava (CLS) */}
       <p

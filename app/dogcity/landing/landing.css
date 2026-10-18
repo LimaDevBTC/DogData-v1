@@ -300,6 +300,9 @@ html[data-dc-intro] .dc-in-unit { animation: dc-mask-in 500ms var(--dc-ease) 1.5
 html[data-dc-intro] .dc-in-h1 { animation: dc-mask-in 600ms var(--dc-ease) 1.65s both; }
 html[data-dc-intro] .dc-in-btns { animation: dc-mask-in 600ms var(--dc-ease) 1.8s both; }
 html[data-dc-intro] .dc-in-founder { animation: dc-mask-in 600ms var(--dc-ease) 1.95s both; }
+/* a legenda do take e a pausa do filme entram com a marca pousando na navegação: nos
+   primeiros 1,2 s só a cidade e o wordmark (B7), e antes do fim do cartão (3 s) */
+html[data-dc-intro] .dc-in-film { animation: dc-mask-in 500ms var(--dc-ease) 2.4s both; }
 @keyframes dc-rail-move-in { from { transform: translateX(0); } }
 /* o número só entra quando começa a rolar: "10,000,000 $DOG TO GO" parado seria falso.
    Entra por MÁSCARA (sobe de trás de uma borda), não por opacidade: opacidade 0 tira o
