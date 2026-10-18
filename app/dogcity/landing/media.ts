@@ -23,6 +23,9 @@ interface VideoManifest {
   poster_desktop_avif?: Src; poster_desktop_webp?: Src; poster_desktop_jpg?: Src
   poster_mobile_avif?: Src; poster_mobile_webp?: Src; poster_mobile_jpg?: Src
   cuts?: { t: number; place: string }[]
+  // rodada 3: o laço do celular tem outros takes (o T3 saiu), então os cortes são por variante
+  cuts_desktop?: { t: number; place: string }[]
+  cuts_mobile?: { t: number; place: string }[]
   t8_desktop?: { count: number; pad: number }
   t8_mobile?: { count: number; pad: number }
   places?: Record<string, { webm?: Src; mp4?: Src; webp?: Src; jpg?: Src }>
@@ -61,15 +64,18 @@ export const HERO_FILM = {
   intro: { desktop: INTRO_DESKTOP, mobile: INTRO_MOBILE ?? INTRO_DESKTOP },
   /** a legenda enquanto T1 roda (o nome é o do catálogo do jogo) */
   introPlace: "THE DOME",
-  cuts: VIDEO.cuts ?? [],
+  cuts: {
+    desktop: VIDEO.cuts_desktop ?? VIDEO.cuts ?? [],
+    mobile: VIDEO.cuts_mobile ?? VIDEO.cuts_desktop ?? VIDEO.cuts ?? [],
+  },
   exists: !!(VIDEO.hero_desktop_webm || VIDEO.hero_desktop_mp4 || VIDEO.hero_mobile_webm || VIDEO.hero_mobile_mp4),
 }
 
-// ── a abertura de The city (P4): T5, o iate entrando no canal entre o cais da
-// OrdCards e a Sphere, filmado no jogo com GPU (18/10). O pôster é o 1º quadro
-// do laço (quadro 14 da tomada); o laço fecha num mergulho ao preto de 10
-// quadros (a fusão do fim no começo dobrava o iate). 5,4 s, AV1 e H.264 Main.
-// Arquivos próprios desta frente, em public/landing/v3/city/.
+// ── a abertura de The city (P4, P-b da rodada 3): T3, o $DOG andando rumo à Sphere, no
+// terço direito do quadro (desktop: janela 1600x900 do mestre 2560x1440 em (0, 300), escalada
+// para 1920x1080; celular: o 9:16 inteiro). Sem a vinheta gravada pelo jogo, LUT única nova.
+// 4,75 s a partir do quadro 6 (o pôster), fechando num mergulho ao preto de 10 quadros.
+// AV1 8 bits e H.264 Main. Arquivos próprios desta frente, em public/landing/v3/city/.
 export const CITY_OPENER = {
   poster: {
     desktop: { avif: "/landing/v3/city/opener-desktop.avif", webp: "/landing/v3/city/opener-desktop.webp" },
@@ -82,7 +88,7 @@ export const CITY_OPENER = {
     desktop: { webm: string; mp4: string }
     mobile: { webm: string; mp4: string }
   },
-  place: "THE BAY",
+  place: "THE SPHERE",
 }
 
 export const T8 = {

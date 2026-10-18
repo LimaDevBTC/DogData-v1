@@ -107,8 +107,8 @@ export default function Opening({
       // a navegação: pílula viva depois do voo do trilho, faixa sólida no fim
       report({ live: p >= 0.35, solid: p >= 0.9, quiet })
 
-      // o filme só toca enquanto o palco é o herói
-      const on = p < 0.18
+      // o filme só toca enquanto o palco é o herói (e durante a fusão para a T8)
+      const on = p < 0.3
       if (on !== filmOn) { filmOn = on; setFilmActive(on) }
 
       const m = map.current
@@ -131,6 +131,7 @@ export default function Opening({
         setVar("--dc-vis-y", "0px")
         setVar("--dc-media", hero ? "1" : "0")
         setVar("--dc-rail-o", hero ? "1" : "0")
+        setVar("--dc-read-o", hero ? "1" : "0")
         setVar("--dc-veil", String(q))
         if (m && !tw && !pinRef.current) m.apply(overviewCam(vw, vh, 1))
         else if (m && !tw && pinRef.current) m.apply(lotCam(vw, vh, pinRef.current[0], pinRef.current[1]))
@@ -140,7 +141,10 @@ export default function Opening({
         setVar("--dc-vis", String(1 - v))
         setVar("--dc-vis-y", `${(-24 * easeOut(v)).toFixed(2)}px`)
 
-        // o trilho voa até a pílula da navegação (0,10 a 0,35)
+        // o trilho voa até a pílula da navegação (0,10 a 0,35). P-a: a leitura e os nomes das
+        // fases somem ANTES do voo (0,04 a 0,10); a barra encolhe com escala UNIFORME até a
+        // largura da pílula, centrada nela, e some até f 0,3 (o resto do voo é invisível)
+        setVar("--dc-read-o", String(1 - clamp01((p - 0.04) / 0.06)))
         if (railEl) {
           if (!railBox) {
             // a caixa natural do trilho, medida sem transformação (uma vez por tamanho de tela)
@@ -150,30 +154,33 @@ export default function Opening({
           const f = easePin(clamp01((p - 0.1) / 0.25))
           const pill = document.querySelector<HTMLElement>("[data-dc-pill]")?.getBoundingClientRect()
           if (pill && pill.width > 0 && railBox && f > 0) {
+            const sEnd = pill.width / railBox.width
+            const sc = 1 + (sEnd - 1) * f
             const dx = (pill.left - railBox.left) * f
-            const dy = (pill.top - railBox.top) * f
-            const sx = 1 + (pill.width / railBox.width - 1) * f
-            const sy = 1 + (pill.height / railBox.height - 1) * f
-            railEl.style.transform = `translate3d(${dx.toFixed(1)}px, ${dy.toFixed(1)}px, 0) scale(${sx.toFixed(4)}, ${sy.toFixed(4)})`
+            const dy = (pill.top + pill.height / 2 - railBox.height * sEnd / 2 - railBox.top) * f
+            railEl.style.transform = `translate3d(${dx.toFixed(1)}px, ${dy.toFixed(1)}px, 0) scale(${sc.toFixed(4)})`
           } else {
             railEl.style.transform = ""
           }
-          setVar("--dc-rail-o", String(f < 0.75 ? 1 : Math.max(0, 1 - (f - 0.75) / 0.25)))
+          setVar("--dc-rail-o", String(Math.max(0, 1 - f / 0.3)))
         }
 
         // o pôster/filme se funde na carta (sem T8) ou cede para a T8
-        const mediaO = HAS_T8 ? 1 - clamp01((p - 0.2) / 0.07) : 1 - clamp01((p - 0.2) / 0.15)
+        // P-a: com T8, fusão longa do filme para o 1º quadro da T8 (0,12 a 0,30). A T8 fica
+        // POR CIMA do filme e é ela que sobe; o filme só sai depois que ela cobriu tudo (assim a
+        // carta, embaixo de todos, não vaza no meio da fusão)
+        const mediaO = HAS_T8 ? 1 - clamp01((p - 0.3) / 0.02) : 1 - clamp01((p - 0.2) / 0.15)
         setVar("--dc-media", mediaO.toFixed(3))
         setVar("--dc-veil", String(q))
 
-        // a T8: o 1º quadro já opaco por baixo do filme (0,18), os quadros de 0,20 a
+        // a T8: o 1º quadro já opaco por baixo do filme (0,10), os quadros de 0,20 a
         // 0,85, e a fusão na carta de 0,85 a 0,95, na MESMA pose (t8EndCam)
         const c = t8.current
         let t8on = false
         if (HAS_T8 && c && m) {
           const k = clamp01((p - 0.2) / 0.65)
-          t8on = m.drawT8(c, k) && p >= 0.18
-          const o = !t8on ? 0 : p < 0.85 ? 1 : Math.max(0, 1 - (p - 0.85) / 0.1)
+          t8on = m.drawT8(c, k) && p >= 0.1
+          const o = !t8on ? 0 : p < 0.85 ? clamp01((p - 0.12) / 0.18) : Math.max(0, 1 - (p - 0.85) / 0.1)
           c.style.opacity = o.toFixed(3)
         }
 

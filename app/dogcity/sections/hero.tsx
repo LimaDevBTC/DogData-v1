@@ -25,11 +25,12 @@ import { FUND_GOAL, RULER, type CountdownState } from "../landing/mint-state"
 
 // ── a escolha do filme: retrato pega o encode 9:16, nunca recorte do 16:9 ──
 type Src = { webm?: string; mp4?: string }
-function pickFilm(): { intro: Src | null; loop: Src } {
+type Cut = { t: number; place: string }
+function pickFilm(): { intro: Src | null; loop: Src; cuts: Cut[] } {
   const portrait = window.matchMedia("(max-aspect-ratio: 1/1)").matches
   return portrait
-    ? { intro: HERO_FILM.intro.mobile, loop: HERO_FILM.mobile }
-    : { intro: HERO_FILM.intro.desktop, loop: HERO_FILM.desktop }
+    ? { intro: HERO_FILM.intro.mobile, loop: HERO_FILM.mobile, cuts: HERO_FILM.cuts.mobile }
+    : { intro: HERO_FILM.intro.desktop, loop: HERO_FILM.desktop, cuts: HERO_FILM.cuts.desktop }
 }
 
 function filmAllowed(): boolean {
@@ -76,7 +77,7 @@ export function HeroPoster() {
 export function useFilm({ reduced, active }: { reduced: boolean; active: boolean }): { video: ReactNode; controls: ReactNode } {
   const introRef = useRef<HTMLVideoElement>(null)
   const loopRef = useRef<HTMLVideoElement>(null)
-  const [src, setSrc] = useState<{ intro: Src | null; loop: Src } | null>(null)
+  const [src, setSrc] = useState<{ intro: Src | null; loop: Src; cuts: Cut[] } | null>(null)
   const [phase, setPhase] = useState<"intro" | "loop">("intro")
   const [warm, setWarm] = useState(false)
   const [shown, setShown] = useState<"none" | "intro" | "loop">("none")
@@ -142,12 +143,13 @@ export function useFilm({ reduced, active }: { reduced: boolean; active: boolean
   // a legenda do take segue os cortes do laço
   useEffect(() => {
     const v = loopRef.current
-    if (!v || !HERO_FILM.cuts.length || phase !== "loop") return
+    const cuts = src?.cuts ?? []
+    if (!v || !cuts.length || phase !== "loop") return
     let last = -1
     const on = () => {
       const t = v.currentTime
       let i = 0
-      for (let k = 0; k < HERO_FILM.cuts.length; k++) if (t >= HERO_FILM.cuts[k].t) i = k
+      for (let k = 0; k < cuts.length; k++) if (t >= cuts[k].t) i = k
       if (i !== last) { last = i; onTake(i) }
     }
     v.addEventListener("timeupdate", on)
@@ -163,7 +165,8 @@ export function useFilm({ reduced, active }: { reduced: boolean; active: boolean
     else { userPaused.current = true; v.pause(); setPaused(true) }
   }
   const showPlay = blocked || paused || !src
-  const cut = phase === "loop" && take != null ? HERO_FILM.cuts[take] : null
+  const cuts = src?.cuts ?? []
+  const cut = phase === "loop" && take != null ? cuts[take] ?? null : null
   const playing = (which: "intro" | "loop") => () => {
     setShown((s) => (s === "loop" ? s : which))
     window.dispatchEvent(new Event("dc:film-playing"))
@@ -191,7 +194,7 @@ export function useFilm({ reduced, active }: { reduced: boolean; active: boolean
   // WCAG 2.2.2: o laço passa de 5 s, então o controle de pausa é visível.
   const caption = phase === "intro" && src?.intro
     ? HERO_FILM.introPlace
-    : cut ? `${String((take ?? 0) + 1).padStart(2, "0")} / ${String(HERO_FILM.cuts.length).padStart(2, "0")} · ${cut.place}` : null
+    : cut ? `${String((take ?? 0) + 1).padStart(2, "0")} / ${String(cuts.length).padStart(2, "0")} · ${cut.place}` : null
   const controls = (
     // largura fixa e filhos esticados: o rótulo muda ("Play film", "Pause", a legenda de
     // cada take) sem mover caixa nenhuma (CLS)
@@ -258,12 +261,13 @@ export function Rail({ cd, reduced }: { cd: CountdownState; reduced: boolean }) 
       <div className="mx-auto max-w-[calc(1360px+2*var(--dc-gutter))] px-[var(--dc-gutter)]">
         <div data-dc-rail className="relative" style={{ "--dc-f": String(f) } as CSSProperties}>
           {/* leitura presa à cabeça */}
-          <div className="relative h-5 mb-1.5">
+          <div className="dc-rail-read relative h-5 mb-1.5">
             <div className="dc-rail-move absolute inset-x-0 top-0">
               <div className="dc-rail-readout inline-block whitespace-nowrap font-mono text-[11px] dk:text-[12px] tracking-[0.08em] text-dc-snow dc-halo tabular-nums">
                 {connecting && !stale && <span className="text-dc-mist tracking-[0.2em]">CONNECTING</span>}
                 {cd.rail.mode === "fund" && cd.rail.readout}
-                {cd.rail.mode === "phases" && <span className="text-dc-hot">{cd.rail.readout}</span>}
+                {/* P8 (resíduo): no celular o "BLOCK n" colava no FIND YOUR LOT; lá a régua das fases basta */}
+                {cd.rail.mode === "phases" && <span className="hidden dk:inline text-dc-hot">{cd.rail.readout}</span>}
               </div>
             </div>
           </div>
@@ -295,7 +299,7 @@ export function Rail({ cd, reduced }: { cd: CountdownState; reduced: boolean }) 
             )}
           </div>
           {phases && (
-            <div aria-hidden className="mt-1.5 flex">
+            <div aria-hidden className="dc-rail-read mt-1.5 flex">
               {RULER.map((r, i) => (
                 <span key={r.phase} className={`flex-1 dc-label !text-[9px] dk:!text-[10px] !tracking-[0.12em] ${cd.rail.mode === "phases" && cd.rail.current === i ? "text-dc-hot" : "text-dc-mist"} dc-halo`}>
                   {r.label}
@@ -318,14 +322,15 @@ export function TitleCard() {
   const at = { left: `${WORDMARK_DOT.x * 100}%`, top: `${WORDMARK_DOT.y * 100}%`, width: `${WORDMARK_DOT.r * 200}%` }
   return (
     <div aria-hidden className="dc-tc pointer-events-none absolute inset-x-0 top-[26%] dk:top-[21%] z-[4] -translate-y-1/2 justify-center">
-      <div className="relative w-[min(78vw,640px)]" style={{ aspectRatio: `${WORDMARK_RATIO}` }}>
+      {/* P-f: a sombra mora no invólucro, sobre o resultado JÁ recortado pela máscara do
+          wordmark; na própria imagem o clip-path cortava a sombra num retângulo escuro */}
+      <div className="relative w-[min(78vw,640px)]" style={{ aspectRatio: `${WORDMARK_RATIO}`, filter: "drop-shadow(0 2px 18px rgba(13,12,9,0.7))" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={WORDMARK_SRC}
           alt=""
           fetchPriority="high"
           className="dc-tc-mark absolute inset-0 h-full w-full"
-          style={{ filter: "drop-shadow(0 2px 18px rgba(13,12,9,0.7))" }}
         />
         <span className="dc-tc-dot absolute rounded-full bg-dc-lava" style={{ ...at, aspectRatio: "1", translate: "-50% -50%" }} />
         <span className="dc-tc-ring absolute rounded-full border border-dc-lava" style={{ ...at, aspectRatio: "1", translate: "-50% -50%" }} />
@@ -400,7 +405,7 @@ export function HeroVisor({
           {/* a linha do número e a da unidade existem sempre (invisíveis sem dado):
               o bloco é ancorado embaixo, então nada pula quando o fundo responde (CLS) */}
           <p
-            className={`dc-hero-number mt-2 dk:mt-3 font-cond font-semibold leading-[0.84] text-dc-snow ${cd.number != null ? "opacity-100" : "opacity-0"}`}
+            className={`dc-hero-number mt-2 dk:mt-3 font-cond font-semibold leading-[0.84] text-dc-snow ${cd.number != null ? "opacity-100" : "opacity-0"} ${cd.kind === "connecting" ? "hidden" : ""}`}
             aria-hidden
           >
             <span

@@ -65,12 +65,17 @@ export function Plate({
   )
 }
 
-/** uma linha de dado da prancha: rótulo mono à esquerda, valor à direita */
+/** uma linha de dado da prancha: rótulo mono à esquerda, valor à direita. O valor sai em
+ *  caixa alta (P12), menos a unidade de área: "m²" como a escritura imprime (N2) */
+function unidade(c: ReactNode): ReactNode {
+  if (typeof c !== "string" || !c.endsWith(" m²")) return c
+  return <>{c.slice(0, -3)} <span className="normal-case">m²</span></>
+}
 export function DataRow({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-4 py-2.5 border-b border-dc-snow/[0.08] last:border-0">
       <dt className="dc-label text-dc-dusty shrink-0">{label}</dt>
-      <dd className="font-mono text-[13px] md:text-[14px] uppercase text-dc-snow text-right tabular-nums min-w-0 break-words">{children}</dd>
+      <dd className="font-mono text-[13px] md:text-[14px] uppercase text-dc-snow text-right tabular-nums min-w-0 break-words">{unidade(children)}</dd>
     </div>
   )
 }

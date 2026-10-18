@@ -65,7 +65,7 @@ const DESCRIPTION =
 // O OG da landing v3 (18/10): o melhor quadro de T1, a Terra sobre o domo, com o
 // wordmark (public/landing/v3/og/). ARQUIVO NOVO com nome novo a cada troca: o X e o
 // WhatsApp guardam a imagem pela URL. O lib/og.ts segue servindo as outras páginas.
-const OG_V3 = "https://www.dogdata.xyz/landing/v3/og/dogcity-earthrise-v1.jpg"
+const OG_V3 = "https://www.dogdata.xyz/landing/v3/og/dogcity-earthrise-v2.jpg"
 export const metadata: Metadata = {
   title: "DogCity · Every lot becomes a deed on Bitcoin",
   description: DESCRIPTION,

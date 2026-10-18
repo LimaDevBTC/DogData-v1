@@ -320,6 +320,13 @@ function ReadADeedPinned({ deed }: { deed: Deed }) {
                     </div>
                   ))}
                 </div>
+                {/* P-e: na câmera de perto, uma borda suave de 24 px (o texto não termina num
+                    corte seco na moldura); some na folha inteira */}
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 transition-opacity duration-500"
+                  style={{ boxShadow: "inset 0 0 24px 12px #0D0C09", opacity: active >= 0 ? 1 : 0 }}
+                />
               </div>
             </div>
             <p className="mt-3 font-mono text-[11px] tracking-[0.1em] text-dc-mist">{deed.tierLine} · {cardLine2(deed)}</p>
@@ -476,7 +483,9 @@ export default function Deeds() {
 
       {/* ── parte 2: "Read a deed" ── */}
       {EXAMPLE_DEED && (
-        <div className="mt-16 dk:mt-12">
+        // P11 (resíduo): a câmera presa centra a prancha na tela, o que já deixa ~140 px em
+        // cima; a margem negativa tira o buraco de ~200 px antes de "Read a deed"
+        <div className={desk && !reduced ? "-mt-24" : "mt-16 dk:mt-12"}>
           {desk && !reduced ? <ReadADeedPinned deed={EXAMPLE_DEED} /> : <ReadADeedStack deed={EXAMPLE_DEED} />}
         </div>
       )}

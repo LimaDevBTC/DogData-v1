@@ -301,7 +301,10 @@ html[data-dc-intro] .dc-rail-readout { animation: dc-rail-move-in 1100ms var(--d
 html[data-dc-intro] .dc-in-label { animation: dc-mask-in 500ms var(--dc-ease) 1.2s both; }
 html[data-dc-intro] .dc-in-unit { animation: dc-mask-in 500ms var(--dc-ease) 1.5s both; }
 html[data-dc-intro] .dc-in-h1 { animation: dc-mask-in 600ms var(--dc-ease) 1.65s both; }
-html[data-dc-intro] .dc-in-btns { animation: dc-mask-in 600ms var(--dc-ease) 1.8s both; }
+/* P-f: máscara por botão (no celular eles empilham e a máscara única, subindo de baixo,
+   mostrava ENTER THE CITY antes do botão cheio) */
+html[data-dc-intro] .dc-in-btns > * { animation: dc-mask-in 600ms var(--dc-ease) 1.8s both; }
+html[data-dc-intro] .dc-in-btns > *:nth-child(n+2) { animation-delay: 1.9s; }
 html[data-dc-intro] .dc-in-founder { animation: dc-mask-in 600ms var(--dc-ease) 1.95s both; }
 /* a legenda do take e a pausa do filme entram com a marca pousando na navegação: nos
    primeiros 1,2 s só a cidade e o wordmark (B7), e antes do fim do cartão (3 s) */
@@ -321,9 +324,12 @@ html[data-dc-intro] .dc-hero-number { animation: dc-num-in 550ms var(--dc-ease) 
 .dc-stage .dc-veil { opacity: var(--dc-veil, 0); }
 .dc-stage .dc-visor { opacity: var(--dc-vis, 1); transform: translate3d(0, var(--dc-vis-y, 0px), 0); }
 .dc-stage .dc-rail-fly { opacity: var(--dc-rail-o, 1); transform-origin: 0 0; will-change: transform; }
+/* P-a: a leitura do trilho e os nomes das fases somem antes do voo */
+.dc-stage .dc-rail-read { opacity: var(--dc-read-o, 1); }
 /* sem movimento: dois estados e uma fusão simples de 400 ms (brief §8) */
 .dc-stage-still .dc-media,
 .dc-stage-still .dc-visor,
+.dc-stage-still .dc-rail-read,
 .dc-stage-still .dc-rail-fly { transition: opacity 400ms linear; }
 
 /* ── o número do contador: tamanho pela quantidade de caracteres (--dc-n) ──

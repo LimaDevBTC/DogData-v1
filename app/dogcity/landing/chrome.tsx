@@ -181,7 +181,7 @@ function Drawer({ open, onClose }: { open: boolean; onClose: () => void }) {
     >
       {/* o fundo escurece e, no desktop, o wordmark grande mora à esquerda (o gesto do VI) */}
       <div
-        className={`absolute inset-0 bg-dc-deep/[0.94] transition-opacity ${dur} ${open ? "opacity-100" : "opacity-0"}`}
+        className={`absolute inset-0 bg-dc-deep/[0.94] lg:bg-dc-deep/[0.97] transition-opacity ${dur} ${open ? "opacity-100" : "opacity-0"}`}
         onClick={onClose}
       >
         <div className="hidden lg:flex absolute inset-y-0 left-0 right-[40%] items-center justify-center">

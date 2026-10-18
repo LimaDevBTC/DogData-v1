@@ -223,11 +223,12 @@ function Places() {
   return (
     <>
     {/* as setas da faixa (desktop): sem elas, a faixa é inalcançável com mouse */}
-    <Frame className="mt-12 dk:mt-16 mb-4 hidden dk:flex items-center justify-end gap-2">
+    {/* P-h: as setas só existem quando a faixa rola de fato */}
+    <Frame className={`mt-12 dk:mt-16 mb-4 hidden items-center justify-end gap-2 ${can.back || can.fwd ? "dk:flex" : ""}`}>
       <button type="button" onClick={() => step(-1)} disabled={!can.back} aria-label="Previous places" className="dc-btn dc-btn-line dc-btn-sm !px-4 disabled:opacity-30 disabled:pointer-events-none">←</button>
       <button type="button" onClick={() => step(1)} disabled={!can.fwd} aria-label="Next places" className="dc-btn dc-btn-line dc-btn-sm !px-4 disabled:opacity-30 disabled:pointer-events-none">→</button>
     </Frame>
-    <ul ref={rail} className="dc-rail mt-12 dk:mt-0 pb-2" aria-label="Places in the city">
+    <ul ref={rail} className={`dc-rail mt-12 pb-2 ${can.back || can.fwd ? "dk:mt-0" : "dk:mt-16"}`} aria-label="Places in the city">
       {SHOWN.map((p) => (
         <PlaceCard
           key={p.slug}
@@ -387,7 +388,8 @@ export default function TheCity() {
     <section id="city" aria-labelledby="dc-city-h2" className="relative bg-dc-void scroll-mt-14">
       <Opener />
       <Frame>
-        <div className="pt-12 dk:pt-16 grid gap-10 dkl:grid-cols-12 dkl:gap-6 dkl:items-center">
+        {/* P-g: o texto alinhado ao topo do palco do $DOG (centrado, sobravam ~270 px em cima) */}
+        <div className="pt-12 dk:pt-16 grid gap-10 dkl:grid-cols-12 dkl:gap-6 dkl:items-start">
           <div className="dkl:col-span-5">
             <Reveal y={16} blur={false}>
               <p className="dc-lede">

@@ -142,8 +142,16 @@ if (existsSync(dVid)) {
     for (const [s, dim] of [['desktop', '1920x1080'], ['mobile', '1080x1920']]) {
       for (const e of ['avif', 'webp']) await pegaDe(`hero/poster-intro-${dim}.${e}`, `poster-${s}.${e}`, `poster_${s}_${e}`)
     }
+    // rodada 3 (18/10): um arquivo de cortes por variante (o laço do celular não tem o T3)
+    for (const [s, dim] of [['desktop', '1920x1080'], ['mobile', '720x1280']]) {
+      const fv = path.join(dVid, 'hero', `hero-loop-marcacoes-${dim}.json`)
+      if (!existsSync(fv)) continue
+      const mv = JSON.parse(await fs.readFile(fv, 'utf8'))
+      v[`cuts_${s}`] = mv.marcacoes.filter((x) => !x.nota).map((x) => ({ t: x.t, place: x.lugar }))
+      log('cortes', s, v[`cuts_${s}`].map((c) => `${c.t}s ${c.place}`).join(' | '))
+    }
     const fm = path.join(dVid, 'hero', 'hero-loop-marcacoes.json')
-    if (existsSync(fm)) {
+    if (existsSync(fm) && !v.cuts_desktop) {
       const m = JSON.parse(await fs.readFile(fm, 'utf8'))
       // a última marcação é a fusão de volta ao começo (nota), não um take novo
       v.cuts = m.marcacoes.filter((x) => !x.nota).map((x) => ({ t: x.t, place: x.lugar }))
