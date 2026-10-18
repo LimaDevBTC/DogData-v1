@@ -5,6 +5,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import { createClient } from '@supabase/supabase-js'
 import { sizeTierFor } from '@/lib/dog/size-tiers'
+import { TIERS } from '@/lib/airdrop-tiers'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -215,20 +216,11 @@ function getTierLabel(total_dog: number): AddressLabel {
   return sizeTierFor(total_dog)
 }
 
-const behaviorLabelMap: Record<string, { text: string; description: string }> = {
-  diamond_paws:      { text: 'Diamond Paws',      description: 'Held exact airdrop amount' },
-  dog_legend:        { text: 'DOG Legend',        description: 'Major accumulator' },
-  hodl_hero:         { text: 'HODL Hero',         description: 'Long-term holder' },
-  satoshi_visionary: { text: 'Satoshi Visionary', description: 'Early believer' },
-  rune_master:       { text: 'Rune Master',       description: 'Rune-native holder' },
-  steady_holder:     { text: 'Steady Holder',     description: 'Consistent holding' },
-  ordinal_believer:  { text: 'Ordinal Believer',  description: 'Ordinal-focused holder' },
-  btc_maximalist:    { text: 'BTC Maximalist',    description: 'BTC-first behavior' },
-  paper_hands:       { text: 'Paper Hands',       description: 'Sold airdrop' },
-  panic_seller:      { text: 'Panic Seller',      description: 'Sold during dips' },
-  profit_taker:      { text: 'Profit Taker',      description: 'Took profits strategically' },
-  early_exit:        { text: 'Early Exit',        description: 'Sold early' },
-}
+// rotulo e descricao do padrao de comportamento: a fonte unica e' `lib/airdrop-tiers.ts` (a chave do banco fica estavel,
+// o nome exibido mora la'; aqui dizia "DOG Legend" para dog_legend enquanto o resto do site e as escrituras dizem "DOG Supporter")
+const behaviorLabelMap: Record<string, { text: string; description: string }> = Object.fromEntries(
+  TIERS.map((t) => [t.key, { text: t.label, description: t.description }]),
+)
 
 function computeLabels(holder: HolderEntry | null, forensic: ForensicProfile | null): AddressLabel[] {
   const labels: AddressLabel[] = []

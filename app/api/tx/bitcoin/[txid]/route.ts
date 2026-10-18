@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js'
 import { netTransfer } from '@/lib/dog/net-transfer'
 import { resolveIdentities } from '@/lib/dog/identity'
 import { sizeTierFor } from '@/lib/dog/size-tiers'
+import { TIERS } from '@/lib/airdrop-tiers'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -65,14 +66,11 @@ function getTierLabel(total_dog: number): AddressLabel {
   return sizeTierFor(total_dog)
 }
 
-const behaviorLabels: Record<string, { text: string }> = {
-  diamond_paws: { text: 'Diamond Paws' },
-  dog_legend:   { text: 'DOG Legend' },
-  hodl_hero:    { text: 'HODL Hero' },
-  paper_hands:  { text: 'Paper Hands' },
-  panic_seller: { text: 'Panic Seller' },
-  rune_master:  { text: 'Rune Master' },
-}
+// rotulo do padrao de comportamento: a fonte unica e' `lib/airdrop-tiers.ts` (a chave do banco fica estavel, o nome
+// exibido mora la'; aqui dizia "DOG Legend" para dog_legend enquanto o resto do site e as escrituras dizem "DOG Supporter")
+const behaviorLabels: Record<string, { text: string }> = Object.fromEntries(
+  TIERS.map((t) => [t.key, { text: t.label }]),
+)
 
 function enrichAddress(
   address: string | null,
