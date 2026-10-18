@@ -129,6 +129,9 @@ body:has([data-dogcity-landing]) > div.min-h-screen { background: #15130F; }
   transition: color 240ms var(--dc-ease), border-color 240ms var(--dc-ease), background-color 240ms var(--dc-ease);
 }
 .dc-btn-sm { height: 40px; padding: 0 16px; font-size: 11px; letter-spacing: 0.14em; }
+/* telas de 320 px: o botão mais longo ("Download the PDF · 30 MB") não cabe com o respiro
+   cheio dentro de uma prancha; aperta o respiro e o espaçamento, nunca quebra a linha */
+@media (max-width: 359px) { .dc-btn { padding: 0 14px; letter-spacing: 0.1em; } }
 /* o halo do visor é herdado (text-shadow herda): no botão cheio ele borrava o texto escuro */
 .dc-btn-fill { background: var(--dc-lava); color: var(--dc-void); text-shadow: none; }
 .dc-btn-fill::before {

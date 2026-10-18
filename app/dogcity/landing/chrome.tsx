@@ -103,7 +103,7 @@ export function Nav({
             )}
             {/* celular e tablet: a leitura em mono e o botão curto */}
             {cd.nav.mobile && (
-              <span className="lg:hidden font-mono text-[11px] tracking-[0.12em] text-dc-snow tabular-nums whitespace-nowrap">
+              <span className="lg:hidden max-[359px]:hidden font-mono text-[11px] tracking-[0.12em] text-dc-snow tabular-nums whitespace-nowrap">
                 {cd.nav.mobile}
               </span>
             )}
