@@ -6,7 +6,7 @@
 // estado da máquina pura de ./mint-state.ts. Uma fonte para o herói, o botão
 // vivo da navegação e o calendário.
 //
-// ⚠️ SIMULAÇÃO SÓ NO DEV. `?mintsim=A|B0|B|C|D|E|F|connecting` troca a entrada
+// ⚠️ SIMULAÇÃO SÓ NO DEV. `?mintsim=A|B0|B|C|D|E|F|Fcount|connecting` troca a entrada
 // por dado simulado para conferir os seis estados na tela. O ramo inteiro some
 // do build de produção (NODE_ENV é substituído em tempo de compilação), então
 // nunca há número de exemplo em produção.
@@ -62,6 +62,7 @@ function simulated(): CountdownInput | null {
     D: { raised: null, B, tip: B + 854 },
     E: { raised: null, B, tip: B + 3852 },
     F: { raised: null, B, tip: B + 4100 },
+    Fcount: { raised: null, B, tip: B + 4100, inscribed: 18_342 },
   }
   return map[k] ?? null
 }

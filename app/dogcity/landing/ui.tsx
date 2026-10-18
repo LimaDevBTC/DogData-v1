@@ -70,7 +70,7 @@ export function DataRow({ label, children }: { label: string; children: ReactNod
   return (
     <div className="flex items-baseline justify-between gap-4 py-2.5 border-b border-dc-snow/[0.08] last:border-0">
       <dt className="dc-label text-dc-dusty shrink-0">{label}</dt>
-      <dd className="font-mono text-[13px] md:text-[14px] text-dc-snow text-right tabular-nums min-w-0 break-words">{children}</dd>
+      <dd className="font-mono text-[13px] md:text-[14px] uppercase text-dc-snow text-right tabular-nums min-w-0 break-words">{children}</dd>
     </div>
   )
 }

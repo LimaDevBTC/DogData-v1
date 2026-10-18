@@ -79,7 +79,7 @@ function DeedCard({ d, big, label, onOpen, flash }: { d: Deed; big: boolean; lab
   return (
     <li
       data-lot={d.lotId}
-      className={`${big ? "w-[80vw] dk:w-[min(620px,44vw)]" : "w-[66vw] dk:w-[min(440px,31vw)]"} mr-3 dk:mr-6`}
+      className={`${big ? "w-[80vw] dk:w-[min(400px,28vw)]" : "w-[66vw] dk:w-[min(320px,22vw)]"} mr-3 dk:mr-6`}
     >
       <p className="dc-label h-6 text-dc-lava">{label ?? ""}</p>
       <div
@@ -241,14 +241,37 @@ function Hole({ r }: { r: [number, number, number, number] }) {
   const [x, y, w, h] = r
   return (
     <svg viewBox="0 0 1 1" preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
-      <path d={`M0 0H1V1H0Z M${x} ${y}V${y + h}H${x + w}V${y}Z`} fillRule="evenodd" fill="rgba(13,12,9,0.62)" />
+      <path d={`M0 0H1V1H0Z M${x} ${y}V${y + h}H${x + w}V${y}Z`} fillRule="evenodd" fill="rgba(13,12,9,0.45)" />
     </svg>
   )
 }
 
+// P3: a câmera vai até a parte. A folha inteira primeiro; depois cada uma das sete
+// partes ocupa ~55% do palco (escala de 2,2 a 3,5), 700 ms na curva das passagens
+// presas [0.65, 0, 0.35, 1]. Só transform; o véu (0,45) e o contorno lava acompanham
+// a folha, e o contorno compensa a escala para continuar com 2 px.
+function cameraFor(i: number, W: number, H: number) {
+  if (i < 0 || !W || !H) return { s: 1, x: 0, y: 0 }
+  const [rx, ry, rw, rh] = DEED_PARTS[i].r
+  const s = Math.max(2.2, Math.min(3.5, 0.55 * Math.min(1 / rw, 1 / rh)))
+  const cx = rx + rw / 2, cy = ry + rh / 2
+  const x = Math.min(0, Math.max(W * (1 - s), W * (0.5 - cx * s)))
+  const y = Math.min(0, Math.max(H * (1 - s), H * (0.5 - cy * s)))
+  return { s, x, y }
+}
+
 function ReadADeedPinned({ deed }: { deed: Deed }) {
   const box = useRef<HTMLDivElement>(null)
-  const [active, setActive] = useState(0)
+  const frame = useRef<HTMLDivElement>(null)
+  const [active, setActive] = useState(-1)
+  const [size, setSize] = useState({ W: 0, H: 0 })
+  useEffect(() => {
+    const el = frame.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setSize({ W: el.clientWidth, H: el.clientHeight }))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
   useEffect(() => {
     let raf = 0
     const tick = () => {
@@ -257,7 +280,8 @@ function ReadADeedPinned({ deed }: { deed: Deed }) {
       if (!el) return
       const r = el.getBoundingClientRect()
       const p = Math.max(0, Math.min(0.9999, -r.top / Math.max(1, r.height - window.innerHeight)))
-      setActive(Math.min(DEED_PARTS.length - 1, Math.floor(p * DEED_PARTS.length)))
+      // a folha inteira no primeiro trecho, depois uma parte por trecho
+      setActive(Math.min(DEED_PARTS.length - 1, Math.floor(p * (DEED_PARTS.length + 1)) - 1))
     }
     const on = () => { if (!raf) raf = requestAnimationFrame(tick) }
     window.addEventListener("scroll", on, { passive: true })
@@ -266,23 +290,37 @@ function ReadADeedPinned({ deed }: { deed: Deed }) {
     return () => { window.removeEventListener("scroll", on); window.removeEventListener("resize", on); cancelAnimationFrame(raf) }
   }, [])
 
+  const cam = cameraFor(active, size.W, size.H)
   return (
-    <div ref={box} className="relative h-[260vh]">
+    <div ref={box} className="relative h-[300vh]">
       <div className="sticky top-0 flex h-[100vh] items-center">
         <Frame className="grid grid-cols-12 gap-6 items-center">
           <div className="col-span-8">
-            <div className="relative border border-dc-snow/[0.12] bg-dc-deep" style={{ aspectRatio: `${DEED_RATIO}` }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={deed.src2400} alt={`The example deed, lot ${deed.lotId}: ${deed.tierLine}`} width={2400} height={1697} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full" />
-              {DEED_PARTS.map((p, i) => (
-                <div key={p.key} aria-hidden className={`absolute inset-0 transition-opacity duration-500 ${i === active ? "opacity-100" : "opacity-0"}`}>
-                  <Hole r={p.r} />
-                  <span
-                    className="absolute border-2 border-dc-lava shadow-[0_0_0_4px_rgba(232,102,13,0.18)]"
-                    style={{ left: `${p.r[0] * 100}%`, top: `${p.r[1] * 100}%`, width: `${p.r[2] * 100}%`, height: `${p.r[3] * 100}%` }}
-                  />
+            <div className="border border-dc-snow/[0.12]">
+              <div ref={frame} className="relative overflow-hidden bg-dc-deep" style={{ aspectRatio: `${DEED_RATIO}` }}>
+                <div
+                  className="absolute inset-0 origin-top-left will-change-transform"
+                  style={{
+                    transform: `translate3d(${cam.x}px, ${cam.y}px, 0) scale(${cam.s})`,
+                    transition: "transform 700ms cubic-bezier(0.65, 0, 0.35, 1)",
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={deed.src2400} alt={`The example deed, lot ${deed.lotId}: ${deed.tierLine}`} width={2400} height={1697} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full" />
+                  {DEED_PARTS.map((p, i) => (
+                    <div key={p.key} aria-hidden className={`absolute inset-0 transition-opacity duration-500 ${i === active ? "opacity-100" : "opacity-0"}`}>
+                      <Hole r={p.r} />
+                      <span
+                        className="absolute border-dc-lava"
+                        style={{
+                          left: `${p.r[0] * 100}%`, top: `${p.r[1] * 100}%`, width: `${p.r[2] * 100}%`, height: `${p.r[3] * 100}%`,
+                          borderWidth: `${2 / cam.s}px`, borderStyle: "solid",
+                        }}
+                      />
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
             <p className="mt-3 font-mono text-[11px] tracking-[0.1em] text-dc-mist">{deed.tierLine} · {cardLine2(deed)}</p>
           </div>
@@ -295,7 +333,7 @@ function ReadADeedPinned({ deed }: { deed: Deed }) {
                     <span className={`font-mono text-[11px] tracking-[0.18em] ${i === active ? "text-dc-lava" : ""}`}>{String(i + 1).padStart(2, "0")}</span>
                     <span className="dc-label !text-[12px] !tracking-[0.2em]">{p.title}</span>
                   </p>
-                  <p className={`mt-1.5 pl-[30px] font-body text-[15px] leading-[23px] transition-[max-height,opacity] duration-500 overflow-hidden ${i === active ? "max-h-24 opacity-100" : "max-h-0 opacity-0"}`}>
+                  <p className={`mt-1.5 pl-[30px] font-body text-[15px] leading-[23px] transition-[max-height,opacity] duration-500 overflow-hidden ${i === active ? "max-h-28 opacity-100" : "max-h-0 opacity-0"}`}>
                     {p.text}
                   </p>
                 </li>
@@ -438,7 +476,7 @@ export default function Deeds() {
 
       {/* ── parte 2: "Read a deed" ── */}
       {EXAMPLE_DEED && (
-        <div className="mt-24 dk:mt-32">
+        <div className="mt-16 dk:mt-12">
           {desk && !reduced ? <ReadADeedPinned deed={EXAMPLE_DEED} /> : <ReadADeedStack deed={EXAMPLE_DEED} />}
         </div>
       )}

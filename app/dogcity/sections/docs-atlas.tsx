@@ -71,9 +71,10 @@ export default function DocsAtlas() {
           <Reveal y={16} blur={false} delay={0.08} className="h-full">
             <Plate className="dc-plate-hover flex h-full flex-col px-5 py-6 dk:px-8 dk:py-8">
               <p className="dc-label text-dc-lava">THE ATLAS</p>
-              <a href="/dogcity/atlas" className="mt-5 block border border-dc-snow/[0.12] bg-dc-deep">
+              {/* um preto só: a moldura usa o mesmo #0A0A0A do fundo da capa */}
+              <a href="/dogcity/atlas" className="mt-5 block border border-dc-snow/[0.12] bg-[#0A0A0A]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/city/atlas/00-cover_1200.webp" alt="The cover of the DogCity atlas" width={1200} height={1697} loading="lazy" decoding="async" className="block h-auto w-full max-h-[420px] object-contain" />
+                <img src="/city/atlas/00-cover_1200.webp" alt="The cover of the DogCity atlas" width={1200} height={1320} loading="lazy" decoding="async" className="block h-auto w-full max-h-[420px] object-contain" />
               </a>
               <p className="dc-body mt-5 flex-1 text-dc-snow">
                 {ATLAS_PLATES.length} plates. Every street, every block and every lot of City v1.
@@ -88,15 +89,16 @@ export default function DocsAtlas() {
 
         {/* ── a fita de prova: uma linha que quebra no celular, cada valor copiável ── */}
         <div className="mt-10 border-y border-dc-snow/[0.12] py-4">
-          <ul className="flex flex-wrap items-center gap-x-3 gap-y-2 font-mono text-[11px] dk:text-[12px] tracking-[0.1em] text-dc-mist">
+          {/* celular: lista de duas colunas; desktop: uma linha com separadores */}
+          <ul className="grid grid-cols-2 gap-x-4 gap-y-3 dk:flex dk:flex-wrap dk:items-center dk:gap-x-3 dk:gap-y-2 font-mono text-[11px] dk:text-[12px] tracking-[0.1em] text-dc-mist">
             {proof.map((p, i) => (
-              <li key={p.key} className="inline-flex items-center gap-3">
-                {i > 0 && <span aria-hidden className="text-dc-dusty">·</span>}
+              <li key={p.key} className="flex items-center gap-3">
+                {i > 0 && <span aria-hidden className="hidden dk:inline text-dc-dusty">·</span>}
                 <button
                   type="button"
                   onClick={() => copy(p.key, p.value)}
                   title={`Copy ${p.value}`}
-                  className="inline-flex items-baseline gap-2 hover:text-dc-snow transition-colors"
+                  className="flex flex-col items-start gap-0.5 text-left dk:flex-row dk:items-baseline dk:gap-2 hover:text-dc-snow transition-colors"
                 >
                   {p.label && <span className="text-dc-dusty">{p.label}</span>}
                   {/* o valor fica no fluxo (invisível enquanto copia): nada pula de lugar */}

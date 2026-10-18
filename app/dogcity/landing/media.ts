@@ -55,6 +55,22 @@ export const HERO_FILM = {
   exists: !!(VIDEO.hero_desktop_webm || VIDEO.hero_desktop_mp4 || VIDEO.hero_mobile_webm || VIDEO.hero_mobile_mp4),
 }
 
+// ── a abertura de The city (P4): T5, o iate entrando no canal entre o cais da
+// OrdCards e a Sphere, filmado no jogo com GPU (18/10). O pôster é o 1º quadro
+// do laço; o laço fecha com fusão de 14 quadros (o fim dissolve no começo).
+// Arquivos próprios desta frente, em public/landing/v3/city/.
+export const CITY_OPENER = {
+  poster: {
+    desktop: { avif: "/landing/v3/city/opener-desktop.avif", webp: "/landing/v3/city/opener-desktop.webp" },
+    mobile: { avif: "/landing/v3/city/opener-mobile.avif", webp: "/landing/v3/city/opener-mobile.webp" },
+  },
+  loop: null as null | {
+    desktop: { webm: string; mp4: string }
+    mobile: { webm: string; mp4: string }
+  },
+  place: "THE BAY",
+}
+
 export const T8 = {
   desktop: VIDEO.t8_desktop ?? null,
   mobile: VIDEO.t8_mobile ?? null,
@@ -153,7 +169,7 @@ export interface DeedPart {
 }
 export const DEED_PARTS: DeedPart[] = [
   { key: "lot", title: "LOT AND AREA", text: "The lot ID and its area head the sheet.",
-    r: [0.034, 0.025, 0.52, 0.113], c: [0.02, 0.012, 0.56, 0.15] },
+    r: [0.034, 0.025, 0.5, 0.113], c: [0.02, 0.012, 0.525, 0.15] },
   { key: "tier", title: "TIER", text: "Its rung on the ladder of 13, or Company, or Project Reserve, and its district.",
     r: [0.546, 0.044, 0.146, 0.086], c: [0.53, 0.02, 0.17, 0.13] },
   { key: "key", title: "KEY PLAN", text: "The City Charter, reduced, with the lot's place in it.",

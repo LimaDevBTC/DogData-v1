@@ -328,7 +328,7 @@ export function calendarRows(B: number | null) {
       text: "Nobody mints. The Founder list is cut at block B and published for review.",
       startsAt: B },
     { phase: "FOUNDER" as Phase, name: "FOUNDER", span: "B+288 to B+720 · about 3 days", price: "FREE",
-      text: "Founders mint their own lot, paying only the Bitcoin fee and postage.",
+      text: "Founders mint their own lot, paying only the network fee and postage.",
       startsAt: cal?.founderStart ?? null },
     { phase: "WHITELIST" as Phase, name: "WHITELIST", span: "B+720 to B+3,744 · about 21 days", price: "US$1",
       text: "Every wallet with a lot mints its own lot.",

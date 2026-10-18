@@ -18,9 +18,9 @@ export default function Calendar({ cd }: { cd: CountdownState }) {
   // posição do marcador na régua (0..1); antes de B, no começo
   const at = cd.rail.mode === "phases" ? cd.rail.fraction : 0
 
-  const Marker = ({ vertical }: { vertical?: boolean }) => (
-    // na régua, o rótulo desliza de alinhado à esquerda (começo) a alinhado à direita (fim): nunca sai da tela
-    <span className="inline-flex items-center gap-2 whitespace-nowrap font-mono text-[10px] dk:text-[11px] tracking-[0.2em] text-dc-lava" style={vertical ? undefined : { transform: `translateX(-${Math.round(at * 100)}%)` }}>
+  const Marker = ({ vertical, at: a = 0 }: { vertical?: boolean; at?: number }) => (
+    // no segmento, o rótulo desliza de alinhado à esquerda (começo) a alinhado à direita (fim)
+    <span className="inline-flex items-center gap-2 whitespace-nowrap font-mono text-[10px] dk:text-[11px] tracking-[0.2em] text-dc-lava" style={vertical ? undefined : { transform: `translateX(-${Math.round(a * 100)}%)` }}>
       <span aria-hidden className="relative inline-block h-[7px] w-[7px] bg-dc-lava">
         <span className="dc-ping absolute inset-0 border border-dc-lava" />
       </span>
@@ -38,31 +38,33 @@ export default function Calendar({ cd }: { cd: CountdownState }) {
           B, and the calendar is inscribed on chain once B is known. 144 blocks is about one day.
         </p>
 
-        {/* ── desktop: a régua horizontal, cinco segmentos de largura igual ── */}
+        {/* ── desktop: a régua é uma grade de 5 colunas com o MESMO vão das pranchas,
+            então cada segmento mora em cima da prancha da sua fase ── */}
         <div className="hidden dkl:block mt-16">
           <div className="relative h-16">
             <span className="absolute bottom-3 left-0 font-cond text-[28px] font-semibold leading-none text-dc-snow">B</span>
-            {/* antes de B o marcador mora sobre a palavra "B"; depois, anda na régua */}
-            {current < 0
-              ? <span className="absolute bottom-11 left-0"><Marker vertical /></span>
-              : <span className="absolute bottom-11" style={{ left: `${at * 100}%` }}><Marker /></span>}
+            {/* antes de B o marcador mora sobre a palavra "B" */}
+            {current < 0 && <span className="absolute bottom-11 left-0"><Marker vertical /></span>}
           </div>
-          <div className="relative h-[13px]">
-            <div className="dc-ruler absolute inset-x-0 top-0 h-[9px]" />
-            <div className="absolute inset-x-0 bottom-0 h-[3px] bg-dc-snow/[0.16]" />
-            <div className="absolute bottom-0 left-0 h-[3px] bg-dc-lava" style={{ width: `${at * 100}%` }} />
-            <div className="absolute inset-0 flex">
-              {rows.map((r, i) => <span key={r.phase} className={`flex-1 ${i ? "border-l border-dc-snow/[0.5]" : ""}`} />)}
-            </div>
-          </div>
-          <ol className="mt-6 grid grid-cols-5 gap-4">
-            {rows.map((r, i) => (
-              <li key={r.phase}>
-                <Reveal y={16} blur={false} delay={i * 0.06}>
-                  <PhasePlate r={r} n={i + 1} current={current === i} />
-                </Reveal>
-              </li>
-            ))}
+          <ol className="grid grid-cols-5 gap-4">
+            {rows.map((r, i) => {
+              const fill = Math.max(0, Math.min(1, at * rows.length - i))
+              return (
+                <li key={r.phase} className="flex flex-col">
+                  <div className="relative h-[13px]">
+                    {i === current && (
+                      <span className="absolute bottom-[calc(100%+12px)]" style={{ left: `${fill * 100}%` }}><Marker at={fill} /></span>
+                    )}
+                    <div className="dc-ruler absolute inset-x-0 top-0 h-[9px]" />
+                    <div className="absolute inset-x-0 bottom-0 h-[3px] bg-dc-snow/[0.16]" />
+                    <div className="absolute bottom-0 left-0 h-[3px] bg-dc-lava" style={{ width: `${fill * 100}%` }} />
+                  </div>
+                  <Reveal y={16} blur={false} delay={i * 0.06} className="mt-6 flex-1">
+                    <PhasePlate r={r} n={i + 1} current={current === i} />
+                  </Reveal>
+                </li>
+              )
+            })}
           </ol>
         </div>
 
@@ -106,15 +108,21 @@ export default function Calendar({ cd }: { cd: CountdownState }) {
 }
 
 function PhasePlate({ r, n, current }: { r: ReturnType<typeof calendarRows>[number]; n: number; current: boolean }) {
+  // P10: pranchas de mesma altura e linhas em registro: o intervalo sempre em duas
+  // linhas, a linha do preço sempre reservada (mesmo sem preço, no CLOSED)
+  const [span1, span2] = r.span.split(" · ")
   return (
-    <Plate className={`h-full px-5 py-5 ${current ? "!border-dc-lava" : ""}`}>
+    <Plate className={`flex h-full flex-col px-5 py-5 ${current ? "!border-dc-lava" : ""}`}>
       <div className="flex items-baseline justify-between gap-3">
         <p className="font-mono text-[11px] tracking-[0.18em] text-dc-lava">{String(n).padStart(2, "0")}</p>
-        {r.startsAt != null && <p className="font-mono text-[11px] tracking-[0.06em] text-dc-mist tabular-nums">Block {fmtInt(r.startsAt)}</p>}
+        {r.startsAt != null && <p className="font-mono text-[11px] tracking-[0.06em] text-dc-mist tabular-nums">BLOCK {fmtInt(r.startsAt)}</p>}
       </div>
       <h3 className="mt-3 font-cond text-[30px] font-semibold uppercase leading-none text-dc-snow">{r.name}</h3>
-      <p className="mt-2 font-mono text-[11px] tracking-[0.06em] text-dc-mist">{r.span}</p>
-      {r.price && <p className="mt-4 font-cond text-[36px] font-semibold leading-none text-dc-lava">{r.price}</p>}
+      <p className="mt-2 font-mono text-[11px] leading-[18px] tracking-[0.06em] text-dc-mist">
+        <span className="block">{span1}</span>
+        <span className="block">{span2 ?? "\u00a0"}</span>
+      </p>
+      <p className={`mt-4 h-9 font-cond text-[36px] font-semibold leading-none text-dc-lava ${r.price ? "" : "invisible"}`}>{r.price ?? "0"}</p>
       <p className="mt-4 font-body text-[15px] leading-[23px] text-dc-snow/[0.88]">{r.text}</p>
     </Plate>
   )

@@ -141,7 +141,7 @@ export default async function DogCityLayout({ children }: { children: React.Reac
   const nonce = (await headers()).get('x-nonce') ?? undefined
   return (
     <div className={barlowCondensed.variable}>
-      <script nonce={nonce} dangerouslySetInnerHTML={{ __html: TOPO_ANTES_DA_HIDRATACAO }} />
+      <script nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: TOPO_ANTES_DA_HIDRATACAO }} />
       {children}
     </div>
   )

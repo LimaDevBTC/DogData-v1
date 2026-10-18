@@ -76,6 +76,9 @@ body:has([data-dogcity-landing]) > div.min-h-screen { background: #15130F; }
 }
 @media (min-width: 640px) and (min-height: 521px) { .dc-h2 { font-size: clamp(44px, 6vw, 96px); } }
 .dc-h2 { text-wrap: balance; }
+/* P4: o título da abertura de The city, sobre o plano do jogo em tela cheia */
+.dc-op-h2 { font-size: 56px; line-height: 0.9; }
+@media (min-width: 640px) and (min-height: 521px) { .dc-op-h2 { font-size: clamp(56px, 6.6vw, 112px); } }
 /* o texto de abertura de cada seção: logo abaixo do H2, até 40 caracteres */
 .dc-lede {
   font-size: 19px; line-height: 28px; max-width: 40ch;
