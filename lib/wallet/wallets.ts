@@ -9,7 +9,7 @@ export interface WalletMeta {
   // Logo real da carteira (public/wallets/*) + cor de marca p/ acentos do badge.
   logo: string
   accent: string
-  // Via sats-connect (Xverse/OKX) ou provider próprio (Kray)?
+  // Via sats-connect (Xverse/OKX) ou provider próprio (Kray, UniSat)?
   viaSatsConnect: boolean
   note?: string
 }
@@ -34,6 +34,15 @@ export const WALLETS: Record<WalletId, WalletMeta> = {
     accent: '#EE7A30',
     viaSatsConnect: true,
   },
+  unisat: {
+    id: 'unisat',
+    name: 'UniSat',
+    providerKeywords: ['unisat'],
+    installUrl: 'https://unisat.io/download',
+    logo: '/wallets/unisat.jpg',
+    accent: '#F7931A',
+    viaSatsConnect: false,
+  },
   okx: {
     id: 'okx',
     name: 'OKX Wallet',
@@ -45,4 +54,4 @@ export const WALLETS: Record<WalletId, WalletMeta> = {
   },
 }
 
-export const WALLET_ORDER: WalletId[] = ['kray', 'xverse', 'okx']
+export const WALLET_ORDER: WalletId[] = ['kray', 'xverse', 'unisat', 'okx']
