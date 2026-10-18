@@ -15,7 +15,7 @@
 //   data/    lot_info.json                              ->  data/dogcity_lot_info.json
 //            (só servidor: /api/dogcity/lookup e /api/dogcity/lot; nunca no bundle)
 //   video/   ver VIDEO abaixo                           ->  public/landing/v3/video/
-//   --carta  a carta colorida SEM moldura, rótulos e legenda, de public/city/carta-v11.svg
+//   --carta  a carta colorida SEM moldura, rótulos e legenda, de public/city/carta-v12.svg
 //            ->  public/landing/v3/map/city-plan_{2400,1200}.webp (fundo da busca)
 //
 // Rodar de novo é seguro: sobrescreve com os mesmos nomes.
@@ -207,14 +207,14 @@ if (existsSync(dVid)) {
 } else log('sem landing-v3/video/: o herói fica no pôster provisório')
 
 // ── 4. a carta sem moldura (fundo da busca) ────────────────────────────────
-// carta-v11.svg (planta final, 18/10) tem 2400x2400 com a Satoshi Plaza em (1200,1200) e a barra de
+// carta-v12.svg (mapa final de 18/10: quadras redesenhadas, Anel 2 = reserva de madeira) tem 2400x2400 com a Satoshi Plaza em (1200,1200) e a barra de
 // escala de 5 km em 600 px: 0,12 px por metro (x leste, z sul). Os rótulos, os
 // marcadores de lugar e as duas caixas de legenda saem; o desenho fica.
 if (FAZ_CARTA) {
   const sharp = (await import('sharp')).default
-  let s = await fs.readFile(path.join(RAIZ, 'public/city/carta-v11.svg'), 'utf8')
+  let s = await fs.readFile(path.join(RAIZ, 'public/city/carta-v12.svg'), 'utf8')
   const corte = s.indexOf('<rect x="54" y="54" width="720" height="148"')   // começo do bloco de legendas
-  if (corte < 0) throw new Error('carta-v11.svg mudou: não achei o bloco de legendas')
+  if (corte < 0) throw new Error('carta-v12.svg mudou: não achei o bloco de legendas')
   s = s.slice(0, corte) + '</svg>'
   s = s.replace(/<text\b[\s\S]*?<\/text>/g, '')
   s = s.replace(/<circle cx="[\d.]+" cy="[\d.]+" r="4" fill="#F7931A"\/>/g, '')            // pontos de lugar
