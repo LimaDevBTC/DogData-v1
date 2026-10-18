@@ -6,7 +6,7 @@
 //
 // Reescrita de 13/09 para o desenho v3. Cada cartão é deliberadamente CURTO:
 // a afirmação, o número que a prova, e um link para a seção correspondente em
-// /dogcity/docs. NUNCA copiar as 604 linhas de marketing/DOGCITY-DOCS-V1.md
+// /dogcity/docs. NUNCA copiar o texto de app/dogcity/docs/page.tsx
 // para dentro deste arquivo — a landing ganha o argumento, a doc guarda o
 // texto inteiro.
 //

@@ -2,7 +2,7 @@
 // DogCity Documentation, V1 (/dogcity/docs), página pública, texto em inglês.
 //
 // Nasceu como transcrição de marketing/DOGCITY-DOCS-V1.md (aprovado em
-// 13/09/2026). ⚠️ DESDE 20/09 ESTA PÁGINA MANDA E O MARKDOWN NÃO. O markdown
+// 13/09/2026; o markdown foi APAGADO em 17/10). ⚠️ DESDE 20/09 ESTA PÁGINA MANDA. O markdown
 // ficou na curva de piso 1 m² com alvo de 46,66 km² (§3 dele), na reserva de
 // 15% e no split 30/15/55 da praça (§5 dele); aqui já valem piso 24 m², alvo
 // 46,66 km² (29/09/2026: as 70.016 carteiras com lote, empresas sob o teto elevado;

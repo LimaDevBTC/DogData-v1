@@ -15,7 +15,7 @@
 //
 // A segunda nunca esteve na landing: as seis métricas que o time testou e
 // descartou para separar pessoa de serviço, e por que a sexta (o ritmo)
-// funcionou onde as outras cinco falharam. Fonte: marketing/DOGCITY-DOCS-V1.md
+// funcionou onde as outras cinco falharam. Fonte: /dogcity/docs (app/dogcity/docs/page.tsx)
 // seção 4, "How we tell a person from a service" (604 linhas; aqui só o
 // resumo, o link manda pra lá).
 // ═══════════════════════════════════════════════════════════════════════════
