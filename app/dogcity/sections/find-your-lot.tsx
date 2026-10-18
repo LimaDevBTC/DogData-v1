@@ -346,13 +346,13 @@ function ResultPlate({ r, cd }: { r: Result; cd: CountdownState }) {
         <PlateHead label="NOT IN THE SNAPSHOT" />
         <h3 className="dc-h3 mt-3 text-dc-snow">This wallet held no $DOG at block {BLOCK}, so the city drew no lot for it.</h3>
         <p className="dc-body mt-3 text-dc-mist">
-          Lots their owners leave unclaimed go on sale after the Whitelist: US$1.50 for holders of partner collections,
-          then US$2 for anyone.
+          Lots their owners leave unclaimed go on sale after the Whitelist, first to holders of partner collections and
+          then to anyone, each priced by its tier and size, from US$2.
         </p>
         {cd.kind === "A" && (
           <p className="dc-body mt-3 text-dc-mist">
-            A Founder whose wallet has no lot, and who contributed more than 592.22 $DOG, picks an unclaimed lot free in
-            the Partners window.
+            A Founder whose wallet has no lot, and who contributed more than 592.22 $DOG, picks an unclaimed lot in the
+            Partners window, free up to a US$10 lot.
           </p>
         )}
         <div className="mt-6"><a href="#calendar" className="dc-btn dc-btn-line">See the calendar</a></div>

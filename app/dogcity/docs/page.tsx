@@ -1136,12 +1136,47 @@ export default function DogCityDocsPage() {
                   },
                   {
                     lead: "Partners, B+3,744 to B+4,032 (about 48 hours).",
-                    text: "Holders of partner collections mint any unclaimed lot for US$1.50. In the same window, a Founder whose wallet has no lot, and who contributed more than 592.22 $DOG, picks an unclaimed lot for free.",
+                    text: "Holders of partner collections mint any unclaimed lot at its price on the lot ruler below. In the same window, a Founder whose wallet has no lot, and who contributed more than 592.22 $DOG, picks an unclaimed lot: free up to a US$10 lot, paying only the difference above that.",
                   },
                   {
                     lead: "Public, from B+4,032 until every lot is minted.",
-                    text: "Anyone mints any unclaimed lot for US$2, in the order payments confirm, up to 10 lots per wallet every 144 blocks.",
+                    text: "Anyone mints any unclaimed lot at its price on the lot ruler below, from US$2 to about US$200, in the order payments confirm, up to 10 lots per wallet every 144 blocks.",
                   },
+                ]}
+              />
+
+              <Sub>How a lot is priced</Sub>
+              <P className="mt-3">
+                In the Partners and Public phases every lot has its own price, set by two things
+                printed on its deed: its tier and its area. A higher tier pays more, and a bigger lot
+                pays more, though not in the same proportion as its area.
+              </P>
+              <p className={`mt-4 border ${HAIR} px-4 py-3 font-mono text-[12px] md:text-[13px] text-snow max-w-3xl leading-relaxed`}>
+                price (US$) = 10 × 1.2<sup>(6 − tier)</sup> × √(area ÷ 1,041 m²), rounded to the dollar, never below US$2
+              </p>
+              <P>
+                The anchor is a typical Diamond Paws lot, tier 6 and 1,041 m², at US$10. Each tier up
+                multiplies the price by 1.2, and doubling the area multiplies it by 1.41. Across the
+                city that puts lots between US$2 and about US$200: a typical DOG Soldier lot costs
+                US$3 and a typical Satoshi Visionary lot US$43. The price of every lot is fixed in a
+                list sealed with the city, and the mint charges from that list.
+              </P>
+              <Table
+                head={["Tier", "250 m²", "1,041 m²", "5,000 m²", "25,000 m²"]}
+                rows={[
+                  ["1 · Satoshi Visionary", "US$12", "US$25", "US$55", "US$122"],
+                  ["2 · BTC Maximalist", "US$10", "US$21", "US$45", "US$102"],
+                  ["3 · Rune Master", "US$8", "US$17", "US$38", "US$85"],
+                  ["4 · Ordinal Believer", "US$7", "US$14", "US$32", "US$71"],
+                  ["5 · DOG Legend", "US$6", "US$12", "US$26", "US$59"],
+                  ["6 · Diamond Paws", "US$5", "US$10", "US$22", "US$49"],
+                  ["7 · DOG Soldier", "US$4", "US$8", "US$18", "US$41"],
+                  ["8 · HODL Hero", "US$3", "US$7", "US$15", "US$34"],
+                  ["9 · Steady Holder", "US$3", "US$6", "US$13", "US$28"],
+                  ["10 · Profit Taker", "US$2", "US$5", "US$11", "US$24"],
+                  ["11 · Early Exit", "US$2", "US$4", "US$9", "US$20"],
+                  ["12 · Panic Seller", "US$2", "US$3", "US$7", "US$16"],
+                  ["13 · Paper Hands", "US$2", "US$3", "US$6", "US$14"],
                 ]}
               />
 
@@ -1230,13 +1265,16 @@ export default function DogCityDocsPage() {
                 holds for 15 minutes. You prove your wallet with a signed message that moves no funds,
                 then pay one exact amount to an address that accepts only that deed, and the deed is
                 delivered to your ordinals address. If the network fee climbs above 50 sat/vB the mint
-                pauses by itself and resumes when it falls; the calendar keeps running. Orders for a
-                phase close 6 blocks before the phase ends.
+                pauses by itself and resumes when it falls; the calendar keeps running. An order already
+                paid when the mint pauses keeps its lot and waits up to 72 hours; if the fee has not
+                come down by then, it is refunded. Every refund goes back to the address that paid.
+                Orders for a phase close 6 blocks before the phase ends.
               </P>
               <P>
                 The only place to mint is mint.dogcity.space. A mint anywhere else is a
-                scam, and no one from the project will ever ask for a seed phrase or a signature that
-                moves funds.
+                scam. The only transaction you ever send is the payment to the address shown on
+                mint.dogcity.space, and no one from the project will ever ask for your seed phrase or
+                for you to sign a transaction someone else built.
               </P>
             </Section>
 
