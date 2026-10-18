@@ -1162,21 +1162,21 @@ export default function DogCityDocsPage() {
                 list sealed with the city, and the mint charges from that list.
               </P>
               <Table
-                head={["Tier", "250 m²", "1,041 m²", "5,000 m²", "25,000 m²"]}
+                head={["Tier", "250 m²", "1,041 m²", "5,000 m²", "25,000 m²"]}
                 rows={[
-                  ["1 · Satoshi Visionary", "US$12", "US$25", "US$55", "US$122"],
-                  ["2 · BTC Maximalist", "US$10", "US$21", "US$45", "US$102"],
-                  ["3 · Rune Master", "US$8", "US$17", "US$38", "US$85"],
-                  ["4 · Ordinal Believer", "US$7", "US$14", "US$32", "US$71"],
-                  ["5 · DOG Legend", "US$6", "US$12", "US$26", "US$59"],
-                  ["6 · Diamond Paws", "US$5", "US$10", "US$22", "US$49"],
-                  ["7 · DOG Soldier", "US$4", "US$8", "US$18", "US$41"],
-                  ["8 · HODL Hero", "US$3", "US$7", "US$15", "US$34"],
-                  ["9 · Steady Holder", "US$3", "US$6", "US$13", "US$28"],
-                  ["10 · Profit Taker", "US$2", "US$5", "US$11", "US$24"],
-                  ["11 · Early Exit", "US$2", "US$4", "US$9", "US$20"],
-                  ["12 · Panic Seller", "US$2", "US$3", "US$7", "US$16"],
-                  ["13 · Paper Hands", "US$2", "US$3", "US$6", "US$14"],
+                  [<span key="t" className="whitespace-nowrap">1 · Satoshi Visionary</span>, "US$12", "US$25", "US$55", "US$122"],
+                  [<span key="t" className="whitespace-nowrap">2 · BTC Maximalist</span>, "US$10", "US$21", "US$45", "US$102"],
+                  [<span key="t" className="whitespace-nowrap">3 · Rune Master</span>, "US$8", "US$17", "US$38", "US$85"],
+                  [<span key="t" className="whitespace-nowrap">4 · Ordinal Believer</span>, "US$7", "US$14", "US$32", "US$71"],
+                  [<span key="t" className="whitespace-nowrap">5 · DOG Legend</span>, "US$6", "US$12", "US$26", "US$59"],
+                  [<span key="t" className="whitespace-nowrap">6 · Diamond Paws</span>, "US$5", "US$10", "US$22", "US$49"],
+                  [<span key="t" className="whitespace-nowrap">7 · DOG Soldier</span>, "US$4", "US$8", "US$18", "US$41"],
+                  [<span key="t" className="whitespace-nowrap">8 · HODL Hero</span>, "US$3", "US$7", "US$15", "US$34"],
+                  [<span key="t" className="whitespace-nowrap">9 · Steady Holder</span>, "US$3", "US$6", "US$13", "US$28"],
+                  [<span key="t" className="whitespace-nowrap">10 · Profit Taker</span>, "US$2", "US$5", "US$11", "US$24"],
+                  [<span key="t" className="whitespace-nowrap">11 · Early Exit</span>, "US$2", "US$4", "US$9", "US$20"],
+                  [<span key="t" className="whitespace-nowrap">12 · Panic Seller</span>, "US$2", "US$3", "US$7", "US$16"],
+                  [<span key="t" className="whitespace-nowrap">13 · Paper Hands</span>, "US$2", "US$3", "US$6", "US$14"],
                 ]}
               />
 
