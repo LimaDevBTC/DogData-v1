@@ -73,7 +73,8 @@ export const HERO_FILM = {
 
 // ── a abertura de The city (P4, P-b da rodada 3): T3, o $DOG andando rumo à Sphere, no
 // terço direito do quadro (desktop: janela 1600x900 do mestre 2560x1440 em (0, 300), escalada
-// para 1920x1080; celular: o 9:16 inteiro). Sem a vinheta gravada pelo jogo, LUT única nova.
+// para 1920x1080; celular: o recorte do N1, 1108x1970 em (166, 590) do 1440x2560, com o $DOG
+// na metade de cima e o título embaixo). Sem a vinheta gravada pelo jogo, LUT única nova.
 // 4,75 s a partir do quadro 6 (o pôster), fechando num mergulho ao preto de 10 quadros.
 // AV1 8 bits e H.264 Main. Arquivos próprios desta frente, em public/landing/v3/city/.
 export const CITY_OPENER = {
