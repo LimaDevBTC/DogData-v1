@@ -24,9 +24,12 @@ import { HERO_FILM, POSTER } from "../landing/media"
 import { FUND_GOAL, RULER, type CountdownState } from "../landing/mint-state"
 
 // ── a escolha do filme: retrato pega o encode 9:16, nunca recorte do 16:9 ──
-function pickFilm(): { webm?: string; mp4?: string } {
+type Src = { webm?: string; mp4?: string }
+function pickFilm(): { intro: Src | null; loop: Src } {
   const portrait = window.matchMedia("(max-aspect-ratio: 1/1)").matches
-  return portrait ? HERO_FILM.mobile : HERO_FILM.desktop
+  return portrait
+    ? { intro: HERO_FILM.intro.mobile, loop: HERO_FILM.mobile }
+    : { intro: HERO_FILM.intro.desktop, loop: HERO_FILM.desktop }
 }
 
 function filmAllowed(): boolean {
@@ -62,13 +65,21 @@ export function HeroPoster() {
 }
 
 // ═══ o filme ═══════════════════════════════════════════════════════════════
-// Devolve DUAS peças: o <video> (vai na camada de mídia do palco) e os controles
+// Devolve DUAS peças: o filme (vai na camada de mídia do palco) e os controles
 // (legenda do take e pausa, vão no visor e somem com ele). `active` falso pausa o
 // filme (o palco já passou para a carta) sem contar como pausa da pessoa.
+//
+// Brief §6: T1 (a Terra sobre o domo) abre SÓ a primeira reprodução; quando ele
+// acaba, o laço T2 a T6 entra por cima e fica. São dois <video>: o laço aquece
+// enquanto T1 roda e só aparece no primeiro quadro tocado, então a troca não
+// pisca (o último quadro de T1 fica embaixo até lá).
 export function useFilm({ reduced, active }: { reduced: boolean; active: boolean }): { video: ReactNode; controls: ReactNode } {
-  const ref = useRef<HTMLVideoElement>(null)
-  const [src, setSrc] = useState<{ webm?: string; mp4?: string } | null>(null)
-  const [visible, setVisible] = useState(false)
+  const introRef = useRef<HTMLVideoElement>(null)
+  const loopRef = useRef<HTMLVideoElement>(null)
+  const [src, setSrc] = useState<{ intro: Src | null; loop: Src } | null>(null)
+  const [phase, setPhase] = useState<"intro" | "loop">("intro")
+  const [warm, setWarm] = useState(false)
+  const [shown, setShown] = useState<"none" | "intro" | "loop">("none")
   const [paused, setPaused] = useState(false)
   const [blocked, setBlocked] = useState(false)
   const userPaused = useRef(false)
@@ -76,26 +87,33 @@ export function useFilm({ reduced, active }: { reduced: boolean; active: boolean
   const [blink, setBlink] = useState(0)
   const onTake = useCallback((i: number) => { setTake(i); setBlink((b) => b + 1) }, [])
 
+  const start = useCallback(() => {
+    const f = pickFilm()
+    setPhase(f.intro ? "intro" : "loop")
+    setWarm(!f.intro)
+    setSrc(f)
+  }, [])
+
   // entra depois da primeira pintura, e só se pode
   useEffect(() => {
     if (!HERO_FILM.exists) return
     if (reduced || !filmAllowed()) { setBlocked(true); return }
-    idle(() => setSrc(pickFilm()))
-  }, [reduced])
+    idle(start)
+  }, [reduced, start])
 
   const play = useCallback(() => {
-    const v = ref.current
+    const v = phase === "intro" ? introRef.current : loopRef.current
     if (!v) return
     const p = v.play()
     if (p && typeof p.then === "function") {
       p.then(() => { setPaused(false); setBlocked(false) })
         .catch(() => { setBlocked(true); setPaused(true) })   // modo de economia do iPhone: fica o pôster
     }
-  }, [])
+  }, [phase])
 
   // toca enquanto o palco é o herói e a aba está visível; a pausa da pessoa manda
   useEffect(() => {
-    const v = ref.current
+    const v = phase === "intro" ? introRef.current : loopRef.current
     if (!v || !src) return
     const sync = () => {
       if (!active || document.hidden) v.pause()
@@ -104,12 +122,23 @@ export function useFilm({ reduced, active }: { reduced: boolean; active: boolean
     sync()
     document.addEventListener("visibilitychange", sync)
     return () => document.removeEventListener("visibilitychange", sync)
-  }, [src, active, play])
+  }, [src, active, play, phase])
 
-  // a legenda do take segue os cortes do cuts.json
+  // T1: aquece o laço na metade, e passa a vez quando acaba
   useEffect(() => {
-    const v = ref.current
-    if (!v || !HERO_FILM.cuts.length) return
+    const v = introRef.current
+    if (!v || !src?.intro || phase !== "intro") return
+    const on = () => { if (v.duration && v.currentTime > v.duration * 0.4) setWarm(true) }
+    const end = () => { setWarm(true); setPhase("loop") }
+    v.addEventListener("timeupdate", on)
+    v.addEventListener("ended", end)
+    return () => { v.removeEventListener("timeupdate", on); v.removeEventListener("ended", end) }
+  }, [src, phase])
+
+  // a legenda do take segue os cortes do laço
+  useEffect(() => {
+    const v = loopRef.current
+    if (!v || !HERO_FILM.cuts.length || phase !== "loop") return
     let last = -1
     const on = () => {
       const t = v.currentTime
@@ -119,43 +148,50 @@ export function useFilm({ reduced, active }: { reduced: boolean; active: boolean
     }
     v.addEventListener("timeupdate", on)
     return () => v.removeEventListener("timeupdate", on)
-  }, [src, onTake])
+  }, [src, phase, onTake])
 
   if (!HERO_FILM.exists) return { video: null, controls: null }
   const toggle = () => {
-    const v = ref.current
-    if (!src) { userPaused.current = false; setSrc(pickFilm()); return }
+    if (!src) { userPaused.current = false; start(); return }
+    const v = phase === "intro" ? introRef.current : loopRef.current
     if (!v) return
     if (v.paused) { userPaused.current = false; play() }
     else { userPaused.current = true; v.pause(); setPaused(true) }
   }
   const showPlay = blocked || paused || !src
-  const cut = take != null ? HERO_FILM.cuts[take] : null
+  const cut = phase === "loop" && take != null ? HERO_FILM.cuts[take] : null
+  const playing = (which: "intro" | "loop") => () => {
+    setShown((s) => (s === "loop" ? s : which))
+    window.dispatchEvent(new Event("dc:film-playing"))
+  }
+  const cls = (on: boolean) => `absolute inset-0 h-full w-full object-cover transition-opacity duration-[600ms] ${on ? "opacity-100" : "opacity-0"}`
 
   const video = src ? (
-    <video
-      ref={ref}
-      muted
-      playsInline
-      loop
-      preload="none"
-      aria-hidden
-      onPlaying={() => { setVisible(true); window.dispatchEvent(new Event("dc:film-playing")) }}
-      className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-[600ms] ${visible ? "opacity-100" : "opacity-0"}`}
-    >
-      {src.webm && <source src={src.webm} type='video/webm; codecs="av01.0.05M.08"' />}
-      {src.mp4 && <source src={src.mp4} type="video/mp4" />}
-    </video>
+    <>
+      {src.intro && shown !== "loop" && (
+        <video ref={introRef} muted playsInline preload="auto" aria-hidden onPlaying={playing("intro")} className={cls(shown === "intro")}>
+          {src.intro.webm && <source src={src.intro.webm} type='video/webm; codecs="av01.0.08M.08"' />}
+          {src.intro.mp4 && <source src={src.intro.mp4} type="video/mp4" />}
+        </video>
+      )}
+      {warm && (
+        <video ref={loopRef} muted playsInline loop preload="auto" aria-hidden onPlaying={playing("loop")} className={cls(shown === "loop")}>
+          {src.loop.webm && <source src={src.loop.webm} type='video/webm; codecs="av01.0.08M.08"' />}
+          {src.loop.mp4 && <source src={src.loop.mp4} type="video/mp4" />}
+        </video>
+      )}
+    </>
   ) : null
 
   // a legenda do take e a pausa: canto inferior direito (topo direito no celular).
   // WCAG 2.2.2: o laço passa de 5 s, então o controle de pausa é visível.
+  const caption = phase === "intro" && src?.intro
+    ? HERO_FILM.introPlace
+    : cut ? `${String((take ?? 0) + 1).padStart(2, "0")} / ${String(HERO_FILM.cuts.length).padStart(2, "0")} · ${cut.place}` : null
   const controls = (
     <div className="dc-visor absolute right-[var(--dc-gutter)] top-[64px] dk:top-auto dk:bottom-[112px] z-[3] flex flex-col items-end gap-1 text-right">
-      {cut && (
-        <p key={blink} className={`dc-label text-dc-snow dc-halo ${reduced ? "" : "dc-blink"}`}>
-          {String((take ?? 0) + 1).padStart(2, "0")} / {String(HERO_FILM.cuts.length).padStart(2, "0")} · {cut.place}
-        </p>
+      {caption && shown !== "none" && (
+        <p key={`${phase}-${blink}`} className={`dc-label text-dc-snow dc-halo ${reduced ? "" : "dc-blink"}`}>{caption}</p>
       )}
       <button
         type="button"
@@ -275,6 +311,7 @@ export function TitleCard() {
         <img
           src={WORDMARK_SRC}
           alt=""
+          fetchPriority="high"
           className="dc-tc-mark absolute inset-0 h-full w-full"
           style={{ filter: "drop-shadow(0 2px 18px rgba(13,12,9,0.7))" }}
         />
@@ -334,7 +371,11 @@ export function HeroVisor({
 
   const isNum = cd.number != null && /^[\d,]+$/.test(cd.number)
   const rolling = roll && cd.kind === "A"
-  const n = Math.max(cd.number?.length ?? 7, rolling ? FUND_GOAL.toLocaleString("en-US").length : 0)
+  // a caixa tem o tamanho do número FINAL; durante a rolagem (que parte do objetivo,
+  // 10 caracteres) só o texto encolhe por dentro, ancorado embaixo: nada pula (CLS)
+  const nFinal = cd.number?.length ?? 7
+  const n = Math.max(nFinal, rolling ? FUND_GOAL.toLocaleString("en-US").length : 0)
+  const sizeCls = HERO_FILM.exists ? "dc-num-size-film" : "dc-num-size"
 
   return (
     <div className="dc-visor pointer-events-none absolute inset-x-0 bottom-[calc(70px+env(safe-area-inset-bottom))] dk:bottom-[112px] z-[2]">
@@ -351,14 +392,16 @@ export function HeroVisor({
             aria-hidden
           >
             <span
-              className={`block tracking-[-0.01em] ${HERO_FILM.exists ? "dc-num-size-film" : "dc-num-size"}`}
-              style={{ "--dc-n": String(n) } as CSSProperties}
+              className={`flex h-[0.84em] items-end tracking-[-0.01em] ${sizeCls}`}
+              style={{ "--dc-n": String(nFinal) } as CSSProperties}
             >
-              {cd.number == null
-                ? <span className="invisible">0</span>
-                : isNum
-                  ? <Odometer key={rolling ? "roll" : "still"} text={cd.number} from={rolling ? FUND_GOAL : undefined} duration={1400} />
-                  : cd.number}
+              <span className={`block whitespace-nowrap ${sizeCls}`} style={{ "--dc-n": String(n) } as CSSProperties}>
+                {cd.number == null
+                  ? <span className="invisible">0</span>
+                  : isNum
+                    ? <Odometer key={rolling ? "roll" : "still"} text={cd.number} from={rolling ? FUND_GOAL : undefined} duration={1400} />
+                    : cd.number}
+              </span>
             </span>
           </p>
           <p aria-hidden className={`dc-in-unit mt-2 dk:mt-3 font-mono text-[12px] dk:text-[14px] font-medium tracking-[0.22em] text-dc-snow ${cd.unit ? "" : "invisible"}`}>{cd.unit ?? "0"}</p>

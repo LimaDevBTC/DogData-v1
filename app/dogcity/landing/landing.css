@@ -245,8 +245,11 @@ html:has([data-dogcity-landing][data-motion="off"]) { scroll-behavior: auto; }
 html[data-dc-intro] .dc-tc { display: flex; animation: dc-tc-out 140ms linear 2.55s both; }
 @keyframes dc-tc-out { to { opacity: 0; visibility: hidden; } }
 .dc-tc-mark { clip-path: inset(0 51.38% 0 48.62%); }
+/* a abertura do wordmark começa a 150 ms: na primeira visita ele é o LCP, e o Chrome
+   só o registra quando a máscara começa a abrir (com 500 ms, LCP = primeira pintura
+   + 0,5 s; medido em 18/10 no 4G lento) */
 html[data-dc-intro] .dc-tc-mark {
-  animation: dc-tc-reveal 900ms var(--dc-ease) 500ms both, dc-tc-fly-m 700ms var(--dc-ease-pin) 1900ms both;
+  animation: dc-tc-reveal 1000ms var(--dc-ease) 150ms both, dc-tc-fly-m 700ms var(--dc-ease-pin) 1900ms both;
 }
 @keyframes dc-tc-reveal { from { clip-path: inset(0 51.38% 0 48.62%); } to { clip-path: inset(0 0 0 0); } }
 /* celular: encolhe e some na direção do D· (o wordmark não cabe a 32 px) */
@@ -257,7 +260,7 @@ html[data-dc-intro] .dc-tc-mark {
 /* desktop: o wordmark de 640 px vira o de 212 px no canto esquerdo da navegação */
 @media (min-width: 1024px) {
   html[data-dc-intro] .dc-tc-mark {
-    animation: dc-tc-reveal 900ms var(--dc-ease) 500ms both, dc-tc-fly-d 700ms var(--dc-ease-pin) 1900ms both;
+    animation: dc-tc-reveal 1000ms var(--dc-ease) 150ms both, dc-tc-fly-d 700ms var(--dc-ease-pin) 1900ms both;
   }
   html[data-dc-intro] .dc-tc { --dc-tc-left: calc(max(0px, (100vw - 1360px - 2 * var(--dc-gutter)) / 2) + var(--dc-gutter)); }
 }

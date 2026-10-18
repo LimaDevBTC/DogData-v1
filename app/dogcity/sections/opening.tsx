@@ -24,7 +24,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useReduced } from "../landing/ui"
-import { T8 } from "../landing/media"
+import { HERO_FILM, T8 } from "../landing/media"
 import type { CountdownState } from "../landing/mint-state"
 import { HeroPoster, HeroVisor, Rail, TitleCard, useFilm } from "./hero"
 import {
@@ -242,7 +242,7 @@ export default function Opening({
           {film.video}
           {/* vinheta, não placa: no máximo 55% de void-deep, de baixo até 45% da altura
               (62% e 70% no celular quando houver filme), e um véu curto no topo */}
-          <div aria-hidden className={`pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t via-dc-deep/[0.3] to-transparent ${film.video ? "h-[62%] from-dc-deep/[0.7] dk:h-[45%] dk:from-dc-deep/[0.55]" : "h-[45%] from-dc-deep/[0.55]"}`} />
+          <div aria-hidden className={`pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t via-dc-deep/[0.3] to-transparent ${HERO_FILM.exists ? "h-[62%] from-dc-deep/[0.7] dk:h-[45%] dk:from-dc-deep/[0.55]" : "h-[45%] from-dc-deep/[0.55]"}`} />
           <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-dc-deep/[0.5] to-transparent" />
         </div>
 

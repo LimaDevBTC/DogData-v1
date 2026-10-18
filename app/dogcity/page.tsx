@@ -125,6 +125,10 @@ export default async function DogCityPage() {
           iça estas tags para o <head> */}
       <link rel="preload" as="image" type="image/avif" href={POSTER.mobile.avif} media="(max-aspect-ratio: 1/1)" fetchPriority="high" />
       <link rel="preload" as="image" type="image/avif" href={POSTER.desktop.avif} media="(min-aspect-ratio: 1/1)" fetchPriority="high" />
+      {/* o wordmark do cartão de título é o LCP da PRIMEIRA visita (medido em 18/10:
+          ele chegava 0,8 s depois da primeira pintura no 4G lento). Mesmo arquivo de
+          WORDMARK_SRC em ./landing/ui.tsx (módulo de cliente: não dá para importar aqui) */}
+      <link rel="preload" as="image" type="image/svg+xml" href="/landing/v3/brand/dogcity-negativa.svg" fetchPriority="high" />
       <DogCityLanding initialFund={fund} />
     </>
   )
