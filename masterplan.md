@@ -1,11 +1,20 @@
 # DogCity Master Plan — A Constituição da Fundação (`masterplan.md`)
 
+> **EMENDA DE 17/10/2026 (fundador). Para o MINT, este documento NÃO é mais a fonte.** A fonte única do mint é
+> `plano/ROADMAP_MINT.md` do repositório `dogcity-mundo` (decisões nas seções 1, 7.1 e 7.1b), e o texto público é a
+> seção 7 de `/dogcity/docs`. Ficam superados aqui: o deed **soulbound / intransferível** (§0.2 e onde mais aparecer:
+> a escritura é TRANSFERÍVEL; licença e itens ficam no endereço original), a linha do tempo de auditoria de 432 blocos
+> (§3), "cobrar só a taxa de rede" e o Modelo B do §4 (preços US$ 0 / 1 / 1,50 / 2 e bastão da Charter), e o §35
+> (founders 3 dias, US$ 2 ao holder). Também foram apagados os planos antigos citados abaixo (`mintcity.md`,
+> `crosschaincity.md`, `cityupdate*.md`) e as cópias de marketing superadas. O resto deste documento continua valendo
+> onde não conflita com o ROADMAP; as seções não foram renumeradas porque outros documentos as citam.
+
 > **Meta:** consolidar TODAS as decisões de fundação da DogCity num documento canônico —
 > as fórmulas que transformam histórico on-chain em lote, o ciclo de vida do prédio, a
 > linha do tempo do snapshot, o schema do deed (Ordinal), o programa cívico completo e a
 > Reserva Urbana do projeto. Este doc é a **lei**; o gerador do registry é o **cartório**;
 > a cidade 3D é o **renderer**. Onde qualquer doc anterior divergir
-> (`reorganizecity.md`, `crosschaincity.md`, `mintcity.md`), **vale este**.
+> (`reorganizecity.md` e os já apagados `crosschaincity.md` e `mintcity.md`), **vale este**.
 >
 > **Origem:** conversas de design com o dono, 2026-07-10. Todas as decisões de fundação
 > marcadas 🔒 foram travadas pelo dono nessa data.
@@ -2495,7 +2504,6 @@ que a própria página anuncia.
 | `app/dogcity/dogcity-data.ts` | `LOTES_DE_CARTEIRA` | hoje 69.995; o registro tem **70.016** (ver a nota abaixo) |
 | `app/dogcity/docs/page.tsx` | §5, o par medido do Distrito Financeiro | a maior contra a menor, em saldo e em terra |
 | `app/dogcity/docs/page.tsx` | §5, o total do distrito, em dois lugares | área somada e fração do supply |
-| `marketing/DOGCITY-DOCS-V1.md` | o espelho do mesmo par | o `page.tsx` jura que todo número dele vem daqui |
 | `marketing/SNAPSHOT-REPORT.md` | a nota do teto | maior lote residencial e as duas que ficaram no tecido |
 | `scripts/city/sobe_lookup.py` | o docstring da decisão A | a medição que justifica servir o registro |
 | `app/dogcity/sections/wallet-lookup.tsx` | o cabeçalho | idem |
@@ -2780,7 +2788,7 @@ minte 3 dias antes de todo mundo").
 Postage de 1 sat só com o cliente DOG MODE no ar (hoje o nó é Core e 1 sat é dust que não
 propaga); até lá, 546 sats.
 
-**O que isso muda no potencial (§34 e `marketing/POTENCIAL-2026-09.md`):** a linha do
+**O que isso muda no potencial (§34):** a linha do
 mint deixa de ser limitada pelas licenças (105) e passa a ser limitada pela **conversão
 sobre 69.989 carteiras** e pela **racionalidade por faixa de saldo** (para quem tem 1.000
 DOG, a fee passa do valor do próprio saldo). O modelo foi refeito com essa premissa.

@@ -365,7 +365,8 @@ function Documento({ r }: { r: Resultado }) {
       <RingMark aceso={1} />
 
       <p className="text-[13px] md:text-sm text-mist mt-5 leading-relaxed">
-        You already own this. It was not for sale and it cannot be bought.
+        This lot is yours by history. Only this wallet can claim it, through the Founder and
+        Whitelist phases of the mint; a lot left unclaimed goes on sale after that.
       </p>
       {/* ⚠️ A DIFERENÇA É DITA, NUNCA ESCONDIDA. Se a tela mostrasse só a linha
           boa, o holder descobriria a outra ao abrir o registro assinado, e aí

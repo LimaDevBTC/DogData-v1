@@ -271,7 +271,7 @@ export const TIERS = [
     color: "#F56E0F",
     featured: true,
     perks: [
-      "Mint your building at the Grand Opening, paying only BTC network fees",
+      "Mint your lot deed first, free, in the Founder phase: only Bitcoin network fees",
       "One-time, permanent, tied to your wallet",
       "Verified DogCity profile",
     ],
@@ -313,7 +313,7 @@ export const WALLET_STEPS = [
   { n: "03", title: "DOG-time", text: "Balance times age, summed coin by coin. It is the whole history that counts, not one old coin; more DOG-time places you closer to the core." },
   { n: "04", title: "District assignment", text: "The masterplan assigns your lot inside one of the districts, following real terrain." },
   { n: "05", title: "Lunar coordinates", text: "Every lot maps to true selenographic coordinates at Mare Tranquillitatis." },
-  { n: "06", title: "Bitcoin inscription", text: "At the Grand Opening, licensed properties can be minted as Ordinals on Bitcoin L1 (planned, not live yet)." },
+  { n: "06", title: "Bitcoin inscription", text: "Every lot is minted as an Ordinal deed on Bitcoin L1, a child of the City Charter, in phases that open 288 blocks after the fund reaches 10M (planned, not live yet)." },
 ]
 
 export const DONATION_METHODS = [
