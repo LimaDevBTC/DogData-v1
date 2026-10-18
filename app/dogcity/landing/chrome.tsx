@@ -89,7 +89,7 @@ export function Nav({
           </a>
 
           {/* centro: só onde cabe sem apertar o botão vivo */}
-          <ul className="hidden min-[1360px]:flex flex-1 items-center justify-center gap-7">
+          <ul className="hidden navw:flex flex-1 items-center justify-center gap-7">
             {CENTER_LINKS.map((l) => (
               <li key={l.href}>
                 <a href={l.href} className={`dc-label !text-[11px] !tracking-[0.2em] text-dc-snow/[0.85] hover:text-dc-snow transition-colors ${solid ? "" : "dc-halo"}`}>
@@ -98,10 +98,12 @@ export function Nav({
               </li>
             ))}
           </ul>
-          <div className="flex-1 min-[1360px]:hidden" />
+          <div className="flex-1 navw:hidden" />
 
           {/* o contador compacto: só depois do herói */}
-          <div className={`flex items-center gap-3 transition-[opacity,transform] duration-300 ${live ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-1 pointer-events-none"}`} aria-hidden={!live}>
+          {/* fora do layout enquanto o herói está na tela: invisível, ele ainda ocupava
+              largura e empurrava o Menu para fora da tela do celular */}
+          <div className={`items-center gap-3 ${live ? "flex dc-fade-in" : "hidden"}`} aria-hidden={!live}>
             {/* desktop largo: o botão inteiro, como o "Pre-Order Now" do VI */}
             <a
               href={cd.nav.href}
@@ -131,7 +133,7 @@ export function Nav({
             aria-controls="dc-drawer"
             className={`inline-flex h-10 items-center gap-3 px-1 text-dc-snow ${solid ? "" : "dc-halo"}`}
           >
-            <span className={`dc-label !text-[11px] ${live ? "hidden min-[1360px]:inline" : "inline"}`}>Menu</span>
+            <span className={`dc-label !text-[11px] ${live ? "hidden navw:inline" : "inline"}`}>Menu</span>
             <MenuIcon open={open} />
           </button>
         </div>

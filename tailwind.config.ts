@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss"
+import plugin from "tailwindcss/plugin"
 
 const config: Config = {
   content: [
@@ -106,12 +107,6 @@ const config: Config = {
         'dog-green': '#10B981',
         'dog-red': '#EF4444',
         'dog-yellow': '#F59E0B',
-      },
-      // DogCity landing v3 (brief §9): layout de desktop decidido pela régua COMPOSTA,
-      // nunca só pela largura: telefone deitado tem largura de desktop e altura de telefone.
-      screens: {
-        'dk': { raw: '(min-width: 640px) and (min-height: 521px)' },
-        'dkl': { raw: '(min-width: 1024px) and (min-height: 521px)' },
       },
       fontFamily: {
         'display': ['var(--font-display)', 'Syne', 'sans-serif'],
@@ -244,7 +239,19 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // DogCity landing v3 (brief §9): layout de desktop decidido pela régua COMPOSTA, nunca
+    // só pela largura (telefone deitado tem largura de desktop e altura de telefone).
+    // ⚠️ VARIANTE, NÃO `screens`: uma tela `raw` em `screens` desliga as variantes
+    // arbitrárias `min-[...]:` do Tailwind no site inteiro, e components/header.tsx usa
+    // `min-[1400px]:`. `dk:` e `dkl:` ficam fora da ordem das telas sm/md/lg; são usadas só
+    // em app/dogcity.
+    plugin(({ addVariant }) => {
+      addVariant('dk', '@media (min-width: 640px) and (min-height: 521px)')
+      addVariant('dkl', '@media (min-width: 1024px) and (min-height: 521px)')
+      addVariant('navw', '@media (min-width: 1360px)')
+    }),
+  ],
 }
 
 export default config

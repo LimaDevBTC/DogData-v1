@@ -350,7 +350,7 @@ function TitleCard({ onDone }: { onDone: () => void }) {
   }, [finish])
 
   return (
-    <div ref={box} aria-hidden className="pointer-events-none absolute inset-x-0 top-[26%] z-[4] flex -translate-y-1/2 justify-center">
+    <div ref={box} aria-hidden className="pointer-events-none absolute inset-x-0 top-[26%] dk:top-[21%] z-[4] flex -translate-y-1/2 justify-center">
       <div className="relative w-[min(78vw,640px)]" style={{ aspectRatio: `${WORDMARK_RATIO}` }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -477,7 +477,7 @@ export default function Hero({
               {cd.h1}
             </h1>
 
-            <div className="mt-5 dk:mt-7 flex flex-col dk:flex-row dk:items-center gap-3 dk:gap-4">
+            <div className="mt-5 dk:mt-7 flex max-w-[440px] dk:max-w-none flex-col dk:flex-row dk:items-center gap-3 dk:gap-4">
               <Btn href={cd.primary.href} className="w-full dk:w-auto">{cd.primary.label}</Btn>
               <Btn href={cd.secondary.href} variant="line" className="hidden dk:inline-flex">{cd.secondary.label}</Btn>
               <TextLink href={cd.secondary.href} className="dk:hidden self-center font-mono text-[12px] tracking-[0.16em] uppercase text-dc-snow">

@@ -170,6 +170,8 @@ body:has([data-dogcity-landing]) > div.min-h-screen { background: #15130F; }
   100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
 }
 .dc-sweep { animation: dc-sweep 1.6s cubic-bezier(0.22, 0.61, 0.36, 1) infinite; }
+@keyframes dc-fade-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.dc-fade-in { animation: dc-fade-in 300ms var(--dc-ease) both; }
 @keyframes dc-blink { 0% { opacity: 0.15; } 100% { opacity: 1; } }
 .dc-blink { animation: dc-blink 120ms steps(2, end) 1; }
 @keyframes dc-drop {
@@ -203,7 +205,8 @@ body:has([data-dogcity-landing]) > div.min-h-screen { background: #15130F; }
 [data-dogcity-landing][data-motion="off"] .dc-breathe,
 [data-dogcity-landing][data-motion="off"] .dc-sweep,
 [data-dogcity-landing][data-motion="off"] .dc-blink,
-[data-dogcity-landing][data-motion="off"] .dc-drop { animation: none; }
+[data-dogcity-landing][data-motion="off"] .dc-drop,
+[data-dogcity-landing][data-motion="off"] .dc-fade-in { animation: none; }
 html:has([data-dogcity-landing][data-motion="off"]) { scroll-behavior: auto; }
 @media (prefers-reduced-motion: reduce) {
   html:has([data-dogcity-landing]) { scroll-behavior: auto; }
