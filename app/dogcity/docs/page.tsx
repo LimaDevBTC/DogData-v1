@@ -176,7 +176,7 @@ function Signal({ title, children }: { title: string; children: React.ReactNode 
   )
 }
 
-// ── índice: seções 1 a 7 do documento (a 8 não é conteúdo público) ─────────
+// ── índice: seções 1 a 8 do documento ───────────────────────────────────────
 const TOC = [
   { id: "what-is-dogcity", n: "1", label: "What DogCity is" },
   { id: "the-snapshot", n: "2", label: "The snapshot" },
@@ -184,7 +184,8 @@ const TOC = [
   { id: "person-from-a-service", n: "4", label: "Person from a service" },
   { id: "financial-district", n: "5", label: "The Financial District" },
   { id: "founders-program", n: "6", label: "The Founders Program" },
-  { id: "not-yet", n: "7", label: "What this is not, yet" },
+  { id: "the-mint", n: "7", label: "How the mint works" },
+  { id: "not-yet", n: "8", label: "What this is not, yet" },
 ]
 
 function Section({
@@ -643,8 +644,9 @@ export default function DogCityDocsPage() {
                 That criticism was correct, and it changed the project. The ruler was rebuilt to
                 order all 85,818 wallets in the snapshot by measured on-chain accumulation,
                 independent of whether a wallet ever received the airdrop. Location is set by
-                history and cannot be bought: that is the whole point of the city, a record of who
-                was here, not a shelf of addresses for sale. But arriving today shuts nobody out.
+                history, not by money: no contribution and no draw moves a wallet, and each lot is
+                reserved for the wallet that earned it until the claim window closes (section 7).
+                That is the whole point of the city, a record of who was here. But arriving today shuts nobody out.
                 Every $DOG wallet already holds a lot from its own on-chain history, and anyone can
                 still become a Founder by order of arrival, build on the land they already own, and
                 take an entry in the Founders&apos; draw (section 6 covers all three).
@@ -1049,7 +1051,7 @@ export default function DogCityDocsPage() {
                   {
                     name: "Personal",
                     threshold: "10,000 $DOG",
-                    text: "Adds a one time, permanent building licence; minting before the Grand Opening, so the building stands on day one; early access to the game, to every test and every update; the Founder's light on the building, visible from above at night; and a base item pack (yard and house number plaque).",
+                    text: "Adds a one time, permanent building licence; minting first, free, in the Founder phase, so the building stands on day one; early access to the game, to every test and every update; the Founder's light on the building, visible from above at night; and a base item pack (yard and house number plaque).",
                   },
                   {
                     name: "Commercial",
@@ -1079,7 +1081,8 @@ export default function DogCityDocsPage() {
                 privilege granted to a winner at any rung; a street name, chosen by the winner and
                 printed on the city map; and the 1 of 1, the first lunar rover ever minted, the only
                 one of its kind. No lot is ever drawn: where a wallet lives is decided by its
-                Bitcoin history at block 966,670, never by anything paid.
+                Bitcoin history at block 966,670, never by a contribution. Only a lot its owner
+                leaves unclaimed goes on sale (section 7).
               </P>
 
               <Sub>Soulbound versus transferable</Sub>
@@ -1087,7 +1090,8 @@ export default function DogCityDocsPage() {
                 Founder and achievement items are soulbound: they prove something a wallet did, and
                 that proof cannot be bought. Catalogue items, bought from the store, are
                 transferable: they are taste, so they can trade. The split gives the city a real
-                item market without turning merit into merchandise.
+                item market without turning merit into merchandise. The lot deed is transferable
+                too: it is land, and once minted it can change hands (section 7).
               </P>
 
               <Sub>What a Founder is not</Sub>
@@ -1100,7 +1104,87 @@ export default function DogCityDocsPage() {
             </Section>
 
             {/* ═══════════════════════════ 7 ═══════════════════════════ */}
-            <Section id="not-yet" n="7" title="What this is not, yet">
+            {/* O MINT (decisões do fundador de 17/10/2026; fonte: plano/ROADMAP_MINT.md do dogcity-mundo). Números de
+                bloco relativos a B, o bloco em que o fundo bate 10M. Nada aqui foi inscrito. */}
+            <Section id="the-mint" n="7" title="How the mint works">
+              <P className="mt-0">
+                Every lot in the registry becomes an Ordinal on Bitcoin L1: a deed, inscribed as a
+                child of the City Charter, the map that parents the whole city. The deed draws the lot
+                as a surveyor&apos;s plat, with its corners, its area and the Merkle proof that ties it
+                to the registry. It carries no owner data. Nothing has been inscribed yet.
+              </P>
+
+              <Sub>When it opens</Sub>
+              <P className="mt-3">
+                The mint is triggered by the construction fund, not by a date. Call B the block in
+                which the fund reaches 10,000,000 $DOG. Every phase is counted in blocks from B (144
+                blocks is about one day), and the calendar is inscribed on chain once B is known.
+              </P>
+              <BulletList
+                items={[
+                  {
+                    lead: "Closed, B to B+288 (about 48 hours).",
+                    text: "Nobody mints. The Founder list is cut at block B, every contribution confirmed up to and including that block, published for 24 hours of review, and then its root is inscribed.",
+                  },
+                  {
+                    lead: "Founder, B+288 to B+720 (about 3 days).",
+                    text: "Every Founder mints the lot their wallet holds in the registry, free: only the Bitcoin network fee and the 546 sats that carry the inscription. A Founder who has not minted yet keeps that right, free, until the end of the Whitelist phase.",
+                  },
+                  {
+                    lead: "Whitelist, B+720 to B+3,744 (about 21 days).",
+                    text: "Every wallet with a lot in the registry mints its own lot, for US$1 plus the network fee and postage.",
+                  },
+                  {
+                    lead: "Partners, B+3,744 to B+4,032 (about 48 hours).",
+                    text: "Holders of partner collections mint any unclaimed lot for US$1.50. In the same window, a Founder whose wallet has no lot, and who contributed more than 592.22 $DOG, picks an unclaimed lot for free.",
+                  },
+                  {
+                    lead: "Public, from B+4,032 until every lot is minted.",
+                    text: "Anyone mints any unclaimed lot for US$2, in the order payments confirm, up to 10 lots per wallet every 144 blocks.",
+                  },
+                ]}
+              />
+
+              <Sub>Your lot, and what happens if you do not claim it</Sub>
+              <P className="mt-3">
+                Where a wallet lives is set by its own history at block 966,670, and no contribution
+                and no draw moves it. That lot is reserved for that wallet through the Founder and
+                Whitelist phases, about 24 days from the day the mint opens. A lot its owner leaves
+                unclaimed by then goes on sale in the Partners and Public phases, and whoever mints
+                it holds the deed.
+              </P>
+              <P>
+                A minted deed is transferable: whoever holds the inscription holds the lot, and it can
+                be sold. The building licence and the items stay with the wallet that earned them.
+                For each lot, the first valid deed is the only one that counts, and the project never
+                inscribes a second one.
+              </P>
+              <P>
+                Three kinds of lot never go on sale. Lots of exchanges and custodians in the Financial
+                District are held for the company until it proves it controls the address. The 698
+                project lots stay as the Project Reserve. And a headstone mints its lot in Ring 2 at a
+                future block, never in Ring 1 (section 3).
+              </P>
+
+              <Sub>Paying</Sub>
+              <P className="mt-3">
+                Prices are set in US dollars and paid in BTC only. The dollar price is converted at
+                the median of Kraken, Coinbase and Bitstamp when the order is placed, and that amount
+                holds for 15 minutes. You prove your wallet with a signed message that moves no funds,
+                then pay one exact amount to an address that accepts only that deed, and the deed is
+                delivered to your ordinals address. If the network fee climbs above 50 sat/vB the mint
+                pauses by itself and resumes when it falls; the calendar keeps running. Orders for a
+                phase close 6 blocks before the phase ends.
+              </P>
+              <P>
+                The only place to mint is the page linked from dogdata.xyz. A mint anywhere else is a
+                scam, and no one from the project will ever ask for a seed phrase or a signature that
+                moves funds.
+              </P>
+            </Section>
+
+            {/* ═══════════════════════════ 8 ═══════════════════════════ */}
+            <Section id="not-yet" n="8" title="What this is not, yet">
               <BulletList
                 items={[
                   {
@@ -1109,7 +1193,7 @@ export default function DogCityDocsPage() {
                   },
                   {
                     lead: "No deed has been minted.",
-                    text: "There is nothing to claim, nothing to sign, nothing to pay today.",
+                    text: "There is nothing to claim, nothing to sign, nothing to pay today. The mint opens 288 blocks after the fund reaches 10,000,000 $DOG (section 7).",
                   },
                   {
                     lead: "Nothing you do now changes the snapshot.",

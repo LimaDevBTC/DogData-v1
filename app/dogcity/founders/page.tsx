@@ -191,7 +191,7 @@ const RUNGS: Rung[] = [
     lead: "Adds",
     perks: [
       "Building licence, paid once, permanent",
-      "Mints before the Grand Opening, so the building is standing on day one",
+      "Mints first, free, in the Founder phase, so the building is standing on day one",
       "Early access to the game, to every test and every update",
       "The Founder's light on the building, visible from above at night",
       "Base item pack: yard and house number plaque",
