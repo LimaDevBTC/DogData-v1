@@ -316,7 +316,10 @@ function ReadADeedStack({ deed }: { deed: Deed }) {
           return (
             <li key={p.key}>
               <Reveal y={16} blur={false}>
-                <div className="relative overflow-hidden border border-dc-snow/[0.12] bg-dc-deep" style={{ aspectRatio: `${(cw * 4200) / (ch * 2970)}` }}>
+                {/* a borda fica no invólucro: dentro da caixa com aspect-ratio ela distorcia
+                    a proporção interna dos recortes finos e o realce caía uma linha acima */}
+                <div className="border border-dc-snow/[0.12]">
+                <div className="relative overflow-hidden bg-dc-deep" style={{ aspectRatio: `${(cw * 4200) / (ch * 2970)}` }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={deed.src2400}
@@ -331,6 +334,7 @@ function ReadADeedStack({ deed }: { deed: Deed }) {
                     className="absolute border-2 border-dc-lava"
                     style={{ left: `${((rx - cx) / cw) * 100}%`, top: `${((ry - cy) / ch) * 100}%`, width: `${(rw / cw) * 100}%`, height: `${(rh / ch) * 100}%` }}
                   />
+                </div>
                 </div>
                 <p className="mt-3 flex items-baseline gap-3">
                   <span className="font-mono text-[11px] tracking-[0.18em] text-dc-lava">{String(i + 1).padStart(2, "0")}</span>
