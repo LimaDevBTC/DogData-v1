@@ -4,7 +4,7 @@
 // 01 · FIND YOUR LOT (#lookup), com a passagem "Into the plaza" (brief §4.3, §8).
 //
 // O fundo é a carta colorida da cidade, sem moldura, rótulo nem legenda
-// (public/landing/v3/map, gerada de public/city/carta-v10.svg por
+// (public/landing/v3/map, gerada de public/city/carta-v11.svg por
 // scripts/landing/sync-v3.mjs), PRESA à tela enquanto a seção passa. Ao sair do
 // herói a câmera sobe da Satoshi Plaza até a cidade inteira (zoom 2D, só
 // transform, presa à rolagem). Quando a sequência T8 do filme existir, ela
