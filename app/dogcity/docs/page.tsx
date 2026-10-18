@@ -233,7 +233,7 @@ export default function DogCityDocsPage() {
           {/* ── o mapa ──────────────────────────────────────────────────── */}
           <figure className="m-0 mt-8 max-w-3xl">
             <a
-              href="/city/carta-v10.svg"
+              href="/city/carta-v11.svg"
               target="_blank"
               rel="noopener noreferrer"
               className={`group relative block border ${HAIR} bg-white/[0.02] overflow-hidden`}
@@ -242,7 +242,7 @@ export default function DogCityDocsPage() {
                   da cidade atual (dogcity-mundo, tag cidade-966670-v3, 13/10: 19 lotes da beira do LAGO02 realocados para fora da nova orla; antes, v2 de 12/10: sobras junto da agua e trevos sem a reta): a imagem é o WebP de
                   2000 px e o clique abre o SVG de 5,9 MB. <img> comum, não next/image. */}
               <img
-                src="/landing/citymap-2000-v9.webp"
+                src="/landing/citymap-2000-v10.webp"
                 alt="City plan of DogCity at block 966,670: Satoshi Plaza, the road web, the Spit along the bay, the Bay Shore and its two peninsulas, the great lake with its front row, the park that closes Ring 1 and Ring 2 drawn beyond it, every lot coloured by tier."
                 className="w-full h-auto"
                 loading="lazy"
@@ -1165,6 +1165,63 @@ export default function DogCityDocsPage() {
                 project lots stay as the Project Reserve. And a headstone mints its lot in Ring 2 at a
                 future block, never in Ring 1 (section 3).
               </P>
+
+              <Sub>What the deed shows</Sub>
+              <P className="mt-3">
+                Every deed is drawn by the same renderer, inscribed once and shared by all of them; each
+                deed adds only the data of its own lot and, in its metadata, the Merkle proof that ties
+                that lot, corner by corner, to the root of the city&apos;s lot map printed in its stamp.
+                On the sheet:
+              </P>
+              <BulletList
+                items={[
+                  {
+                    lead: "The lot as a plat.",
+                    text: "Its four corners, A to D, with coordinates to the centimetre, its area and frontage, and the bearing its front faces, drawn over the neighbouring lots, blocks, water and parks of the city map.",
+                  },
+                  {
+                    lead: "Its street.",
+                    text: "Rings run from R1 at the plaza to R27, avenues read like a clock from A1 to A12 (A12 points north), smaller radials are hour.number (3.07), lanes inside a block are L, the block and the lane (L2952.1), the two lake roads are LK1 and LK2, the ring avenue of the Spit is AN7, the bay road is SHORE and the quays are QUAY. The deed names the road in front of the lot. When the front looks onto water, a park or the plaza, it names the road you arrive by and the side of the lot it touches, for example ACCESS FROM 3.13, SIDE D-A.",
+                  },
+                  {
+                    lead: "Its tier and district.",
+                    text: "The tier by name with its rung on the ladder (TIER 5 OF 13), or Company or Project Reserve, and the district the lot sits in.",
+                  },
+                  {
+                    lead: "Its mint phase.",
+                    text: "Read from the block in which the deed was inscribed, against the calendar inscribed on chain. A Founder who mints during the Whitelist phase sees WHITELIST: the Founder right is proven by the Founder inscription, not by this line.",
+                  },
+                  {
+                    lead: "Its stamp.",
+                    text: "The city version, dogcity-966670-v1, and the root of the lot map the proof leads to. Only the first valid deed for each lot counts.",
+                  },
+                ]}
+              />
+              <figure className="m-0 mt-6 max-w-3xl">
+                <a
+                  href="/city/atlas/11-2-lot-deed-specimen_2400.webp"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`group relative block border ${HAIR} bg-white/[0.02] overflow-hidden`}
+                >
+                  {/* 18/10/2026: o especime do atlas (11.2), a mesma escritura que o mint vai inscrever, regenerado com a planta final. */}
+                  <img
+                    src="/city/atlas/11-2-lot-deed-specimen_1200.webp"
+                    alt="Specimen of a lot deed: the lot drawn as a surveyor's plat over its surroundings, with the key plan of the city, the vertex coordinates, the deed data and the stamp."
+                    className="w-full h-auto"
+                    loading="lazy"
+                  />
+                  <span
+                    className={`absolute bottom-0 right-0 border-l border-t ${HAIR} bg-void/85 backdrop-blur-sm
+                      font-mono text-[10px] tracking-[0.14em] text-lava group-hover:text-lava-light px-3 py-2`}
+                  >
+                    OPEN FULL SIZE →
+                  </span>
+                </a>
+                <figcaption className={`mt-3 border-t ${HAIR_SOFT} pt-3 font-mono text-[9px] md:text-[10px] tracking-[0.14em] text-mist leading-relaxed`}>
+                  SPECIMEN · A COMPANY LOT IN SATOSHI PLAZA · NOT INSCRIBED YET
+                </figcaption>
+              </figure>
 
               <Sub>Paying</Sub>
               <P className="mt-3">
