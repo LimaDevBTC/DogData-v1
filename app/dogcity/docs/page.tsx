@@ -1316,7 +1316,7 @@ export default function DogCityDocsPage() {
                 head={["Licence", "$DOG", "What it builds"]}
                 rows={[
                   ["Personal", "10,000", "A residence from the district catalogue"],
-                  ["Commercial", "50,000", "A commercial building from the district catalogue, or a residence, on a lot that faces a wide street"],
+                  ["Commercial", "50,000", "A commercial building from the district catalogue, where its owner opens a business in the city, on a lot that faces a wide street (or a residence)"],
                   ["Patron", "500,000", "A custom building designed outside the catalogue"],
                 ]}
               />
@@ -1345,6 +1345,12 @@ export default function DogCityDocsPage() {
               <P>
                 Personality lives in the items around a building, not in the building itself. The
                 Patron&apos;s custom building is the one exception (section 6).
+              </P>
+              <P>
+                The Financial District is separate from the licences. A company whose wallets are
+                shown to be institutional (section 5) gets its own building around Satoshi Plaza,
+                carrying its brand. The commercial licence is something else: it is how a $DOG holder
+                opens a business inside the city.
               </P>
 
               <Sub>Where commercial buildings rise</Sub>
