@@ -25,7 +25,6 @@
 import type { Metadata } from "next"
 import { headers } from "next/headers"
 import { preload } from "react-dom"
-import { OG_URL } from "@/lib/og"
 import DogCityLanding from "./landing/landing"
 import { POSTER } from "./landing/media"
 
@@ -63,9 +62,10 @@ import { POSTER } from "./landing/media"
 const DESCRIPTION =
   "70,714 lots on real lunar terrain, decided by Bitcoin block 966,670. At 10,000,000 $DOG the mint clock starts and every lot becomes a deed on Bitcoin. Find yours."
 
-// ⚠️ O OG NOVO (um quadro de T1, a Terra sobre o domo, com o wordmark) depende do
-// filme, que ainda não chegou. Até lá vale o cartão atual (lib/og.ts). Ao trocar,
-// ARQUIVO NOVO com nome novo: o X e o WhatsApp guardam a imagem pela URL.
+// O OG da landing v3 (18/10): o melhor quadro de T1, a Terra sobre o domo, com o
+// wordmark (public/landing/v3/og/). ARQUIVO NOVO com nome novo a cada troca: o X e o
+// WhatsApp guardam a imagem pela URL. O lib/og.ts segue servindo as outras páginas.
+const OG_V3 = "https://www.dogdata.xyz/landing/v3/og/dogcity-earthrise-v1.jpg"
 export const metadata: Metadata = {
   title: "DogCity · Every lot becomes a deed on Bitcoin",
   description: DESCRIPTION,
@@ -75,13 +75,13 @@ export const metadata: Metadata = {
     type: "website",
     url: "https://www.dogdata.xyz/dogcity",
     siteName: "DogCity",
-    images: [{ url: OG_URL, width: 1200, height: 630, alt: "DogCity, a city on the Moon drawn from Bitcoin block 966,670" }],
+    images: [{ url: OG_V3, width: 1200, height: 630, alt: "DogCity at night: the Earth over the honeycomb dome" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "DogCity · Every lot becomes a deed on Bitcoin",
     description: DESCRIPTION,
-    images: [OG_URL],
+    images: [OG_V3],
   },
 }
 

@@ -32,7 +32,7 @@ interface Manifest {
   map?: { size: number; center: [number, number]; pxPerM: number }
   video?: VideoManifest
 }
-const M = manifest as Manifest
+const M = manifest as unknown as Manifest
 export const VIDEO: VideoManifest = M.video ?? {}
 
 // ── o pôster do herói (o elemento LCP) ─────────────────────────────────────

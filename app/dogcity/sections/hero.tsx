@@ -190,9 +190,15 @@ export function useFilm({ reduced, active }: { reduced: boolean; active: boolean
     : cut ? `${String((take ?? 0) + 1).padStart(2, "0")} / ${String(HERO_FILM.cuts.length).padStart(2, "0")} · ${cut.place}` : null
   const controls = (
     <div className="dc-visor absolute right-[var(--dc-gutter)] top-[64px] dk:top-auto dk:bottom-[112px] z-[3] flex flex-col items-end gap-1 text-right">
-      {caption && shown !== "none" && (
-        <p key={`${phase}-${blink}`} className={`dc-label text-dc-snow dc-halo ${reduced ? "" : "dc-blink"}`}>{caption}</p>
-      )}
+      {/* a linha da legenda existe sempre (vazia até o filme tocar): sem ela, a pausa
+          descia uma linha quando a legenda entrava (CLS) */}
+      <p
+        key={`${phase}-${blink}`}
+        aria-hidden={!caption || shown === "none"}
+        className={`dc-label min-h-[1.5em] text-dc-snow dc-halo ${caption && shown !== "none" ? (reduced ? "" : "dc-blink") : "invisible"}`}
+      >
+        {caption && shown !== "none" ? caption : "\u00a0"}
+      </p>
       <button
         type="button"
         onClick={toggle}

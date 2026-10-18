@@ -28,7 +28,7 @@ import { HERO_FILM, T8 } from "../landing/media"
 import type { CountdownState } from "../landing/mint-state"
 import { HeroPoster, HeroVisor, Rail, TitleCard, useFilm } from "./hero"
 import {
-  LookupContent, MapBoard, easeInOut, easeOut, easePin, lerpCam, lotCam, overviewCam, posterCam,
+  LookupContent, MapBoard, easeInOut, easeOut, easePin, lerpCam, lotCam, overviewCam, posterCam, t8EndCam,
   type Cam, type MapApi,
 } from "./find-your-lot"
 
@@ -162,22 +162,29 @@ export default function Opening({
         }
 
         // o pôster/filme se funde na carta (sem T8) ou cede para a T8
-        const mediaO = HAS_T8 ? 1 - clamp01((p - 0.2) / 0.05) : 1 - clamp01((p - 0.2) / 0.15)
+        const mediaO = HAS_T8 ? 1 - clamp01((p - 0.2) / 0.07) : 1 - clamp01((p - 0.2) / 0.15)
         setVar("--dc-media", mediaO.toFixed(3))
         setVar("--dc-veil", String(q))
 
-        // a T8: quadros de 0,20 a 0,85, some em 0,85 a 0,95
+        // a T8: o 1º quadro já opaco por baixo do filme (0,18), os quadros de 0,20 a
+        // 0,85, e a fusão na carta de 0,85 a 0,95, na MESMA pose (t8EndCam)
         const c = t8.current
+        let t8on = false
         if (HAS_T8 && c && m) {
           const k = clamp01((p - 0.2) / 0.65)
-          const has = m.drawT8(c, k)
-          const o = !has ? 0 : p < 0.2 ? 0 : p < 0.25 ? (p - 0.2) / 0.05 : p < 0.85 ? 1 : Math.max(0, 1 - (p - 0.85) / 0.1)
+          t8on = m.drawT8(c, k) && p >= 0.18
+          const o = !t8on ? 0 : p < 0.85 ? 1 : Math.max(0, 1 - (p - 0.85) / 0.1)
           c.style.opacity = o.toFixed(3)
         }
 
         // a câmera da carta
         if (m && !tw) {
           if (pinRef.current) m.apply(lotCam(vw, vh, pinRef.current[0], pinRef.current[1]))
+          else if (HAS_T8 && t8on) {
+            // parada na pose do último quadro até a fusão, depois abre para a cidade inteira
+            const z = easeInOut(clamp01((p - 0.88) / 0.12))
+            m.apply(lerpCam(t8EndCam(vw, vh), overviewCam(vw, vh, easeInOut(q)), z))
+          }
           else if (HAS_T8) m.apply(overviewCam(vw, vh, easeInOut(q)))
           else {
             const z = easePin(clamp01((p - 0.22) / 0.63))

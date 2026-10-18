@@ -77,6 +77,16 @@ export function overviewCam(vw: number, vh: number, settle = 1): Cam {
   }
   return { fx: cx, fy: cy, s: (vw * 0.98) / 2000, ax: 0.5, ay: lerp(0.47, 0.25, settle) }
 }
+/** a pose do ÚLTIMO quadro da T8 (a subida filmada até a vista de cima): medido em
+ *  18/10 nos quadros 072 (1600x900) e 048 (720x1280), a borda do deck da Plaza fica a
+ *  108 px do centro e a do lago a 166 px, os mesmos 110 e 168 px da carta de 2400. O
+ *  quadro é 1:1 com a carta, centrado na Plaza; na tela ele é desenhado em "cover"
+ *  (drawT8), então a escala da carta é a do cover. A fusão T8 > carta não tem costura. */
+export function t8EndCam(vw: number, vh: number): Cam {
+  const portrait = vw / vh <= 1
+  const [fw, fh] = portrait ? [720, 1280] : [1600, 900]
+  return { fx: MAP.center[0], fy: MAP.center[1], s: Math.max(vw / fw, vh / fh), ax: 0.5, ay: 0.5 }
+}
 /** a pose do PÔSTER provisório: a Plaza no mesmo lugar e na mesma escala do recorte
  *  (public/landing/v3/poster/placeholder-*: 675 x 1200 px da carta em pé, com a Plaza
  *  a 26% da altura; 2133 x 1200 deitado, a 21%), para a fusão pôster > carta não ter costura */
