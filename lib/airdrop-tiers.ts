@@ -219,3 +219,55 @@ export function tierThreshold(pattern: string | undefined | null): string {
   const tier = TIER_BY_KEY[pattern as TierKey]
   return tier ? tier.threshold : ''
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// A ESCADA DE 13 DA DOGCITY (docs §2, decidida em 28/09/2026): os 12 tiers acima
+// mais o $DOG Soldier, que só existe na cidade (tem $DOG no snapshot, nunca
+// vendeu e tem menos de uma cota do airdrop). A ordem é o degrau publicado:
+// TIER 1 OF 13 é o Satoshi Visionary, TIER 13 OF 13 é o Paper Hands.
+// Empresa e reserva não estão na escada: "Company" e "Project Reserve".
+//
+// Os códigos (t1..t6, sol, v1..v6, co, res) são os do registro do jogo e da
+// escritura (dogcity-mundo plano/carta/escritura_render.mjs) e de
+// data/dogcity_lot_info.json. O NOME vem daqui, sempre: a landing, a busca e a
+// galeria das escrituras leem esta tabela e nenhuma outra.
+// ═══════════════════════════════════════════════════════════════════════════
+export const DOG_SOLDIER_LABEL = '$DOG Soldier'
+export const COMPANY_LABEL = 'Company'
+export const PROJECT_RESERVE_LABEL = 'Project Reserve'
+
+export type CityTierCode =
+  | 't1' | 't2' | 't3' | 't4' | 't5' | 't6' | 'sol'
+  | 'v1' | 'v2' | 'v3' | 'v4' | 'v5' | 'v6' | 'co' | 'res'
+
+export interface CityTier {
+  code: CityTierCode
+  /** degrau de 1 a 13; null para empresa e reserva */
+  rung: number | null
+  label: string
+}
+
+const RUNGS: [CityTierCode, TierKey | null][] = [
+  ['t1', 'satoshi_visionary'], ['t2', 'btc_maximalist'], ['t3', 'rune_master'],
+  ['t4', 'ordinal_believer'], ['t5', 'dog_legend'], ['t6', 'diamond_paws'],
+  ['sol', null],
+  ['v1', 'hodl_hero'], ['v2', 'steady_holder'], ['v3', 'profit_taker'],
+  ['v4', 'early_exit'], ['v5', 'panic_seller'], ['v6', 'paper_hands'],
+]
+
+export const CITY_LADDER: CityTier[] = RUNGS.map(([code, key], i) => ({
+  code,
+  rung: i + 1,
+  label: key ? TIER_BY_KEY[key].label : DOG_SOLDIER_LABEL,
+}))
+
+const CITY_TIER_BY_CODE: Record<string, CityTier> = Object.fromEntries([
+  ...CITY_LADDER.map((t) => [t.code, t]),
+  ['co', { code: 'co', rung: null, label: COMPANY_LABEL }],
+  ['res', { code: 'res', rung: null, label: PROJECT_RESERVE_LABEL }],
+])
+
+/** o tier da cidade por código do registro; null se o código não existe */
+export function cityTier(code: string | null | undefined): CityTier | null {
+  return code ? CITY_TIER_BY_CODE[code] ?? null : null
+}

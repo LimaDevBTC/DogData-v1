@@ -181,6 +181,12 @@ const nextConfig = {
       // lib/city/escrituras.ts cai para a URL publica se o fs nao achar).
       '/api/dogcity/lookup': [
         './public/city/escrituras.bin',
+        './data/dogcity_lot_info.json',
+      ],
+      // landing v3: o lote por id (exemplo da busca), sem endereço
+      '/api/dogcity/lot': [
+        './public/city/escrituras.bin',
+        './data/dogcity_lot_info.json',
       ],
       // o /profile le o mesmo registro selado (LIGAR.md FS3); sem isto a funcao
       // cai no plano B do leitor e baixa os 3 MiB pela URL a cada instancia fria

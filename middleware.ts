@@ -55,12 +55,20 @@ export function middleware(req: NextRequest) {
     // só de rede de segurança para navegador velho.
     // ⚠️ `unsafe-eval` SÓ EM DEV: o hot reload do Next usa eval, e sem isto a página quebra
     // EM SILÊNCIO, sem erro de console. Em produção o Next não usa eval e ele NÃO entra.
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline'${
+    // ⚠️ `wasm-unsafe-eval` (18/10/2026, landing v3): o palco do $DOG em /dogcity decodifica
+    // o GLB com meshopt e transcodifica as texturas KTX2 com o basis, e os dois são
+    // WebAssembly. Sem esta palavra o wasm só compila no dev (por causa do unsafe-eval de
+    // lá) e o palco morre EM PRODUÇÃO. Ela libera só a compilação de wasm, não eval de JS.
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline' 'wasm-unsafe-eval'${
       process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''}`,
+    // o KTX2Loader do three sobe o transcodificador num Worker criado de um blob:
+    "worker-src 'self' blob:",
     "style-src 'self' 'unsafe-inline'",       // o Next emite style inline na hidratacao
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
-    "connect-src 'self' https:",
+    // blob: (18/10/2026, landing v3): o GLTFLoader busca as texturas embutidas no GLB do
+    // $DOG por fetch de uma URL blob:; sem isto o modelo carrega sem textura nenhuma
+    "connect-src 'self' https: blob:",
     "frame-ancestors 'none'",                  // clickjacking
     "base-uri 'none'",                         // <base> injetado redireciona caminho relativo
     "form-action 'self'",                      // exfiltracao por formulario
