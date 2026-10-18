@@ -154,8 +154,10 @@ const nextConfig = {
       ...HEADERS_DO_JOGO,
     ]
   },
-  experimental: {
-    outputFileTracingIncludes: {
+  // ⚠️ 18/10/2026 (landing v3): estas duas chaves moravam em `experimental`, e o Next 15
+  // avisava "Unrecognized key(s) ... at experimental": o rastreio podia ignorar os arquivos
+  // listados. A chave atual é no nível de cima.
+  outputFileTracingIncludes: {
       '/api/address/bitcoin/[address]': [
         './data/dog_holders_by_address.json',
         './data/forensic_behavioral_analysis.json',
@@ -209,7 +211,6 @@ const nextConfig = {
         './mcp-server/**',
         './sdk/**',
       ],
-    },
   },
 }
 
