@@ -346,13 +346,13 @@ function ResultPlate({ r, cd }: { r: Result; cd: CountdownState }) {
         <PlateHead label="NOT IN THE SNAPSHOT" />
         <h3 className="dc-h3 mt-3 text-dc-snow">This wallet held no $DOG at block {BLOCK}, so the city drew no lot for it.</h3>
         <p className="dc-body mt-3 text-dc-mist">
-          Lots their owners leave unclaimed go on sale after the Whitelist: US$1.50 for holders of partner collections,
-          then US$2 for anyone.
+          Lots their owners leave unclaimed go on sale after the Whitelist, first to holders of partner collections at a
+          quarter off, then to anyone, each priced by its tier and size.
         </p>
         {cd.kind === "A" && (
           <p className="dc-body mt-3 text-dc-mist">
-            A Founder whose wallet has no lot, and who contributed more than 592.22 $DOG, picks an unclaimed lot free in
-            the Partners window.
+            A Founder whose wallet has no lot, and who contributed more than 592.22 $DOG, picks an unclaimed lot in the
+            Partners window, free up to a US$10 lot.
           </p>
         )}
         <div className="mt-6"><a href="#calendar" className="dc-btn dc-btn-line">See the calendar</a></div>
@@ -436,7 +436,7 @@ function ResultPlate({ r, cd }: { r: Result; cd: CountdownState }) {
         </dl>
         <p className="dc-body mt-5 !text-[15px] !leading-[24px] text-dc-mist">
           Reserved for this wallet through the Founder and Whitelist phases, about 24 days from the day the mint opens.
-          Founders mint it free until the Whitelist ends; every other wallet pays US$1 in the Whitelist.
+          Founders mint it free until the Whitelist ends; every other wallet pays half its public price in the Whitelist, from US$1.
         </p>
         <div className="mt-6 flex flex-col dk:flex-row gap-3">
           {mintOpen

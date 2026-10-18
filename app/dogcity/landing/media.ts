@@ -12,6 +12,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import manifest from "./media-manifest.json"
+import deedParts from "./deed-parts.json"
 import deedsFile from "@/public/landing/v3/deeds/deeds.json"
 import { CITY_LADDER, COMPANY_LABEL, PROJECT_RESERVE_LABEL } from "@/lib/airdrop-tiers"
 
@@ -32,6 +33,8 @@ interface VideoManifest {
 }
 interface Manifest {
   deeds?: { count: number }
+  /** os quadros do Read a deed no celular, recortados no sync (um WebP por parte) */
+  read_crops?: Record<string, { src: string; w: number; h: number }>
   map?: { size: number; center: [number, number]; pxPerM: number }
   video?: VideoManifest
 }
@@ -188,20 +191,21 @@ export interface DeedPart {
   /** o recorte do quadro empilhado no celular, folgado em volta de `r` */
   c: [number, number, number, number]
 }
-export const DEED_PARTS: DeedPart[] = [
-  { key: "lot", title: "LOT AND AREA", text: "The lot ID and its area head the sheet.",
-    r: [0.034, 0.025, 0.5, 0.113], c: [0.02, 0.012, 0.525, 0.15] },
-  { key: "tier", title: "TIER", text: "Its rung on the ladder of 13, or Company, or Project Reserve, and its district.",
-    r: [0.546, 0.044, 0.146, 0.086], c: [0.53, 0.02, 0.17, 0.13] },
-  { key: "key", title: "KEY PLAN", text: "The City Charter, reduced, with the lot's place in it.",
-    r: [0.697, 0.025, 0.286, 0.188], c: [0.69, 0.016, 0.3, 0.205] },
-  { key: "corners", title: "CORNERS", text: "A to D, in meters from the plaza center, to the centimetre.",
-    r: [0.697, 0.225, 0.286, 0.126], c: [0.69, 0.215, 0.3, 0.145] },
-  { key: "street", title: "STREET", text: "The road in front: rings R1 to R27, avenues A1 to A12, radials like 3.07, lanes like L2952.1, the lake roads LK1 and LK2, the Spit avenue AN7, the bay road SHORE and the quays QUAY.",
-    r: [0.697, 0.402, 0.286, 0.068], c: [0.69, 0.365, 0.3, 0.115] },
-  { key: "phase", title: "MINT PHASE", text: "Read from the block the deed is inscribed in, against the calendar on chain.",
-    r: [0.697, 0.486, 0.286, 0.019], c: [0.69, 0.44, 0.3, 0.08] },
-  { key: "stamp", title: "STAMP", text: "dogcity-966670-v1 and the root of the lot map its proof leads to.",
-    r: [0.697, 0.907, 0.286, 0.069], c: [0.69, 0.86, 0.3, 0.125] },
-]
+const TEXTO: Record<string, { title: string; text: string }> = {
+  lot: { title: "LOT AND AREA", text: "The lot ID and its area head the sheet." },
+  tier: { title: "TIER", text: "Its rung on the ladder of 13, or Company, or Project Reserve, and its district." },
+  key: { title: "KEY PLAN", text: "The City Charter, reduced, with the lot's place in it." },
+  corners: { title: "CORNERS", text: "A to D, in meters from the plaza center, to the centimetre." },
+  street: { title: "STREET", text: "The road in front: rings R1 to R27, avenues A1 to A12, radials like 3.07, lanes like L2952.1, the lake roads LK1 and LK2, the Spit avenue AN7, the bay road SHORE and the quays QUAY." },
+  phase: { title: "MINT PHASE", text: "Read from the block the deed is inscribed in, against the calendar on chain." },
+  stamp: { title: "STAMP", text: "dogcity-966670-v1 and the root of the lot map its proof leads to." },
+}
+// a geometria mora em deed-parts.json: o sync-v3 lê o mesmo arquivo para gerar os recortes
+export const DEED_PARTS: DeedPart[] = (deedParts.partes as { key: string; r: number[]; c: number[] }[]).map((p) => ({
+  key: p.key,
+  ...TEXTO[p.key],
+  r: p.r as DeedPart["r"],
+  c: p.c as DeedPart["c"],
+}))
+export const READ_CROPS: Record<string, { src: string; w: number; h: number }> = M.read_crops ?? {}
 export const DEED_RATIO = 4200 / 2970

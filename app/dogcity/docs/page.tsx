@@ -176,7 +176,7 @@ function Signal({ title, children }: { title: string; children: React.ReactNode 
   )
 }
 
-// ── índice: seções 1 a 8 do documento ───────────────────────────────────────
+// ── índice: seções 1 a 9 do documento ───────────────────────────────────────
 const TOC = [
   { id: "what-is-dogcity", n: "1", label: "What DogCity is" },
   { id: "the-snapshot", n: "2", label: "The snapshot" },
@@ -185,7 +185,8 @@ const TOC = [
   { id: "financial-district", n: "5", label: "The Financial District" },
   { id: "founders-program", n: "6", label: "The Founders Program" },
   { id: "the-mint", n: "7", label: "How the mint works" },
-  { id: "not-yet", n: "8", label: "What this is not, yet" },
+  { id: "after-the-deed", n: "8", label: "After the deed" },
+  { id: "not-yet", n: "9", label: "What this is not, yet" },
 ]
 
 function Section({
@@ -1057,7 +1058,7 @@ export default function DogCityDocsPage() {
                   {
                     name: "Commercial",
                     threshold: "50,000 $DOG",
-                    text: "Adds an extended item pack (leisure ground, garden, lighting) and a lunar rover parked on the lot.",
+                    text: "Adds the commercial licence: a commercial building instead of a residence, on the lot the wallet owns (section 8); an extended item pack (leisure ground, garden, lighting); and a lunar rover parked on the lot.",
                   },
                   {
                     name: "Patron",
@@ -1133,16 +1134,57 @@ export default function DogCityDocsPage() {
                   },
                   {
                     lead: "Whitelist, B+720 to B+3,744 (about 21 days).",
-                    text: "Every wallet with a lot in the registry mints its own lot, for US$1 plus the network fee and postage.",
+                    text: "Every wallet with a lot in the registry mints its own lot at half the price that lot will have in the Public phase, from US$1, plus the network fee and postage.",
                   },
                   {
                     lead: "Partners, B+3,744 to B+4,032 (about 48 hours).",
-                    text: "Holders of partner collections mint any unclaimed lot for US$1.50. In the same window, a Founder whose wallet has no lot, and who contributed more than 592.22 $DOG, picks an unclaimed lot for free.",
+                    text: "Holders of partner collections mint any unclaimed lot at the midpoint between its Whitelist and Public price, from US$1.50. In the same window, a Founder whose wallet has no lot, and who contributed more than 592.22 $DOG, picks an unclaimed lot: free up to a US$10 lot at that price, paying only the difference above that.",
                   },
                   {
                     lead: "Public, from B+4,032 until every lot is minted.",
-                    text: "Anyone mints any unclaimed lot for US$2, in the order payments confirm, up to 10 lots per wallet every 144 blocks.",
+                    text: "Anyone mints any unclaimed lot at its price on the lot ruler below, from US$2 to about US$200, in the order payments confirm, up to 10 lots per wallet every 144 blocks.",
                   },
+                ]}
+              />
+
+              <Sub>How a lot is priced</Sub>
+              <P className="mt-3">
+                Every lot has its own price, set by two things printed on its deed: its tier and its
+                area. A higher tier pays more, and a bigger lot
+                pays more, though not in the same proportion as its area.
+              </P>
+              <p className={`mt-4 border ${HAIR} px-4 py-3 font-mono text-[12px] md:text-[13px] text-snow max-w-3xl leading-relaxed`}>
+                price (US$) = 10 × 1.2<sup>(6 − tier)</sup> × √(area ÷ 1,041 m²), rounded to the dollar, never below US$2
+              </p>
+              <P>
+                The anchor is a typical Diamond Paws lot, tier 6 and 1,041 m², at US$10. Each tier up
+                multiplies the price by 1.2, and doubling the area multiplies it by 1.41. Across the
+                city that puts lots between US$2 and about US$200: a typical DOG Soldier lot costs
+                US$3 and a typical Satoshi Visionary lot US$43. The price of every lot is fixed in a
+                list sealed with the city, and the mint charges from that list.
+              </P>
+              <P>
+                That is the Public price. In the Whitelist the owner pays half: the same ruler with a
+                US$5 anchor and a US$1 floor, so a lot costs from US$1 up to about US$100 there.
+                Holders of partner collections pay the midpoint between the two, in half dollars, from
+                US$1.50 up to about US$150. Founders still mint their own lot free.
+              </P>
+              <Table
+                head={["Tier · Public price", "250 m²", "1,041 m²", "5,000 m²", "25,000 m²"]}
+                rows={[
+                  [<span key="t" className="whitespace-nowrap">1 · Satoshi Visionary</span>, "US$12", "US$25", "US$55", "US$122"],
+                  [<span key="t" className="whitespace-nowrap">2 · BTC Maximalist</span>, "US$10", "US$21", "US$45", "US$102"],
+                  [<span key="t" className="whitespace-nowrap">3 · Rune Master</span>, "US$8", "US$17", "US$38", "US$85"],
+                  [<span key="t" className="whitespace-nowrap">4 · Ordinal Believer</span>, "US$7", "US$14", "US$32", "US$71"],
+                  [<span key="t" className="whitespace-nowrap">5 · DOG Legend</span>, "US$6", "US$12", "US$26", "US$59"],
+                  [<span key="t" className="whitespace-nowrap">6 · Diamond Paws</span>, "US$5", "US$10", "US$22", "US$49"],
+                  [<span key="t" className="whitespace-nowrap">7 · DOG Soldier</span>, "US$4", "US$8", "US$18", "US$41"],
+                  [<span key="t" className="whitespace-nowrap">8 · HODL Hero</span>, "US$3", "US$7", "US$15", "US$34"],
+                  [<span key="t" className="whitespace-nowrap">9 · Steady Holder</span>, "US$3", "US$6", "US$13", "US$28"],
+                  [<span key="t" className="whitespace-nowrap">10 · Profit Taker</span>, "US$2", "US$5", "US$11", "US$24"],
+                  [<span key="t" className="whitespace-nowrap">11 · Early Exit</span>, "US$2", "US$4", "US$9", "US$20"],
+                  [<span key="t" className="whitespace-nowrap">12 · Panic Seller</span>, "US$2", "US$3", "US$7", "US$16"],
+                  [<span key="t" className="whitespace-nowrap">13 · Paper Hands</span>, "US$2", "US$3", "US$6", "US$14"],
                 ]}
               />
 
@@ -1230,19 +1272,117 @@ export default function DogCityDocsPage() {
                 the median of Kraken, Coinbase and Bitstamp when the order is placed, and that amount
                 holds for 15 minutes. You prove your wallet with a signed message that moves no funds,
                 then pay one exact amount to an address that accepts only that deed, and the deed is
-                delivered to your ordinals address. If the network fee climbs above 50 sat/vB the mint
-                pauses by itself and resumes when it falls; the calendar keeps running. Orders for a
-                phase close 6 blocks before the phase ends.
+                delivered to your ordinals address. That amount includes the network fee of your own
+                deed, at the fast rate of the moment plus 1 sat/vB, never below 2 sat/vB. If the network
+                fee climbs above 5 sat/vB the mint pauses by itself and resumes when it falls; the
+                calendar keeps running. An order already
+                paid when the mint pauses keeps its lot and waits up to 72 hours; if the fee has not
+                come down by then, it is refunded. Every refund goes back to the address that paid.
+                Orders for a phase close 6 blocks before the phase ends.
               </P>
               <P>
                 The only place to mint is mint.dogcity.space. A mint anywhere else is a
-                scam, and no one from the project will ever ask for a seed phrase or a signature that
-                moves funds.
+                scam. The only transaction you ever send is the payment to the address shown on
+                mint.dogcity.space, and no one from the project will ever ask for your seed phrase or
+                for you to sign a transaction someone else built.
               </P>
             </Section>
 
             {/* ═══════════════════════════ 8 ═══════════════════════════ */}
-            <Section id="not-yet" n="8" title="What this is not, yet">
+            <Section id="after-the-deed" n="8" title="After the deed: building and the living city">
+              <P>
+                Everything in sections 1 to 7 is about the land: who receives which lot, and the deed
+                that proves it. The city grows in three phases. This section says what is decided
+                about the next two and what is still being designed.
+              </P>
+              <BulletList
+                items={[
+                  {
+                    lead: "Phase 1, The Land.",
+                    text: "The deed of every lot, minted on the calendar of section 7. This is the phase the city is in now.",
+                  },
+                  {
+                    lead: "Phase 2, The Build.",
+                    text: "What rises on each lot. Building takes a licence, and the architecture follows the district.",
+                  },
+                  {
+                    lead: "Phase 3, The Living City.",
+                    text: "The city at work: commerce in the commercial buildings, items, events, games and partners, all in $DOG.",
+                  },
+                ]}
+              />
+
+              <Sub>Three licences</Sub>
+              <Table
+                head={["Licence", "$DOG", "What it builds"]}
+                rows={[
+                  ["Personal", "10,000", "A residence from the district catalogue"],
+                  ["Commercial", "50,000", "A commercial building for a business of its own, or a residence"],
+                  ["Patron", "500,000", "A custom building designed outside the catalogue"],
+                ]}
+              />
+              <P>
+                A Founder at one of these rungs already holds that licence (section 6). Any other
+                wallet takes the same licence for the same amount of $DOG. How it is paid after the
+                mint, and where that $DOG goes, will be published here before building opens.
+              </P>
+
+              <Sub>One architecture per district, one model per lot size</Sub>
+              <P className="mt-3">
+                Every district keeps its own architectural language, so a street reads as one place.
+                Inside that language the catalogue has a model for each of five lot sizes, so a
+                120 m² lot and a 70,000 m² estate each get a building that fits it.
+              </P>
+              <Table
+                head={["Size", "Area", "Lots in the city"]}
+                rows={[
+                  ["S", "up to 300 m²", "25,468"],
+                  ["M", "300 to 1,200 m²", "37,960"],
+                  ["L", "1,200 to 5,000 m²", "6,441"],
+                  ["XL", "5,000 to 20,000 m²", "761"],
+                  ["XXL", "20,000 m² and up", "84"],
+                ]}
+              />
+              <P>
+                Personality lives in the items around a building, not in the building itself. The
+                Patron&apos;s custom building is the one exception (section 6).
+              </P>
+              <P>
+                The Financial District is separate from the licences. A company whose wallets are
+                shown to be institutional (section 5) gets its own building around Satoshi Plaza,
+                carrying its brand. The commercial licence is something else: it is how a $DOG holder
+                opens a business inside the city.
+              </P>
+
+              <Sub>Where commercial buildings rise</Sub>
+              <P className="mt-3">
+                On any lot. Whoever holds the commercial licence builds on the lot they own, on a ring
+                road or on a lane, in the language of the district. The catalogue has a commercial
+                model for every lot size, so a narrow lot gets a narrow shopfront and a large one a
+                larger building.
+              </P>
+
+              <Sub>Still being designed</Sub>
+              <BulletList
+                items={[
+                  {
+                    lead: "What a building is on chain.",
+                    text: "Whether a building is inscribed as a child of the deed, permanent and verifiable by anyone, or kept as state in the game tied to the deed's owner.",
+                  },
+                  {
+                    lead: "The licence after the mint.",
+                    text: "How a licence is paid by a wallet that is not a Founder, and where that $DOG goes.",
+                  },
+                  {
+                    lead: "The Living City.",
+                    text: "What a commercial building does (storefront, item shop, advertising, a community's home), whether space can be rented between players, and how $DOG moves through the city. What does not change: no new token, no staking, no yield, everything in $DOG.",
+                  },
+                ]}
+              />
+            </Section>
+
+            {/* ═══════════════════════════ 9 ═══════════════════════════ */}
+            <Section id="not-yet" n="9" title="What this is not, yet">
               <BulletList
                 items={[
                   {

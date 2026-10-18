@@ -3,7 +3,9 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // O CROMO DA DOGCITY (brief §4.0). A landing não usa o <Layout> do DogData: sem
 // o cabeçalho, sem a faixa da BitFlow, sem o rodapé do site. Navegação mínima,
-// como a Rockstar faz no VI, e a volta para o DogData fica no rodapé e na gaveta.
+// como a Rockstar faz no VI. A volta para o DogData tem porta visível (fundador, 18/10:
+// "o usuário acessa o DogData pela landing e não tem mais como entrar"): link na barra do
+// desktop, ao lado do Menu, e item numerado na gaveta; o rodapé segue com o dele.
 //
 // ⚠️ <nav>, NUNCA <header>: globals.css tem `header { position: relative }`
 // fora de @layer, e um <header> fixo aqui nunca ficaria fixo (o mesmo defeito
@@ -19,13 +21,15 @@ import { Btn, FaviconMark, TextLink, Wordmark, WORDMARK_RATIO, useReduced } from
 import type { CountdownState } from "./mint-state"
 import { CITY_URL, MINT_HOST, MINT_URL } from "./mint-state"
 
-const DRAWER_LINKS = [
+const DRAWER_LINKS: { label: string; href: string; note?: string }[] = [
   { label: "Find your lot", href: "#lookup" },
   { label: "The deeds", href: "#deeds" },
   { label: "The city", href: "#city" },
   { label: "The calendar", href: "#calendar" },
   { label: "Docs", href: "/dogcity/docs" },
   { label: "Atlas", href: "/dogcity/atlas" },
+  // a raiz do DogData: a landing grava `dogdata-session`, então "/" não manda de volta para cá
+  { label: "DogData", href: "/", note: "Holders, charts, live data" },
 ]
 
 export function MotionSwitch({ className = "" }: { className?: string }) {
@@ -118,6 +122,13 @@ export function Nav({
           <Btn href={CITY_URL} variant="line" size="sm" className={`hidden lg:inline-flex ${live ? "" : "!hidden"}`}>
             Enter the city
           </Btn>
+          {/* a porta para o DogData: sempre na barra do desktop, no tom do "Menu" (no celular, na gaveta) */}
+          <a
+            href="/"
+            className={`hidden lg:inline-flex h-10 items-center px-1 dc-label !text-[11px] text-dc-snow hover:text-dc-hot transition-colors ${solid ? "" : "dc-halo"}`}
+          >
+            DogData
+          </a>
           <button
             type="button"
             onClick={() => setOpen(true)}
@@ -213,7 +224,10 @@ function Drawer({ open, onClose }: { open: boolean; onClose: () => void }) {
                 className="dc-drawer-link group inline-flex items-baseline gap-4 text-dc-snow hover:text-dc-hot transition-colors"
               >
                 <span className="font-mono text-[11px] tracking-[0.2em] text-dc-lava translate-y-[-0.6em]">{String(i + 1).padStart(2, "0")}</span>
-                {l.label}
+                <span className="flex flex-col">
+                  {l.label}
+                  {l.note && <span className="mt-1 font-mono text-[11px] tracking-[0.12em] uppercase text-dc-mist group-hover:text-dc-snow transition-colors">{l.note}</span>}
+                </span>
               </a>
             </li>
           ))}
@@ -221,9 +235,6 @@ function Drawer({ open, onClose }: { open: boolean; onClose: () => void }) {
         <div className="px-6 lg:px-12 py-6 border-t border-dc-snow/[0.12] space-y-3 pb-[max(24px,env(safe-area-inset-bottom))]">
           <p className="dc-label text-dc-mist">
             Mint only at <TextLink href={MINT_URL} className="text-dc-lava">{MINT_HOST}</TextLink>
-          </p>
-          <p className="dc-label text-dc-mist">
-            <TextLink href="/" className="text-dc-snow">DogData</TextLink>
           </p>
         </div>
       </div>

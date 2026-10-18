@@ -19,7 +19,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Reveal, SplitLine } from "../landing/reveal"
 import { Btn, Frame, Plate, SectionHead, areaDeed, useReduced } from "../landing/ui"
-import { DEED_PARTS, DEED_RATIO, EXAMPLE_DEED, FEATURED, LADDER_REST, type Deed, type DeedGroup } from "../landing/media"
+import { DEED_PARTS, DEED_RATIO, EXAMPLE_DEED, FEATURED, LADDER_REST, READ_CROPS, type Deed, type DeedGroup } from "../landing/media"
 
 // os rótulos são os da LEGENDA da própria escritura (TIERS 1 TO 3, TIERS 4 TO 6,
 // TIER 7, TIERS 8 TO 13, COMPANY), e a reserva como PROJECT RESERVE
@@ -361,6 +361,7 @@ function ReadADeedStack({ deed }: { deed: Deed }) {
         {DEED_PARTS.map((p, i) => {
           const [cx, cy, cw, ch] = p.c
           const [rx, ry, rw, rh] = p.r
+          const crop = READ_CROPS[p.key]
           return (
             <li key={p.key}>
               <Reveal y={16} blur={false}>
@@ -368,15 +369,33 @@ function ReadADeedStack({ deed }: { deed: Deed }) {
                     a proporção interna dos recortes finos e o realce caía uma linha acima */}
                 <div className="border border-dc-snow/[0.12]">
                 <div className="relative overflow-hidden bg-dc-deep" style={{ aspectRatio: `${(cw * 4200) / (ch * 2970)}` }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={deed.src2400}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    className="absolute max-w-none"
-                    style={{ width: `${100 / cw}%`, left: `${(-cx / cw) * 100}%`, top: `${(-cy / ch) * 100}%` }}
-                  />
+                  {/* O recorte vem PRONTO do sync (um WebP pequeno por parte, do SVG da
+                      escritura), em fluxo normal. Antes era a escritura de 2400 px inteira,
+                      absoluta e deslocada, com loading="lazy": o WebKit (Safari do iPhone) não
+                      dispara o carregamento preguiçoso dessas imagens deslocadas e os quadros
+                      CORNERS, STREET e MINT PHASE ficavam vazios (achado do fundador, 18/10). */}
+                  {crop ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={crop.src}
+                      alt=""
+                      width={crop.w}
+                      height={crop.h}
+                      loading="lazy"
+                      decoding="async"
+                      className="absolute inset-0 h-full w-full"
+                    />
+                  ) : (
+                    // reserva sem os recortes: a folha inteira deslocada, mas SEM lazy (ver acima)
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={deed.src2400}
+                      alt=""
+                      decoding="async"
+                      className="absolute max-w-none"
+                      style={{ width: `${100 / cw}%`, left: `${(-cx / cw) * 100}%`, top: `${(-cy / ch) * 100}%` }}
+                    />
+                  )}
                   <span
                     aria-hidden
                     className="absolute border-2 border-dc-lava"
