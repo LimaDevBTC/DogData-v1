@@ -122,7 +122,7 @@ function Film({ reduced }: { reduced: boolean }) {
           loop
           preload="none"
           aria-hidden
-          onPlaying={() => setVisible(true)}
+          onPlaying={() => { setVisible(true); window.dispatchEvent(new Event("dc:film-playing")) }}
           className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-[600ms] ${visible ? "opacity-100" : "opacity-0"}`}
         >
           {src.webm && <source src={src.webm} type='video/webm; codecs="av01.0.05M.08"' />}

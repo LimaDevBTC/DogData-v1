@@ -116,13 +116,19 @@ function MapStage({
     }
   }, [])
 
-  // carrega a carta quando a seção chega perto (nunca na carga inicial)
+  // carrega a carta quando a seção chega perto, e só depois do `load` da página:
+  // a seção vem colada no herói, e a carta (600 KB) não pode disputar com o pôster (LCP)
   useEffect(() => {
     const el = stage.current
     if (!el) return
-    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setNear(true); io.disconnect() } }, { rootMargin: "120% 0px" })
-    io.observe(el)
-    return () => io.disconnect()
+    let io: IntersectionObserver | null = null
+    const watch = () => {
+      io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setNear(true); io?.disconnect() } }, { rootMargin: "120% 0px" })
+      io.observe(el)
+    }
+    if (document.readyState === "complete") watch()
+    else window.addEventListener("load", watch, { once: true })
+    return () => { window.removeEventListener("load", watch); io?.disconnect() }
   }, [])
 
   // o laço: progresso da passagem (rolagem) OU o tween até o lote
@@ -183,8 +189,18 @@ function MapStage({
   // ── a sequência T8 (quando existir): presa à mesma rolagem ──
   const frames = useRef<HTMLImageElement[]>([])
   const variant = useRef<"desktop" | "mobile">("desktop")
+  // a T8 carrega DEPOIS que o filme começou (brief §10), ou 5 s depois da seção
+  // chegar perto se não houver filme; nunca disputa banda com o pôster e o laço
+  const [t8Go, setT8Go] = useState(false)
   useEffect(() => {
-    if (!near || reduced) return
+    if (!near || !(T8.desktop || T8.mobile)) return
+    const go = () => setT8Go(true)
+    window.addEventListener("dc:film-playing", go, { once: true })
+    const t = setTimeout(go, 5000)
+    return () => { window.removeEventListener("dc:film-playing", go); clearTimeout(t) }
+  }, [near])
+  useEffect(() => {
+    if (!t8Go || reduced) return
     variant.current = window.matchMedia("(max-aspect-ratio: 1/1)").matches ? "mobile" : "desktop"
     const meta = T8[variant.current]
     if (!meta) return
@@ -194,7 +210,7 @@ function MapStage({
       im.src = T8.url(variant.current, i + 1, meta.pad)
       return im
     })
-  }, [near, reduced])
+  }, [t8Go, reduced])
   const drawT8 = (p: number) => {
     const c = t8.current
     const list = frames.current

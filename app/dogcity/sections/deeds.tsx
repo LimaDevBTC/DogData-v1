@@ -110,7 +110,9 @@ function DeedCard({ d, big, label, onOpen, flash }: { d: Deed; big: boolean; lab
           aria-hidden
           className={`pointer-events-none absolute left-0 top-0 rounded-full border border-dc-snow/[0.7] shadow-[0_8px_40px_rgba(13,12,9,0.75)] transition-opacity duration-200
             ${loupe.on && loupe.ready ? "opacity-100" : "opacity-0"}`}
-          style={{ width: LENS, height: LENS, backgroundImage: `url(${d.src2400})`, backgroundRepeat: "no-repeat" }}
+          // a 2400 só entra depois do primeiro hover (carregada por useLoupe): um
+          // background-image declarado de saída baixava as 15 escrituras grandes na carga
+          style={{ width: LENS, height: LENS, backgroundImage: loupe.ready ? `url(${d.src2400})` : "none", backgroundRepeat: "no-repeat" }}
         >
           <span className="absolute left-1/2 top-3 bottom-3 w-px -translate-x-1/2 bg-dc-lava/[0.8]" />
           <span className="absolute top-1/2 left-3 right-3 h-px -translate-y-1/2 bg-dc-lava/[0.8]" />
