@@ -1181,7 +1181,7 @@ export default function DogCityDocsPage() {
                   },
                   {
                     lead: "Its street.",
-                    text: "Rings run from R1 at the plaza to R27, avenues read like a clock from A1 to A12 (A12 points north), smaller radials are hour.number (3.07), lanes inside a block are L, the block and the lane (L2952.1), and the two lake roads are LK1 and LK2. The deed names the road in front of the lot. When the front looks onto water, a park or the plaza, it names the road you arrive by and the side of the lot it touches, for example ACCESS FROM 3.13, SIDE D-A.",
+                    text: "Rings run from R1 at the plaza to R27, avenues read like a clock from A1 to A12 (A12 points north), smaller radials are hour.number (3.07), lanes inside a block are L, the block and the lane (L2952.1), the two lake roads are LK1 and LK2, the ring avenue of the Spit is AN7, the bay road is SHORE and the quays are QUAY. The deed names the road in front of the lot. When the front looks onto water, a park or the plaza, it names the road you arrive by and the side of the lot it touches, for example ACCESS FROM 3.13, SIDE D-A.",
                   },
                   {
                     lead: "Its tier and district.",
