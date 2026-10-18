@@ -111,6 +111,7 @@ function PhasePlate({ r, n, current }: { r: ReturnType<typeof calendarRows>[numb
   // P10: pranchas de mesma altura e linhas em registro: o intervalo sempre em duas
   // linhas, a linha do preço sempre reservada (mesmo sem preço, no CLOSED)
   const [span1, span2] = r.span.split(" · ")
+  const price = r.price?.startsWith("FROM ") ? { from: true, amount: r.price.slice(5) } : { from: false, amount: r.price ?? "0" }
   return (
     <Plate className={`flex h-full flex-col px-5 py-5 ${current ? "!border-dc-lava" : ""}`}>
       <div className="flex items-baseline justify-between gap-3">
@@ -122,7 +123,11 @@ function PhasePlate({ r, n, current }: { r: ReturnType<typeof calendarRows>[numb
         <span className="block">{span1}</span>
         <span className="block">{span2 ?? "\u00a0"}</span>
       </p>
-      <p className={`mt-4 h-9 font-cond text-[36px] font-semibold leading-none text-dc-lava ${r.price ? "" : "invisible"}`}>{r.price ?? "0"}</p>
+      {/* o "FROM" mora numa etiqueta pequena em cima: na linha grande, "FROM US$1.50" quebrava em
+          duas linhas a 1024 px e invadia o texto (18/10). A etiqueta existe em toda prancha, vazia
+          quando não há "FROM", para as linhas seguirem em registro */}
+      <p className="mt-4 h-4 font-mono text-[10px] dk:text-[11px] leading-4 tracking-[0.18em] text-dc-mist">{price.from ? "FROM" : "\u00a0"}</p>
+      <p className={`mt-1 h-9 whitespace-nowrap font-cond text-[36px] font-semibold leading-none text-dc-lava ${r.price ? "" : "invisible"}`}>{price.amount}</p>
       <p className="mt-4 font-body text-[15px] leading-[23px] text-dc-snow/[0.88]">{r.text}</p>
     </Plate>
   )
