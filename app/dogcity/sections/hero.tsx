@@ -398,7 +398,10 @@ export function HeroVisor({
     <div className="dc-visor pointer-events-none absolute inset-x-0 bottom-[calc(70px+env(safe-area-inset-bottom))] dk:bottom-[112px] z-[2]">
       <div className="mx-auto max-w-[calc(1360px+2*var(--dc-gutter))] px-[var(--dc-gutter)]">
         <div id="build" className="pointer-events-auto max-w-[min(100%,780px)] dc-halo scroll-mt-24">
-          <p className="dc-in-label dc-label text-dc-hot">
+          {/* rótulo em creme com o quadradinho lava-hot (o mesmo gesto do "YOU ARE HERE"): sobre o horizonte claro do T1 o
+              laranja caía para 3,4:1; o creme dá 6,6:1 (revisão independente, 19/10) */}
+          <p className="dc-in-label dc-label inline-flex items-center gap-2 text-dc-snow/[0.92]">
+            <span aria-hidden className="inline-block h-[7px] w-[7px] shrink-0 bg-dc-hot" />
             {early != null ? <ScrambleLater text={cd.label} delay={early} /> : cd.label}
           </p>
 
@@ -439,7 +442,7 @@ export function HeroVisor({
           </div>
 
           {cd.founderLine && (
-            <p className="dc-in-founder mt-4 dk:mt-5 max-w-[60ch] font-mono text-[10px] dk:text-[11px] leading-[1.6] tracking-[0.04em] text-dc-snow/[0.72]">
+            <p className="dc-in-founder mt-4 dk:mt-5 max-w-[60ch] font-mono text-[10px] dk:text-[11px] leading-[1.6] tracking-[0.04em] text-dc-snow/[0.85] dk:text-dc-snow/[0.72]">
               <a href="/dogcity/founders" className="dc-link dc-link-quiet hover:text-dc-snow">
                 Contribute before the fund is full and you are a Founder: you mint your own lot free, paying only the network fee and postage.
               </a>
