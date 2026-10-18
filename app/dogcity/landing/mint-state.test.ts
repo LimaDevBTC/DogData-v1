@@ -111,7 +111,7 @@ test('E: Partners de B+3.744 até B+4.032', () => {
   assert.equal(s.label, 'PARTNERS · OPEN')
   assert.equal(s.number, '180')
   assert.equal(s.unit, 'BLOCKS TO THE PUBLIC MINT')
-  assert.equal(s.h1, 'Holders of partner collections mint unclaimed lots, each priced by its tier and size.')
+  assert.equal(s.h1, 'Holders of partner collections mint unclaimed lots at a quarter off the public price, from US$1.50.')
   assert.equal(s.nav.desktop, 'PARTNERS PHASE OPEN · MINT')
 })
 
@@ -163,5 +163,5 @@ test('calendário: cinco fases, bloco absoluto só com B', () => {
   assert.ok(sem.every((r) => r.startsAt === null))
   const com = calendarRows(B)
   assert.deepEqual(com.map((r) => r.startsAt), [B, B + 288, B + 720, B + 3744, B + 4032])
-  assert.deepEqual(com.map((r) => r.price), [null, 'FREE', 'FROM US$1', 'FROM US$2', 'FROM US$2'])
+  assert.deepEqual(com.map((r) => r.price), [null, 'FREE', 'FROM US$1', 'FROM US$1.50', 'FROM US$2'])
 })
