@@ -69,6 +69,35 @@ if (existsSync(path.join(dDeeds, 'deeds.json'))) {
   }
   await copia(path.join(dDeeds, 'deeds.json'), path.join(PUB, 'deeds', 'deeds.json'))
   manifesto.deeds = { count: ok.length }
+
+  // ── os quadros do "Read a deed" no celular, recortados JÁ PRONTOS (18/10, bug do iPhone):
+  // antes cada quadro era a escritura de 2400 px inteira, absoluta e deslocada dentro de uma
+  // caixa com overflow hidden, com loading="lazy"; o WebKit não dispara o carregamento
+  // preguiçoso dessas imagens deslocadas e os quadros ficavam vazios no Safari. Agora um WebP
+  // pequeno por parte, renderizado do SVG na resolução nativa (4200x2970), até 1050 px de
+  // largura (390 px de tela a 3x). Geometria em app/dogcity/landing/deed-parts.json.
+  const ex = j.deeds.find((d) => d.grupo === 'example')
+  const svgEx = ex && path.join(dDeeds, `${ex.arquivo}.svg`)
+  if (svgEx && existsSync(svgEx)) {
+    const sharp = (await import('sharp')).default
+    const partes = JSON.parse(await fs.readFile(path.join(RAIZ, 'app/dogcity/landing/deed-parts.json'), 'utf8')).partes
+    const W = 4200, H = 2970
+    const folha = await sharp(await fs.readFile(svgEx), { density: 72 }).resize(W, H).png().toBuffer()
+    await fs.mkdir(path.join(PUB, 'deeds', 'read'), { recursive: true })
+    manifesto.read_crops = {}
+    let total = 0
+    for (const p of partes) {
+      const [cx, cy, cw, ch] = p.c
+      const box = { left: Math.round(cx * W), top: Math.round(cy * H), width: Math.round(cw * W), height: Math.round(ch * H) }
+      const w = Math.min(1050, box.width)
+      const h = Math.round(box.height * (w / box.width))
+      const out = path.join(PUB, 'deeds', 'read', `${p.key}.webp`)
+      await sharp(folha).extract(box).resize(w, h).webp({ quality: 82, effort: 6 }).toFile(out)
+      total += (await fs.stat(out)).size
+      manifesto.read_crops[p.key] = { src: `/landing/v3/deeds/read/${p.key}.webp`, w, h }
+    }
+    log('read a deed', partes.length, 'recortes', kb(total))
+  } else log('sem o SVG da escritura de exemplo: o Read a deed do celular fica no recorte por CSS')
 } else log('sem landing-v3/deeds/deeds.json: a galeria fica no espécime publicado')
 
 // ── 2. dado da busca ───────────────────────────────────────────────────────
