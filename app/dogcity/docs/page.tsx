@@ -243,7 +243,7 @@ export default function DogCityDocsPage() {
                   2000 px e o clique abre o SVG de 5,9 MB. <img> comum, não next/image. */}
               <img
                 src="/landing/citymap-2000-v10.webp"
-                alt="City plan of DogCity at block 966,670: Satoshi Plaza, the road web, the Spit along the bay, the Bay Shore and its two peninsulas, the great lake with its front row, the park that closes Ring 1 and Ring 2 drawn beyond it, every lot coloured by tier."
+                alt="City plan of DogCity at block 966,670: Satoshi Plaza, the road web, the Spit along the bay, the Bay Shore and its two peninsulas, the great lake with its front row, the park that closes Ring 1, Ring 2 beyond it (the city's timber reserve), every lot coloured by tier."
                 className="w-full h-auto"
                 loading="lazy"
               />
@@ -607,8 +607,9 @@ export default function DogCityDocsPage() {
                 The headstone is a right to mint a lot later, not a closed door. A wallet that holds
                 above the line again, takes the same 10,000 $DOG building licence any other wallet
                 takes in order to build, and mints the deed, receives land in Ring 2, the expansion
-                ring, at a future block that has not been announced yet. Ring 1 froze at the snapshot and
-                nobody moves into it afterward.
+                ring, at a future block that has not been announced yet. Until then Ring 2 is a forest,
+                the city&apos;s timber reserve. Ring 1 froze at the snapshot and nobody moves into it
+                afterward.
               </P>
               <P>
                 Those 15,802 addresses do not leave the record. Every headstone has a fixed number
@@ -674,9 +675,9 @@ export default function DogCityDocsPage() {
               </P>
               <P>
                 Ring 1 ends in a park, a green belt about half a kilometre wide that wraps the last
-                row of lots. Past it, still inside the perimeter avenue, the ground is already drawn
-                as Ring 2: the expansion ring of section 3, which opens at a future block and holds
-                no lot from this snapshot.
+                row of lots. Past it, still inside the perimeter avenue, lies Ring 2. Today it is a
+                forest, the city&apos;s timber reserve, and it is still the expansion ring of section 3:
+                it opens at a future block and holds no lot from this snapshot.
               </P>
 
               <Sub>Why the problem exists</Sub>
@@ -1181,7 +1182,7 @@ export default function DogCityDocsPage() {
                   },
                   {
                     lead: "Its street.",
-                    text: "Rings run from R1 at the plaza to R27, avenues read like a clock from A1 to A12 (A12 points north), smaller radials are hour.number (3.07), lanes inside a block are L, the block and the lane (L2952.1), the two lake roads are LK1 and LK2, the ring avenue of the Spit is AN7, the bay road is SHORE and the quays are QUAY. The deed names the road in front of the lot. When the front looks onto water, a park or the plaza, it names the road you arrive by and the side of the lot it touches, for example ACCESS FROM 3.13, SIDE D-A.",
+                    text: "Rings run from R1 at the plaza to R27, avenues read like a clock from A1 to A12 (A12 points north), smaller radials are hour.number (3.07), lanes inside a block are L, the block and the lane (L2952.1), the two lake roads are LK1 and LK2, the ring avenue of the Spit is AN7, the bay road is SHORE and the quays are QUAY. The deed names the road in front of the lot. When the front looks onto water, a park or the plaza, it names the road you arrive by and the side of the lot you reach it from, for example ACCESS FROM 3.13, SIDE D-A. When the only road is across the garden in front of the lot, the deed names that road and the front side, A-B.",
                   },
                   {
                     lead: "Its tier and district.",
