@@ -75,6 +75,14 @@ body:has([data-dogcity-landing]) > div.min-h-screen { background: #15130F; }
   letter-spacing: 0;
 }
 @media (min-width: 640px) and (min-height: 521px) { .dc-h2 { font-size: clamp(44px, 6vw, 96px); } }
+.dc-h2 { text-wrap: balance; }
+/* o texto de abertura de cada seção: logo abaixo do H2, até 40 caracteres */
+.dc-lede {
+  font-size: 19px; line-height: 28px; max-width: 40ch;
+  color: rgba(245, 233, 214, 0.88);
+  text-wrap: pretty;
+}
+@media (min-width: 640px) and (min-height: 521px) { .dc-lede { font-size: 24px; line-height: 34px; } }
 .dc-h3 {
   font-family: var(--font-cond), 'Barlow Condensed', sans-serif;
   font-weight: 600;
@@ -118,7 +126,8 @@ body:has([data-dogcity-landing]) > div.min-h-screen { background: #15130F; }
   transition: color 240ms var(--dc-ease), border-color 240ms var(--dc-ease), background-color 240ms var(--dc-ease);
 }
 .dc-btn-sm { height: 40px; padding: 0 16px; font-size: 11px; letter-spacing: 0.14em; }
-.dc-btn-fill { background: var(--dc-lava); color: var(--dc-void); }
+/* o halo do visor é herdado (text-shadow herda): no botão cheio ele borrava o texto escuro */
+.dc-btn-fill { background: var(--dc-lava); color: var(--dc-void); text-shadow: none; }
 .dc-btn-fill::before {
   content: ''; position: absolute; inset: 0; z-index: -1; background: var(--dc-hot);
   transform: scaleX(0); transform-origin: left; transition: transform 240ms var(--dc-ease);
@@ -270,8 +279,21 @@ html[data-dc-intro] .dc-rail-shroud { animation: dc-rail-shroud-in 1100ms var(--
 @keyframes dc-rail-shroud-in { from { transform: scaleX(1); } }
 html[data-dc-intro] .dc-rail-move { animation: dc-rail-move-in 1100ms var(--dc-ease) 1.75s both; }
 /* a leitura entra com o desenho do trilho, não antes dele */
-html[data-dc-intro] .dc-rail-readout { animation: dc-rail-move-in 1100ms var(--dc-ease) 1.75s both, dc-readout-in 300ms linear 1.2s both; }
+/* a leitura entra por último, quando o trilho já encheu */
+html[data-dc-intro] .dc-rail-readout { animation: dc-rail-move-in 1100ms var(--dc-ease) 1.75s both, dc-readout-in 300ms linear 2.85s both; }
 @keyframes dc-readout-in { from { opacity: 0; } to { opacity: 1; } }
+/* B7: os primeiros 1,2 s são só a cidade e o wordmark. Depois o visor se MONTA por
+   máscara (sobe de trás de uma borda), peça por peça; máscara e não opacidade, que
+   tiraria o texto da conta do LCP */
+@keyframes dc-mask-in {
+  from { clip-path: inset(110% -4% -4% -4%); transform: translate3d(0, 12px, 0); }
+  to { clip-path: inset(-4% -4% -4% -4%); transform: none; }
+}
+html[data-dc-intro] .dc-in-label { animation: dc-mask-in 500ms var(--dc-ease) 1.2s both; }
+html[data-dc-intro] .dc-in-unit { animation: dc-mask-in 500ms var(--dc-ease) 1.5s both; }
+html[data-dc-intro] .dc-in-h1 { animation: dc-mask-in 600ms var(--dc-ease) 1.65s both; }
+html[data-dc-intro] .dc-in-btns { animation: dc-mask-in 600ms var(--dc-ease) 1.8s both; }
+html[data-dc-intro] .dc-in-founder { animation: dc-mask-in 600ms var(--dc-ease) 1.95s both; }
 @keyframes dc-rail-move-in { from { transform: translateX(0); } }
 /* o número só entra quando começa a rolar: "10,000,000 $DOG TO GO" parado seria falso.
    Entra por MÁSCARA (sobe de trás de uma borda), não por opacidade: opacidade 0 tira o
@@ -281,3 +303,25 @@ html[data-dc-intro] .dc-hero-number { animation: dc-num-in 550ms var(--dc-ease) 
   from { clip-path: inset(110% -4% -4% -4%); transform: translate3d(0, 14px, 0); }
   to { clip-path: inset(-4% -4% -4% -4%); transform: none; }
 }
+
+/* ── o palco da abertura (sections/opening.tsx): o laço escreve as variáveis ── */
+.dc-stage .dc-media { opacity: var(--dc-media, 1); }
+.dc-stage .dc-veil { opacity: var(--dc-veil, 0); }
+.dc-stage .dc-visor { opacity: var(--dc-vis, 1); transform: translate3d(0, var(--dc-vis-y, 0px), 0); }
+.dc-stage .dc-rail-fly { opacity: var(--dc-rail-o, 1); transform-origin: 0 0; will-change: transform; }
+/* sem movimento: dois estados e uma fusão simples de 400 ms (brief §8) */
+.dc-stage-still .dc-media,
+.dc-stage-still .dc-visor,
+.dc-stage-still .dc-rail-fly { transition: opacity 400ms linear; }
+
+/* ── o número do contador: tamanho pela quantidade de caracteres (--dc-n) ──
+   0,46 em é a largura média de um algarismo da Barlow Condensed 600 com folga */
+.dc-num-size { font-size: min(88px, calc((100vw - 2 * var(--dc-gutter)) / (0.46 * var(--dc-n, 7)))); }
+.dc-num-size-film { font-size: min(88px, calc((100vw - 2 * var(--dc-gutter)) / (0.46 * var(--dc-n, 7)))); }
+@media (min-width: 640px) and (min-height: 521px) {
+  .dc-num-size { font-size: min(clamp(96px, 15vw, 224px), calc(58vw / (0.46 * var(--dc-n, 7)))); }
+  /* com o filme o número cede espaço para a cidade */
+  .dc-num-size-film { font-size: min(clamp(96px, 12vw, 176px), calc(58vw / (0.46 * var(--dc-n, 7)))); }
+}
+
+.dc-balance { text-wrap: balance; }

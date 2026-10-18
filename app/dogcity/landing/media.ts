@@ -160,7 +160,7 @@ export const DEED_PARTS: DeedPart[] = [
     r: [0.697, 0.025, 0.286, 0.188], c: [0.69, 0.016, 0.3, 0.205] },
   { key: "corners", title: "CORNERS", text: "A to D, in meters from the plaza center, to the centimetre.",
     r: [0.697, 0.225, 0.286, 0.126], c: [0.69, 0.215, 0.3, 0.145] },
-  { key: "street", title: "STREET", text: "The road in front: rings R1 to R27, avenues A1 to A12, radials like 3.07, lanes like L2952.1.",
+  { key: "street", title: "STREET", text: "The road in front: rings R1 to R27, avenues A1 to A12, radials like 3.07, lanes like L2952.1, the lake roads LK1 and LK2, the Spit avenue AN7, the bay road SHORE and the quays QUAY.",
     r: [0.697, 0.402, 0.286, 0.068], c: [0.69, 0.365, 0.3, 0.115] },
   { key: "phase", title: "MINT PHASE", text: "Read from the block the deed is inscribed in, against the calendar on chain.",
     r: [0.697, 0.486, 0.286, 0.019], c: [0.69, 0.44, 0.3, 0.08] },

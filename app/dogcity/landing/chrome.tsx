@@ -49,7 +49,7 @@ export function MotionSwitch({ className = "" }: { className?: string }) {
       <span>Motion: {on ? "on" : "off"}</span>
       <span aria-hidden className={`relative inline-block h-[14px] w-[26px] border ${on ? "border-dc-lava" : "border-dc-snow/[0.3]"}`}>
         <span
-          className={`absolute top-[2px] h-[8px] w-[8px] transition-transform duration-200 ${on ? "bg-dc-lava translate-x-[14px]" : "bg-dc-mist translate-x-[2px]"}`}
+          className={`absolute left-0 top-[2px] h-[8px] w-[8px] transition-transform duration-200 ${on ? "bg-dc-lava translate-x-[14px]" : "bg-dc-mist translate-x-[2px]"}`}
         />
       </span>
     </button>
@@ -66,64 +66,71 @@ function MenuIcon({ open }: { open: boolean }) {
 }
 
 export function Nav({
-  cd, solid, hideMark,
-}: { cd: CountdownState; solid: boolean; hideMark: boolean }) {
+  cd, live, solid, quiet,
+}: { cd: CountdownState; live: boolean; solid: boolean; quiet: boolean }) {
   const [open, setOpen] = useState(false)
-  const live = solid
+  // quiet: a busca está na tela; o botão "FIND MY LOT" da navegação seria a quarta
+  // vez da mesma ação na mesma tela, então fica só a leitura do contador
+  const reading = cd.nav.desktop.split(" · ")[0]
   return (
     <>
       <nav
         aria-label="DogCity"
         className={`fixed inset-x-0 top-0 z-[60] h-14 lg:h-[72px] transition-[background-color,border-color] duration-300
-          border-b ${solid ? "bg-dc-void/[0.92] border-dc-snow/[0.12]" : "bg-transparent border-transparent"}`}
+          border-b ${solid ? "bg-dc-void border-dc-snow/[0.12]" : "bg-transparent border-transparent"}`}
       >
         <div className="mx-auto flex h-full max-w-[calc(1360px+2*var(--dc-gutter))] items-center gap-4 px-[var(--dc-gutter)]">
           {/* a marca: wordmark a 32 px no desktop; D· no celular (o wordmark não cabe a 32 px) */}
           <a href="#top" aria-label="DogCity, back to the top" className="shrink-0" id="dc-nav-mark">
-            <span className={`hidden lg:block transition-opacity duration-300 ${hideMark ? "opacity-0" : "opacity-100"}`}>
-              <Wordmark height={32} alt="" />
-            </span>
-            <span className={`lg:hidden transition-opacity duration-300 ${hideMark ? "opacity-0" : "opacity-100"}`}>
-              <FaviconMark size={32} alt="" />
-            </span>
+            <span className="hidden lg:block"><Wordmark height={32} alt="" /></span>
+            <span className="lg:hidden"><FaviconMark size={32} alt="" /></span>
           </a>
 
-          {/* centro: só onde cabe sem apertar o botão vivo */}
-          <ul className="hidden navw:flex flex-1 items-center justify-center gap-7">
+          {/* P7: os links do centro só SOBRE o herói (e só onde cabem); depois dele
+              moram na gaveta, e a navegação fica com a marca, a pílula viva e o menu */}
+          <ul className={`hidden flex-1 items-center justify-center gap-7 ${live ? "" : "navw:flex"}`}>
             {CENTER_LINKS.map((l) => (
               <li key={l.href}>
-                <a href={l.href} className={`dc-label !text-[11px] !tracking-[0.2em] text-dc-snow/[0.85] hover:text-dc-snow transition-colors ${solid ? "" : "dc-halo"}`}>
+                <a href={l.href} className="dc-label !text-[11px] !tracking-[0.2em] text-dc-snow/[0.85] hover:text-dc-snow transition-colors dc-halo">
                   {l.label}
                 </a>
               </li>
             ))}
           </ul>
-          <div className="flex-1 navw:hidden" />
+          <div className={`flex-1 ${live ? "" : "navw:hidden"}`} />
 
-          {/* o contador compacto: só depois do herói */}
-          {/* fora do layout enquanto o herói está na tela: invisível, ele ainda ocupava
-              largura e empurrava o Menu para fora da tela do celular */}
-          <div className={`items-center gap-3 ${live ? "flex dc-fade-in" : "hidden"}`} aria-hidden={!live}>
-            {/* desktop largo: o botão inteiro, como o "Pre-Order Now" do VI */}
-            <a
-              href={cd.nav.href}
-              tabIndex={live ? 0 : -1}
-              className="hidden lg:inline-flex dc-btn dc-btn-fill dc-btn-sm"
-            >
-              <span className="tabular-nums">{cd.nav.desktop}</span>
-            </a>
+          {/* a pílula viva: SEMPRE no layout (o trilho do herói voa até ela, então a
+              caixa dela tem de existir), invisível até o voo terminar */}
+          <div
+            data-dc-pill
+            className={`flex items-center gap-3 transition-opacity duration-300 ${live ? "opacity-100" : "opacity-0 invisible pointer-events-none"}`}
+            aria-hidden={!live}
+          >
+            {/* desktop: o botão inteiro, como o "Pre-Order Now" do VI */}
+            {quiet ? (
+              <span className="hidden lg:inline-flex h-10 items-center font-mono text-[11px] tracking-[0.14em] text-dc-snow tabular-nums whitespace-nowrap">
+                {reading}
+              </span>
+            ) : (
+              <a href={cd.nav.href} tabIndex={live ? 0 : -1} className="hidden lg:inline-flex dc-btn dc-btn-fill dc-btn-sm">
+                <span className="tabular-nums">{cd.nav.desktop}</span>
+              </a>
+            )}
             {/* celular e tablet: a leitura em mono e o botão curto */}
             {cd.nav.mobile && (
               <span className="lg:hidden font-mono text-[11px] tracking-[0.12em] text-dc-snow tabular-nums whitespace-nowrap">
                 {cd.nav.mobile}
               </span>
             )}
-            <a href={cd.nav.href} tabIndex={live ? 0 : -1} className="lg:hidden dc-btn dc-btn-fill !h-9 !px-3 !text-[11px] !tracking-[0.12em]">
-              {cd.nav.cta}
-            </a>
+            {!quiet && (
+              <a href={cd.nav.href} tabIndex={live ? 0 : -1} className="lg:hidden dc-btn dc-btn-fill !h-9 !px-3 !text-[11px] !tracking-[0.12em]">
+                {cd.nav.cta}
+              </a>
+            )}
           </div>
 
-          <Btn href={CITY_URL} variant="line" size="sm" className={`hidden lg:inline-flex ${solid ? "" : "dc-halo"}`}>
+          {/* P7: sobre o herói o "Enter the city" já está no bloco do contador; aqui só depois */}
+          <Btn href={CITY_URL} variant="line" size="sm" className={`hidden lg:inline-flex ${live ? "" : "!hidden"}`}>
             Enter the city
           </Btn>
           <button
@@ -131,9 +138,10 @@ export function Nav({
             onClick={() => setOpen(true)}
             aria-expanded={open}
             aria-controls="dc-drawer"
+            aria-label="Menu"
             className={`inline-flex h-10 items-center gap-3 px-1 text-dc-snow ${solid ? "" : "dc-halo"}`}
           >
-            <span className={`dc-label !text-[11px] ${live ? "hidden navw:inline" : "inline"}`}>Menu</span>
+            <span aria-hidden className="hidden lg:inline dc-label !text-[11px]">Menu</span>
             <MenuIcon open={open} />
           </button>
         </div>
@@ -188,7 +196,7 @@ function Drawer({ open, onClose }: { open: boolean; onClose: () => void }) {
     >
       {/* o fundo escurece e, no desktop, o wordmark grande mora à esquerda (o gesto do VI) */}
       <div
-        className={`absolute inset-0 bg-dc-deep/[0.86] transition-opacity ${dur} ${open ? "opacity-100" : "opacity-0"}`}
+        className={`absolute inset-0 bg-dc-deep/[0.94] transition-opacity ${dur} ${open ? "opacity-100" : "opacity-0"}`}
         onClick={onClose}
       >
         <div className="hidden lg:flex absolute inset-y-0 left-0 right-[40%] items-center justify-center">

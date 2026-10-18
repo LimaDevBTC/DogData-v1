@@ -10,7 +10,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { Reveal, SplitLine } from "../landing/reveal"
-import { Btn, Frame, Plate, SheetNo, useCopy } from "../landing/ui"
+import { Btn, Frame, Plate, SectionHead, useCopy } from "../landing/ui"
 import { ATLAS_LOTS, ATLAS_PDF_MB, ATLAS_PLATES } from "../atlas/atlas-data"
 import { SNAPSHOT_PROOF } from "../dogcity-data"
 
@@ -46,9 +46,8 @@ export default function DocsAtlas() {
   return (
     <section id="docs" aria-labelledby="dc-docs-h2" className="relative bg-dc-void pt-24 dk:pt-40 pb-24 dk:pb-40 scroll-mt-14">
       <Frame>
-        <SheetNo n="05" title="DOCS AND ATLAS" />
-        <p className="dc-label mt-8 text-dc-lava">VERIFY EVERYTHING</p>
-        <h2 id="dc-docs-h2" className="dc-h2 mt-3 text-dc-snow"><SplitLine text="Read the rules. Check the map." /></h2>
+        <SectionHead n="05" label="VERIFY EVERYTHING" />
+        <h2 id="dc-docs-h2" className="dc-h2 mt-4 text-dc-snow"><SplitLine text="Read the rules. Check the map." /></h2>
 
         <div className="mt-12 grid gap-6 dkl:grid-cols-2">
           <Reveal y={16} blur={false} className="h-full">

@@ -17,7 +17,7 @@
 import dynamic from "next/dynamic"
 import { useEffect, useRef, useState } from "react"
 import { Reveal, SplitLine } from "../landing/reveal"
-import { Btn, Frame, SheetNo, useNear, useReduced } from "../landing/ui"
+import { Btn, Frame, SectionHead, useNear, useReduced } from "../landing/ui"
 import { MAP, VIDEO, metersToMap } from "../landing/media"
 import { CITY_URL } from "../landing/mint-state"
 import type { Clip, StageHandle } from "./dog-stage"
@@ -214,13 +214,12 @@ export default function TheCity() {
   return (
     <section id="city" aria-labelledby="dc-city-h2" className="relative bg-dc-void pt-24 dk:pt-40 scroll-mt-14">
       <Frame>
-        <SheetNo n="03" title="THE CITY" />
         <div className="mt-8 grid gap-10 dkl:grid-cols-12 dkl:gap-6 dkl:items-center">
           <div className="dkl:col-span-5">
-            <p className="dc-label text-dc-lava">PLAYABLE IN YOUR BROWSER · DOGCITY.SPACE</p>
-            <h2 id="dc-city-h2" className="dc-h2 mt-3 text-dc-snow"><SplitLine text="Walk your street before you mint it." /></h2>
+            <SectionHead n="03" label="PLAYABLE IN YOUR BROWSER · DOGCITY.SPACE" />
+            <h2 id="dc-city-h2" className="dc-h2 mt-4 text-dc-snow"><SplitLine text="Walk your street before you mint it." /></h2>
             <Reveal y={16} blur={false}>
-              <p className="dc-body mt-6 text-dc-mist">
+              <p className="dc-lede mt-6">
                 DogCity is built on real lunar terrain. Walk it as the $DOG, drive the Cybertruck down the ring roads, take
                 a yacht across the bay, and find your own lot from the street.
               </p>

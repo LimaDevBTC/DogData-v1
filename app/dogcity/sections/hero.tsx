@@ -1,24 +1,25 @@
 "use client"
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 0 · HERÓI, "LAUNCH NIGHT" (brief landing v3 §4.1, §5, §6, §10).
+// 0 · HERÓI, "LAUNCH NIGHT" (brief landing v3 §4.1, §5, §6, §10): AS CAMADAS.
 //
-// O filme do jogo em takes, com o contador no visor. Pôster primeiro (é o LCP,
-// <img fetchpriority="high"> no HTML), filme depois da primeira pintura, em
-// requestIdleCallback. O texto mora em canto e borda; o centro é da cidade.
+// Desde a rodada de correção de 18/10 o herói não é mais uma seção sozinha: ele
+// é o começo de UM palco preso (./opening.tsx) que segue pela passagem "Into the
+// plaza" até a busca, sem costura. Este arquivo entrega as camadas que o palco
+// monta: o pôster (o LCP), o filme (vídeo na camada de mídia, legenda e pausa no
+// visor), o visor do contador (#build), o trilho e o cartão de título.
 //
-// ⚠️ NADA DAQUI USA OS PRIMITIVOS DE REVELAÇÃO DE ../motion.tsx. Eles têm faixa
-// morta acima da dobra (o título fica invisível, o contador fica em 0). Tudo
-// aqui anima por MONTAGEM, com relógio próprio.
+// ⚠️ NADA DAQUI USA OS PRIMITIVOS DE REVELAÇÃO DE ../motion.tsx (faixa morta acima
+// da dobra). A entrada da primeira visita é CSS sob html[data-dc-intro], ancorada
+// na primeira pintura (landing.css); o JS só acrescenta odômetro e scramble se a
+// página hidratou a tempo.
 //
-// ⚠️ SEM FILME AINDA (18/10): enquanto landing-v3/video/ não chega, o pôster é a
-// carta da cidade centrada na Satoshi Plaza, escurecida, e não há legenda de
-// take nem botão de pausa (não há o que pausar). O componente já lê o
-// manifesto: quando o filme existir, ele entra sozinho.
+// ⚠️ SEM FILME AINDA: o pôster é a carta da cidade centrada na Satoshi Plaza,
+// escurecida; legenda de take e pausa só existem quando o filme existe.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react"
-import { Btn, Odometer, TextLink, WORDMARK_DOT, WORDMARK_RATIO, WORDMARK_SRC, useReduced } from "../landing/ui"
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react"
+import { Btn, Odometer, TextLink, WORDMARK_DOT, WORDMARK_RATIO, WORDMARK_SRC } from "../landing/ui"
 import { HERO_FILM, POSTER } from "../landing/media"
 import { FUND_GOAL, RULER, type CountdownState } from "../landing/mint-state"
 
@@ -41,8 +42,30 @@ const idle = (fn: () => void) => {
   else setTimeout(fn, 1200)
 }
 
+// ═══ o pôster (o elemento LCP) ═════════════════════════════════════════════
+export function HeroPoster() {
+  return (
+    <picture>
+      <source media="(max-aspect-ratio: 1/1)" srcSet={POSTER.mobile.avif} type="image/avif" />
+      <source media="(max-aspect-ratio: 1/1)" srcSet={POSTER.mobile.webp} type="image/webp" />
+      <source srcSet={POSTER.desktop.avif} type="image/avif" />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={POSTER.desktop.webp}
+        alt={POSTER.isPlaceholder ? "The DogCity plan, centered on Satoshi Plaza" : "DogCity at night: the Earth over the honeycomb dome"}
+        fetchPriority="high"
+        decoding="async"
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+    </picture>
+  )
+}
+
 // ═══ o filme ═══════════════════════════════════════════════════════════════
-function Film({ reduced }: { reduced: boolean }) {
+// Devolve DUAS peças: o <video> (vai na camada de mídia do palco) e os controles
+// (legenda do take e pausa, vão no visor e somem com ele). `active` falso pausa o
+// filme (o palco já passou para a carta) sem contar como pausa da pessoa.
+export function useFilm({ reduced, active }: { reduced: boolean; active: boolean }): { video: ReactNode; controls: ReactNode } {
   const ref = useRef<HTMLVideoElement>(null)
   const [src, setSrc] = useState<{ webm?: string; mp4?: string } | null>(null)
   const [visible, setVisible] = useState(false)
@@ -70,21 +93,18 @@ function Film({ reduced }: { reduced: boolean }) {
     }
   }, [])
 
-  useEffect(() => { if (src) play() }, [src, play])
-
-  // pausa fora da tela e com a aba escondida; volta se a pessoa não pausou
+  // toca enquanto o palco é o herói e a aba está visível; a pausa da pessoa manda
   useEffect(() => {
     const v = ref.current
     if (!v || !src) return
-    const io = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting && !userPaused.current) play()
-      else if (!e.isIntersecting) v.pause()
-    }, { threshold: 0.15 })
-    io.observe(v)
-    const onVis = () => { if (document.hidden) v.pause(); else if (!userPaused.current) play() }
-    document.addEventListener("visibilitychange", onVis)
-    return () => { io.disconnect(); document.removeEventListener("visibilitychange", onVis) }
-  }, [src, play])
+    const sync = () => {
+      if (!active || document.hidden) v.pause()
+      else if (!userPaused.current) play()
+    }
+    sync()
+    document.addEventListener("visibilitychange", sync)
+    return () => document.removeEventListener("visibilitychange", sync)
+  }, [src, active, play])
 
   // a legenda do take segue os cortes do cuts.json
   useEffect(() => {
@@ -101,7 +121,7 @@ function Film({ reduced }: { reduced: boolean }) {
     return () => v.removeEventListener("timeupdate", on)
   }, [src, onTake])
 
-  if (!HERO_FILM.exists) return null
+  if (!HERO_FILM.exists) return { video: null, controls: null }
   const toggle = () => {
     const v = ref.current
     if (!src) { userPaused.current = false; setSrc(pickFilm()); return }
@@ -112,26 +132,26 @@ function Film({ reduced }: { reduced: boolean }) {
   const showPlay = blocked || paused || !src
   const cut = take != null ? HERO_FILM.cuts[take] : null
 
-  return (
-    <>
-      {src && (
-        <video
-          ref={ref}
-          muted
-          playsInline
-          loop
-          preload="none"
-          aria-hidden
-          onPlaying={() => { setVisible(true); window.dispatchEvent(new Event("dc:film-playing")) }}
-          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-[600ms] ${visible ? "opacity-100" : "opacity-0"}`}
-        >
-          {src.webm && <source src={src.webm} type='video/webm; codecs="av01.0.05M.08"' />}
-          {src.mp4 && <source src={src.mp4} type="video/mp4" />}
-        </video>
-      )}
-      {/* a legenda do take e a pausa: canto inferior direito (topo direito no celular).
-          WCAG 2.2.2: o laço passa de 5 s, então o controle de pausa é visível. */}
-      <div className="absolute right-[var(--dc-gutter)] top-[64px] dk:top-auto dk:bottom-[112px] z-[3] flex flex-col items-end gap-1 text-right">
+  const video = src ? (
+    <video
+      ref={ref}
+      muted
+      playsInline
+      loop
+      preload="none"
+      aria-hidden
+      onPlaying={() => { setVisible(true); window.dispatchEvent(new Event("dc:film-playing")) }}
+      className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-[600ms] ${visible ? "opacity-100" : "opacity-0"}`}
+    >
+      {src.webm && <source src={src.webm} type='video/webm; codecs="av01.0.05M.08"' />}
+      {src.mp4 && <source src={src.mp4} type="video/mp4" />}
+    </video>
+  ) : null
+
+  // a legenda do take e a pausa: canto inferior direito (topo direito no celular).
+  // WCAG 2.2.2: o laço passa de 5 s, então o controle de pausa é visível.
+  const controls = (
+    <div className="dc-visor absolute right-[var(--dc-gutter)] top-[64px] dk:top-auto dk:bottom-[112px] z-[3] flex flex-col items-end gap-1 text-right">
       {cut && (
         <p key={blink} className={`dc-label text-dc-snow dc-halo ${reduced ? "" : "dc-blink"}`}>
           {String((take ?? 0) + 1).padStart(2, "0")} / {String(HERO_FILM.cuts.length).padStart(2, "0")} · {cut.place}
@@ -150,42 +170,52 @@ function Film({ reduced }: { reduced: boolean }) {
         </span>
         {showPlay ? (blocked || !src ? "Play film" : "Play") : "Pause"}
       </button>
-      </div>
-    </>
+    </div>
   )
+  return { video, controls }
 }
 
 // ═══ o trilho (fundo ou régua das fases) ═══════════════════════════════════
 // UM valor move cabeça, mortalha e leitura (a mecânica de construction-fund.tsx),
-// só transform. O valor é a variável CSS --dc-f (0 a 1) na raiz do trilho, então o
-// trilho sai CERTO já no HTML do servidor, sem medir pixel nenhum: a mortalha escala
-// por calc(1 - f), a cabeça anda f * 100% da largura e a leitura recua f * 100% da
-// própria largura (encostada à esquerda no começo, à direita no fim, nunca fora).
-// Na primeira visita o desenho e o enchimento são keyframes de CSS sob
-// html[data-dc-intro] (landing.css), ancorados na primeira pintura, não na hidratação.
-function Rail({ cd, reduced }: { cd: CountdownState; reduced: boolean }) {
-  const f = cd.rail.mode === "connecting" ? 0 : cd.rail.fraction
+// só transform. O valor é a variável CSS --dc-f (0 a 1), então o trilho sai CERTO
+// já no HTML do servidor, sem medir pixel: a mortalha escala por calc(1 - f), a
+// cabeça anda f * 100% da largura e a leitura recua f * 100% da própria largura.
+// Na primeira visita o desenho e o enchimento são keyframes de CSS (landing.css).
+// Na saída do herói o trilho inteiro voa até a pílula da navegação: quem move é o
+// palco (./opening.tsx), pelas variáveis --dc-rail-* no invólucro `.dc-rail-fly`.
+//
+// SEM DADO (connecting): só o trilho, sem cabeça e sem mortalha, e a leitura
+// "CONNECTING"; passados 12 s sem dado, a leitura some (nada de prometer conexão).
+export function Rail({ cd, reduced }: { cd: CountdownState; reduced: boolean }) {
+  const connecting = cd.rail.mode === "connecting"
+  const f = connecting ? 0 : (cd.rail as { fraction: number }).fraction
   const last = useRef<number | null>(null)
   const [pulse, setPulse] = useState(0)
+  const [stale, setStale] = useState(false)
   useEffect(() => {
     // o número mudou ao vivo: a cabeça dá um pulso (o sv-ping de construction-fund.tsx)
     if (last.current != null && Math.abs(last.current - f) > 1e-6) setPulse((p) => p + 1)
     last.current = f
   }, [f])
+  useEffect(() => {
+    if (!connecting) { setStale(false); return }
+    const t = setTimeout(() => setStale(true), 12_000)
+    return () => clearTimeout(t)
+  }, [connecting])
 
   const phases = cd.rail.mode === "phases"
   const full = cd.rail.mode === "fund" && cd.rail.full
   return (
-    <div className="absolute inset-x-0 bottom-0 z-[3] pb-[max(14px,env(safe-area-inset-bottom))]">
+    <div className="dc-rail-fly absolute inset-x-0 bottom-0 z-[3] pb-[max(14px,env(safe-area-inset-bottom))]">
       <div className="mx-auto max-w-[calc(1360px+2*var(--dc-gutter))] px-[var(--dc-gutter)]">
-        <div className="relative" style={{ "--dc-f": String(f) } as CSSProperties}>
+        <div data-dc-rail className="relative" style={{ "--dc-f": String(f) } as CSSProperties}>
           {/* leitura presa à cabeça */}
           <div className="relative h-5 mb-1.5">
             <div className="dc-rail-move absolute inset-x-0 top-0">
               <div className="dc-rail-readout inline-block whitespace-nowrap font-mono text-[11px] dk:text-[12px] tracking-[0.08em] text-dc-snow dc-halo tabular-nums">
-                {cd.rail.mode === "connecting" && <span className="text-dc-mist">connecting</span>}
+                {connecting && !stale && <span className="text-dc-mist tracking-[0.2em]">CONNECTING</span>}
                 {cd.rail.mode === "fund" && cd.rail.readout}
-                {cd.rail.mode === "phases" && <span className="text-dc-lava">{RULER[cd.rail.current]?.label}</span>}
+                {cd.rail.mode === "phases" && <span className="text-dc-hot">{cd.rail.readout}</span>}
               </div>
             </div>
           </div>
@@ -200,22 +230,26 @@ function Rail({ cd, reduced }: { cd: CountdownState; reduced: boolean }) {
               </div>
             )}
             <div className="absolute inset-x-0 bottom-0 h-[3px] bg-dc-snow/[0.16]" />
-            <div className="absolute inset-x-0 bottom-0 h-[3px] bg-gradient-to-r from-[#B4501C] via-dc-lava to-dc-hot" />
-            {/* mortalha: cobre o que ainda não encheu (escala a partir da direita) */}
-            <div className="dc-rail-shroud absolute inset-x-0 bottom-0 h-[3px] origin-right bg-[#2a2620]" />
-            {/* a cabeça */}
-            <div className="dc-rail-move absolute inset-0">
-              <span className="absolute bottom-0 left-0 h-[13px] w-px bg-dc-hot" />
-              <span className="absolute -left-[3px] bottom-[-2px] h-[7px] w-[7px] bg-dc-hot" />
-              {!reduced && (full || pulse > 0) && (
-                <span key={pulse} className={`absolute -left-[3px] bottom-[-2px] h-[7px] w-[7px] border border-dc-hot ${full ? "dc-ping" : "dc-ping-3"}`} />
-              )}
-            </div>
+            {!connecting && (
+              <>
+                <div className="absolute inset-x-0 bottom-0 h-[3px] bg-gradient-to-r from-[#B4501C] via-dc-lava to-dc-hot" />
+                {/* mortalha: cobre o que ainda não encheu (escala a partir da direita) */}
+                <div className="dc-rail-shroud absolute inset-x-0 bottom-0 h-[3px] origin-right bg-[#2a2620]" />
+                {/* a cabeça */}
+                <div className="dc-rail-move absolute inset-0">
+                  <span className="absolute bottom-0 left-0 h-[13px] w-px bg-dc-hot" />
+                  <span className="absolute -left-[3px] bottom-[-2px] h-[7px] w-[7px] bg-dc-hot" />
+                  {!reduced && (full || pulse > 0) && (
+                    <span key={pulse} className={`absolute -left-[3px] bottom-[-2px] h-[7px] w-[7px] border border-dc-hot ${full ? "dc-ping" : "dc-ping-3"}`} />
+                  )}
+                </div>
+              </>
+            )}
           </div>
           {phases && (
             <div aria-hidden className="mt-1.5 flex">
               {RULER.map((r, i) => (
-                <span key={r.phase} className={`flex-1 dc-label !text-[9px] dk:!text-[10px] !tracking-[0.16em] ${cd.rail.mode === "phases" && cd.rail.current === i ? "text-dc-lava" : "text-dc-mist"} dc-halo`}>
+                <span key={r.phase} className={`flex-1 dc-label !text-[9px] dk:!text-[10px] !tracking-[0.12em] ${cd.rail.mode === "phases" && cd.rail.current === i ? "text-dc-hot" : "text-dc-mist"} dc-halo`}>
                   {r.label}
                 </span>
               ))}
@@ -231,10 +265,8 @@ function Rail({ cd, reduced }: { cd: CountdownState; reduced: boolean }) {
 // 0 a 500 ms o ponto laranja acende como pino (a Satoshi Plaza); 500 a 1.400 o
 // wordmark se revela do ponto para fora; segura até 1.900; 1.900 a 2.600 voa para o
 // lugar dele na navegação (só transform). TUDO em keyframes de CSS sob
-// html[data-dc-intro] (landing.css): o relógio é a primeira pintura, não a
-// hidratação do React (que no 4G chega perto de 4 s e atrasava o cartão inteiro).
-// Sem a marca em <html> o cartão nem existe (display none). Pular = tirar a marca.
-function TitleCard() {
+// html[data-dc-intro] (landing.css): o relógio é a primeira pintura.
+export function TitleCard() {
   const at = { left: `${WORDMARK_DOT.x * 100}%`, top: `${WORDMARK_DOT.y * 100}%`, width: `${WORDMARK_DOT.r * 200}%` }
   return (
     <div aria-hidden className="dc-tc pointer-events-none absolute inset-x-0 top-[26%] dk:top-[21%] z-[4] -translate-y-1/2 justify-center">
@@ -253,16 +285,15 @@ function TitleCard() {
   )
 }
 
-// ═══ o herói ═══════════════════════════════════════════════════════════════
-export default function Hero({
-  cd, intro, onIntroDone,
-}: { cd: CountdownState; intro: boolean; onIntroDone: () => void }) {
-  const reduced = useReduced()
-  // O cartão, o trilho e a entrada do número são CSS (ancorados na primeira pintura).
-  // O JS só acrescenta o que CSS não faz: o odômetro de 10,000,000 até o que falta e
-  // o scramble do rótulo, e SÓ se a página hidratou a tempo (antes de 1,1 s); senão o
-  // número entra pelo CSS já no valor final. Qualquer rolagem, toque ou tecla pula o
-  // cartão (tira a marca de <html>, e tudo vai para o estado final).
+// ═══ o visor do contador (#build): canto inferior esquerdo ═════════════════
+// Texto direto sobre a imagem, sem caixa, legível por halo. Na primeira visita
+// cada peça se monta por máscara depois do cartão (landing.css, B7): rótulo e
+// número 1.200 ms, unidade 1.500, H1 1.650, botões 1.800, linha do Founder 1.950.
+// O tamanho do número segue a QUANTIDADE de caracteres (--dc-n): "10,000,250" no
+// celular de 360 px cabe, e o odômetro que rola de 10,000,000 nunca corta.
+export function HeroVisor({
+  cd, intro, onIntroDone, reduced,
+}: { cd: CountdownState; intro: boolean; onIntroDone: () => void; reduced: boolean }) {
   const [roll, setRoll] = useState(false)
   const [early, setEarly] = useState<number | null>(null)
   useEffect(() => {
@@ -276,7 +307,7 @@ export default function Hero({
       setEarly(Math.max(0, 1200 - now))
       tRoll = setTimeout(() => setRoll(true), Math.max(0, 1200 - now))
     }
-    const tEnd = setTimeout(end, Math.max(0, 2800 - now))
+    const tEnd = setTimeout(end, Math.max(0, 3000 - now))
     const skip = () => { clearTimeout(tEnd); end() }
     const opts = { passive: true, once: true } as AddEventListenerOptions
     window.addEventListener("wheel", skip, opts)
@@ -302,92 +333,62 @@ export default function Hero({
   }, [cd.kind, cd.label])
 
   const isNum = cd.number != null && /^[\d,]+$/.test(cd.number)
+  const rolling = roll && cd.kind === "A"
+  const n = Math.max(cd.number?.length ?? 7, rolling ? FUND_GOAL.toLocaleString("en-US").length : 0)
 
   return (
-    <section id="top" aria-labelledby="dc-hero-h1" className="relative h-[100svh] min-h-[600px] dk:min-h-[640px] overflow-hidden bg-dc-deep">
-      {/* a âncora do anúncio de 04/09 (/dogcity#snapshot) cai no topo */}
-      <span id="snapshot" className="absolute top-0" aria-hidden />
+    <div className="dc-visor pointer-events-none absolute inset-x-0 bottom-[calc(70px+env(safe-area-inset-bottom))] dk:bottom-[112px] z-[2]">
+      <div className="mx-auto max-w-[calc(1360px+2*var(--dc-gutter))] px-[var(--dc-gutter)]">
+        <div id="build" className="pointer-events-auto max-w-[min(100%,780px)] dc-halo scroll-mt-24">
+          <p className="dc-in-label dc-label text-dc-hot">
+            {early != null ? <ScrambleLater text={cd.label} delay={early} /> : cd.label}
+          </p>
 
-      {/* ── o pôster: o elemento LCP. Retrato pega o recorte em pé. ── */}
-      <picture>
-        <source media="(max-aspect-ratio: 1/1)" srcSet={POSTER.mobile.avif} type="image/avif" />
-        <source media="(max-aspect-ratio: 1/1)" srcSet={POSTER.mobile.webp} type="image/webp" />
-        <source srcSet={POSTER.desktop.avif} type="image/avif" />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={POSTER.desktop.webp}
-          alt={POSTER.isPlaceholder ? "The DogCity plan, centered on Satoshi Plaza" : "DogCity at night: the Earth over the honeycomb dome"}
-          fetchPriority="high"
-          decoding="async"
-          className="absolute inset-0 h-full w-full object-cover"
-        />
-      </picture>
-
-      <Film reduced={reduced} />
-
-      {/* vinheta, não placa: no máximo 55% de void-deep, de baixo até 45% da altura,
-          e um véu curto no topo para a navegação */}
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-[45%] bg-gradient-to-t from-dc-deep/[0.55] via-dc-deep/[0.3] to-transparent" />
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-dc-deep/[0.5] to-transparent" />
-
-      <TitleCard />
-
-      {/* ── o bloco do contador (o visor): canto inferior esquerdo ── */}
-      {/* o contêiner é da largura da tela e não pode engolir o toque da pausa do filme:
-          só o bloco do contador recebe ponteiro */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-[calc(70px+env(safe-area-inset-bottom))] dk:bottom-[112px] z-[2]">
-        <div className="mx-auto max-w-[calc(1360px+2*var(--dc-gutter))] px-[var(--dc-gutter)]">
-          <div id="build" className="pointer-events-auto max-w-[min(100%,780px)] dc-halo scroll-mt-24">
-            <p className="dc-label text-dc-lava">
-              {early != null ? <ScrambleLater text={cd.label} delay={early} /> : cd.label}
-            </p>
-
-            {/* a linha do número e a da unidade existem sempre (invisíveis sem dado):
-                o bloco é ancorado embaixo, então nada pula quando o fundo responde (CLS) */}
-            <p
-              className={`dc-hero-number mt-2 dk:mt-3 font-cond font-semibold leading-[0.84] text-dc-snow ${cd.number != null ? "opacity-100" : "opacity-0"}`}
-              aria-hidden
+          {/* a linha do número e a da unidade existem sempre (invisíveis sem dado):
+              o bloco é ancorado embaixo, então nada pula quando o fundo responde (CLS) */}
+          <p
+            className={`dc-hero-number mt-2 dk:mt-3 font-cond font-semibold leading-[0.84] text-dc-snow ${cd.number != null ? "opacity-100" : "opacity-0"}`}
+            aria-hidden
+          >
+            <span
+              className={`block tracking-[-0.01em] ${HERO_FILM.exists ? "dc-num-size-film" : "dc-num-size"}`}
+              style={{ "--dc-n": String(n) } as CSSProperties}
             >
-              <span className="block text-[88px] dk:text-[clamp(96px,15vw,224px)] tracking-[-0.01em]">
-                {cd.number == null
-                  ? <span className="invisible">0</span>
-                  : isNum
-                    ? <Odometer key={roll ? "roll" : "still"} text={cd.number} from={roll && cd.kind === "A" ? FUND_GOAL : undefined} duration={1400} />
-                    : cd.number}
-              </span>
-            </p>
-            <p aria-hidden className={`mt-2 dk:mt-3 font-mono text-[12px] dk:text-[14px] font-medium tracking-[0.22em] text-dc-snow ${cd.unit ? "" : "invisible"}`}>{cd.unit ?? "0"}</p>
-            {/* para leitor de tela: a frase inteira, não o odômetro (brief §11) */}
-            {cd.number != null && <p className="sr-only">{cd.aria}</p>}
-            {cd.sub && <p className="mt-1.5 font-mono text-[11px] dk:text-[12px] tracking-[0.08em] text-dc-mist">{cd.sub}</p>}
+              {cd.number == null
+                ? <span className="invisible">0</span>
+                : isNum
+                  ? <Odometer key={rolling ? "roll" : "still"} text={cd.number} from={rolling ? FUND_GOAL : undefined} duration={1400} />
+                  : cd.number}
+            </span>
+          </p>
+          <p aria-hidden className={`dc-in-unit mt-2 dk:mt-3 font-mono text-[12px] dk:text-[14px] font-medium tracking-[0.22em] text-dc-snow ${cd.unit ? "" : "invisible"}`}>{cd.unit ?? "0"}</p>
+          {/* para leitor de tela: a frase inteira, não o odômetro (brief §11) */}
+          {cd.number != null && <p className="sr-only">{cd.aria}</p>}
+          {cd.sub && <p className="dc-in-unit mt-1.5 font-mono text-[11px] dk:text-[12px] tracking-[0.08em] text-dc-snow/[0.78]">{cd.sub}</p>}
 
-            <h1 id="dc-hero-h1" className="mt-4 dk:mt-6 max-w-[36ch] font-body font-medium text-[18px] leading-[26px] dk:text-[26px] dk:leading-[34px] text-dc-snow">
-              {cd.h1}
-            </h1>
+          <h1 id="dc-hero-h1" className="dc-in-h1 dc-balance mt-4 dk:mt-6 max-w-[36ch] dk:max-w-[46ch] font-body font-medium text-[18px] leading-[26px] dk:text-[26px] dk:leading-[34px] text-dc-snow">
+            {cd.h1}
+          </h1>
 
-            <div className="mt-5 dk:mt-7 flex max-w-[440px] dk:max-w-none flex-col dk:flex-row dk:items-center gap-3 dk:gap-4">
-              <Btn href={cd.primary.href} className="w-full dk:w-auto">{cd.primary.label}</Btn>
-              <Btn href={cd.secondary.href} variant="line" className="hidden dk:inline-flex">{cd.secondary.label}</Btn>
-              <TextLink href={cd.secondary.href} className="dk:hidden self-center font-mono text-[12px] tracking-[0.16em] uppercase text-dc-snow">
-                {cd.secondary.label}
-              </TextLink>
-            </div>
-
-            {cd.founderLine && (
-              <p className="mt-4 dk:mt-5 max-w-[60ch] font-mono text-[10px] dk:text-[11px] leading-[1.6] tracking-[0.04em] text-dc-mist">
-                <a href="/dogcity/founders" className="dc-link dc-link-quiet hover:text-dc-snow">
-                  Contribute before the fund is full and you are a Founder: you mint your own lot free, paying only the network fee.
-                </a>
-              </p>
-            )}
+          <div className="dc-in-btns mt-5 dk:mt-7 flex max-w-[440px] dk:max-w-none flex-col dk:flex-row dk:items-center gap-3 dk:gap-4">
+            <Btn href={cd.primary.href} className="w-full dk:w-auto">{cd.primary.label}</Btn>
+            <Btn href={cd.secondary.href} variant="line" className="hidden dk:inline-flex">{cd.secondary.label}</Btn>
+            <TextLink href={cd.secondary.href} className="dk:hidden self-center font-mono text-[12px] tracking-[0.16em] uppercase text-dc-snow">
+              {cd.secondary.label}
+            </TextLink>
           </div>
+
+          {cd.founderLine && (
+            <p className="dc-in-founder mt-4 dk:mt-5 max-w-[60ch] font-mono text-[10px] dk:text-[11px] leading-[1.6] tracking-[0.04em] text-dc-snow/[0.72]">
+              <a href="/dogcity/founders" className="dc-link dc-link-quiet hover:text-dc-snow">
+                Contribute before the fund is full and you are a Founder: you mint your own lot free, paying only the network fee and postage.
+              </a>
+            </p>
+          )}
         </div>
       </div>
-
-      <Rail cd={cd} reduced={reduced} />
-
       <p className="sr-only" aria-live="polite">{announce}</p>
-    </section>
+    </div>
   )
 }
 

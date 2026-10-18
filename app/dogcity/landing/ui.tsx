@@ -32,13 +32,15 @@ export function Frame({ children, className = "", id }: { children: ReactNode; c
   )
 }
 
-/** "01 · FIND YOUR LOT": a folha de um conjunto (brief §7.3) */
-export function SheetNo({ n, title, className = "" }: { n: string; title: string; className?: string }) {
+/** o cabeçalho da seção numa linha só: o número da folha (lava; lava-hot sobre imagem)
+ *  e o rótulo, como a folha de um conjunto ("02 · ORDINALS ON BITCOIN L1"). O H2 vem logo
+ *  abaixo; o nome da seção não se repete em cima dele. */
+export function SectionHead({ n, label, onImage = false, className = "" }: { n: string; label: string; onImage?: boolean; className?: string }) {
   return (
-    <p className={`dc-label text-dc-dusty flex items-center gap-3 ${className}`}>
-      <span className="text-dc-lava">{n}</span>
-      <span aria-hidden className="h-px w-8 bg-dc-snow/[0.24]" />
-      <span>{title}</span>
+    <p className={`dc-label flex flex-wrap items-baseline gap-x-3 gap-y-1 ${onImage ? "text-dc-snow/[0.9] dc-halo" : "text-dc-mist"} ${className}`}>
+      <span className={onImage ? "text-dc-hot" : "text-dc-lava"}>{n}</span>
+      <span aria-hidden className={`self-center h-px w-6 ${onImage ? "bg-dc-snow/[0.4]" : "bg-dc-snow/[0.24]"}`} />
+      <span>{label}</span>
     </p>
   )
 }

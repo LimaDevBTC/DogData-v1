@@ -9,7 +9,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { Reveal, SplitLine } from "../landing/reveal"
-import { Frame, Plate, SheetNo, TextLink } from "../landing/ui"
+import { Frame, Plate, SectionHead, TextLink } from "../landing/ui"
 import { MINT_HOST, calendarRows, fmtInt, type CountdownState } from "../landing/mint-state"
 
 export default function Calendar({ cd }: { cd: CountdownState }) {
@@ -31,17 +31,12 @@ export default function Calendar({ cd }: { cd: CountdownState }) {
   return (
     <section id="calendar" aria-labelledby="dc-cal-h2" className="relative bg-dc-void pt-24 dk:pt-40 scroll-mt-14">
       <Frame>
-        <SheetNo n="04" title="THE CALENDAR" />
-        <div className="mt-8 grid gap-8 dkl:grid-cols-12 dkl:items-end">
-          <div className="dkl:col-span-6">
-            <p className="dc-label text-dc-lava">THE MINT CALENDAR</p>
-            <h2 id="dc-cal-h2" className="dc-h2 mt-3 text-dc-snow"><SplitLine text="Counted in blocks, not dates." /></h2>
-          </div>
-          <p className="dkl:col-span-6 dc-body text-dc-mist">
-            Call B the block in which the construction fund reaches 10,000,000 $DOG. Every phase is fixed in blocks from
-            B, and the calendar is inscribed on chain once B is known. 144 blocks is about one day.
-          </p>
-        </div>
+        <SectionHead n="04" label="THE MINT CALENDAR" />
+        <h2 id="dc-cal-h2" className="dc-h2 mt-4 text-dc-snow"><SplitLine text="Counted in blocks, not dates." /></h2>
+        <p className="dc-lede mt-6">
+          Call B the block in which the construction fund reaches 10,000,000 $DOG. Every phase is fixed in blocks from
+          B, and the calendar is inscribed on chain once B is known. 144 blocks is about one day.
+        </p>
 
         {/* ── desktop: a régua horizontal, cinco segmentos de largura igual ── */}
         <div className="hidden dkl:block mt-16">

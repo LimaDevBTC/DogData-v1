@@ -18,16 +18,19 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Reveal, SplitLine } from "../landing/reveal"
-import { Btn, Frame, Plate, SheetNo, areaDeed, useReduced } from "../landing/ui"
+import { Btn, Frame, Plate, SectionHead, areaDeed, useReduced } from "../landing/ui"
 import { DEED_PARTS, DEED_RATIO, EXAMPLE_DEED, FEATURED, LADDER_REST, type Deed, type DeedGroup } from "../landing/media"
 
-const GROUP_LABEL: Record<DeedGroup, string> = {
-  "tiers-1-3": "TIERS 1 TO 3 · WATERFRONT",
-  "tiers-4-6": "TIERS 4 TO 6",
-  "tiers-7-13": "TIERS 7 TO 13",
-  company: "COMPANY",
-  reserve: "PROJECT RESERVE",
-  example: "",
+// os rótulos são os da LEGENDA da própria escritura (TIERS 1 TO 3, TIERS 4 TO 6,
+// TIER 7, TIERS 8 TO 13, COMPANY), e a reserva como PROJECT RESERVE
+function groupLabel(d: Deed): string {
+  if (d.group === "company") return "COMPANY"
+  if (d.group === "reserve") return "PROJECT RESERVE"
+  const r = d.rung ?? 0
+  if (r >= 1 && r <= 3) return "TIERS 1 TO 3"
+  if (r >= 4 && r <= 6) return "TIERS 4 TO 6"
+  if (r === 7) return "TIER 7"
+  return "TIERS 8 TO 13"
 }
 
 const ORDER: Deed[] = [...FEATURED, ...LADDER_REST]
@@ -400,27 +403,20 @@ export default function Deeds() {
     })
   }, [])
 
-  let lastGroup: DeedGroup | null = null
+  let lastGroup: string | null = null
   return (
     <section id="deeds" aria-labelledby="dc-deeds-h2" className="relative bg-dc-void pt-24 dk:pt-40 scroll-mt-14">
       <Frame>
-        <SheetNo n="02" title="THE DEEDS" />
-        <div className="mt-8 grid gap-8 dkl:grid-cols-12 dkl:items-end">
-          <div className="dkl:col-span-7">
-            <p className="dc-label text-dc-lava">ORDINALS ON BITCOIN L1 · CHILDREN OF THE CITY CHARTER</p>
-            <h2 id="dc-deeds-h2" className="dc-h2 mt-3 text-dc-snow"><SplitLine text="Every lot becomes a deed." /></h2>
-          </div>
-          <div className="dkl:col-span-5">
-            <p className="dc-body text-dc-mist">
-              Each deed is a dark survey plat inscribed as a child of the City Charter, the map that parents the whole
-              city. It draws the lot with its corners, its street, its tier and its stamp. It carries no owner data.
-            </p>
-            <p className="mt-4 inline-flex items-center gap-2 font-mono text-[11px] tracking-[0.16em] uppercase text-dc-snow">
-              <span aria-hidden className="h-[6px] w-[6px] bg-dc-lava" />
-              Specimens. Nothing has been inscribed yet.
-            </p>
-          </div>
-        </div>
+        <SectionHead n="02" label="ORDINALS ON BITCOIN L1 · CHILDREN OF THE CITY CHARTER" />
+        <h2 id="dc-deeds-h2" className="dc-h2 mt-4 text-dc-snow"><SplitLine text="Every lot becomes a deed." /></h2>
+        <p className="dc-lede mt-6">
+          Each deed is a dark survey plat inscribed as a child of the City Charter, the map that parents the whole
+          city. It draws the lot with its corners, its street, its tier and its stamp. It carries no owner data.
+        </p>
+        <p className="mt-5 inline-flex items-center gap-2 font-mono text-[11px] tracking-[0.16em] uppercase text-dc-snow">
+          <span aria-hidden className="h-[6px] w-[6px] bg-dc-lava" />
+          Specimens. Nothing has been inscribed yet.
+        </p>
       </Frame>
 
       {/* ── parte 1: a escada ── */}
@@ -431,8 +427,9 @@ export default function Deeds() {
         </Frame>
         <ul ref={rail} className="dc-rail pb-4" aria-label="The ladder of deeds, from the top">
           {ORDER.map((d) => {
-            const label = d.group !== lastGroup ? GROUP_LABEL[d.group] : null
-            lastGroup = d.group
+            const g = groupLabel(d)
+            const label = g !== lastGroup ? g : null
+            lastGroup = g
             return <DeedCard key={d.lotId} d={d} big={FEATURED.includes(d)} label={label} onOpen={setOpen} flash={flash === d.lotId} />
           })}
           <li aria-hidden className="w-[calc(var(--dc-gutter)-12px)] dk:w-[calc(var(--dc-gutter)-24px)]" />

@@ -15,6 +15,7 @@ const B = 971_900 // simulado
 test('sem dado do fundo: connecting, sem número, com a frase do estado A', () => {
   const s = countdownState({ raised: null, B: null, tip: 971_954 })
   assert.equal(s.kind, 'connecting')
+  assert.equal(s.label, 'THE DEED COUNTDOWN')
   assert.equal(s.number, null)
   assert.equal(s.rail.mode, 'connecting')
   assert.equal(s.h1, 'At 10,000,000 $DOG the mint clock starts. Every lot in DogCity becomes a deed on Bitcoin.')
@@ -44,14 +45,17 @@ test('B0: cheio sem B, ou B com menos de 6 confirmações', () => {
   const sem = countdownState({ raised: 10_000_250, B: null, tip: 971_954 })
   assert.equal(sem.kind, 'B0')
   assert.equal(sem.label, 'THE FUND IS FULL')
-  assert.equal(sem.number, '10,000,000')
-  assert.equal(sem.unit, '$DOG RAISED')
+  // o valor real arrecadado, não a meta
+  assert.equal(sem.number, '10,000,250')
+  assert.equal(sem.unit, '$DOG RAISED · GOAL REACHED')
   assert.equal(sem.secondary.label, 'See the calendar')
   assert.equal(sem.founderLine, false)
   const cinco = countdownState({ raised: 10_000_250, B, tip: B + 4 }) // 5 confirmações
   assert.equal(cinco.kind, 'B0')
   const semAltura = countdownState({ raised: null, B, tip: null })
   assert.equal(semAltura.kind, 'B0')
+  assert.equal(semAltura.number, null)
+  assert.equal(semAltura.unit, 'GOAL REACHED')
 })
 
 test('B: fechado até B+288, conta em blocos com "about" e o bloco absoluto', () => {
@@ -67,6 +71,7 @@ test('B: fechado até B+288, conta em blocos com "about" e o bloco absoluto', ()
   assert.ok(s.rail.mode === 'phases')
   if (s.rail.mode === 'phases') {
     assert.equal(s.rail.current, 0)
+    assert.equal(s.rail.readout, `BLOCK ${(B + 76).toLocaleString('en-US')}`)
     assert.ok(s.rail.fraction > 0 && s.rail.fraction < 0.2)
   }
   // borda: a 6ª confirmação já é B
@@ -119,8 +124,8 @@ test('F: Public a partir de B+4.032; preço sem contagem, contagem quando houver
   assert.equal(s.h1, 'Anyone mints any unclaimed lot for US$2, up to 10 lots per wallet every 144 blocks.')
   if (s.rail.mode === 'phases') assert.equal(s.rail.fraction, 1)
   const c = countdownState({ raised: null, B, tip: B + 9000, inscribed: 41_206 })
-  assert.equal(c.number, '41,206 / 70,714')
-  assert.equal(c.unit, 'DEEDS INSCRIBED')
+  assert.equal(c.number, '41,206')
+  assert.equal(c.unit, '/ 70,714 DEEDS INSCRIBED')
 })
 
 test('a fase é a mesma função do minter (bordas)', () => {

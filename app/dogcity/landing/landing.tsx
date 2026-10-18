@@ -15,13 +15,12 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import "./landing.css"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { ResumePill } from "@/components/resume-pill"
 import { MotionScope } from "./ui"
 import { Footer, Nav } from "./chrome"
 import { useCountdown, type FundData } from "./use-countdown"
-import Hero from "../sections/hero"
-import FindYourLot from "../sections/find-your-lot"
+import Opening, { type ChromeState } from "../sections/opening"
 import Deeds from "../sections/deeds"
 import TheCity from "../sections/the-city"
 import Calendar from "../sections/calendar"
@@ -43,19 +42,9 @@ export default function DogCityLanding({ initialFund = null }: { initialFund?: F
     try { sessionStorage.setItem(TITLE_KEY, "1") } catch { /* modo privado */ }
   }, [])
 
-  // a navegação vira faixa sólida depois do herói
-  const after = useRef<HTMLDivElement>(null)
-  const [solid, setSolid] = useState(false)
-  useEffect(() => {
-    const el = after.current
-    if (!el) return
-    const io = new IntersectionObserver((es) => {
-      const e = es[es.length - 1]
-      setSolid(!e.isIntersecting && e.boundingClientRect.top < 80)
-    }, { threshold: 0, rootMargin: "-72px 0px 0px 0px" })
-    io.observe(el)
-    return () => io.disconnect()
-  }, [])
+  // a navegação: o palco da abertura diz quando a pílula viva entra (depois do voo do
+  // trilho), quando a faixa fica sólida e quando a busca está na tela (sem CTA repetido)
+  const [chrome, setChrome] = useState<ChromeState>({ live: false, solid: false, quiet: false })
 
   // a raiz do site manda a primeira visita da sessão para cá; esta chave fecha o laço
   useEffect(() => {
@@ -78,11 +67,9 @@ export default function DogCityLanding({ initialFund = null }: { initialFund?: F
           <a href="#lookup" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[90] focus:bg-dc-lava focus:px-4 focus:py-2 focus:text-dc-void">
             Skip to Find your lot
           </a>
-          <Nav cd={cd} solid={solid} hideMark={false} />
+          <Nav cd={cd} live={chrome.live} solid={chrome.solid} quiet={chrome.quiet} />
           <main>
-            <Hero cd={cd} intro={intro} onIntroDone={introDone} />
-            <div ref={after} aria-hidden className="h-px" />
-            <FindYourLot cd={cd} />
+            <Opening cd={cd} intro={intro} onIntroDone={introDone} onChrome={setChrome} />
             <Deeds />
             <TheCity />
             <Calendar cd={cd} />

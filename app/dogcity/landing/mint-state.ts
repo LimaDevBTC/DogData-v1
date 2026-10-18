@@ -149,7 +149,7 @@ export interface CountdownState {
   rail:
     | { mode: "connecting" }
     | { mode: "fund"; fraction: number; readout: string; full: boolean }
-    | { mode: "phases"; fraction: number; current: number }
+    | { mode: "phases"; fraction: number; current: number; readout: string }
   /** rótulo para leitor de tela do número */
   aria: string
   /** leitura compacta para a navegação (desktop e celular) */
@@ -192,7 +192,7 @@ export function countdownState(input: CountdownInput): CountdownState {
     if (tip == null || conf == null || conf < B_CONFIRMATIONS) return stateB0(goal, raised, { ...base, calendar: cal }, B)
     const phase = phaseAt(tip, cal)
     const ruler = rulerFraction(phase, tip, cal, B)
-    const rail = { mode: "phases" as const, ...ruler }
+    const rail = { mode: "phases" as const, ...ruler, readout: `BLOCK ${fmtInt(tip)}` }
     const common = { ...base, calendar: cal, phase, rail, founderLine: false }
     if (phase === "CLOSED") {
       const left = cal.founderStart - tip
@@ -250,10 +250,12 @@ export function countdownState(input: CountdownInput): CountdownState {
     // PUBLIC
     const ins = input.inscribed
     const hasCount = typeof ins === "number" && Number.isFinite(ins) && ins >= 0
+    // a contagem fica sozinha no número; "/ 70,714" desce para a unidade (o número
+    // grande não pode carregar 15 caracteres)
     return {
       ...common, kind: "F", label: "PUBLIC MINT · OPEN",
-      number: hasCount ? `${fmtInt(ins as number)} / ${fmtInt(TOTAL_LOTS)}` : "US$2",
-      unit: hasCount ? "DEEDS INSCRIBED" : "A LOT",
+      number: hasCount ? fmtInt(ins as number) : "US$2",
+      unit: hasCount ? `/ ${fmtInt(TOTAL_LOTS)} DEEDS INSCRIBED` : "A LOT",
       sub: null,
       h1: "Anyone mints any unclaimed lot for US$2, up to 10 lots per wallet every 144 blocks.",
       primary: MINT_AT, secondary: FIND,
@@ -267,8 +269,9 @@ export function countdownState(input: CountdownInput): CountdownState {
   // ── B desconhecido ──
   if (raised == null || !Number.isFinite(raised)) {
     return {
+      // sem dado ainda: nada de "LIVE" (não há nada vivo para mostrar)
       ...base, kind: "connecting", phase: null,
-      label: "THE DEED COUNTDOWN · LIVE", number: null, unit: null, sub: null,
+      label: "THE DEED COUNTDOWN", number: null, unit: null, sub: null,
       h1: H1_A, primary: FIND, secondary: ENTER, founderLine: true,
       rail: { mode: "connecting" },
       aria: "Connecting to the construction fund",
@@ -297,17 +300,22 @@ export function countdownState(input: CountdownInput): CountdownState {
 }
 
 function stateB0(goal: number, raised: number | null, base: { calendar: Calendar | null; B: number | null; tip: number | null }, B: number | null): CountdownState {
+  // o número é o valor REAL arrecadado (que passa da meta), nunca a meta escrita como se
+  // fosse o arrecadado; sem o dado do fundo, só a unidade diz que a meta foi atingida
+  const real = raised != null && Number.isFinite(raised) ? Math.floor(raised) : null
   return {
     ...base, kind: "B0", phase: null,
     label: "THE FUND IS FULL",
-    number: fmtInt(goal), unit: "$DOG RAISED", sub: B != null ? `filled at block ${fmtInt(B)}` : null,
+    number: real != null ? fmtInt(real) : null,
+    unit: real != null ? "$DOG RAISED · GOAL REACHED" : "GOAL REACHED",
+    sub: B != null ? `filled at block ${fmtInt(B)}` : null,
     h1: "The construction fund is full. The mint calendar is set from the block that filled it.",
     primary: FIND, secondary: CALENDAR, founderLine: false,
     rail: {
       mode: "fund", fraction: 1, full: true,
       readout: `${fmtInt(Math.max(goal, Math.floor(raised ?? goal)))} / ${fmtInt(goal)} $DOG · 100.00%`,
     },
-    aria: `The construction fund is full: ${fmtInt(goal)} $DOG raised`,
+    aria: real != null ? `The construction fund is full: ${fmtInt(real)} $DOG raised, goal ${fmtInt(goal)}` : "The construction fund is full",
     nav: { desktop: "THE FUND IS FULL · FIND YOUR LOT", mobile: "FUND FULL", cta: "FIND MY LOT", href: "#lookup" },
   }
 }
