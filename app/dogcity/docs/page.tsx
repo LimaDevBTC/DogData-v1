@@ -1269,8 +1269,10 @@ export default function DogCityDocsPage() {
                 the median of Kraken, Coinbase and Bitstamp when the order is placed, and that amount
                 holds for 15 minutes. You prove your wallet with a signed message that moves no funds,
                 then pay one exact amount to an address that accepts only that deed, and the deed is
-                delivered to your ordinals address. If the network fee climbs above 50 sat/vB the mint
-                pauses by itself and resumes when it falls; the calendar keeps running. An order already
+                delivered to your ordinals address. That amount includes the network fee of your own
+                deed, at the fast rate of the moment plus 1 sat/vB, never below 2 sat/vB. If the network
+                fee climbs above 5 sat/vB the mint pauses by itself and resumes when it falls; the
+                calendar keeps running. An order already
                 paid when the mint pauses keeps its lot and waits up to 72 hours; if the fee has not
                 come down by then, it is refunded. Every refund goes back to the address that paid.
                 Orders for a phase close 6 blocks before the phase ends.
