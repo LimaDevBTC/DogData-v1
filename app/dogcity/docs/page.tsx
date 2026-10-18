@@ -176,7 +176,7 @@ function Signal({ title, children }: { title: string; children: React.ReactNode 
   )
 }
 
-// ── índice: seções 1 a 8 do documento ───────────────────────────────────────
+// ── índice: seções 1 a 9 do documento ───────────────────────────────────────
 const TOC = [
   { id: "what-is-dogcity", n: "1", label: "What DogCity is" },
   { id: "the-snapshot", n: "2", label: "The snapshot" },
@@ -185,7 +185,8 @@ const TOC = [
   { id: "financial-district", n: "5", label: "The Financial District" },
   { id: "founders-program", n: "6", label: "The Founders Program" },
   { id: "the-mint", n: "7", label: "How the mint works" },
-  { id: "not-yet", n: "8", label: "What this is not, yet" },
+  { id: "after-the-deed", n: "8", label: "After the deed" },
+  { id: "not-yet", n: "9", label: "What this is not, yet" },
 ]
 
 function Section({
@@ -1056,7 +1057,7 @@ export default function DogCityDocsPage() {
                   {
                     name: "Commercial",
                     threshold: "50,000 $DOG",
-                    text: "Adds an extended item pack (leisure ground, garden, lighting) and a lunar rover parked on the lot.",
+                    text: "Adds the commercial licence: a commercial building instead of a residence, on a lot that faces a wide street (section 8); an extended item pack (leisure ground, garden, lighting); and a lunar rover parked on the lot.",
                   },
                   {
                     name: "Patron",
@@ -1287,7 +1288,95 @@ export default function DogCityDocsPage() {
             </Section>
 
             {/* ═══════════════════════════ 8 ═══════════════════════════ */}
-            <Section id="not-yet" n="8" title="What this is not, yet">
+            <Section id="after-the-deed" n="8" title="After the deed: building and the living city">
+              <P>
+                Everything in sections 1 to 7 is about the land: who receives which lot, and the deed
+                that proves it. The city grows in three phases. This section says what is decided
+                about the next two and what is still being designed.
+              </P>
+              <BulletList
+                items={[
+                  {
+                    lead: "Phase 1, The Land.",
+                    text: "The deed of every lot, minted on the calendar of section 7. This is the phase the city is in now.",
+                  },
+                  {
+                    lead: "Phase 2, The Build.",
+                    text: "What rises on each lot. Building takes a licence, and the architecture follows the district.",
+                  },
+                  {
+                    lead: "Phase 3, The Living City.",
+                    text: "The city at work: commerce in the commercial buildings, items, events, games and partners, all in $DOG.",
+                  },
+                ]}
+              />
+
+              <Sub>Three licences</Sub>
+              <Table
+                head={["Licence", "$DOG", "What it builds"]}
+                rows={[
+                  ["Personal", "10,000", "A residence from the district catalogue"],
+                  ["Commercial", "50,000", "A commercial building from the district catalogue, or a residence, on a lot that faces a wide street"],
+                  ["Patron", "500,000", "A custom building designed outside the catalogue"],
+                ]}
+              />
+              <P>
+                A Founder at one of these rungs already holds that licence (section 6). Any other
+                wallet takes the same licence for the same amount of $DOG. How it is paid after the
+                mint, and where that $DOG goes, will be published here before building opens.
+              </P>
+
+              <Sub>One architecture per district, one model per lot size</Sub>
+              <P className="mt-3">
+                Every district keeps its own architectural language, so a street reads as one place.
+                Inside that language the catalogue has a model for each of five lot sizes, so a
+                120 m² lot and a 70,000 m² estate each get a building that fits it.
+              </P>
+              <Table
+                head={["Size", "Area", "Lots in the city"]}
+                rows={[
+                  ["S", "up to 300 m²", "25,468"],
+                  ["M", "300 to 1,200 m²", "37,960"],
+                  ["L", "1,200 to 5,000 m²", "6,441"],
+                  ["XL", "5,000 to 20,000 m²", "761"],
+                  ["XXL", "20,000 m² and up", "84"],
+                ]}
+              />
+              <P>
+                Personality lives in the items around a building, not in the building itself. The
+                Patron&apos;s custom building is the one exception (section 6).
+              </P>
+
+              <Sub>Where commercial buildings rise</Sub>
+              <P className="mt-3">
+                Commerce sits on the wide streets, homes on the lanes. A commercial building can rise
+                only on a lot whose front road is a ring (R1 to R27), the Spit avenue AN7, the bay road
+                SHORE, a quay (QUAY) or a lake road (LK1, LK2), about 20,700 lots. The lanes inside the
+                blocks, coded L, stay residential. Every deed prints its front road, so anyone can check
+                which lots qualify.
+              </P>
+
+              <Sub>Still being designed</Sub>
+              <BulletList
+                items={[
+                  {
+                    lead: "What a building is on chain.",
+                    text: "Whether a building is inscribed as a child of the deed, permanent and verifiable by anyone, or kept as state in the game tied to the deed's owner.",
+                  },
+                  {
+                    lead: "The licence after the mint.",
+                    text: "How a licence is paid by a wallet that is not a Founder, and where that $DOG goes.",
+                  },
+                  {
+                    lead: "The Living City.",
+                    text: "What a commercial building does (storefront, item shop, advertising, a community's home), whether space can be rented between players, and how $DOG moves through the city. What does not change: no new token, no staking, no yield, everything in $DOG.",
+                  },
+                ]}
+              />
+            </Section>
+
+            {/* ═══════════════════════════ 9 ═══════════════════════════ */}
+            <Section id="not-yet" n="9" title="What this is not, yet">
               <BulletList
                 items={[
                   {
