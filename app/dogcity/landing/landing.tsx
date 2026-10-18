@@ -36,16 +36,10 @@ export default function DogCityLanding({ initialFund = null }: { initialFund?: F
   // Quem decide é o script pré-hidratação de ../layout.tsx (marca <html
   // data-dc-intro>), para o wordmark da navegação já nascer oculto e nada
   // piscar. Aqui só se lê a marca.
+  // (o cartão em si é CSS ancorado na primeira pintura; ver ../sections/hero.tsx)
   const [intro, setIntro] = useState(false)
-  const [markHidden, setMarkHidden] = useState(false)
-  useEffect(() => {
-    const on = document.documentElement.hasAttribute("data-dc-intro")
-    setIntro(on)
-    setMarkHidden(on)
-  }, [])
+  useEffect(() => { setIntro(document.documentElement.hasAttribute("data-dc-intro")) }, [])
   const introDone = useCallback(() => {
-    setMarkHidden(false)
-    document.documentElement.removeAttribute("data-dc-intro")
     try { sessionStorage.setItem(TITLE_KEY, "1") } catch { /* modo privado */ }
   }, [])
 
@@ -84,7 +78,7 @@ export default function DogCityLanding({ initialFund = null }: { initialFund?: F
           <a href="#lookup" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[90] focus:bg-dc-lava focus:px-4 focus:py-2 focus:text-dc-void">
             Skip to Find your lot
           </a>
-          <Nav cd={cd} solid={solid} hideMark={markHidden} />
+          <Nav cd={cd} solid={solid} hideMark={false} />
           <main>
             <Hero cd={cd} intro={intro} onIntroDone={introDone} />
             <div ref={after} aria-hidden className="h-px" />

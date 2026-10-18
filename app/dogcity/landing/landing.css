@@ -212,9 +212,72 @@ html:has([data-dogcity-landing][data-motion="off"]) { scroll-behavior: auto; }
   html:has([data-dogcity-landing]) { scroll-behavior: auto; }
 }
 
-/* ── o cartão de título (primeira visita da sessão): o script pré-hidratação de
-   app/dogcity/layout.tsx marca <html data-dc-intro>; daí o wordmark da navegação
-   e o trilho já nascem ocultos e o cartão os revela ── */
-html[data-dc-intro] #dc-nav-mark { opacity: 0; }
-html[data-dc-intro] .dc-rail-draw { clip-path: inset(-8px 100% -8px 0); }
-html[data-dc-intro] .dc-hero-number:not(.dc-num-go) { opacity: 0; }
+/* ── o trilho do herói: posicionado pela variável --dc-f (0 a 1), certo já no HTML ── */
+.dc-rail-shroud { transform: scaleX(calc(1 - var(--dc-f, 0))); transition: transform 900ms var(--dc-ease); }
+.dc-rail-move { transform: translateX(calc(var(--dc-f, 0) * 100%)); transition: transform 900ms var(--dc-ease); pointer-events: none; }
+.dc-rail-readout { transform: translateX(calc(var(--dc-f, 0) * -100%)); transition: transform 900ms var(--dc-ease); }
+[data-dogcity-landing][data-motion="off"] .dc-rail-shroud,
+[data-dogcity-landing][data-motion="off"] .dc-rail-move,
+[data-dogcity-landing][data-motion="off"] .dc-rail-readout { transition: none; }
+
+/* ── o cartão de título (primeira visita da sessão), TODO em CSS ──
+   O script pré-hidratação de app/dogcity/layout.tsx marca <html data-dc-intro> antes da
+   primeira pintura; o relógio destes keyframes é essa pintura, não a hidratação. Sem a
+   marca nada disto existe; tirar a marca (o JS faz isso a qualquer toque) = estado final.
+     0 a 500 ms     o ponto laranja acende como pino (a Satoshi Plaza)
+     500 a 1.400    o wordmark se revela do ponto para fora
+     1.200 a 2.200  o trilho se desenha; o número entra (o odômetro, se o JS chegou a tempo)
+     1.750 a 2.850  o trilho enche até a porcentagem
+     1.900 a 2.600  o wordmark voa para o lugar dele na navegação (só transform) */
+.dc-tc { display: none; }
+html[data-dc-intro] .dc-tc { display: flex; animation: dc-tc-out 140ms linear 2.55s both; }
+@keyframes dc-tc-out { to { opacity: 0; visibility: hidden; } }
+.dc-tc-mark { clip-path: inset(0 51.38% 0 48.62%); }
+html[data-dc-intro] .dc-tc-mark {
+  animation: dc-tc-reveal 900ms var(--dc-ease) 500ms both, dc-tc-fly-m 700ms var(--dc-ease-pin) 1900ms both;
+}
+@keyframes dc-tc-reveal { from { clip-path: inset(0 51.38% 0 48.62%); } to { clip-path: inset(0 0 0 0); } }
+/* celular: encolhe e some na direção do D· (o wordmark não cabe a 32 px) */
+@keyframes dc-tc-fly-m {
+  from { transform: none; opacity: 1; }
+  to { transform: translate(calc(var(--dc-gutter) + 16px - 50vw), calc(28px - 0.26 * max(100svh, 600px))) scale(0.1); opacity: 0; }
+}
+/* desktop: o wordmark de 640 px vira o de 212 px no canto esquerdo da navegação */
+@media (min-width: 1024px) {
+  html[data-dc-intro] .dc-tc-mark {
+    animation: dc-tc-reveal 900ms var(--dc-ease) 500ms both, dc-tc-fly-d 700ms var(--dc-ease-pin) 1900ms both;
+  }
+  html[data-dc-intro] .dc-tc { --dc-tc-left: calc(max(0px, (100vw - 1360px - 2 * var(--dc-gutter)) / 2) + var(--dc-gutter)); }
+}
+@keyframes dc-tc-fly-d {
+  from { transform: none; }
+  to { transform: translate(calc(var(--dc-tc-left) + 106px - 50vw), calc(36px - 0.21 * max(100svh, 640px))) scale(0.33125); }
+}
+.dc-tc-dot, .dc-tc-ring { opacity: 0; }
+html[data-dc-intro] .dc-tc-dot { animation: dc-tc-dot-in 380ms var(--dc-ease) both, dc-tc-dot-out 200ms linear 900ms forwards; }
+@keyframes dc-tc-dot-in { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes dc-tc-dot-out { from { opacity: 1; } to { opacity: 0; } }
+html[data-dc-intro] .dc-tc-ring { animation: dc-tc-ring 900ms var(--dc-ease) 80ms both; }
+@keyframes dc-tc-ring { from { transform: scale(1); opacity: 0.9; } to { transform: scale(5); opacity: 0; } }
+
+/* o wordmark (ou o D·) da navegação aparece quando o do cartão chega */
+html[data-dc-intro] #dc-nav-mark { animation: dc-nav-mark-in 160ms linear 2.5s both; }
+@keyframes dc-nav-mark-in { from { opacity: 0; } to { opacity: 1; } }
+/* o trilho se desenha da esquerda para a direita e enche até a porcentagem */
+html[data-dc-intro] .dc-rail-draw { animation: dc-rail-draw 1000ms var(--dc-ease) 1.2s both; }
+@keyframes dc-rail-draw { from { clip-path: inset(-8px 100% -8px 0); } to { clip-path: inset(-8px 0 -8px 0); } }
+html[data-dc-intro] .dc-rail-shroud { animation: dc-rail-shroud-in 1100ms var(--dc-ease) 1.75s both; }
+@keyframes dc-rail-shroud-in { from { transform: scaleX(1); } }
+html[data-dc-intro] .dc-rail-move { animation: dc-rail-move-in 1100ms var(--dc-ease) 1.75s both; }
+/* a leitura entra com o desenho do trilho, não antes dele */
+html[data-dc-intro] .dc-rail-readout { animation: dc-rail-move-in 1100ms var(--dc-ease) 1.75s both, dc-readout-in 300ms linear 1.2s both; }
+@keyframes dc-readout-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dc-rail-move-in { from { transform: translateX(0); } }
+/* o número só entra quando começa a rolar: "10,000,000 $DOG TO GO" parado seria falso.
+   Entra por MÁSCARA (sobe de trás de uma borda), não por opacidade: opacidade 0 tira o
+   elemento da conta do LCP e o Chrome só o registrava no fim da animação (2,9 s) */
+html[data-dc-intro] .dc-hero-number { animation: dc-num-in 550ms var(--dc-ease) 1.2s both; }
+@keyframes dc-num-in {
+  from { clip-path: inset(110% -4% -4% -4%); transform: translate3d(0, 14px, 0); }
+  to { clip-path: inset(-4% -4% -4% -4%); transform: none; }
+}

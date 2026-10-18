@@ -17,7 +17,7 @@
 // manifesto: quando o filme existir, ele entra sozinho.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react"
 import { Btn, Odometer, TextLink, WORDMARK_DOT, WORDMARK_RATIO, WORDMARK_SRC, useReduced } from "../landing/ui"
 import { HERO_FILM, POSTER } from "../landing/media"
 import { FUND_GOAL, RULER, type CountdownState } from "../landing/mint-state"
@@ -157,89 +157,40 @@ function Film({ reduced }: { reduced: boolean }) {
 
 // ═══ o trilho (fundo ou régua das fases) ═══════════════════════════════════
 // UM valor move cabeça, mortalha e leitura (a mecânica de construction-fund.tsx),
-// só transform. A largura é medida por ResizeObserver num ref, nunca estado.
-function Rail({ cd, intro, reduced }: { cd: CountdownState; intro: boolean; reduced: boolean }) {
-  const wrap = useRef<HTMLDivElement>(null)
-  const shroud = useRef<HTMLDivElement>(null)
-  const curtain = useRef<HTMLDivElement>(null)
-  const head = useRef<HTMLDivElement>(null)
-  const readout = useRef<HTMLDivElement>(null)
-  const width = useRef(0)
-  const shown = useRef(0)
+// só transform. O valor é a variável CSS --dc-f (0 a 1) na raiz do trilho, então o
+// trilho sai CERTO já no HTML do servidor, sem medir pixel nenhum: a mortalha escala
+// por calc(1 - f), a cabeça anda f * 100% da largura e a leitura recua f * 100% da
+// própria largura (encostada à esquerda no começo, à direita no fim, nunca fora).
+// Na primeira visita o desenho e o enchimento são keyframes de CSS sob
+// html[data-dc-intro] (landing.css), ancorados na primeira pintura, não na hidratação.
+function Rail({ cd, reduced }: { cd: CountdownState; reduced: boolean }) {
+  const f = cd.rail.mode === "connecting" ? 0 : cd.rail.fraction
+  const last = useRef<number | null>(null)
   const [pulse, setPulse] = useState(0)
-
-  const target = cd.rail.mode === "connecting" ? 0 : cd.rail.fraction
-
-  const apply = useCallback((f: number) => {
-    shown.current = f
-    const w = width.current
-    if (shroud.current) shroud.current.style.transform = `scaleX(${1 - f})`
-    if (head.current) head.current.style.transform = `translateX(${f * w}px)`
-    if (readout.current) {
-      const rw = readout.current.offsetWidth
-      const x = Math.max(0, Math.min(w - rw, f * w - rw / 2))
-      readout.current.style.transform = `translateX(${x}px)`
-    }
-  }, [])
-
   useEffect(() => {
-    const el = wrap.current
-    if (!el) return
-    const ro = new ResizeObserver(() => { width.current = el.clientWidth; apply(shown.current) })
-    ro.observe(el)
-    width.current = el.clientWidth
-    return () => ro.disconnect()
-  }, [apply])
-
-  // o desenho: o trilho se revela da esquerda para a direita (1.000 ms, a partir de
-  // 1.200). Na primeira visita ele já nasce recortado pelo CSS (html[data-dc-intro]
-  // .dc-rail-draw), então nada pisca entre a primeira pintura e a hidratação.
-  const drewRef = useRef(false)
-  useEffect(() => {
-    const c = curtain.current
-    if (!c || drewRef.current || !intro || reduced) return
-    drewRef.current = true
-    c.animate([{ clipPath: "inset(-8px 100% -8px 0)" }, { clipPath: "inset(-8px 0% -8px 0)" }], {
-      duration: 1000, delay: 1200, easing: "cubic-bezier(0.16,1,0.3,1)", fill: "forwards",
-    })
-  }, [intro, reduced])
-
-  useEffect(() => {
-    if (reduced) { apply(target); return }
-    const from = shown.current
-    if (Math.abs(from - target) < 1e-6) { apply(target); return }
-    const first = from === 0 && intro
-    const delay = first ? 1750 : 0
-    const dur = first ? 1100 : 900
-    let raf = 0, t0 = 0
-    const tick = (t: number) => {
-      if (!t0) t0 = t + delay
-      const k = Math.max(0, Math.min(1, (t - t0) / dur))
-      const e = 1 - Math.pow(1 - k, 4)
-      apply(from + (target - from) * e)
-      if (k < 1) raf = requestAnimationFrame(tick)
-      else if (from > 0) setPulse((p) => p + 1)   // o número mudou: a cabeça dá um pulso
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [target, intro, reduced, apply])
+    // o número mudou ao vivo: a cabeça dá um pulso (o sv-ping de construction-fund.tsx)
+    if (last.current != null && Math.abs(last.current - f) > 1e-6) setPulse((p) => p + 1)
+    last.current = f
+  }, [f])
 
   const phases = cd.rail.mode === "phases"
   const full = cd.rail.mode === "fund" && cd.rail.full
   return (
     <div className="absolute inset-x-0 bottom-0 z-[3] pb-[max(14px,env(safe-area-inset-bottom))]">
       <div className="mx-auto max-w-[calc(1360px+2*var(--dc-gutter))] px-[var(--dc-gutter)]">
-        <div ref={wrap} className="relative">
+        <div className="relative" style={{ "--dc-f": String(f) } as CSSProperties}>
           {/* leitura presa à cabeça */}
           <div className="relative h-5 mb-1.5">
-            <div ref={readout} className="absolute left-0 top-0 whitespace-nowrap font-mono text-[11px] dk:text-[12px] tracking-[0.08em] text-dc-snow dc-halo tabular-nums">
-              {cd.rail.mode === "connecting" && <span className="text-dc-mist">connecting</span>}
-              {cd.rail.mode === "fund" && cd.rail.readout}
-              {cd.rail.mode === "phases" && <span className="text-dc-lava">{RULER[cd.rail.current]?.label}</span>}
+            <div className="dc-rail-move absolute inset-x-0 top-0">
+              <div className="dc-rail-readout inline-block whitespace-nowrap font-mono text-[11px] dk:text-[12px] tracking-[0.08em] text-dc-snow dc-halo tabular-nums">
+                {cd.rail.mode === "connecting" && <span className="text-dc-mist">connecting</span>}
+                {cd.rail.mode === "fund" && cd.rail.readout}
+                {cd.rail.mode === "phases" && <span className="text-dc-lava">{RULER[cd.rail.current]?.label}</span>}
+              </div>
             </div>
           </div>
-          {/* graduação + trilho de 3 px (o `curtain` é o recorte do desenho) */}
-          <div ref={curtain} className="dc-rail-draw relative h-[13px]">
+          {/* graduação + trilho de 3 px (.dc-rail-draw: o recorte do desenho) */}
+          <div className="dc-rail-draw relative h-[13px]">
             <div className="dc-ruler absolute inset-x-0 top-0 h-[9px] opacity-80" />
             {phases && (
               <div aria-hidden className="absolute inset-0 flex">
@@ -250,10 +201,10 @@ function Rail({ cd, intro, reduced }: { cd: CountdownState; intro: boolean; redu
             )}
             <div className="absolute inset-x-0 bottom-0 h-[3px] bg-dc-snow/[0.16]" />
             <div className="absolute inset-x-0 bottom-0 h-[3px] bg-gradient-to-r from-[#B4501C] via-dc-lava to-dc-hot" />
-            {/* mortalha: cobre o que ainda não encheu (escala da direita) */}
-            <div ref={shroud} className="absolute inset-x-0 bottom-0 h-[3px] origin-right bg-[#2a2620]" style={{ transform: "scaleX(1)" }} />
+            {/* mortalha: cobre o que ainda não encheu (escala a partir da direita) */}
+            <div className="dc-rail-shroud absolute inset-x-0 bottom-0 h-[3px] origin-right bg-[#2a2620]" />
             {/* a cabeça */}
-            <div ref={head} className="absolute bottom-0 left-0 h-[13px] w-px">
+            <div className="dc-rail-move absolute inset-0">
               <span className="absolute bottom-0 left-0 h-[13px] w-px bg-dc-hot" />
               <span className="absolute -left-[3px] bottom-[-2px] h-[7px] w-[7px] bg-dc-hot" />
               {!reduced && (full || pulse > 0) && (
@@ -277,105 +228,26 @@ function Rail({ cd, intro, reduced }: { cd: CountdownState; intro: boolean; redu
 }
 
 // ═══ o cartão de título (só na primeira visita da sessão) ══════════════════
-// 0 a 500 ms o ponto laranja acende como pino; 500 a 1.400 o wordmark se revela
-// do ponto para fora; segura até 1.900; 1.900 a 2.600 voa para a navegação
-// (FLIP, só transform). Qualquer rolagem, toque ou tecla pula para o fim.
-function TitleCard({ onDone }: { onDone: () => void }) {
-  const box = useRef<HTMLDivElement>(null)
-  const mark = useRef<HTMLImageElement>(null)
-  const dot = useRef<HTMLSpanElement>(null)
-  const ring = useRef<HTMLSpanElement>(null)
-  const done = useRef(false)
-  // ⚠️ o efeito do cartão roda UMA vez: o herói re-renderiza quando o dado chega,
-  // e um `onDone` novo a cada render reiniciava o cartão do zero
-  const onDoneRef = useRef(onDone)
-  onDoneRef.current = onDone
-
-  const finish = useCallback((fast: boolean) => {
-    if (done.current) return
-    done.current = true
-    const onDone = () => onDoneRef.current()
-    const b = box.current
-    if (!b) { onDone(); return }
-    if (fast) {
-      b.getAnimations({ subtree: true }).forEach((a) => a.cancel())
-      b.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: "forwards" }).onfinish = onDone
-      return
-    }
-    // FLIP até o lugar do wordmark (desktop) ou do D· (celular) na navegação
-    const target = document.getElementById("dc-nav-mark")?.getBoundingClientRect()
-    const r = mark.current?.getBoundingClientRect()
-    if (!target || !r || !mark.current) { onDone(); return }
-    const desk = window.matchMedia("(min-width: 1024px)").matches
-    const tw = desk ? target.width : target.height * WORDMARK_RATIO
-    const s = tw / r.width
-    const dx = target.left + (desk ? tw / 2 : target.width / 2) - (r.left + r.width / 2)
-    const dy = target.top + target.height / 2 - (r.top + r.height / 2)
-    const a = mark.current.animate(
-      [{ transform: "translate(0,0) scale(1)", opacity: 1 }, { transform: `translate(${dx}px,${dy}px) scale(${s})`, opacity: desk ? 1 : 0 }],
-      { duration: 700, easing: "cubic-bezier(0.65,0,0.35,1)", fill: "forwards" },
-    )
-    a.onfinish = () => {
-      onDone()
-      b.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120, fill: "forwards" })
-    }
-  }, [])
-
-  useEffect(() => {
-    const m = mark.current, d = dot.current, g = ring.current
-    if (!m || !d || !g) return
-    const ease = "cubic-bezier(0.16,1,0.3,1)"
-    d.animate([{ transform: "scale(0)", opacity: 0 }, { transform: "scale(1)", opacity: 1 }], { duration: 380, easing: ease, fill: "forwards" })
-    g.animate([{ transform: "scale(1)", opacity: 0.9 }, { transform: "scale(5)", opacity: 0 }], { duration: 900, delay: 80, easing: ease, fill: "forwards" })
-    const l = WORDMARK_DOT.x * 100
-    m.animate(
-      [{ clipPath: `inset(0 ${100 - l}% 0 ${l}%)`, opacity: 1 }, { clipPath: "inset(0 0% 0 0%)", opacity: 1 }],
-      { duration: 900, delay: 500, easing: ease, fill: "forwards" },
-    )
-    d.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, delay: 900, fill: "forwards" })
-    const t = setTimeout(() => finish(false), 1900)
-    const skip = () => finish(true)
-    const opts = { passive: true, once: true } as AddEventListenerOptions
-    window.addEventListener("wheel", skip, opts)
-    window.addEventListener("touchstart", skip, opts)
-    window.addEventListener("keydown", skip, { once: true })
-    window.addEventListener("pointerdown", skip, opts)
-    return () => {
-      clearTimeout(t)
-      window.removeEventListener("wheel", skip)
-      window.removeEventListener("touchstart", skip)
-      window.removeEventListener("keydown", skip)
-      window.removeEventListener("pointerdown", skip)
-    }
-  }, [finish])
-
+// 0 a 500 ms o ponto laranja acende como pino (a Satoshi Plaza); 500 a 1.400 o
+// wordmark se revela do ponto para fora; segura até 1.900; 1.900 a 2.600 voa para o
+// lugar dele na navegação (só transform). TUDO em keyframes de CSS sob
+// html[data-dc-intro] (landing.css): o relógio é a primeira pintura, não a
+// hidratação do React (que no 4G chega perto de 4 s e atrasava o cartão inteiro).
+// Sem a marca em <html> o cartão nem existe (display none). Pular = tirar a marca.
+function TitleCard() {
+  const at = { left: `${WORDMARK_DOT.x * 100}%`, top: `${WORDMARK_DOT.y * 100}%`, width: `${WORDMARK_DOT.r * 200}%` }
   return (
-    <div ref={box} aria-hidden className="pointer-events-none absolute inset-x-0 top-[26%] dk:top-[21%] z-[4] flex -translate-y-1/2 justify-center">
+    <div aria-hidden className="dc-tc pointer-events-none absolute inset-x-0 top-[26%] dk:top-[21%] z-[4] -translate-y-1/2 justify-center">
       <div className="relative w-[min(78vw,640px)]" style={{ aspectRatio: `${WORDMARK_RATIO}` }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          ref={mark}
           src={WORDMARK_SRC}
           alt=""
-          className="absolute inset-0 h-full w-full"
-          style={{ clipPath: `inset(0 ${100 - WORDMARK_DOT.x * 100}% 0 ${WORDMARK_DOT.x * 100}%)`, filter: "drop-shadow(0 2px 18px rgba(13,12,9,0.7))" }}
+          className="dc-tc-mark absolute inset-0 h-full w-full"
+          style={{ filter: "drop-shadow(0 2px 18px rgba(13,12,9,0.7))" }}
         />
-        <span
-          ref={dot}
-          className="absolute rounded-full bg-dc-lava"
-          style={{
-            left: `${WORDMARK_DOT.x * 100}%`, top: `${WORDMARK_DOT.y * 100}%`,
-            width: `${WORDMARK_DOT.r * 200}%`, aspectRatio: "1", translate: "-50% -50%", opacity: 0,
-          }}
-        />
-        <span
-          ref={ring}
-          className="absolute rounded-full border border-dc-lava"
-          style={{
-            left: `${WORDMARK_DOT.x * 100}%`, top: `${WORDMARK_DOT.y * 100}%`,
-            width: `${WORDMARK_DOT.r * 200}%`, aspectRatio: "1", translate: "-50% -50%", opacity: 0,
-          }}
-        />
+        <span className="dc-tc-dot absolute rounded-full bg-dc-lava" style={{ ...at, aspectRatio: "1", translate: "-50% -50%" }} />
+        <span className="dc-tc-ring absolute rounded-full border border-dc-lava" style={{ ...at, aspectRatio: "1", translate: "-50% -50%" }} />
       </div>
     </div>
   )
@@ -386,26 +258,40 @@ export default function Hero({
   cd, intro, onIntroDone,
 }: { cd: CountdownState; intro: boolean; onIntroDone: () => void }) {
   const reduced = useReduced()
-  // `go`: o odômetro do cartão de título começou (1.200 ms). Até lá, na primeira
-  // visita, o CSS esconde o número desde a primeira pintura (html[data-dc-intro]
-  // .dc-hero-number:not(.dc-num-go)): o número vem no HTML (page.tsx) e não pode
-  // piscar, nem ficar parado em "10,000,000 $DOG TO GO", que seria falso.
-  const [go, setGo] = useState(false)
-  const [cardOn, setCardOn] = useState(false)
-
-  // o cartão de título liga quando a raiz confirma a primeira visita (a marca
-  // <html data-dc-intro> do script pré-hidratação)
+  // O cartão, o trilho e a entrada do número são CSS (ancorados na primeira pintura).
+  // O JS só acrescenta o que CSS não faz: o odômetro de 10,000,000 até o que falta e
+  // o scramble do rótulo, e SÓ se a página hidratou a tempo (antes de 1,1 s); senão o
+  // número entra pelo CSS já no valor final. Qualquer rolagem, toque ou tecla pula o
+  // cartão (tira a marca de <html>, e tudo vai para o estado final).
+  const [roll, setRoll] = useState(false)
+  const [early, setEarly] = useState<number | null>(null)
   useEffect(() => {
-    if (!intro || reduced) {
-      if (intro) onIntroDone()   // marcado mas parado: solta o wordmark e o trilho na hora
-      return
+    if (!intro) return
+    const html = document.documentElement
+    const end = () => { html.removeAttribute("data-dc-intro"); onIntroDone() }
+    if (reduced) { end(); return }
+    const now = performance.now()
+    let tRoll: ReturnType<typeof setTimeout> | undefined
+    if (now < 1100) {
+      setEarly(Math.max(0, 1200 - now))
+      tRoll = setTimeout(() => setRoll(true), Math.max(0, 1200 - now))
     }
-    setCardOn(true)
-    const t = setTimeout(() => setGo(true), 1200)
-    return () => clearTimeout(t)
+    const tEnd = setTimeout(end, Math.max(0, 2800 - now))
+    const skip = () => { clearTimeout(tEnd); end() }
+    const opts = { passive: true, once: true } as AddEventListenerOptions
+    window.addEventListener("wheel", skip, opts)
+    window.addEventListener("touchstart", skip, opts)
+    window.addEventListener("keydown", skip, { once: true })
+    window.addEventListener("pointerdown", skip, opts)
+    return () => {
+      clearTimeout(tRoll); clearTimeout(tEnd)
+      window.removeEventListener("wheel", skip)
+      window.removeEventListener("touchstart", skip)
+      window.removeEventListener("keydown", skip)
+      window.removeEventListener("pointerdown", skip)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [intro, reduced])
-  const rolling = intro && !reduced
 
   const live = useRef<string>("")
   const [announce, setAnnounce] = useState("")
@@ -444,7 +330,7 @@ export default function Hero({
       <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-[45%] bg-gradient-to-t from-dc-deep/[0.55] via-dc-deep/[0.3] to-transparent" />
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-dc-deep/[0.5] to-transparent" />
 
-      {cardOn && <TitleCard onDone={() => { setCardOn(false); onIntroDone() }} />}
+      <TitleCard />
 
       {/* ── o bloco do contador (o visor): canto inferior esquerdo ── */}
       {/* o contêiner é da largura da tela e não pode engolir o toque da pausa do filme:
@@ -453,24 +339,20 @@ export default function Hero({
         <div className="mx-auto max-w-[calc(1360px+2*var(--dc-gutter))] px-[var(--dc-gutter)]">
           <div id="build" className="pointer-events-auto max-w-[min(100%,780px)] dc-halo scroll-mt-24">
             <p className="dc-label text-dc-lava">
-              {intro && !reduced
-                ? <ScrambleLater text={cd.label} delay={1200} />
-                : cd.label}
+              {early != null ? <ScrambleLater text={cd.label} delay={early} /> : cd.label}
             </p>
 
             {/* a linha do número e a da unidade existem sempre (invisíveis sem dado):
                 o bloco é ancorado embaixo, então nada pula quando o fundo responde (CLS) */}
             <p
-              className={`dc-hero-number mt-2 dk:mt-3 font-cond font-semibold leading-[0.84] text-dc-snow transition-opacity duration-300 ${go ? "dc-num-go" : ""} ${cd.number != null ? "opacity-100" : "opacity-0"}`}
+              className={`dc-hero-number mt-2 dk:mt-3 font-cond font-semibold leading-[0.84] text-dc-snow ${cd.number != null ? "opacity-100" : "opacity-0"}`}
               aria-hidden
             >
               <span className="block text-[88px] dk:text-[clamp(96px,15vw,224px)] tracking-[-0.01em]">
                 {cd.number == null
                   ? <span className="invisible">0</span>
                   : isNum
-                    ? (rolling && !go
-                        ? <span className="invisible">{cd.number}</span>
-                        : <Odometer text={cd.number} from={rolling && cd.kind === "A" ? FUND_GOAL : undefined} duration={1400} />)
+                    ? <Odometer key={roll ? "roll" : "still"} text={cd.number} from={roll && cd.kind === "A" ? FUND_GOAL : undefined} duration={1400} />
                     : cd.number}
               </span>
             </p>
@@ -502,7 +384,7 @@ export default function Hero({
         </div>
       </div>
 
-      <Rail cd={cd} intro={intro} reduced={reduced} />
+      <Rail cd={cd} reduced={reduced} />
 
       <p className="sr-only" aria-live="polite">{announce}</p>
     </section>

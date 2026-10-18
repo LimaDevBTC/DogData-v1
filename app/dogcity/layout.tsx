@@ -9,7 +9,7 @@ import { OG_URL, OG_ALT, OG_IMAGE } from '@/lib/og'
 // `font-cond` do Tailwind. Barlow e JetBrains Mono já vêm da raiz.
 const barlowCondensed = Barlow_Condensed({
   subsets: ['latin'],
-  weight: ['500', '600', '700'],
+  weight: ['600', '700'],
   variable: '--font-cond',
   display: 'swap',
 })
@@ -130,6 +130,7 @@ try {
       && localStorage.getItem('dogcity-motion') !== 'off'
       && !(localStorage.getItem('dogcity-motion') !== 'on' && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
     document.documentElement.setAttribute('data-dc-intro', '1');
+    sessionStorage.setItem('dc-title-card', '1');  // uma vez por sessão, mesmo se o JS não chegar
   }
 } catch (e) { /* armazenamento bloqueado: sem cartão, estado final direto */ }
 `
