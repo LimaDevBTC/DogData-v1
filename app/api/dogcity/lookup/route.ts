@@ -22,7 +22,7 @@ import {
 //     data/dogcity_cemiterio.csv): lot_id, setor, forma, coordenada, cota. É
 //     quem responde a POSIÇÃO. Nunca banco: a cidade está fechada e selada
 //     (29/09/2026: o registro do Mundo, scripts/city/registro_do_mundo.py, merkle
-//     b8b79435…1904, com a posição das lápides; 17/10/2026: bc3bd0ae…4a64, a área do registro passa a ser a nominal do jogo (a do DID); 13/10/2026: 39e645c1…a776, 19 lotes da beira do LAGO02 realocados; 12/10/2026: b067b8d2…8ef0, as sobras junto da água
+//     b8b79435…1904, com a posição das lápides; 18/10/2026: e6ca60e0…1a5e, o mapa final (23 quadras redesenhadas, 126 lotes com cantos novos; mesmo dono, tier e área); 17/10/2026: bc3bd0ae…4a64, a área do registro passa a ser a nominal do jogo (a do DID); 13/10/2026: 39e645c1…a776, 19 lotes da beira do LAGO02 realocados; 12/10/2026: b067b8d2…8ef0, as sobras junto da água
 //     viraram bônus de 192 lotes) e o CSV que ela lê é o mesmo que o root sela.
 //
 // ⚠️ A POSIÇÃO ERA PROIBIDA AQUI ATÉ 22/09 (masterplan §3.12, §14: "só entra o
