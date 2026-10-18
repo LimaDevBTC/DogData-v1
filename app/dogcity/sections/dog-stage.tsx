@@ -5,9 +5,19 @@
 // quebra em runtime neste repo. Este arquivo só entra por next/dynamic com
 // ssr: false, e só quando a seção The city chega a 600 px da tela.
 //
-// O GLB é o do jogo (cachorro.glb, 2,6 MB, meshopt + KTX2, feito para three r186),
-// carregado aqui no three 0.162 com KTX2Loader (transcodificador basis servido do
-// próprio site, public/basis, o mesmo da versão do three) e o MeshoptDecoder.
+// O GLB é a VARIANTE WEB do $DOG do jogo (dog-web.glb, 918 KB): o mesmo rig e os
+// mesmos 9 clipes (blender/personagens/dog/rig/montado_4k_agachar.glb), pelos mesmos
+// passos do `boneco.sh comprimir`, mas com as texturas em WebP 1024 em vez de KTX2.
+//
+// ⚠️ POR QUE NÃO O cachorro.glb DO JOGO (KTX2). Ele CARREGA no three 0.162 com o
+// KTX2Loader e o MeshoptDecoder (testado em 18/10, no dev), mas em PRODUÇÃO a CSP
+// do /dogcity (middleware.ts, sem 'unsafe-eval') derruba o transcodificador basis:
+// ele é Emscripten com embind, que cria funções por `new Function`, e o worker que
+// o KTX2Loader sobe de um blob: herda a CSP da página. Erro exato, medido no build
+// de produção: "EvalError: Refused to evaluate a string as JavaScript because
+// 'unsafe-eval' is not an allowed source of script ... at new Function ... at
+// createNamedFunction (blob:...)". Abrir 'unsafe-eval' na página do fundo de doação
+// não vale; WebP não precisa de worker nem de eval, e o arquivo caiu de 2,6 MB.
 //
 // O chão é diegético: um disco escuro com a grade de agrimensura da escritura e
 // o contorno de um lote em fio lava, os anéis da cidade sumindo na borda. Luz:
@@ -20,12 +30,11 @@
 import { useEffect, useRef, useState } from "react"
 import * as THREE from "three"
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js"
-import { KTX2Loader } from "three/examples/jsm/loaders/KTX2Loader.js"
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js"
 
 export const CLIPS = ["Idle", "Walk", "Run", "Jump", "Swim"] as const
 export type Clip = (typeof CLIPS)[number]
-const GLB = "/landing/v3/dog/cachorro.glb"
+const GLB = "/landing/v3/dog/dog-web.glb"
 const AZ_LIMIT = (70 * Math.PI) / 180
 
 export interface StageHandle { setClip: (c: Clip) => void; rotate: (rad: number) => void }
@@ -239,12 +248,14 @@ export default function DogStage({
       frame()
     }
 
+    let swimK = 0   // 0 em pé, 1 nadando: a câmera desce e chega perto do corpo deitado
     const frameCamera = () => {
-      // enquadra o $DOG inteiro com folga, olhando um pouco de cima
+      // em pé: o $DOG inteiro com folga, olhando um pouco de cima
       const h = height
       const dist = (h * 1.32) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) / Math.min(1, camera.aspect * 1.25)
-      camera.position.set(0, h * 0.78, dist)
-      camera.lookAt(0, h * 0.5, 0)
+      const k = swimK
+      camera.position.set(0, THREE.MathUtils.lerp(h * 0.78, h * 0.62, k), THREE.MathUtils.lerp(dist, dist * 0.78, k))
+      camera.lookAt(0, THREE.MathUtils.lerp(h * 0.5, h * 0.12, k), 0)
     }
 
     const render = () => renderer.render(scene, camera)
@@ -281,8 +292,11 @@ export default function DogStage({
       waterMat.opacity += (wantWater - waterMat.opacity) * Math.min(1, dt * 4)
       gridMat.opacity += ((swim ? 0 : 1) - gridMat.opacity) * Math.min(1, dt * 4)
       swimT += dt
-      water.position.y = swim ? swimDepth + Math.sin(swimT * 1.6) * 0.008 : 0.004
-      dog.position.y += ((swim ? -swimDepth * 0.15 : 0) - dog.position.y) * Math.min(1, dt * 4)
+      swimK += ((swim ? 1 : 0) - swimK) * Math.min(1, dt * 3)
+      // o clipe Swim deita o corpo rente ao chão: a linha d'água corta o corpo ali,
+      // e o $DOG sobe um pouco para o dorso ficar acima dela
+      water.position.y = swim ? swimDepth + Math.sin(swimT * 1.6) * 0.006 : 0.004
+      dog.position.y += ((swim ? swimDepth * 0.55 : 0) - dog.position.y) * Math.min(1, dt * 4)
       frame()
       raf = requestAnimationFrame(loop)
     }
@@ -313,9 +327,8 @@ export default function DogStage({
       rotate: (rad) => { targetYaw = THREE.MathUtils.clamp(targetYaw + rad, -AZ_LIMIT, AZ_LIMIT); kick() },
     }
 
-    // ── a carga: KTX2 (basis do próprio site) + meshopt ──
-    const ktx2 = new KTX2Loader().setTranscoderPath("/basis/").detectSupport(renderer)
-    const loader = new GLTFLoader().setKTX2Loader(ktx2).setMeshoptDecoder(MeshoptDecoder)
+    // ── a carga: meshopt (wasm, coberto por 'wasm-unsafe-eval') + texturas WebP ──
+    const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder)
     loader.load(
       GLB,
       (gltf) => {
@@ -337,7 +350,7 @@ export default function DogStage({
         root.scale.setScalar(k)
         root.position.set(-center.x * k, -box.min.y * k, -center.z * k)
         height = size.y * k
-        swimDepth = height * 0.42
+        swimDepth = height * 0.07
         dog.add(root)
         mixer = new THREE.AnimationMixer(root)
         mixer.addEventListener("finished", () => { if (clipRef.current === "Jump") setClip("Idle", false) })
@@ -407,7 +420,6 @@ export default function DogStage({
       el.removeEventListener("pointermove", onMove)
       el.removeEventListener("pointerup", onUp)
       el.removeEventListener("pointercancel", onUp)
-      ktx2.dispose()
       scene.traverse((o) => {
         const m = o as THREE.Mesh
         if (m.geometry) m.geometry.dispose()

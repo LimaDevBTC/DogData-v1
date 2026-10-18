@@ -14,7 +14,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useEffect, useRef, useState } from "react"
-import { setMotionPref } from "../motion"
+import { setMotionPref } from "../motion-pref"
 import { Btn, FaviconMark, TextLink, Wordmark, WORDMARK_RATIO, useReduced } from "./ui"
 import type { CountdownState } from "./mint-state"
 import { CITY_URL, MINT_HOST, MINT_URL } from "./mint-state"

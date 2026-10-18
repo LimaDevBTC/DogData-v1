@@ -9,7 +9,7 @@
 // SNAPSHOT_PROOF (dogcity-data.ts) e de ATLAS_LOTS.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { Reveal, SplitLine } from "../motion"
+import { Reveal, SplitLine } from "../landing/reveal"
 import { Btn, Frame, Plate, SheetNo, useCopy } from "../landing/ui"
 import { ATLAS_LOTS, ATLAS_PDF_MB, ATLAS_PLATES } from "../atlas/atlas-data"
 import { SNAPSHOT_PROOF } from "../dogcity-data"

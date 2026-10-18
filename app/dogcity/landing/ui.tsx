@@ -11,7 +11,7 @@ import {
   createContext, useCallback, useContext, useEffect, useRef, useState,
   type AnchorHTMLAttributes, type ReactNode,
 } from "react"
-import { useMotionReduced } from "../motion"
+import { useMotionReduced } from "../motion-pref"
 
 // ── o estado de movimento da página, num lugar só ───────────────────────────
 // `reduced` junta o interruptor "Motion" e o prefers-reduced-motion (motion.tsx).

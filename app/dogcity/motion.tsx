@@ -20,11 +20,12 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import {
-  createElement, useEffect, useRef, useState, useCallback, useSyncExternalStore,
+  createElement, useEffect, useRef, useState, useCallback,
   type ReactNode, type CSSProperties, type ElementType,
 } from "react"
+import { useMotionReduced } from "./motion-pref"
 import {
-  motion, animate, useInView, useReducedMotion,
+  motion, animate, useInView,
   useMotionValue, useMotionValueEvent, type MotionValue,
 } from "framer-motion"
 
@@ -34,48 +35,10 @@ export const EASE_CSS = "cubic-bezier(0.16, 1, 0.3, 1)"
 export const DUR = { fast: 0.4, base: 0.7, slow: 1.1 } as const
 
 // ── a preferência "Motion: on / off" (landing v3, brief §8) ────────────────
-// O interruptor do menu e do rodapé da landing (roubado do VI) guarda a escolha
-// em localStorage. Sem escolha, vale o `prefers-reduced-motion` do sistema.
-// Todo primitivo deste arquivo lê `useMotionReduced()` em vez do
-// `useReducedMotion()` cru do framer, então desligar o movimento na landing
-// desliga também cada Reveal, Counter e Scramble, e o resto do site só muda se
-// a pessoa escolheu.
-const MOTION_KEY = "dogcity-motion"
-type MotionPref = "on" | "off" | null
-let motionPref: MotionPref | undefined
-const motionSubs = new Set<() => void>()
-
-function readMotionPref(): MotionPref {
-  if (motionPref !== undefined) return motionPref
-  try {
-    const v = window.localStorage.getItem(MOTION_KEY)
-    motionPref = v === "on" || v === "off" ? v : null
-  } catch {
-    motionPref = null
-  }
-  return motionPref
-}
-
-export function setMotionPref(v: "on" | "off") {
-  motionPref = v
-  try { window.localStorage.setItem(MOTION_KEY, v) } catch { /* modo privado: vale só nesta aba */ }
-  motionSubs.forEach((fn) => fn())
-}
-
-export function useMotionPref(): MotionPref {
-  return useSyncExternalStore(
-    (fn) => { motionSubs.add(fn); return () => { motionSubs.delete(fn) } },
-    readMotionPref,
-    () => null,
-  )
-}
-
-/** true quando a página deve ficar parada: escolha da pessoa, ou o sistema */
-export function useMotionReduced(): boolean {
-  const os = useReducedMotion()
-  const pref = useMotionPref()
-  return pref ? pref === "off" : !!os
-}
+// Mora em ./motion-pref.ts (sem framer, porque a landing não carrega o framer);
+// todo primitivo deste arquivo lê `useMotionReduced()` de lá, então desligar o
+// movimento na landing desliga também cada Reveal, Counter e Scramble daqui.
+export { setMotionPref, useMotionPref, useMotionReduced } from "./motion-pref"
 
 // ── hairline constants (see the Tailwind note above) ───────────────────────
 export const HAIR = "border-white/10"             // standard cell/card border

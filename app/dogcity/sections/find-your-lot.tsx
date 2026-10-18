@@ -19,7 +19,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
-import { SplitLine } from "../motion"
+import { SplitLine } from "../landing/reveal"
 import { DataRow, Frame, Plate, SheetNo, TextLink, areaDeed, dogExact, useReduced } from "../landing/ui"
 import { EXAMPLE_DEED, MAP, T8, deedForTier, metersToMap, type Deed } from "../landing/media"
 import { CITY_URL, MINT_URL, type CountdownState } from "../landing/mint-state"

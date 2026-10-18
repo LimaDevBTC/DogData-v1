@@ -17,7 +17,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Reveal, SplitLine } from "../motion"
+import { Reveal, SplitLine } from "../landing/reveal"
 import { Btn, Frame, Plate, SheetNo, areaDeed, useReduced } from "../landing/ui"
 import { DEED_PARTS, DEED_RATIO, EXAMPLE_DEED, FEATURED, LADDER_REST, type Deed, type DeedGroup } from "../landing/media"
 

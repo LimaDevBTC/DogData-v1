@@ -16,7 +16,7 @@
 
 import dynamic from "next/dynamic"
 import { useEffect, useRef, useState } from "react"
-import { Reveal, SplitLine } from "../motion"
+import { Reveal, SplitLine } from "../landing/reveal"
 import { Btn, Frame, SheetNo, useNear, useReduced } from "../landing/ui"
 import { MAP, VIDEO, metersToMap } from "../landing/media"
 import { CITY_URL } from "../landing/mint-state"

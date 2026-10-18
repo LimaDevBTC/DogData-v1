@@ -8,7 +8,7 @@
 // fica antes do primeiro segmento, sobre a palavra "B".
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { Reveal, SplitLine } from "../motion"
+import { Reveal, SplitLine } from "../landing/reveal"
 import { Frame, Plate, SheetNo, TextLink } from "../landing/ui"
 import { MINT_HOST, calendarRows, fmtInt, type CountdownState } from "../landing/mint-state"
 
