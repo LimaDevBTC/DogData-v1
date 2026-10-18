@@ -154,8 +154,10 @@ const nextConfig = {
       ...HEADERS_DO_JOGO,
     ]
   },
-  experimental: {
-    outputFileTracingIncludes: {
+  // ⚠️ 18/10/2026 (landing v3): estas duas chaves moravam em `experimental`, e o Next 15
+  // avisava "Unrecognized key(s) ... at experimental": o rastreio podia ignorar os arquivos
+  // listados. A chave atual é no nível de cima.
+  outputFileTracingIncludes: {
       '/api/address/bitcoin/[address]': [
         './data/dog_holders_by_address.json',
         './data/forensic_behavioral_analysis.json',
@@ -181,6 +183,12 @@ const nextConfig = {
       // lib/city/escrituras.ts cai para a URL publica se o fs nao achar).
       '/api/dogcity/lookup': [
         './public/city/escrituras.bin',
+        './data/dogcity_lot_info.json',
+      ],
+      // landing v3: o lote por id (exemplo da busca), sem endereço
+      '/api/dogcity/lot': [
+        './public/city/escrituras.bin',
+        './data/dogcity_lot_info.json',
       ],
       // o /profile le o mesmo registro selado (LIGAR.md FS3); sem isto a funcao
       // cai no plano B do leitor e baixa os 3 MiB pela URL a cada instancia fria
@@ -203,7 +211,6 @@ const nextConfig = {
         './mcp-server/**',
         './sdk/**',
       ],
-    },
   },
 }
 
