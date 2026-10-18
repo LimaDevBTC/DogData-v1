@@ -1316,7 +1316,7 @@ export default function DogCityDocsPage() {
                 head={["Licence", "$DOG", "What it builds"]}
                 rows={[
                   ["Personal", "10,000", "A residence from the district catalogue"],
-                  ["Commercial", "50,000", "A commercial building from the district catalogue, where its owner opens a business in the city, on a lot that faces a wide street (or a residence)"],
+                  ["Commercial", "50,000", "A commercial building for a business of its own, on a lot facing a wide street, or a residence"],
                   ["Patron", "500,000", "A custom building designed outside the catalogue"],
                 ]}
               />
