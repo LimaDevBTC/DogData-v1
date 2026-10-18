@@ -19,7 +19,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { ResumePill } from "@/components/resume-pill"
 import { MotionScope } from "./ui"
 import { Footer, Nav } from "./chrome"
-import { useCountdown } from "./use-countdown"
+import { useCountdown, type FundData } from "./use-countdown"
 import Hero from "../sections/hero"
 import FindYourLot from "../sections/find-your-lot"
 import Deeds from "../sections/deeds"
@@ -29,8 +29,8 @@ import DocsAtlas from "../sections/docs-atlas"
 
 const TITLE_KEY = "dc-title-card"
 
-export default function DogCityLanding() {
-  const cd = useCountdown()
+export default function DogCityLanding({ initialFund = null }: { initialFund?: FundData | null }) {
+  const cd = useCountdown(initialFund)
 
   // ── o cartão de título: só na primeira visita da sessão ──
   // Quem decide é o script pré-hidratação de ../layout.tsx (marca <html

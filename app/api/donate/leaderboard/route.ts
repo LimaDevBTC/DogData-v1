@@ -55,7 +55,12 @@ export async function GET(req: NextRequest) {
   }
 }
 
-async function handler(_req: NextRequest) {
+async function handler(req: NextRequest) {
+  // ?slim=1 (landing v3, 18/10/2026): o contador do herói da /dogcity só precisa do
+  // total e da meta. O cálculo é o mesmo; a resposta cai de ~50 KB para ~120 bytes e
+  // ganha entrada própria no cache da CDN. No desktop o número grande do contador é o
+  // maior texto da tela: chegar cedo é o que fecha o LCP.
+  const slim = req.nextUrl.searchParams.get('slim') === '1'
   try {
     // Fetch ALL txs that involve the donation wallet, paginated (no row cap).
     // Stable order (block, id) so pages never skip or repeat a row.
@@ -84,6 +89,18 @@ async function handler(_req: NextRequest) {
     const recent = ledger.recent
 
     const foundersCount = founders.length
+
+    if (slim) {
+      return NextResponse.json(
+        {
+          goal: DOG_GOAL,
+          total_received: totalReceived,
+          progress_pct: Math.min((totalReceived / DOG_GOAL) * 100, 100),
+          last_updated: new Date().toISOString(),
+        },
+        { headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=60' } }
+      )
+    }
 
     return NextResponse.json(
       {

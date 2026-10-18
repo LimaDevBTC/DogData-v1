@@ -23,6 +23,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import type { Metadata } from "next"
+import { headers } from "next/headers"
 import { preload } from "react-dom"
 import { OG_URL } from "@/lib/og"
 import DogCityLanding from "./landing/landing"
@@ -84,11 +85,44 @@ export const metadata: Metadata = {
   },
 }
 
-export default function DogCityPage() {
-  // o pôster é o LCP: pré-carga por proporção (retrato pega o recorte em pé)
-  // (`media` existe no preload do React que o Next 15 embute; os tipos do react-dom 18 ainda não o declaram)
-  type Pre = Parameters<typeof preload>[1]
-  preload(POSTER.mobile.avif, { as: "image", type: "image/avif", fetchPriority: "high", media: "(max-aspect-ratio: 1/1)" } as Pre)
-  preload(POSTER.desktop.avif, { as: "image", type: "image/avif", fetchPriority: "high", media: "(min-aspect-ratio: 1/1)" } as Pre)
-  return <DogCityLanding />
+// O total do fundo JÁ NO HTML. No desktop o número grande do contador é o maior texto da
+// tela (o Chrome não aceita o pôster de tela cheia como candidato a LCP: medido em 18/10,
+// nem sem JS), então ele precisa pintar cedo. A página pede a própria rota (?slim=1,
+// cache de 120 s na CDN), com teto de 800 ms: estourou ou falhou, o HTML sai sem número
+// e o cliente busca como sempre. Nunca número de exemplo.
+async function fundoInicial(): Promise<{ raised: number; goal: number } | null> {
+  try {
+    const h = await headers()
+    const host = h.get("x-forwarded-host") ?? h.get("host")
+    if (!host) return null
+    const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https")
+    const r = await fetch(`${proto}://${host}/api/donate/leaderboard?slim=1`, {
+      signal: AbortSignal.timeout(800),
+      next: { revalidate: 60 },
+    })
+    if (!r.ok) return null
+    const j = await r.json()
+    if (typeof j?.total_received !== "number" || !Number.isFinite(j.total_received)) return null
+    return { raised: j.total_received, goal: typeof j.goal === "number" && j.goal > 0 ? j.goal : 10_000_000 }
+  } catch {
+    return null
+  }
+}
+
+export default async function DogCityPage() {
+  const fund = await fundoInicial()
+  // o fundo do contador: o navegador busca o JSON (que sai do cache da CDN) em paralelo com o
+  // JS, e o fetch de ./landing/use-countdown.ts reaproveita a resposta. No desktop o número
+  // grande é o maior texto da tela: quanto antes ele chega, mais cedo fecha o LCP.
+  preload("/api/donate/leaderboard?slim=1", { as: "fetch", crossOrigin: "anonymous" })
+  return (
+    <>
+      {/* o pôster é o LCP: pré-carga por proporção (retrato pega o recorte em pé). <link>
+          explícito porque o preload() do React descarta imagem com `media`; o React 19
+          iça estas tags para o <head> */}
+      <link rel="preload" as="image" type="image/avif" href={POSTER.mobile.avif} media="(max-aspect-ratio: 1/1)" fetchPriority="high" />
+      <link rel="preload" as="image" type="image/avif" href={POSTER.desktop.avif} media="(min-aspect-ratio: 1/1)" fetchPriority="high" />
+      <DogCityLanding initialFund={fund} />
+    </>
+  )
 }

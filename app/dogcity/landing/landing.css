@@ -217,3 +217,4 @@ html:has([data-dogcity-landing][data-motion="off"]) { scroll-behavior: auto; }
    e o trilho já nascem ocultos e o cartão os revela ── */
 html[data-dc-intro] #dc-nav-mark { opacity: 0; }
 html[data-dc-intro] .dc-rail-draw { clip-path: inset(-8px 100% -8px 0); }
+html[data-dc-intro] .dc-hero-number:not(.dc-num-go) { opacity: 0; }

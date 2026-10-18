@@ -1,6 +1,6 @@
 "use client"
 
-// O contador vivo: junta o fundo (/api/donate/leaderboard, a cada 60 s), a
+// O contador vivo: junta o fundo (/api/donate/leaderboard?slim=1, a cada 60 s), a
 // altura do Bitcoin (o feed único de ../use-mempool.ts) e o bloco B (variável
 // pública NEXT_PUBLIC_DOGCITY_MINT_B, vazia até o fundo encher) e entrega o
 // estado da máquina pura de ./mint-state.ts. Uma fonte para o herói, o botão
@@ -20,8 +20,9 @@ const FUND_POLL_MS = 60_000
 
 export interface FundData { raised: number; goal: number }
 
-function useFund(): FundData | null {
-  const [fund, setFund] = useState<FundData | null>(null)
+function useFund(initial: FundData | null): FundData | null {
+  // o primeiro valor vem do servidor (page.tsx), para o número já estar no HTML
+  const [fund, setFund] = useState<FundData | null>(initial)
   useEffect(() => {
     let alive = true
     let timer: ReturnType<typeof setTimeout> | null = null
@@ -29,7 +30,7 @@ function useFund(): FundData | null {
       if (document.visibilityState === "visible") {
         try {
           // ⚠️ r.ok E a forma são obrigatórios (incidente de 26/08: 503 com { error })
-          const r = await fetch("/api/donate/leaderboard", { signal: AbortSignal.timeout(10_000) })
+          const r = await fetch("/api/donate/leaderboard?slim=1", { signal: AbortSignal.timeout(10_000) })
           const j = r.ok ? await r.json() : null
           if (alive && j && typeof j.total_received === "number" && Number.isFinite(j.total_received)) {
             setFund({ raised: j.total_received, goal: typeof j.goal === "number" && j.goal > 0 ? j.goal : FUND_GOAL })
@@ -65,8 +66,8 @@ function simulated(): CountdownInput | null {
   return map[k] ?? null
 }
 
-export function useCountdown(): CountdownState {
-  const fund = useFund()
+export function useCountdown(initialFund: FundData | null = null): CountdownState {
+  const fund = useFund(initialFund)
   const { feed } = useMempoolFeed()
   const tip = feed?.snapshot?.tip_height ?? null
   const [sim, setSim] = useState<CountdownInput | null>(null)

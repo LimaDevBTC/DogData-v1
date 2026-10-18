@@ -386,24 +386,26 @@ export default function Hero({
   cd, intro, onIntroDone,
 }: { cd: CountdownState; intro: boolean; onIntroDone: () => void }) {
   const reduced = useReduced()
-  const [numberOn, setNumberOn] = useState(true)
+  // `go`: o odômetro do cartão de título começou (1.200 ms). Até lá, na primeira
+  // visita, o CSS esconde o número desde a primeira pintura (html[data-dc-intro]
+  // .dc-hero-number:not(.dc-num-go)): o número vem no HTML (page.tsx) e não pode
+  // piscar, nem ficar parado em "10,000,000 $DOG TO GO", que seria falso.
+  const [go, setGo] = useState(false)
   const [cardOn, setCardOn] = useState(false)
 
   // o cartão de título liga quando a raiz confirma a primeira visita (a marca
-  // <html data-dc-intro> do script pré-hidratação). O número só aparece quando
-  // começa a rolar (1.200 ms): "10,000,000 $DOG TO GO" parado seria falso.
+  // <html data-dc-intro> do script pré-hidratação)
   useEffect(() => {
     if (!intro || reduced) {
-      setNumberOn(true)
       if (intro) onIntroDone()   // marcado mas parado: solta o wordmark e o trilho na hora
       return
     }
     setCardOn(true)
-    setNumberOn(false)
-    const t = setTimeout(() => setNumberOn(true), 1200)
+    const t = setTimeout(() => setGo(true), 1200)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [intro, reduced])
+  const rolling = intro && !reduced
 
   const live = useRef<string>("")
   const [announce, setAnnounce] = useState("")
@@ -457,7 +459,7 @@ export default function Hero({
             {/* a linha do número e a da unidade existem sempre (invisíveis sem dado):
                 o bloco é ancorado embaixo, então nada pula quando o fundo responde (CLS) */}
             <p
-              className={`mt-2 dk:mt-3 font-cond font-semibold leading-[0.84] text-dc-snow transition-opacity duration-300 ${numberOn && cd.number != null ? "opacity-100" : "opacity-0"}`}
+              className={`dc-hero-number mt-2 dk:mt-3 font-cond font-semibold leading-[0.84] text-dc-snow transition-opacity duration-300 ${go ? "dc-num-go" : ""} ${cd.number != null ? "opacity-100" : "opacity-0"}`}
               aria-label={cd.number != null ? cd.aria : undefined}
               aria-hidden={cd.number == null}
               role="text"
@@ -466,7 +468,9 @@ export default function Hero({
                 {cd.number == null
                   ? <span className="invisible">0</span>
                   : isNum
-                    ? (numberOn ? <Odometer text={cd.number} from={intro && cd.kind === "A" ? FUND_GOAL : undefined} duration={1400} /> : <span className="invisible">{cd.number}</span>)
+                    ? (rolling && !go
+                        ? <span className="invisible">{cd.number}</span>
+                        : <Odometer text={cd.number} from={rolling && cd.kind === "A" ? FUND_GOAL : undefined} duration={1400} />)
                     : cd.number}
               </span>
             </p>
