@@ -1177,7 +1177,7 @@ export default function DogCityDocsPage() {
                 phase close 6 blocks before the phase ends.
               </P>
               <P>
-                The only place to mint is the page linked from dogdata.xyz. A mint anywhere else is a
+                The only place to mint is mint.dogcity.space. A mint anywhere else is a
                 scam, and no one from the project will ever ask for a seed phrase or a signature that
                 moves funds.
               </P>
