@@ -20,6 +20,7 @@ import {
   PlotGrid, RankRows, STATUS, SectionHead, ShareBar, StatTile,
 } from "@/components/plot/kit"
 import type { Dossier, HolderRow } from "./types"
+import { TIERS } from "@/lib/airdrop-tiers"
 
 // ── formatters (en-US; the shared kit formats pt-BR) ───────────────────────
 export const n0 = (n: number) => Math.round(n).toLocaleString("en-US")
@@ -32,22 +33,9 @@ export const compact = (n: number) =>
   : n0(n)
 export const btc = (sats: number) => `${(sats / 1e8).toFixed(4)} BTC`
 export const shortAddr = (a: string) => `${a.slice(0, 8)}…${a.slice(-6)}`
-// as chaves do banco sao estaveis por contrato de API; o rotulo e livre.
-// dog_legend mostra "DOG Supporter" por decisao de produto.
-export const BEHAVIOR_LABEL: Record<string, string> = {
-  satoshi_visionary: "Satoshi Visionary",
-  btc_maximalist: "BTC Maximalist",
-  rune_master: "Rune Master",
-  ordinal_believer: "Ordinal Believer",
-  dog_legend: "DOG Supporter",
-  diamond_paws: "Diamond Paws",
-  hodl_hero: "Hodl Hero",
-  steady_holder: "Steady Holder",
-  profit_taker: "Profit Taker",
-  early_exit: "Early Exit",
-  panic_seller: "Panic Seller",
-  paper_hands: "Paper Hands",
-}
+// as chaves do banco sao estaveis por contrato de API; o rotulo mora numa fonte unica (`lib/airdrop-tiers.ts`):
+// dog_legend mostra "DOG Supporter" por decisao de produto. A copia que morava aqui dizia "Hodl Hero".
+export const BEHAVIOR_LABEL: Record<string, string> = Object.fromEntries(TIERS.map((t) => [t.key, t.label]))
 export const behaviorLabel = (k: string) => BEHAVIOR_LABEL[k] ?? k.replace(/_/g, " ")
 
 export const monthLabel = (m: string) => {
