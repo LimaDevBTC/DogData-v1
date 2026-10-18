@@ -1,6 +1,18 @@
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
+import { Barlow_Condensed } from 'next/font/google'
 import { OG_URL, OG_ALT, OG_IMAGE } from '@/lib/og'
+
+// A CONDENSADA DA LANDING v3 (brief §7.2): títulos e o número grande do contador.
+// Entra AQUI e não em app/layout.tsx, que está congelado por skip-worktree (edição lá
+// não chega em produção). Só a variável CSS sai deste layout; quem usa é a classe
+// `font-cond` do Tailwind. Barlow e JetBrains Mono já vêm da raiz.
+const barlowCondensed = Barlow_Condensed({
+  subsets: ['latin'],
+  weight: ['500', '600', '700'],
+  variable: '--font-cond',
+  display: 'swap',
+})
 
 // The landing itself is a client component, so it cannot export metadata.
 // This layout carries it.
@@ -69,8 +81,12 @@ export const metadata: Metadata = {
 // milhares de pixels adentro, passando do herói inteiro. Numa landing isso não
 // é uma inconveniência, é o visitante nunca ver a primeira frase.
 //
-// O `#âncora` explícito continua valendo: chegar em /dogcity#build é pedido, não
+// O `#âncora` explícito continua valendo: chegar em /dogcity#deeds é pedido, não
 // posição restaurada. Por isso a guarda de hash aqui e no efeito.
+//
+// ⚠️ 18/10/2026 (landing v3): #build TAMBÉM É TOPO. O 308 de /donate e o "Donate"
+// da navegação do site apontam para /dogcity#build, e o id agora mora no bloco do
+// contador, DENTRO do herói. Topo é exatamente onde ele está.
 //
 // ⚠️ #snapshot E #lookup SÃO EXCEÇÃO, E A EXCEÇÃO É O CAMINHO MAIS IMPORTANTE
 // DA PÁGINA. O anúncio de 04/09 publicou /dogcity#snapshot para uma audiência
@@ -92,7 +108,7 @@ export const metadata: Metadata = {
 const TOPO_ANTES_DA_HIDRATACAO = `
 try {
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-  var noTopo = function () { return !location.hash || location.hash === '#snapshot' || location.hash === '#lookup'; };
+  var noTopo = function () { return !location.hash || location.hash === '#snapshot' || location.hash === '#lookup' || location.hash === '#build'; };
   if (noTopo()) {
     window.scrollTo(0, 0);
     // a carga ainda vai mexer no layout (fontes, imagens, o scrub do herói):
@@ -105,6 +121,17 @@ try {
     }, { once: true });
   }
 } catch (e) { /* navegador que proíbe: o efeito em page.tsx ainda tenta */ }
+// LANDING v3 (18/10/2026): o cartão de título do herói roda só na primeira visita
+// da sessão, sem âncora e com movimento ligado. A marca em <html> sai ANTES da
+// primeira pintura, para o wordmark da navegação e o trilho já nascerem ocultos.
+try {
+  if ((location.pathname === '/dogcity' || location.pathname === '/dogcity/') && !location.hash
+      && !sessionStorage.getItem('dc-title-card')
+      && localStorage.getItem('dogcity-motion') !== 'off'
+      && !(localStorage.getItem('dogcity-motion') !== 'on' && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+    document.documentElement.setAttribute('data-dc-intro', '1');
+  }
+} catch (e) { /* armazenamento bloqueado: sem cartão, estado final direto */ }
 `
 
 export default async function DogCityLayout({ children }: { children: React.ReactNode }) {
@@ -112,9 +139,9 @@ export default async function DogCityLayout({ children }: { children: React.Reac
   // em script inline nosso não: sem isto a CSP bloqueia este bloco e a página não hidrata.
   const nonce = (await headers()).get('x-nonce') ?? undefined
   return (
-    <>
+    <div className={barlowCondensed.variable}>
       <script nonce={nonce} dangerouslySetInnerHTML={{ __html: TOPO_ANTES_DA_HIDRATACAO }} />
       {children}
-    </>
+    </div>
   )
 }

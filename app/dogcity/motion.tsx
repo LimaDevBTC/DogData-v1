@@ -20,7 +20,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import {
-  createElement, useEffect, useRef, useState, useCallback,
+  createElement, useEffect, useRef, useState, useCallback, useSyncExternalStore,
   type ReactNode, type CSSProperties, type ElementType,
 } from "react"
 import {
@@ -32,6 +32,50 @@ import {
 export const EASE = [0.16, 1, 0.3, 1] as const   // matches globals.css
 export const EASE_CSS = "cubic-bezier(0.16, 1, 0.3, 1)"
 export const DUR = { fast: 0.4, base: 0.7, slow: 1.1 } as const
+
+// ── a preferência "Motion: on / off" (landing v3, brief §8) ────────────────
+// O interruptor do menu e do rodapé da landing (roubado do VI) guarda a escolha
+// em localStorage. Sem escolha, vale o `prefers-reduced-motion` do sistema.
+// Todo primitivo deste arquivo lê `useMotionReduced()` em vez do
+// `useReducedMotion()` cru do framer, então desligar o movimento na landing
+// desliga também cada Reveal, Counter e Scramble, e o resto do site só muda se
+// a pessoa escolheu.
+const MOTION_KEY = "dogcity-motion"
+type MotionPref = "on" | "off" | null
+let motionPref: MotionPref | undefined
+const motionSubs = new Set<() => void>()
+
+function readMotionPref(): MotionPref {
+  if (motionPref !== undefined) return motionPref
+  try {
+    const v = window.localStorage.getItem(MOTION_KEY)
+    motionPref = v === "on" || v === "off" ? v : null
+  } catch {
+    motionPref = null
+  }
+  return motionPref
+}
+
+export function setMotionPref(v: "on" | "off") {
+  motionPref = v
+  try { window.localStorage.setItem(MOTION_KEY, v) } catch { /* modo privado: vale só nesta aba */ }
+  motionSubs.forEach((fn) => fn())
+}
+
+export function useMotionPref(): MotionPref {
+  return useSyncExternalStore(
+    (fn) => { motionSubs.add(fn); return () => { motionSubs.delete(fn) } },
+    readMotionPref,
+    () => null,
+  )
+}
+
+/** true quando a página deve ficar parada: escolha da pessoa, ou o sistema */
+export function useMotionReduced(): boolean {
+  const os = useReducedMotion()
+  const pref = useMotionPref()
+  return pref ? pref === "off" : !!os
+}
 
 // ── hairline constants (see the Tailwind note above) ───────────────────────
 export const HAIR = "border-white/10"             // standard cell/card border
@@ -60,7 +104,7 @@ export function Reveal({
   className?: string
   as?: "div" | "section" | "li" | "span"
 }) {
-  const reduce = useReducedMotion()
+  const reduce = useMotionReduced()
   const { ref, inView } = useOnce()
   const M = motion[as] as typeof motion.div
 
@@ -94,7 +138,7 @@ export function Stagger({
   style?: CSSProperties
   as?: "div" | "ul" | "ol" | "dl"
 }) {
-  const reduce = useReducedMotion()
+  const reduce = useMotionReduced()
   const { ref, inView } = useOnce()
   const M = motion[as] as typeof motion.div
 
@@ -127,7 +171,7 @@ export function StaggerItem({
   style?: CSSProperties
   as?: "div" | "li"
 }) {
-  const reduce = useReducedMotion()
+  const reduce = useMotionReduced()
   const M = motion[as] as typeof motion.div
   if (reduce) return createElement(as as ElementType, { className, style }, children)
   return <M className={className} style={style} variants={staggerItem}>{children}</M>
@@ -147,7 +191,7 @@ export function SplitLine({
   step?: number
   once?: boolean
 }) {
-  const reduce = useReducedMotion()
+  const reduce = useMotionReduced()
   const ref = useRef<HTMLSpanElement>(null)
   const inView = useInView(ref, { once, margin: "-10% 0px" as never })
   const words = text.split(" ")
@@ -181,7 +225,7 @@ const GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/\\#*·+="
 export function Scramble({
   text, className, speed = 34,
 }: { text: string; className?: string; speed?: number }) {
-  const reduce = useReducedMotion()
+  const reduce = useMotionReduced()
   const ref = useRef<HTMLSpanElement>(null)
   const { ref: gate, inView } = useOnce("-5% 0px")
 
@@ -237,7 +281,7 @@ export function Counter({
   duration?: number
   delay?: number
 }) {
-  const reduce = useReducedMotion()
+  const reduce = useMotionReduced()
   const out = useRef<HTMLSpanElement>(null)
   const { ref: gate, inView } = useOnce("-5% 0px")
   const mv = useMotionValue(0)
@@ -278,7 +322,7 @@ export function Counter({
 export function DrawRule({
   className = "", delay = 0, duration = 1.0, color = "bg-lava",
 }: { className?: string; delay?: number; duration?: number; color?: string }) {
-  const reduce = useReducedMotion()
+  const reduce = useMotionReduced()
   const { ref, inView } = useOnce("-5% 0px")
   if (reduce) return <span className={`block h-px ${color} ${className}`} />
   return (
@@ -354,7 +398,7 @@ export function useParallax(distance = 48): {
   y: MotionValue<number>
 } {
   const ref = useRef<HTMLDivElement>(null)
-  const reduce = useReducedMotion()
+  const reduce = useMotionReduced()
   const y = useMotionValue(0)
 
   useEffect(() => {
@@ -387,7 +431,7 @@ export function useSpotlight<T extends HTMLElement = HTMLDivElement>() {
 // feels alive on approach, not that it visibly moves.
 export function useMagnetic<T extends HTMLElement = HTMLAnchorElement>(strength = 0.28, max = 7) {
   const ref = useRef<T>(null)
-  const reduce = useReducedMotion()
+  const reduce = useMotionReduced()
 
   const onPointerMove = useCallback((e: React.PointerEvent<T>) => {
     if (reduce || e.pointerType !== "mouse") return

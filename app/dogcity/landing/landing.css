@@ -1,0 +1,216 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   DogCity landing v3 (/dogcity). Tudo aqui é escopado em [data-dogcity-landing]
+   ou em body:has([data-dogcity-landing]): navegar para outra rota do site leva
+   o arquivo junto (CSS global do app router), mas nenhuma regra casa lá.
+
+   Dois materiais e só dois (brief §2): o VISOR (texto sobre filme ou mapa, sem
+   caixa, legível por halo) e a PRANCHA (placa opaca #1B1915, fio de cabelo creme
+   a 12%, cantos retos, marcas de registro nos cantos). Nada de vidro.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* o quadriculado fixo de globals.css (body::before) e o preto puro do site
+   somem só nesta página: o fundo daqui é o void quente #15130F */
+body:has([data-dogcity-landing])::before { display: none; }
+body:has([data-dogcity-landing]) { background: #15130F; }
+body:has([data-dogcity-landing]) > div.min-h-screen { background: #15130F; }
+
+/* globals.css põe `main { overflow-x: hidden }`, e isso quebra position: sticky
+   (a passagem "Into the plaza" e o "Read a deed" dependem dele) */
+[data-dogcity-landing] main { overflow: visible; }
+
+[data-dogcity-landing] {
+  --dc-void: #15130F;
+  --dc-deep: #0D0C09;
+  --dc-plate: #1B1915;
+  --dc-snow: #F5E9D6;
+  --dc-mist: #A39C90;
+  --dc-dusty: #8E877B;
+  --dc-lava: #E8660D;
+  --dc-hot: #FF8A3D;
+  --dc-hair: rgba(245, 233, 214, 0.12);
+  --dc-hair-strong: rgba(245, 233, 214, 0.24);
+  --dc-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --dc-ease-pin: cubic-bezier(0.65, 0, 0.35, 1);
+  --dc-gutter: 20px;
+  background: var(--dc-void);
+  color: var(--dc-snow);
+  font-family: var(--font-body), 'Barlow', system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (min-width: 640px) and (min-height: 521px) {
+  [data-dogcity-landing] { --dc-gutter: clamp(20px, 4.4vw, 64px); }
+}
+
+/* o globals.css força .font-mono para JetBrains por nome; aqui a família é a mesma */
+[data-dogcity-landing] .font-mono { font-family: var(--font-mono), 'JetBrains Mono', monospace; }
+
+/* ── foco de teclado: anel lava de 2 px com 2 px de folga, em tudo ── */
+[data-dogcity-landing] :focus { outline: none; }
+[data-dogcity-landing] :focus-visible {
+  outline: 2px solid var(--dc-lava);
+  outline-offset: 2px;
+}
+
+/* ── o VISOR: halo de duas sombras (uma dura que recorta, uma larga que afasta o ruído) ── */
+.dc-halo { text-shadow: 0 1px 2px rgba(13, 12, 9, 0.9), 0 0 24px rgba(13, 12, 9, 0.65); }
+
+/* ── rótulo mono ── */
+.dc-label {
+  font-family: var(--font-mono), 'JetBrains Mono', monospace;
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  line-height: 1.5;
+}
+@media (min-width: 640px) and (min-height: 521px) { .dc-label { font-size: 11px; } }
+
+/* ── títulos ── */
+.dc-h2 {
+  font-family: var(--font-cond), 'Barlow Condensed', sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 44px;
+  line-height: 0.94;
+  letter-spacing: 0;
+}
+@media (min-width: 640px) and (min-height: 521px) { .dc-h2 { font-size: clamp(44px, 6vw, 96px); } }
+.dc-h3 {
+  font-family: var(--font-cond), 'Barlow Condensed', sans-serif;
+  font-weight: 600;
+  font-size: 26px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+@media (min-width: 640px) and (min-height: 521px) { .dc-h3 { font-size: 32px; } }
+.dc-body { font-size: 16px; line-height: 26px; max-width: 64ch; }
+@media (min-width: 640px) and (min-height: 521px) { .dc-body { font-size: 17px; line-height: 28px; } }
+
+/* ── a PRANCHA ── */
+.dc-plate {
+  position: relative;
+  background: var(--dc-plate);
+  border: 1px solid var(--dc-hair);
+}
+.dc-plate-hover { transition: border-color 320ms var(--dc-ease); }
+.dc-plate-hover:hover, .dc-plate-hover:focus-within { border-color: var(--dc-hair-strong); }
+/* marcas de registro nos cantos (os ticks da escritura). O contêiner é absoluto:
+   numa prancha em grid ele não pode virar célula */
+.dc-ticks { position: absolute; inset: 0; pointer-events: none; }
+.dc-ticks > i {
+  position: absolute; width: 10px; height: 10px; pointer-events: none;
+  border-color: rgba(245, 233, 214, 0.55); border-style: solid; border-width: 0;
+}
+.dc-ticks > i:nth-child(1) { top: -1px; left: -1px; border-top-width: 1px; border-left-width: 1px; }
+.dc-ticks > i:nth-child(2) { top: -1px; right: -1px; border-top-width: 1px; border-right-width: 1px; }
+.dc-ticks > i:nth-child(3) { bottom: -1px; left: -1px; border-bottom-width: 1px; border-left-width: 1px; }
+.dc-ticks > i:nth-child(4) { bottom: -1px; right: -1px; border-bottom-width: 1px; border-right-width: 1px; }
+
+/* ── botões: cantos retos ── */
+/* display em :where() (especificidade zero): `hidden` e `dk:inline-flex` do Tailwind
+   têm de vencer, e este arquivo carrega DEPOIS dos utilitários */
+:where(.dc-btn) { display: inline-flex; }
+.dc-btn {
+  position: relative; align-items: center; justify-content: center; gap: 10px;
+  height: 52px; padding: 0 24px; overflow: hidden; isolation: isolate;
+  font-family: var(--font-mono), 'JetBrains Mono', monospace; font-weight: 600;
+  font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; white-space: nowrap;
+  transition: color 240ms var(--dc-ease), border-color 240ms var(--dc-ease), background-color 240ms var(--dc-ease);
+}
+.dc-btn-sm { height: 40px; padding: 0 16px; font-size: 11px; letter-spacing: 0.14em; }
+.dc-btn-fill { background: var(--dc-lava); color: var(--dc-void); }
+.dc-btn-fill::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; background: var(--dc-hot);
+  transform: scaleX(0); transform-origin: left; transition: transform 240ms var(--dc-ease);
+}
+.dc-btn-line { border: 1px solid rgba(232, 102, 13, 0.85); color: var(--dc-snow); }
+@media (hover: hover) and (pointer: fine) {
+  .dc-btn-fill:hover::before { transform: scaleX(1); }
+  .dc-btn-line:hover { border-color: var(--dc-hot); color: var(--dc-hot); }
+}
+.dc-btn[aria-disabled="true"], .dc-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ── link de texto: o sublinhado em fio de cabelo se desenha ── */
+.dc-link {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-size: 100% 1px; background-position: 0 100%; background-repeat: no-repeat;
+  padding-bottom: 2px;
+  transition: background-size 320ms var(--dc-ease), color 240ms var(--dc-ease);
+}
+@media (hover: hover) and (pointer: fine) {
+  .dc-link { background-size: 0% 1px; background-image: linear-gradient(var(--dc-hot), var(--dc-hot)); }
+  .dc-link:hover { background-size: 100% 1px; }
+  .dc-link-quiet { background-image: linear-gradient(currentColor, currentColor); }
+}
+
+/* ── régua graduada (o trilho do fundo e a régua das fases) ── */
+.dc-ruler {
+  background-image:
+    repeating-linear-gradient(90deg, rgba(245, 233, 214, 0.34) 0 1px, transparent 1px 60px),
+    repeating-linear-gradient(90deg, rgba(245, 233, 214, 0.16) 0 1px, transparent 1px 12px);
+  background-size: 100% 100%, 100% 45%;
+  background-position: 0 0, 0 100%;
+  background-repeat: no-repeat;
+}
+
+/* ── pulsos ── */
+@keyframes dc-ping {
+  0% { transform: scale(1); opacity: 0.9; }
+  100% { transform: scale(3.4); opacity: 0; }
+}
+.dc-ping { animation: dc-ping 2.2s var(--dc-ease) infinite; }
+.dc-ping-3 { animation: dc-ping 1.1s var(--dc-ease) 3; }
+@keyframes dc-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.55; }
+  50% { transform: scale(1.9); opacity: 0; }
+}
+.dc-breathe { animation: dc-breathe 3.2s ease-in-out infinite; }
+@keyframes dc-sweep {
+  0% { transform: translate(-50%, -50%) scale(0.02); opacity: 0.9; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+.dc-sweep { animation: dc-sweep 1.6s cubic-bezier(0.22, 0.61, 0.36, 1) infinite; }
+@keyframes dc-blink { 0% { opacity: 0.15; } 100% { opacity: 1; } }
+.dc-blink { animation: dc-blink 120ms steps(2, end) 1; }
+@keyframes dc-drop {
+  0% { transform: translate(-50%, -100%) translateY(-28px); opacity: 0; }
+  100% { transform: translate(-50%, -100%) translateY(0); opacity: 1; }
+}
+.dc-drop { animation: dc-drop 520ms var(--dc-ease) both; }
+
+/* ── a gaveta do menu ── */
+.dc-drawer-link {
+  font-family: var(--font-cond), 'Barlow Condensed', sans-serif;
+  font-weight: 600; text-transform: uppercase; line-height: 1;
+  font-size: 44px;
+}
+@media (min-width: 640px) and (min-height: 521px) { .dc-drawer-link { font-size: 56px; } }
+
+/* ── rolagem horizontal com encaixe (galeria e lugares) ── */
+.dc-rail {
+  display: flex; overflow-x: auto; overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory; scrollbar-width: none;
+  scroll-padding-inline: var(--dc-gutter);
+  padding-inline: var(--dc-gutter);
+}
+.dc-rail::-webkit-scrollbar { display: none; }
+.dc-rail > * { scroll-snap-align: start; flex: none; }
+
+/* ── movimento desligado (interruptor "Motion: off" ou o sistema) ──
+   a página inteira fica parada e funcional: nada pulsa, nada varre */
+[data-dogcity-landing][data-motion="off"] .dc-ping,
+[data-dogcity-landing][data-motion="off"] .dc-ping-3,
+[data-dogcity-landing][data-motion="off"] .dc-breathe,
+[data-dogcity-landing][data-motion="off"] .dc-sweep,
+[data-dogcity-landing][data-motion="off"] .dc-blink,
+[data-dogcity-landing][data-motion="off"] .dc-drop { animation: none; }
+html:has([data-dogcity-landing][data-motion="off"]) { scroll-behavior: auto; }
+@media (prefers-reduced-motion: reduce) {
+  html:has([data-dogcity-landing]) { scroll-behavior: auto; }
+}
+
+/* ── o cartão de título (primeira visita da sessão): o script pré-hidratação de
+   app/dogcity/layout.tsx marca <html data-dc-intro>; daí o wordmark da navegação
+   e o trilho já nascem ocultos e o cartão os revela ── */
+html[data-dc-intro] #dc-nav-mark { opacity: 0; }
+html[data-dc-intro] .dc-rail-draw { clip-path: inset(-8px 100% -8px 0); }

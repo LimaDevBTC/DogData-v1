@@ -89,10 +89,29 @@ const config: Config = {
           800: '#0A0A0C',
           900: '#000000',
         },
+        // ── DogCity landing v3 (brief §7.1): tokens com nome do kit. Só a landing usa;
+        // o lava #F56E0F e o void preto puro de cima continuam valendo no resto do site.
+        // Fio de cabelo: `border-dc-snow/[0.12]` (a escala de opacidade daqui é a padrão).
+        'dc': {
+          void: '#15130F',
+          deep: '#0D0C09',
+          plate: '#1B1915',
+          snow: '#F5E9D6',
+          mist: '#A39C90',
+          dusty: '#8E877B',
+          lava: '#E8660D',
+          hot: '#FF8A3D',
+        },
         'dog-blue': '#3B82F6',
         'dog-green': '#10B981',
         'dog-red': '#EF4444',
         'dog-yellow': '#F59E0B',
+      },
+      // DogCity landing v3 (brief §9): layout de desktop decidido pela régua COMPOSTA,
+      // nunca só pela largura: telefone deitado tem largura de desktop e altura de telefone.
+      screens: {
+        'dk': { raw: '(min-width: 640px) and (min-height: 521px)' },
+        'dkl': { raw: '(min-width: 1024px) and (min-height: 521px)' },
       },
       fontFamily: {
         'display': ['var(--font-display)', 'Syne', 'sans-serif'],
@@ -100,6 +119,8 @@ const config: Config = {
         'mono': ['var(--font-mono)', 'JetBrains Mono', 'Fira Code', 'Consolas', 'monospace'],
         'heading': ['var(--font-heading)', 'Instrument Serif', 'serif'],
         'body': ['var(--font-body)', 'Barlow', 'sans-serif'],
+        // DogCity landing v3 (app/dogcity): Barlow Condensed vem de app/dogcity/layout.tsx
+        'cond': ['var(--font-cond)', 'Barlow Condensed', 'var(--font-body)', 'sans-serif'],
       },
       fontSize: {
         'xs': ['11px', { lineHeight: '1.4' }],
