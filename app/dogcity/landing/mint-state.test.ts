@@ -6,7 +6,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  aboutBlocks, calendarFromB, calendarRows, countdownState, parseB, phaseAt, phaseEnd,
+  aboutBlocks, calendarFromB, calendarRows, countdownState, parseB, parseMintB, phaseAt, phaseEnd,
   FUND_GOAL,
 } from './mint-state'
 
@@ -147,6 +147,59 @@ test('B pela variável de ambiente: vazio é null, número com separador vale', 
   assert.equal(parseB('abc'), null)
   assert.equal(parseB('971,900'), 971_900)
   assert.equal(parseB('971900'), 971_900)
+})
+
+test('resposta do detector: só status conhecido vale; B só entra em "set"', () => {
+  assert.deepEqual(
+    parseMintB({ status: 'set', raised: 10_000_250, goal: 10_000_000, B: 971_900, confirmations: 6, tip: 971_905 }),
+    { status: 'set', B: 971_900, raised: 10_000_250, tip: 971_905 },
+  )
+  // full_unconfirmed: o B da API é provisório e NÃO sai daqui
+  assert.deepEqual(
+    parseMintB({ status: 'full_unconfirmed', raised: 10_000_250, goal: 10_000_000, B: 971_900, confirmations: 2, tip: 971_901 }),
+    { status: 'full_unconfirmed', B: null, raised: 10_000_250, tip: 971_901 },
+  )
+  assert.deepEqual(
+    parseMintB({ status: 'filling', raised: 9_887_345.6, goal: 10_000_000, B: null, confirmations: null, tip: 971_954 }),
+    { status: 'filling', B: null, raised: 9_887_345.6, tip: 971_954 },
+  )
+  // lixo: 503, status desconhecido, set sem B válido, texto
+  assert.equal(parseMintB({ error: 'data backend busy' }), null)
+  assert.equal(parseMintB({ status: 'done', B: 971_900 }), null)
+  assert.equal(parseMintB({ status: 'set', B: null }), null)
+  assert.equal(parseMintB({ status: 'set', B: '971900' }), null)
+  assert.equal(parseMintB({ status: 'set', B: 0 }), null)
+  assert.equal(parseMintB({ status: 'set', B: 1.5 }), null)
+  assert.equal(parseMintB({ B: 971_900 }), null)
+  assert.equal(parseMintB(null), null)
+  assert.equal(parseMintB('set'), null)
+  assert.equal(parseMintB({ status: 'filling', raised: -1, tip: 'x' })?.raised, null)
+})
+
+test('full_unconfirmed: a tela diz THE FUND IS FULL, mesmo sem o número do fundo e sem B', () => {
+  const s = countdownState({ raised: null, B: null, tip: null, fundFull: true })
+  assert.equal(s.kind, 'B0')
+  assert.equal(s.label, 'THE FUND IS FULL')
+  assert.equal(s.number, null)
+  assert.equal(s.unit, 'GOAL REACHED')
+  assert.equal(s.sub, null) // B provisório não aparece
+  assert.equal(s.calendar, null)
+  // com o número, mostra o arrecadado real
+  const com = countdownState({ raised: 10_000_250.9, B: null, tip: 971_901, fundFull: true })
+  assert.equal(com.kind, 'B0')
+  assert.equal(com.number, '10,000,250')
+  // sem a flag e sem número continua "connecting": nunca número de exemplo
+  assert.equal(countdownState({ raised: null, B: null, tip: null }).kind, 'connecting')
+})
+
+test('troca do fundo para o mint: filling -> full_unconfirmed -> set, só pelo dado', () => {
+  const B = 971_900
+  assert.equal(countdownState({ raised: 9_887_345, B: null, tip: B - 50 }).kind, 'A')
+  assert.equal(countdownState({ raised: 10_000_250, B: null, tip: B + 2, fundFull: true }).kind, 'B0')
+  const set = countdownState({ raised: 10_000_250, B, tip: B + 5 })
+  assert.equal(set.kind, 'B') // fase CLOSED, contagem até o Founder
+  assert.equal(set.number, '283')
+  assert.equal(set.calendar?.founderStart, B + 288)
 })
 
 test('tempo aproximado sempre com "about"', () => {
