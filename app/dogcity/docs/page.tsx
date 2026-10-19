@@ -1270,9 +1270,11 @@ export default function DogCityDocsPage() {
               <P className="mt-3">
                 Prices are set in US dollars and paid in BTC only. The dollar price is converted at
                 the median of Kraken, Coinbase and Bitstamp when the order is placed, and that amount
-                holds for 15 minutes. You prove your wallet with a signed message that moves no funds,
-                then pay one exact amount to an address that accepts only that deed, and the deed is
-                delivered to your ordinals address. That amount includes the network fee of your own
+                holds for 15 minutes. You pay one exact amount to an address that accepts only that
+                deed, and the deed is delivered to your ordinals address. When a lot is yours by right,
+                its deed always goes to the address that holds that right, so no signature is needed;
+                you sign a message that moves no funds only to send a deed to another address, or to use
+                a Partner or Founder credit on a lot you choose. That amount includes the network fee of your own
                 deed, at the fast rate of the moment plus 1 sat/vB, never below 2 sat/vB. If the network
                 fee climbs above 5 sat/vB the mint pauses by itself and resumes when it falls; the
                 calendar keeps running. An order already
