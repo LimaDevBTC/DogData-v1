@@ -16,10 +16,12 @@
 // (18/10/2026): o site e o minter não podem discordar sobre qual fase está
 // aberta. Mudou lá, muda aqui; o teste de vetores pega a divergência de borda.
 //
-// ⚠️ B AINDA NÃO EXISTE. Entra por NEXT_PUBLIC_DOGCITY_MINT_B (vazia hoje): é o
-// bloco em que o fundo de construção chegou a 10.000.000 $DOG. Quando o
-// calendário for inscrito, a fonte passa a ser a inscrição; o calendário em
-// blocos é sempre B+288, B+720, B+3.744 e B+4.032 (docs §7).
+// ⚠️ B AINDA NÃO EXISTE. É o bloco em que o fundo de construção chegou a
+// 10.000.000 $DOG. Vem do detector (/api/dogcity/mint-b, lib/dog/mint-b.ts) e, se
+// NEXT_PUBLIC_DOGCITY_MINT_B estiver preenchida, a variável vale como sobreposição
+// manual (use-countdown.ts). Quando o calendário for inscrito, a fonte passa a ser
+// a inscrição; o calendário em blocos é sempre B+288, B+720, B+3.744 e B+4.032
+// (docs §7).
 //
 // ⚠️ NUNCA NÚMERO DE EXEMPLO EM PRODUÇÃO. Sem dado do fundo o estado é
 // `connecting`: a tela mostra só a frase do estado A, sem número.
@@ -95,6 +97,17 @@ export function parseB(raw: string | undefined | null): number | null {
   if (!/^\d+$/.test(t)) return null
   const n = Number(t)
   return isHeight(n) && n > 0 ? n : null
+}
+
+/**
+ * B vindo de /api/dogcity/mint-b (o detector): o corpo precisa ser um objeto com `B`
+ * inteiro positivo. Qualquer outra forma (503 com { error }, B nulo, texto) = ainda
+ * não existe. O mesmo `parseB` da variável de ambiente decide o que é uma altura.
+ */
+export function parseBResponse(j: unknown): number | null {
+  if (typeof j !== "object" || j === null) return null
+  const B = (j as Record<string, unknown>).B
+  return typeof B === "number" ? parseB(String(B)) : null
 }
 
 // ── formatação: en-US, sempre por extenso, nunca "9.89M" ────────────────────

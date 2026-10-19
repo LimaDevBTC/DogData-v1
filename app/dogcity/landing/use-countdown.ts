@@ -1,9 +1,10 @@
 "use client"
 
 // O contador vivo: junta o fundo (/api/donate/leaderboard?slim=1, a cada 60 s), a
-// altura do Bitcoin (o feed único de ../use-mempool.ts) e o bloco B (variável
-// pública NEXT_PUBLIC_DOGCITY_MINT_B, vazia até o fundo encher) e entrega o
-// estado da máquina pura de ./mint-state.ts. Uma fonte para o herói, o botão
+// altura do Bitcoin (o feed único de ../use-mempool.ts) e o bloco B e entrega o
+// estado da máquina pura de ./mint-state.ts. B vem do detector (/api/dogcity/mint-b,
+// a cada 60 s até ter 6 confirmações); a variável pública NEXT_PUBLIC_DOGCITY_MINT_B,
+// quando preenchida, vale como SOBREPOSIÇÃO MANUAL e o detector nem é consultado. Uma fonte para o herói, o botão
 // vivo da navegação e o calendário.
 //
 // ⚠️ SIMULAÇÃO SÓ NO DEV. `?mintsim=A|B0|B|C|D|E|F|Fcount|connecting` troca a entrada
@@ -13,7 +14,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useMempoolFeed } from "../use-mempool"
-import { countdownState, parseB, FUND_GOAL, type CountdownInput, type CountdownState } from "./mint-state"
+import { countdownState, parseB, parseBResponse, B_CONFIRMATIONS, FUND_GOAL, type CountdownInput, type CountdownState } from "./mint-state"
 
 const B_ENV = parseB(process.env.NEXT_PUBLIC_DOGCITY_MINT_B)
 const FUND_POLL_MS = 60_000
@@ -47,6 +48,41 @@ function useFund(initial: FundData | null): FundData | null {
   return fund
 }
 
+/**
+ * O bloco B do detector. Só consulta quando a variável manual está vazia; para de
+ * perguntar quando B já tem as confirmações do contrato (antes disso um reorg ainda
+ * pode mover B, então segue perguntando). Falha de rede ou forma estranha mantém a
+ * última leitura.
+ */
+function useDetectedB(manual: number | null): number | null {
+  const [B, setB] = useState<number | null>(null)
+  useEffect(() => {
+    if (manual != null) return
+    let alive = true
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const tick = async () => {
+      let done = false
+      if (document.visibilityState === "visible") {
+        try {
+          // ⚠️ r.ok E a forma são obrigatórios (incidente de 26/08: 503 com { error })
+          const r = await fetch("/api/dogcity/mint-b", { signal: AbortSignal.timeout(10_000) })
+          const j = r.ok ? await r.json() : null
+          if (alive && j) {
+            setB(parseBResponse(j))
+            done = typeof j.confirmations === "number" && j.confirmations >= B_CONFIRMATIONS && parseBResponse(j) != null
+          }
+        } catch { /* mantém a última leitura */ }
+      }
+      if (alive && !done) timer = setTimeout(tick, FUND_POLL_MS)
+    }
+    void tick()
+    const onVis = () => { if (document.visibilityState === "visible" && timer) { clearTimeout(timer); void tick() } }
+    document.addEventListener("visibilitychange", onVis)
+    return () => { alive = false; if (timer) clearTimeout(timer); document.removeEventListener("visibilitychange", onVis) }
+  }, [manual])
+  return manual ?? B
+}
+
 function simulated(): CountdownInput | null {
   if (process.env.NODE_ENV === "production") return null
   if (typeof window === "undefined") return null
@@ -69,12 +105,13 @@ function simulated(): CountdownInput | null {
 
 export function useCountdown(initialFund: FundData | null = null): CountdownState {
   const fund = useFund(initialFund)
+  const B = useDetectedB(B_ENV)
   const { feed } = useMempoolFeed()
   const tip = feed?.snapshot?.tip_height ?? null
   const [sim, setSim] = useState<CountdownInput | null>(null)
   useEffect(() => { setSim(simulated()) }, [])
   return useMemo(() => {
-    const input: CountdownInput = sim ?? { raised: fund?.raised ?? null, goal: fund?.goal ?? FUND_GOAL, B: B_ENV, tip }
+    const input: CountdownInput = sim ?? { raised: fund?.raised ?? null, goal: fund?.goal ?? FUND_GOAL, B, tip }
     return countdownState(input)
-  }, [sim, fund, tip])
+  }, [sim, fund, tip, B])
 }

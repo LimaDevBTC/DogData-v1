@@ -6,7 +6,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  aboutBlocks, calendarFromB, calendarRows, countdownState, parseB, phaseAt, phaseEnd,
+  aboutBlocks, calendarFromB, calendarRows, countdownState, parseB, parseBResponse, phaseAt, phaseEnd,
   FUND_GOAL,
 } from './mint-state'
 
@@ -147,6 +147,18 @@ test('B pela variável de ambiente: vazio é null, número com separador vale', 
   assert.equal(parseB('abc'), null)
   assert.equal(parseB('971,900'), 971_900)
   assert.equal(parseB('971900'), 971_900)
+})
+
+test('B do detector: só objeto com B inteiro positivo vale; 503, B nulo e lixo não', () => {
+  assert.equal(parseBResponse({ B: 971_900, txid: 't', confirmations: 6 }), 971_900)
+  assert.equal(parseBResponse({ B: null, raised: 9_887_345, goal: 10_000_000 }), null)
+  assert.equal(parseBResponse({ error: 'data backend busy' }), null)
+  assert.equal(parseBResponse({ B: '971900' }), null)
+  assert.equal(parseBResponse({ B: 0 }), null)
+  assert.equal(parseBResponse({ B: -5 }), null)
+  assert.equal(parseBResponse({ B: 1.5 }), null)
+  assert.equal(parseBResponse(null), null)
+  assert.equal(parseBResponse('971900'), null)
 })
 
 test('tempo aproximado sempre com "about"', () => {
