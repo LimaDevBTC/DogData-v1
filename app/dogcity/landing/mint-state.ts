@@ -17,11 +17,12 @@
 // aberta. Mudou lá, muda aqui; o teste de vetores pega a divergência de borda.
 //
 // ⚠️ B AINDA NÃO EXISTE. É o bloco em que o fundo de construção chegou a
-// 10.000.000 $DOG. Vem do detector (/api/dogcity/mint-b, lib/dog/mint-b.ts) e, se
-// NEXT_PUBLIC_DOGCITY_MINT_B estiver preenchida, a variável vale como sobreposição
-// manual (use-countdown.ts). Quando o calendário for inscrito, a fonte passa a ser
-// a inscrição; o calendário em blocos é sempre B+288, B+720, B+3.744 e B+4.032
-// (docs §7).
+// 10.000.000 $DOG. Vem do detector (/api/dogcity/mint-b, lib/dog/mint-b.ts), e SÓ
+// com status "set" (6 confirmações, congelado); em "full_unconfirmed" a tela diz
+// "THE FUND IS FULL" sem B. Se NEXT_PUBLIC_DOGCITY_MINT_B estiver preenchida, a
+// variável vale como sobreposição manual (use-countdown.ts). Quando o calendário
+// for inscrito, a fonte passa a ser a inscrição; o calendário em blocos é sempre
+// B+288, B+720, B+3.744 e B+4.032 (docs §7).
 //
 // ⚠️ NUNCA NÚMERO DE EXEMPLO EM PRODUÇÃO. Sem dado do fundo o estado é
 // `connecting`: a tela mostra só a frase do estado A, sem número.
@@ -99,15 +100,30 @@ export function parseB(raw: string | undefined | null): number | null {
   return isHeight(n) && n > 0 ? n : null
 }
 
+/** O que a landing lê de /api/dogcity/mint-b (a forma completa: lib/dog/mint-b.ts, MintBPublic). */
+export interface MintBInfo {
+  status: "filling" | "full_unconfirmed" | "set"
+  /** só em `set`: o B definitivo. Em full_unconfirmed o B da API é provisório e NÃO entra aqui. */
+  B: number | null
+  raised: number | null
+  tip: number | null
+}
+
 /**
- * B vindo de /api/dogcity/mint-b (o detector): o corpo precisa ser um objeto com `B`
- * inteiro positivo. Qualquer outra forma (503 com { error }, B nulo, texto) = ainda
- * não existe. O mesmo `parseB` da variável de ambiente decide o que é uma altura.
+ * Lê a resposta do detector. Corpo que não é objeto, sem `status` conhecido (503 com
+ * { error }, texto) ou `set` sem B inteiro positivo = null: a landing mantém a última
+ * leitura. O mesmo `parseB` da variável de ambiente decide o que é uma altura.
  */
-export function parseBResponse(j: unknown): number | null {
+export function parseMintB(j: unknown): MintBInfo | null {
   if (typeof j !== "object" || j === null) return null
-  const B = (j as Record<string, unknown>).B
-  return typeof B === "number" ? parseB(String(B)) : null
+  const o = j as Record<string, unknown>
+  const status = o.status
+  if (status !== "filling" && status !== "full_unconfirmed" && status !== "set") return null
+  const B = status === "set" ? (typeof o.B === "number" ? parseB(String(o.B)) : null) : null
+  if (status === "set" && B == null) return null
+  const raised = typeof o.raised === "number" && Number.isFinite(o.raised) && o.raised >= 0 ? o.raised : null
+  const tip = typeof o.tip === "number" && Number.isSafeInteger(o.tip) && o.tip > 0 ? o.tip : null
+  return { status, B, raised, tip }
 }
 
 // ── formatação: en-US, sempre por extenso, nunca "9.89M" ────────────────────
@@ -139,6 +155,8 @@ export interface CountdownInput {
   goal?: number | null
   B: number | null
   tip: number | null
+  /** o detector disse que a meta foi atingida (B ainda sem 6 confirmações): estado B0 mesmo sem `raised` */
+  fundFull?: boolean
   /** escrituras cunhadas (só o estado F usa; sem ele, F mostra o preço) */
   inscribed?: number | null
 }
@@ -280,6 +298,8 @@ export function countdownState(input: CountdownInput): CountdownState {
   }
 
   // ── B desconhecido ──
+  // o detector já disse que o fundo encheu (B só aguarda as 6 confirmações): é B0 mesmo sem o número
+  if (input.fundFull) return stateB0(goal, raised != null && Number.isFinite(raised) ? raised : null, base, null)
   if (raised == null || !Number.isFinite(raised)) {
     return {
       // sem dado ainda: nada de "LIVE" (não há nada vivo para mostrar)
