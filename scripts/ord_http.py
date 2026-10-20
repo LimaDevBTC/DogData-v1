@@ -275,8 +275,10 @@ def dog_balances_http(candidates=None, max_wait=None, log=print, info_out=None,
         h1 = block_height()
         got = {}
         for op, o in info.items():
-            if o.get('spent'):
-                continue
+            # Só `runes` vale. `spent` vem do bitcoind (ponta da cadeia), `runes` do
+            # índice do ord (altura indexada): com um bloco de diferença entre os dois
+            # o `spent` descartaria DOG que o índice ainda conta e a soma não fecharia.
+            # O índice só guarda saldo de runa de outpoint não gasto.
             pile = (o.get('runes') or {}).get(DOG_RUNE_NAME)
             if pile and pile['amount'] > 0:
                 got[op] = {'amount': pile['amount'],
