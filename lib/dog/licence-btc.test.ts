@@ -475,6 +475,33 @@ test('BTC credits never change total_received, the contributions, or B', () => {
   assert.equal(board.entries[0].license, 'patron')
 })
 
+test('a wallet that paid only in BTC gets no Founder number; BTC on top of $DOG keeps the DOG Founder number', () => {
+  const rows = [dogRow(1, 900_000, 600)] // `sender` puts 600 $DOG in the fund: Founder #1, Citizen
+  const ledger = buildLedger(rows, W, { licenseFor: licenceFor })
+  assert.equal(ledger.founders.length, 1)
+  assert.equal(ledger.founders[0].address, sender)
+  assert.equal(ledger.founders[0].founder_seq, 1)
+
+  const credits = [
+    { ordinalsAddress: OTHER_ORD, creditDog: 500_000 }, // BTC only, enough for Patron
+    { ordinalsAddress: sender, creditDog: 9_400 }, // BTC on top of 600 $DOG: Personal
+  ]
+  const founders = applyBtcCredits(ledger.founders.map(({ totalAtomos: _t, ...f }) => f), credits)
+  // the Founder list is the DOG ledger alone: the BTC-only wallet is not on it, the numbers do not move
+  assert.deepEqual(founders.entries.map((f) => [f.address, f.founder_seq]), [[sender, 1]])
+  assert.equal(founders.entries[0].license, 'personal') // the licence rung adds DOG and BTC
+  assert.equal(founders.entries[0].total, 600) // but the fund total stays DOG only
+  // the BTC-only wallet sits apart, with its licence rung and no Founder number
+  assert.equal(founders.btcOnly.length, 1)
+  assert.equal(founders.btcOnly[0].address, OTHER_ORD)
+  assert.equal(founders.btcOnly[0].license, 'patron')
+  assert.ok(!('founder_seq' in founders.btcOnly[0]))
+  // and the route builds the Founder list from the DOG ledger alone
+  const route = readFileSync(new URL('../../app/api/donate/leaderboard/route.ts', import.meta.url), 'utf8')
+  assert.match(route, /applyBtcCredits\(ledger\.founders\.map/)
+  assert.ok(!/founders\.push|btcOnly[^\n]*founders/.test(route))
+})
+
 test('the fund counter, the B detector and its route never import or read the BTC licence code', () => {
   const read = (p: string) => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8')
   const guarded = ['lib/dog/mint-b.ts', 'lib/dog/founders-ledger.ts', 'app/api/dogcity/mint-b/route.ts']
