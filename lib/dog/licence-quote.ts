@@ -32,6 +32,8 @@ export interface PublicQuote {
   btcUsd: number
   sources: SourceSample[]
   expiresAt: string
+  /** o relógio do servidor na hora da cotação: a tela conta o prazo por ele, não pelo relógio do aparelho */
+  serverTime: string
   /** onde pagar: o endereço Bitcoin do fundo */
   payTo: string
 }
@@ -73,7 +75,7 @@ export async function createQuote(
     status: 200,
     quote: {
       id: q.id, tier: q.tier, dogAmount: q.dogAmount, sats: q.sats, dogUsd: q.dogUsd, btcUsd: q.btcUsd,
-      sources: q.sources, expiresAt: new Date(q.expiresAtMs).toISOString(), payTo: FUND_BTC_ADDRESS,
+      sources: q.sources, expiresAt: new Date(q.expiresAtMs).toISOString(), serverTime: new Date(deps.nowMs).toISOString(), payTo: FUND_BTC_ADDRESS,
     },
   }
 }

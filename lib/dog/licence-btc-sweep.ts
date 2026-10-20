@@ -159,7 +159,7 @@ function toRow(cp: ChainPayment, firstSeenMs: number, res: Resolution): StoredPa
   return base
 }
 
-export interface SweepResult { credited: number; unmatched: number; pendingReview: number; observed: number; skipped: number }
+export interface SweepResult { credited: number; unmatched: number; pendingReview: number; observed: number; skipped: number; errors: number }
 
 export async function sweepOnce(deps: {
   nowMs: number
@@ -168,7 +168,7 @@ export async function sweepOnce(deps: {
   priceAtBlock: (blockTimeMs: number) => Promise<PriceAtBlock | null>
 }): Promise<SweepResult> {
   const { nowMs, chain, store } = deps
-  const result: SweepResult = { credited: 0, unmatched: 0, pendingReview: 0, observed: 0, skipped: 0 }
+  const result: SweepResult = { credited: 0, unmatched: 0, pendingReview: 0, observed: 0, skipped: 0, errors: 0 }
   const rows = await store.loadRows([...new Set(chain.payments.map((p) => p.txid))])
 
   for (const cp of chain.payments) {
@@ -181,13 +181,20 @@ export async function sweepOnce(deps: {
       txid: cp.txid, vout: cp.vout, sats: cp.sats, payerAddresses: cp.payerAddresses,
       seenAtMs: firstSeenMs, confirmations, blockTimeMs: cp.blockTimeMs,
     }
-    const quotes = confirmations >= BTC_MIN_CONFIRMATIONS ? await store.loadQuotes(cp.payerAddresses) : []
-    const res = await resolvePayment(payment, quotes, deps.priceAtBlock)
-    await store.saveRow(toRow(cp, firstSeenMs, res))
-    if (res.status === 'credited') result.credited++
-    else if (res.status === 'unmatched') result.unmatched++
-    else if (res.status === 'pending_review') result.pendingReview++
-    else result.observed++
+    try {
+      const quotes = confirmations >= BTC_MIN_CONFIRMATIONS ? await store.loadQuotes(cp.payerAddresses) : []
+      const res = await resolvePayment(payment, quotes, deps.priceAtBlock)
+      await store.saveRow(toRow(cp, firstSeenMs, res))
+      if (res.status === 'credited') result.credited++
+      else if (res.status === 'unmatched') result.unmatched++
+      else if (res.status === 'pending_review') result.pendingReview++
+      else result.observed++
+    } catch (e) {
+      // um pagamento que falha (banco, corrida entre duas varreduras) não derruba os outros;
+      // sem gravação não há crédito, e a próxima volta tenta de novo
+      console.error('[licence-btc] payment failed:', cp.txid, cp.vout, (e as Error)?.message)
+      result.errors++
+    }
   }
   return result
 }
