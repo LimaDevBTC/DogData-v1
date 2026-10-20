@@ -15,7 +15,7 @@ outpoint a outpoint contra um indexador independente separa as três coisas:
 implementação própria do protocolo de runes, escrita por outra gente. Não é uma
 segunda opinião nossa com roupa diferente.
 
-    ord --data-dir .../ord/data balances > /tmp/ord-balances.json
+    python3 scripts/ord_http_compare.py dump   # (era: ord balances, que não abre o índice com o servidor no ar)
     # a seção do DOG, em fluxo, porque o dump inteiro tem 1,2 GB:
     python3 - <<'EOF'
     ALVO = '"DOG' + chr(8226) + 'GO' + chr(8226) + 'TO' + chr(8226) + 'THE' + chr(8226) + 'MOON": {'

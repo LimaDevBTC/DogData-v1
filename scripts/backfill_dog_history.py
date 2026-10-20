@@ -44,6 +44,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from collections import defaultdict
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import ord_http  # noqa: E402
+
 try:
     from dotenv import load_dotenv
     env_local = Path(__file__).parent.parent / '.env.local'
@@ -55,8 +58,6 @@ except ImportError:
 # ─── Configurações ────────────────────────────────────────────────────────────
 
 BITCOIN_CLI  = 'bitcoin-cli'
-ORD_BINARY   = '/home/bitmax/Projects/bitcoin-fullstack/ord/target/release/ord'
-ORD_DATA_DIR = '/home/bitmax/Projects/bitcoin-fullstack/ord/data'
 
 SCRIPT_DIR   = Path(__file__).parent
 PROJECT_ROOT = SCRIPT_DIR.parent
@@ -135,15 +136,9 @@ def get_tx_fee_sats(tx):
 
 def ord_decode(txid):
     try:
-        r = subprocess.run(
-            [ORD_BINARY, '--data-dir', ORD_DATA_DIR, 'decode', '--txid', txid],
-            capture_output=True, text=True, timeout=20
-        )
-        if r.returncode == 0:
-            return json.loads(r.stdout)
-    except Exception:
-        pass
-    return None
+        return ord_http.decode(txid)
+    except ord_http.OrdHttpError:
+        return None
 
 
 # ─── Runestone ────────────────────────────────────────────────────────────────

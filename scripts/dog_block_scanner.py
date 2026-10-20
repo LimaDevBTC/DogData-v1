@@ -3,10 +3,10 @@
 DOG Block Scanner - Extrai transações DOG bloco a bloco usando infraestrutura local.
 
 Substitui dependência de Xverse/Unisat APIs.
-Usa: Bitcoin Core (bitcoin-cli) + Ord indexer (ord balances/decode)
+Usa: Bitcoin Core (bitcoin-cli) + Ord indexer (servidor HTTP, ver ord_http.py)
 
 Arquitetura:
-1. Bootstrap: ord balances → extrair DOG UTXOs → salvar localmente
+1. Bootstrap: ord (HTTP) → confirmar DOG UTXOs → salvar localmente
 2. Per-block: checar inputs do bloco contra UTXO set → processar DOG txs
 3. Alocação: runestone edicts ou regra default (primeiro output não-OP_RETURN)
 
@@ -47,9 +47,8 @@ except ImportError:
 BITCOIN_CLI = 'bitcoin-cli'
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from runestone import decode_runestone as _decode_local  # noqa: E402
+import ord_http  # noqa: E402
 
-ORD_BINARY = '/home/bitmax/Projects/bitcoin-fullstack/ord/target/release/ord'
-ORD_DATA_DIR = '/home/bitmax/Projects/bitcoin-fullstack/ord/data'
 
 SCRIPT_DIR = Path(__file__).parent
 PROJECT_ROOT = SCRIPT_DIR.parent
@@ -168,13 +167,8 @@ def ord_decode(txid):
     Continua aqui como REFERÊNCIA para conferir o decodificador local, que é o
     que grava agora. Ver `decode_runestone_local` logo abaixo."""
     try:
-        result = subprocess.run(
-            [ORD_BINARY, 'decode', '--txid', txid],
-            capture_output=True, text=True, timeout=15
-        )
-        if result.returncode == 0:
-            return json.loads(result.stdout)
-    except Exception:
+        return ord_http.decode(txid)
+    except ord_http.OrdHttpError:
         pass
     return None
 
@@ -205,17 +199,14 @@ def decode_runestone_local(tx):
 
 
 def ord_balances():
-    """Run ord balances and return DOG UTXOs. Slow (~minutes)."""
-    log.info('Running ord balances (this may take a few minutes)...')
-    result = subprocess.run(
-        [ORD_BINARY, '--data-dir', ORD_DATA_DIR, 'balances'],
-        capture_output=True, text=True, timeout=600
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f'ord balances failed: {result.stderr.strip()}')
+    """DOG UTXOs do índice do ord, no formato do antigo `ord balances`.
 
-    balances = json.loads(result.stdout)
-    dog_utxos = balances.get('runes', {}).get(DOG_RUNE_NAME, {})
+    Lê o servidor HTTP (ORD_HTTP_URL) com os outpoints do set atual como
+    candidatos e a trava de completude contra o supply (ver scripts/ord_http.py).
+    ORD_BALANCES_SOURCE=cli usa o binário, que só abre o índice com o servidor
+    PARADO. Este script não para nem inicia o ord server."""
+    log.info('Reading ord balances (HTTP)...')
+    dog_utxos = ord_http.get_dog_balances(log=log.info)
     log.info(f'ord balances: {len(dog_utxos)} DOG UTXOs found')
     return dog_utxos
 
@@ -241,37 +232,21 @@ def save_utxo_set(utxo_set):
 
 
 def bootstrap_utxo_set():
-    """Build UTXO set from ord balances. Requires ord index, not server."""
-    # Check if ord server is running and stop it temporarily
-    ord_running = subprocess.run(
-        ['pgrep', '-f', 'ord.*server'], capture_output=True
-    ).returncode == 0
+    """Rebuild the UTXO set from ord (ord_balances). Never touches the ord server.
 
-    if ord_running:
-        log.info('Stopping ord server temporarily for bootstrap...')
-        subprocess.run(['pkill', '-TERM', '-f', 'ord.*server'], capture_output=True)
-        time.sleep(5)
-
-    try:
-        dog_utxos = ord_balances()
-        # Simplify format: {outpoint: amount_raw}
-        utxo_set = {}
-        for outpoint, rune_data in dog_utxos.items():
-            amount = rune_data.get('amount', 0)
-            if amount > 0:
-                utxo_set[outpoint] = amount
-        save_utxo_set(utxo_set)
-        return utxo_set
-    finally:
-        if ord_running:
-            log.info('Restarting ord server...')
-            subprocess.Popen(
-                ['nohup', ORD_BINARY, '--data-dir', ORD_DATA_DIR, '--index-runes',
-                 'server', '--http', '--http-port', '8080'],
-                stdout=open('/tmp/ord-server.log', 'a'),
-                stderr=subprocess.STDOUT
-            )
-            time.sleep(3)
+    Over HTTP the candidates are the outpoints already in the set, so this
+    re-verifies and prunes it; it cannot discover an outpoint the set lacks
+    (the supply check raises OrdHttpIncomplete if one is missing). A bootstrap
+    from nothing needs ORD_BALANCES_SOURCE=cli with the ord server stopped."""
+    dog_utxos = ord_balances()
+    # Simplify format: {outpoint: amount_raw}
+    utxo_set = {}
+    for outpoint, rune_data in dog_utxos.items():
+        amount = rune_data.get('amount', 0)
+        if amount > 0:
+            utxo_set[outpoint] = amount
+    save_utxo_set(utxo_set)
+    return utxo_set
 
 
 # === Scanner State ===

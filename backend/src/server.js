@@ -185,25 +185,23 @@ app.get('/api/bitcoin/status', async (req, res) => {
     }
 });
 
-// Ord CLI Status
+// Ord status (servidor HTTP do ord, ORD_HTTP_URL; o binario nao abre o indice com o servidor no ar)
 app.get('/api/ord/status', async (req, res) => {
     try {
-        const ordPath = path.join(__dirname, '../../../ord/target/release/ord');
-        const dataDir = path.join(__dirname, '../../../ord/data');
-        const output = await executeCommand(`${ordPath} --data-dir ${dataDir} --index-runes --index-transactions index info`);
-        const info = JSON.parse(output);
+        const base = (process.env.ORD_HTTP_URL || 'http://127.0.0.1:8080').replace(/\/+$/, '');
+        const r = await fetch(`${base}/status`, { headers: { Accept: 'application/json' } });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const info = await r.json();
         res.json({
             status: 'available',
-            version: info.version,
-            indexExists: info.index_exists,
-            indexSize: info.index_size,
-            indexedBlocks: info.indexed_blocks,
-            latestBlock: info.latest_block,
-            runesIndexed: info.runes_indexed,
-            transactionsIndexed: info.transactions_indexed
+            indexExists: true,
+            indexedBlocks: info.height,
+            latestBlock: info.height,
+            runesIndexed: info.runes,
+            transactionsIndexed: info.transaction_index
         });
     } catch (error) {
-        res.status(500).json({ status: 'error', message: `Failed to get Ord CLI status: ${error.message}` });
+        res.status(500).json({ status: 'error', message: `Failed to get Ord status: ${error.message}` });
     }
 });
 
