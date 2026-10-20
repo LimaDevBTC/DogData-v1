@@ -1028,7 +1028,8 @@ export default function DogCityDocsPage() {
                 closes the door is time, not a seat count. Contributions are counted per wallet and
                 add up across several transactions, and a wallet&apos;s Founder number is assigned
                 by order of arrival, meaning its first contribution, never by how much it eventually
-                gives. Contributing more later never moves the number.
+                gives. Contributing more later never moves the number. Only $DOG put into the fund
+                makes a Founder: a licence paid in Bitcoin does not (see Paying a rung, below).
               </P>
 
               <Sub>Three axes</Sub>
@@ -1042,7 +1043,11 @@ export default function DogCityDocsPage() {
               </P>
 
               <Sub>The ladder</Sub>
-              <P className="mt-3">Every rung includes everything in the rung below it.</P>
+              <P className="mt-3">
+                Every rung includes everything in the rung below it. The Founder benefits in this
+                ladder belong to wallets that put $DOG into the fund; a rung paid only in Bitcoin
+                brings its building licence and item pack and nothing more.
+              </P>
               <div className="mt-4 space-y-3 max-w-3xl">
                 {[
                   {
@@ -1078,7 +1083,7 @@ export default function DogCityDocsPage() {
 
               <Sub>Paying a rung in $DOG or in Bitcoin</Sub>
               <P className="mt-3">
-                Personal, Commercial and Patron can be paid in $DOG or in Bitcoin. Three rules
+                Personal, Commercial and Patron can be paid in $DOG or in Bitcoin. Four rules
                 govern it.
               </P>
               <BulletList
@@ -1092,8 +1097,12 @@ export default function DogCityDocsPage() {
                     text: "The fund counter, Block B and everything that opens the mint (section 7) are measured in $DOG only. A payment in Bitcoin never moves them, whatever its size.",
                   },
                   {
+                    lead: "Bitcoin buys the licence, not Founder status.",
+                    text: "A rung paid in Bitcoin gives the building licence of that rung, with the privileges that come with it, and the item pack of that rung. Nothing else. The Founder number, the Founders' Monument, the Founders Club, the Founders' draw, minting first and free in the Founder phase, the Founder's light and early access to the game are for wallets that put $DOG into the construction fund. A wallet that only paid in Bitcoin is not a Founder.",
+                  },
+                  {
                     lead: "One wallet, both coins.",
-                    text: "For the rung of a wallet, its $DOG and its Bitcoin add up. The quote ties the address that pays to the ordinals address of the same wallet, so the Bitcoin is credited to the wallet that asked for it. It is counted at its $DOG value from the locked quote when the network saw the payment before the 15 minutes ended and it covers the quoted amount; a payment seen after that is counted at the median price at the block that confirmed it. Credit comes after 6 confirmations. A payment that cannot be tied to a quote, or priced from enough exchanges, is held for a manual check and never becomes a licence on its own. Pay from the wallet you asked the quote with.",
+                    text: "For the licence rung of a wallet, its $DOG and its Bitcoin add up. The Founder benefits do not: they depend on the $DOG in the fund alone, so a wallet with $DOG in the fund and Bitcoin on top is a Founder and takes its licence at the combined rung. The quote ties the address that pays to the ordinals address of the same wallet, so the Bitcoin is credited to the wallet that asked for it. It is counted at its $DOG value from the locked quote when the network saw the payment before the 15 minutes ended and it covers the quoted amount; a payment seen after that is counted at the median price at the block that confirmed it. Credit comes after 6 confirmations. A payment that cannot be tied to a quote, or priced from enough exchanges, is held for a manual check and never becomes a licence on its own. Pay from the wallet you asked the quote with.",
                   },
                 ]}
               />
@@ -1144,13 +1153,14 @@ export default function DogCityDocsPage() {
                 which the fund reaches 10,000,000 $DOG. Every phase is counted in blocks from B (144
                 blocks is about one day), and the calendar is inscribed on chain once B is known.
                 Only $DOG counts toward the 10,000,000: a licence paid in Bitcoin (section 6) does
-                not move B.
+                not move B, and it does not make its wallet a Founder, so it carries no place in
+                the Founder phase.
               </P>
               <BulletList
                 items={[
                   {
                     lead: "Closed, B to B+288 (about 48 hours).",
-                    text: "Nobody mints. The Founder list is cut at block B, every contribution confirmed up to and including that block, published for 24 hours of review, and then its root is inscribed.",
+                    text: "Nobody mints. The Founder list is cut at block B, every contribution confirmed up to and including that block. At B+6, once B has six confirmations, the mint calendar is inscribed and the Founder list is published here for review. About 24 hours later, around B+144, the root of the list is inscribed, a full day before the Founder phase opens at B+288.",
                   },
                   {
                     lead: "Founder, B+288 to B+720 (about 3 days).",
@@ -1350,8 +1360,9 @@ export default function DogCityDocsPage() {
               <P>
                 A Founder at one of these rungs already holds that licence (section 6). Any other
                 wallet takes the same licence for the same amount of $DOG, or for the same value in
-                Bitcoin under the three rules of section 6: priced in $DOG, never counted toward the
-                10,000,000 $DOG of the mint, and added to the wallet&apos;s $DOG for its rung. How
+                Bitcoin under the four rules of section 6: priced in $DOG, never counted toward the
+                10,000,000 $DOG of the mint, giving the licence and the item pack of the rung but no
+                Founder benefits, and added to the wallet&apos;s $DOG for its rung. How
                 it is paid after the mint, and where that $DOG goes, will be published here before
                 building opens.
               </P>
