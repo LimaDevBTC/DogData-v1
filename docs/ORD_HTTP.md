@@ -42,37 +42,54 @@ de mainnet religado por ele ficava fora do systemd. Por isso a ordem da virada
 O ord 0.23.2 NÃO tem rota que liste os holders de uma runa, e `/address/<a>` e
 `/outputs/<a>` exigem `--index-addresses` (o índice de mainnet não tem). O que
 existe: `GET /status`, `GET /rune/<nome>`, `POST /outputs` (lote de outpoints) e
-`GET /decode/<txid>`, todos com `Accept: application/json`. Então:
+`GET /decode/<txid>`, todos com `Accept: application/json`. Então a lista de
+UTXOs de DOG é mantida por nós e CONFERIDA pelo ord a cada leitura:
 
-1. **Candidatos** = outpoints do set do scanner (`data/dog_utxo_set.json`, mantido
-   bloco a bloco).
-2. Cada candidato é lido do servidor em lotes de 500 (`POST /outputs`): gasto ou
+1. **Estado**: os outpoints de DOG da última leitura confirmada pelo ord e a
+   altura dela, em `~/.local/share/dogdata/ord_http_dog_outpoints.json`
+   (`ORD_STATE_FILE`; fora do repositório para o bot de commit não subir 17 MB por
+   hora). Nasce de UM `ord balances` com o servidor parado
+   (`ord_http_compare.py seed --run-cli`, seção 4).
+2. **Expansão por blocos**: para cada bloco depois da altura do estado, até a
+   altura que o servidor indexou, toda transação que gasta um outpoint do conjunto
+   tem todas as saídas (menos OP_RETURN) somadas como candidatas. O DOG já foi todo
+   cunhado, então só nasce outpoint de DOG numa tx que gasta outpoint de DOG. Os
+   blocos vêm do bitcoind (`getblock <hash> 2`). O set do scanner entra como
+   candidato extra.
+3. Cada candidato é lido do servidor em lotes de 500 (`POST /outputs`): gasto ou
    não, e quanto DOG carrega (`runes["DOG•GO•TO•THE•MOON"]`, o mesmo `Pile`
    `{amount, divisibility, symbol}` do `ord balances`).
-3. **Trava de completude**: a soma tem de ser IGUAL a
+4. **Trava de completude**: a soma tem de ser IGUAL a
    `premine + mints * terms.amount - burned` da runa (`GET /rune/DOGGOTOTHEMOON`).
    Se bate, não existe outpoint de DOG fora do conjunto (a soma não deixa folga).
-   Se não bate, a leitura espera o scanner e o servidor chegarem à mesma altura
-   (até `ORD_HTTP_WAIT`, 300 s) e, esgotado o prazo, levanta `OrdHttpIncomplete`:
-   o script devolve falha e NÃO publica dado parcial (o cron já tolera falha do
-   holders e segue com o resto).
+   Se não bate, a leitura espera (até `ORD_HTTP_WAIT`, 300 s) o servidor e o
+   bitcoind chegarem à mesma altura e, esgotado o prazo, levanta
+   `OrdHttpIncomplete`: o script devolve falha e NÃO publica dado parcial (o cron
+   já tolera falha do holders e segue com o resto).
+5. Confirmado, o estado é regravado (atômico) na altura lida.
 
 Resultado: o mesmo dicionário `{outpoint: {amount, divisibility, symbol}}`.
 
+⚠️ O set do scanner (`data/dog_utxo_set.json`) NÃO serve sozinho como lista: em
+20/10, altura 972.254, ele tinha 240.339 outpoints e somava 12,68 milhões de DOG a
+menos que o ord (0,013% do supply; o ord tem 240.330 outpoints). É por isso que o
+`update_holders_and_fees.py` sempre usou o `ord balances` como verdade. O ord diz
+quanto cada outpoint tem; o scanner só sugere onde olhar.
+
 ### O que a API não dá igual
 
-- **Enumeração do zero** (bootstrap sem `dog_utxo_set.json`, reseed): sem rota de
-  holders, a leitura HTTP só confirma e poda um conjunto que já existe; um
-  outpoint que o conjunto não tem é acusado pela trava, não descoberto. Para
-  reconstruir do zero: parar `ord-mainnet`, rodar com `ORD_BALANCES_SOURCE=cli`,
-  religar. Proposta de longo prazo: subir para um ord com `/runes/balances`
-  (não existe na 0.23.2) ou aplicar esse patch de rota no fork local; aí o
-  conjunto sai inteiro por HTTP e a trava vira só conferência.
+- **Enumeração do zero** (primeira vez, estado perdido, reorg que invalide o
+  estado): sem rota de holders, a leitura HTTP só acompanha e confere um conjunto
+  que já existe; um outpoint fora dele é acusado pela trava, não descoberto. Nesses
+  casos: parar `ord-mainnet`, `ord_http_compare.py seed --run-cli`, religar.
+  Proposta de longo prazo: um ord com `/runes/balances` (não existe na 0.23.2) ou
+  esse patch de rota no fork local; aí o conjunto sai inteiro por HTTP e o estado
+  some.
 - `ord balances` rodava `index.update()` até a ponta antes de despejar; o servidor
-  se atualiza sozinho, então a leitura é "até a altura indexada agora" (a trava
-  de completude contra o scanner, que segue o bitcoind, acusa servidor atrasado).
+  se atualiza sozinho, então a leitura é "até a altura indexada agora".
 - O dump do `ord balances` trazia TODAS as runas (1,2 GB); a leitura HTTP traz só
-  o DOG (mais rápida e sem os 1,2 GB em memória).
+  o DOG (sem os 1,2 GB em memória). Em contrapartida o cron depende do bitcoind
+  (`getblock`) para a expansão, como o resto dos scripts.
 
 ## 3. Modo de comparação
 
@@ -84,7 +101,8 @@ saída 1):
 # CLI roda antes (servidor desligado) e grava o dump; a HTTP é comparada com ele.
 python3 scripts/ord_http_compare.py balances --run-cli --keep /tmp/ord-balances.json   # servidor desligado
 python3 scripts/ord_http_compare.py balances --cli-file /tmp/ord-balances.json --wallets 12
-python3 scripts/ord_http_compare.py balances --against-scanner       # contra o set do scanner
+python3 scripts/ord_http_compare.py balances --against-scanner       # contra o set do scanner (mostra a divergência dele)
+python3 scripts/ord_http_compare.py seed --run-cli                     # estado inicial (servidor desligado)
 
 # decode: o CLI não toca o índice, então as duas formas rodam lado a lado
 python3 scripts/ord_http_compare.py decode --blocks 972240,972241 --per-block 6
@@ -95,7 +113,9 @@ python3 scripts/ord_http_compare.py dump
 
 Para a comparação de balances valer, dump e leitura HTTP têm de ser da mesma
 altura (o script imprime a altura do servidor e a do bitcoind). Para congelar a
-altura, suba o servidor com `--no-sync` e use `--candidates cli`.
+altura, suba o servidor com `--no-sync` (o índice fica na altura em que o
+`ord balances` o deixou). `--candidates prod` (padrão) usa estado + expansão, o
+caminho de produção, sem gravar o estado; `--candidates cli` usa os outpoints do dump.
 
 ## 4. A virada
 
@@ -106,10 +126,18 @@ servidor subir; o código antigo ainda mataria o servidor com `pkill`.
    (`/home/bitmax/Projects/bitcoin-fullstack/DogData-v1`):
    `git log -1 --format=%h` contém o merge e
    `grep -c get_dog_balances scripts/update_holders_and_fees.py` dá `1`.
+   Se o merge entrar ANTES do servidor estar de pé e semeado, ponha
+   `ORD_BALANCES_SOURCE=cli` em `.env.local` do checkout do cron (o holders volta a
+   abrir o índice pelo binário, sem `pkill`) e retire a linha no passo 5; sem isso
+   a leitura HTTP falha (conexão recusada) e o holders daquela hora não atualiza.
    O `dog-scanner.service` é Python de longa vida: reiniciar
    (`sudo systemctl restart dog-scanner`) para carregar o `ord_http` (só o
    bootstrap e a função de referência `ord_decode` mudaram; o caminho quente não).
-2. Criar `/etc/systemd/system/ord-mainnet.service`:
+2. **Semear o estado** (uma vez, com o `ord` ainda parado, fora das :00 a :35, com a
+   trava): `flock -n /tmp/dogdata-update.lock python3 scripts/ord_http_compare.py seed --run-cli`
+   (roda o `ord balances` pela última vez; imprime a altura e o número de outpoints
+   gravados). Sem semente, a leitura cai no set do scanner e acusa `OrdHttpIncomplete`.
+3. Criar `/etc/systemd/system/ord-mainnet.service`:
 
 ```ini
 [Unit]
@@ -143,10 +171,10 @@ WantedBy=multi-user.target
    - `MemoryMax=6G` é o teto usado na prova; se o systemd matar o serviço por
      memória (`journalctl -u ord-mainnet | grep -i oom`), subir o teto.
    - Desativar o antigo: `sudo systemctl disable ord.service` (nunca ligar os dois).
-3. Subir FORA da janela pesada, depois do fim do cron das :00 (minuto >= 35), com
+4. Subir FORA da janela pesada, depois do fim do cron das :00 (minuto >= 35), com
    a trava segurada até o serviço responder:
    `flock /tmp/dogdata-update.lock -c 'sudo systemctl enable --now ord-mainnet && until curl -sf -H "Accept: application/json" http://127.0.0.1:8080/status >/dev/null; do sleep 2; done'`
-4. Conferir: `curl -s -H 'Accept: application/json' http://127.0.0.1:8080/status`
+5. Conferir: `curl -s -H 'Accept: application/json' http://127.0.0.1:8080/status`
    (`height` igual ao `bitcoin-cli getblockcount`), e na primeira hora cheia
    `tail logs/automated_update.log` deve mostrar `ord http: N UTXOs de DOG, soma ... =
    supply-burned` e `Script de holders executado com sucesso`.
