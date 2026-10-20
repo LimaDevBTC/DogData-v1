@@ -30,8 +30,8 @@ scanner pode ter avançado alguns blocos depois. Por isso o script REBOBINA o
 estado do scanner alguns blocos, para ele reprocessar a ponta com o conjunto
 correto. Reprocessar é idempotente (upsert por txid).
 
-    ord --data-dir .../ord/data balances > /tmp/ord-balances.json
-    # extrair a seção do DOG (o dump inteiro tem 1,2 GB) -> /tmp/ord-dog-balances.json
+    python3 scripts/ord_http_compare.py dump   # (era: ord balances, que não abre o índice com o servidor no ar)
+    # (o dump já grava só a seção do DOG em /tmp/ord-dog-balances.json)
     python3 scripts/reseed-utxo-from-ord.py --conferir     # não escreve nada
     python3 scripts/reseed-utxo-from-ord.py --aplicar
 """

@@ -7,9 +7,9 @@
 // blocos, sobre um filme da cidade à noite, e cada rolagem aproxima o visitante
 // do próprio lote. Seis batidas e um rodapé, nada mais:
 //
-//   Hero (filme + contador) · 01 Find your lot · 02 The deeds · 03 The city ·
-//   04 The calendar · Fund the city + os quatro degraus (#fund, #tiers) ·
-//   05 Docs and atlas · rodapé
+//   Hero (filme + contador) · 01 Find your lot · Fund the city + os quatro degraus
+//   (#fund, #tiers) · 02 Fully on Bitcoin · 03 The deeds · 04 The city ·
+//   05 The calendar · 06 Docs and atlas · rodapé
 //
 // 19/10: o fundo de construção e os cartões Citizen, Personal, Commercial e Patron
 // VOLTARAM, no modelo da landing anterior (../sections/construction-fund.tsx e
@@ -29,6 +29,7 @@ import { MotionScope } from "./ui"
 import { Footer, Nav } from "./chrome"
 import { useCountdown, type FundData } from "./use-countdown"
 import Opening, { type ChromeState } from "../sections/opening"
+import Provenance from "../sections/provenance"
 import Deeds from "../sections/deeds"
 import TheCity from "../sections/the-city"
 import Calendar from "../sections/calendar"
@@ -88,6 +89,7 @@ export default function DogCityLanding({ initialFund = null }: { initialFund?: F
               <ConstructionFund lb={lb} />
               <Tiers />
             </div>
+            <Provenance />
             <Deeds />
             <TheCity />
             <Calendar cd={cd} />

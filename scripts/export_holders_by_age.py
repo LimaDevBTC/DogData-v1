@@ -14,9 +14,8 @@ Definição (idêntica à métrica publicada):
 
 Saídas (em data/): holders_by_age.csv | holders_by_age.json | holders_by_age_meta.json
 
-IMPORTANTE (lock do redb):
-  Usa `ord balances`. NÃO rode enquanto dog_block_scanner, os extractors de airdrop
-  ou update_holders_and_fees.py estiverem rodando.
+Lê o ord server por HTTP (ORD_HTTP_URL), sem abrir o índice: pode rodar a
+qualquer hora, junto com o scanner e o update_holders_and_fees.py.
 
 Uso:
     python3 export_holders_by_age.py
@@ -28,9 +27,8 @@ import time
 from pathlib import Path
 
 # Reutiliza helpers e a função de escrita do script de produção (fonte única do formato).
+from ord_http import get_dog_balances, OrdHttpError
 from update_holders_and_fees import (
-    ORD_BINARY,
-    ORD_DATA_DIR,
     get_address_from_utxo,
     get_utxo_age_and_timestamp,
     write_holders_by_age,
@@ -39,53 +37,14 @@ from update_holders_and_fees import (
 
 
 def extract_dog_utxos():
-    """Roda `ord balances` e retorna o dict de UTXOs de DOG.
+    """UTXOs de DOG lidos do ord server (HTTP), no formato do antigo `ord balances`.
 
-    Replica a parada/retomada do ord server de update_holders_and_fees.py para
-    respeitar o lock single-writer do redb.
-    """
-    ord_dir = Path(ORD_BINARY).parent.parent.parent  # .../ord
-    if not ord_dir.exists():
-        raise SystemExit(f"❌ Diretório ord não encontrado: {ord_dir}")
-
-    ord_running = subprocess.run(['pgrep', '-f', 'ord.*server'], capture_output=True).returncode == 0
-    ord_was_running = ord_running
-
-    if ord_running:
-        print("⏸️  Ord server rodando. Parando temporariamente para acessar o índice...")
-        subprocess.run(['pkill', '-TERM', '-f', 'ord.*server'], capture_output=True)
-        for i in range(20):
-            if subprocess.run(['pgrep', '-f', 'ord.*server'], capture_output=True).returncode != 0:
-                print(f"✅ Ord parou após {i+1}s")
-                break
-            time.sleep(1)
-        else:
-            print("⚠️  Ord não parou graciosamente, forçando...")
-            subprocess.run(['pkill', '-KILL', '-f', 'ord.*server'], capture_output=True)
-            time.sleep(2)
-        time.sleep(3)
-
-    print("📊 Carregando balances do ord...")
-    result = subprocess.run(
-        [ORD_BINARY, '--data-dir', ORD_DATA_DIR, 'balances'],
-        capture_output=True, text=True, cwd=str(ord_dir)
-    )
-
-    if ord_was_running:
-        print("🔄 Reiniciando Ord server...")
-        subprocess.Popen(
-            ['nohup', 'ord', '--data-dir', 'data', '--index-runes', 'server', '--http-port', '8080'],
-            cwd=str(ord_dir),
-            stdout=open(ord_dir / 'ord.log', 'a'),
-            stderr=subprocess.STDOUT
-        )
-        time.sleep(2)
-
-    if result.returncode != 0:
-        raise SystemExit(f"❌ Erro no `ord balances`: {result.stderr}")
-
-    balances = json.loads(result.stdout)
-    dog_runes = balances.get('runes', {}).get('DOG•GO•TO•THE•MOON', {})
+    Não para nem inicia o servidor e não abre o índice (ver ord_http.py)."""
+    print("📊 Carregando balances do ord (HTTP)...")
+    try:
+        dog_runes = get_dog_balances()
+    except OrdHttpError as e:
+        raise SystemExit(f"❌ Erro ao ler o ord: {e}")
     if not dog_runes:
         raise SystemExit("⚠️ Nenhum UTXO com DOG encontrado")
     return dog_runes

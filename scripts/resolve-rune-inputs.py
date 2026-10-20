@@ -32,7 +32,7 @@ import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
-ORD = os.environ.get("ORD_URL", "http://127.0.0.1:8080")
+ORD = os.environ.get("ORD_HTTP_URL") or os.environ.get("ORD_URL", "http://127.0.0.1:8080")
 ENTRADA = "/tmp/outpoints.txt"
 SAIDA = "/tmp/rune-inputs.jsonl"
 # O nome do rune como o ord o escreve, com os pontos separadores.
