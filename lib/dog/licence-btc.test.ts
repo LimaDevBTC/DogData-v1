@@ -585,3 +585,14 @@ test('the source lists name Kraken for DOG and the three exchanges of the mint r
   assert.ok(names(DOG_SOURCES).includes('Kraken'))
   assert.ok(DOG_SOURCES.length >= 2 && DOG_SOURCES.every((s) => s.pair === 'DOG/USD'))
 })
+
+test('the fund addresses are the same in the server code, the page data and the modal gate', async () => {
+  const data = await import('../../app/dogcity/dogcity-data')
+  assert.equal(data.DONATION_WALLET, FUND_DOG_ADDRESS)
+  assert.equal(data.DONATION_METHODS.find((m) => m.key === 'bitcoin')?.address, FUND_BTC_ADDRESS)
+  const modal = readFileSync(new URL('../../components/donate/donate-modal.tsx', import.meta.url), 'utf8')
+  assert.ok(modal.includes(`ini: '${FUND_BTC_ADDRESS.slice(0, 9)}'`) && modal.includes(`fim: '${FUND_BTC_ADDRESS.slice(-6)}'`) && modal.includes(`tam: ${FUND_BTC_ADDRESS.length}`))
+  // the public docs list both addresses
+  const docs = readFileSync(new URL('../../app/dogcity/docs/page.tsx', import.meta.url), 'utf8')
+  assert.ok(docs.includes(FUND_BTC_ADDRESS) && docs.includes(FUND_DOG_ADDRESS))
+})

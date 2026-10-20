@@ -16,7 +16,7 @@ import {
 import type { Medians } from './price-sources'
 
 /** cotações por endereço de pagamento por hora: segura quem fura a mediana em loop */
-export const MAX_QUOTES_PER_PAYMENT_PER_HOUR = 10
+export const MAX_QUOTES_PER_PAYMENT_PER_HOUR = 20
 
 export interface QuoteStore {
   countSince(paymentAddress: string, sinceMs: number): Promise<number>

@@ -42,8 +42,10 @@
 // distinction between recognition and mint licence — it is not copy.
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { useEffect, useState } from "react"
 import { motion, useReducedMotion } from "framer-motion"
 import { useDonate } from "@/components/donate/donate-modal"
+import type { LicenceTier } from "@/lib/dog/licence-btc"
 import { TIERS } from "../dogcity-data"
 import {
   EASE, HAIR, DrawRule, Reveal, Scramble, SplitLine,
@@ -127,6 +129,8 @@ interface Tier {
   key: string
   name: string
   threshold: string
+  /** the three licences also take Bitcoin at the same value (19/10): the docs' own sentence */
+  btcLine?: string
   usd?: string
   color: string
   featured?: boolean
@@ -135,13 +139,37 @@ interface Tier {
   cta: string
 }
 
+// The sats each licence costs RIGHT NOW, from the same median the quote uses (indicative only:
+// the locked price comes when the wallet window opens). One fetch, refreshed once a minute; if
+// there is no reliable price the line simply stays empty, the card never invents a number.
+function useLicenceSats(): Record<string, number> | null {
+  const [sats, setSats] = useState<Record<string, number> | null>(null)
+  useEffect(() => {
+    let alive = true
+    const load = () =>
+      fetch("/api/dogcity/licence-quote")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => {
+          const t = j?.tiers
+          if (alive) setSats(t && typeof t === "object" ? t : null)
+        })
+        .catch(() => { if (alive) setSats(null) })
+    load()
+    const id = setInterval(load, 60_000)
+    return () => { alive = false; clearInterval(id) }
+  }, [])
+  return sats
+}
+
 function pad2(n: number): string {
   return String(n).padStart(2, "0")
 }
 
 // ── one deed ───────────────────────────────────────────────────────────────
-function Deed({ t, index, count }: { t: Tier; index: number; count: number }) {
+function Deed({ t, index, count, sats }: { t: Tier; index: number; count: number; sats: number | null }) {
   const { ref, onPointerMove } = useSpotlight<HTMLDivElement>()
+  // $DOG or BTC, chosen on the card (licences only); the wallet window opens on that choice
+  const [pay, setPay] = useState<"dog" | "btc">("dog")
   // 19/10: o CTA abre a janela da carteira JÁ no valor do degrau (o limiar sai da própria
   // `threshold`, "10,000 DOG" → 10000); Citizen é "Any amount", abre sem valor
   const { open: openWallet } = useDonate()
@@ -215,6 +243,29 @@ function Deed({ t, index, count }: { t: Tier; index: number; count: number }) {
           <div className="font-mono text-sm text-snow mt-1 tabular-nums">
             {t.threshold}{t.usd && <span className="text-dusty text-[11px]"> · {t.usd}</span>}
           </div>
+          {t.btcLine && (
+            <div className="mt-1.5">
+              <p className="font-mono text-[11px] text-dusty">{t.btcLine}</p>
+              <p className="font-mono text-[12px] text-mist tabular-nums mt-0.5 min-h-[1.25em]" aria-live="polite">
+                {sats && Number.isSafeInteger(sats) && sats > 0 ? `${sats.toLocaleString("en-US")} sats now` : "\u00a0"}
+              </p>
+              <div role="group" aria-label="Pay with" className="mt-2.5 inline-flex border border-white/15">
+                {(["dog", "btc"] as const).map((a) => (
+                  <button
+                    key={a}
+                    type="button"
+                    aria-pressed={pay === a}
+                    onClick={() => setPay(a)}
+                    className={`px-4 py-2.5 min-h-[44px] font-mono text-[11px] tracking-[0.1em] transition-colors ${
+                      pay === a ? "bg-white/[0.1] text-snow" : "text-dusty hover:text-snow"
+                    }`}
+                  >
+                    {a === "dog" ? "$DOG" : "BTC"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <ul className="mt-4 space-y-2 flex-1">
             {t.perks.map((p) => (
@@ -232,7 +283,13 @@ function Deed({ t, index, count }: { t: Tier; index: number; count: number }) {
 
           <button
             type="button"
-            onClick={() => openWallet({ asset: "dog", amount })}
+            onClick={() =>
+              openWallet(
+                t.btcLine
+                  ? { asset: pay, amount, tier: t.key as LicenceTier }
+                  : { asset: "dog", amount },
+              )
+            }
             // min-h-[44px]: these measured 192x40, under the 44px touch floor
             className={`mt-5 inline-flex justify-center items-center gap-2 px-4 py-2.5 min-h-[44px] font-mono text-[12px] font-bold transition-colors ${
               t.featured
@@ -250,6 +307,7 @@ function Deed({ t, index, count }: { t: Tier; index: number; count: number }) {
 
 export default function Section({}) {
   const tiers = TIERS as Tier[]
+  const licenceSats = useLicenceSats()
 
   return (
     <section id="tiers" className="border-t border-white/[0.06] scroll-mt-16">
@@ -262,7 +320,7 @@ export default function Section({}) {
 
         <Stagger className="mt-10 grid md:grid-cols-2 xl:grid-cols-4 gap-4" delay={0.62} step={0.075}>
           {tiers.map((t, i) => (
-            <Deed key={t.key} t={t} index={i} count={tiers.length} />
+            <Deed key={t.key} t={t} index={i} count={tiers.length} sats={licenceSats?.[t.key] ?? null} />
           ))}
         </Stagger>
 

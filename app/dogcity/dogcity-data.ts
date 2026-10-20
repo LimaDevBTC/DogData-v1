@@ -241,6 +241,11 @@ export const PHASE_ANNOTATIONS: PhaseAnnotation[][] = [
   ],
 ]
 
+// 19/10: as três licenças aceitam Bitcoin pelo mesmo valor em $DOG (cotação ao vivo, travada por 15
+// minutos; /dogcity/docs, seções 6 e 8). O cartão repete a frase das docs e mostra os sats ao vivo
+// (GET /api/dogcity/licence-quote). BTC NÃO conta para os 10.000.000 $DOG do mint.
+export const LICENCE_BTC_LINE = "or the same value in BTC"
+
 export const TIERS = [
   {
     // ⚠️ RENOMEADO DE "founder" PARA "citizen" EM 13/09 (LANDING-V3-DESENHO.md,
@@ -271,6 +276,7 @@ export const TIERS = [
     key: "personal",
     name: "Personal",
     threshold: "10,000 $DOG",
+    btcLine: LICENCE_BTC_LINE,
     color: "#F56E0F",
     featured: true,
     perks: [
@@ -287,6 +293,7 @@ export const TIERS = [
     key: "commercial",
     name: "Commercial",
     threshold: "50,000 $DOG",
+    btcLine: LICENCE_BTC_LINE,
     color: "#FB923C",
     perks: [
       "Everything in Personal",
@@ -300,6 +307,7 @@ export const TIERS = [
     key: "patron",
     name: "Patron",
     threshold: "500,000 $DOG",
+    btcLine: LICENCE_BTC_LINE,
     color: "#FFAD42",
     perks: [
       "Everything in Commercial",
@@ -330,7 +338,7 @@ export const DONATION_METHODS = [
     symbol: "DOG",
     logo: "/DOG.png",
     address: DONATION_WALLET,
-    note: "Bitcoin L1 Rune · counts toward your licence",
+    note: "Bitcoin L1 Rune · counts toward your licence and the mint goal",
     featured: true,
   },
   {
@@ -339,7 +347,7 @@ export const DONATION_METHODS = [
     symbol: "BTC",
     logo: "/BTC.png",
     address: "bc1qkq43gqyr7gjzj0mxz0v7e0nzs3cm59g9jspc63",
-    note: "Native SegWit · general support",
+    note: "Native SegWit · pays a licence at the same value, or general support",
   },
   {
     key: "stacks",
