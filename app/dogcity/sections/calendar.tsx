@@ -1,7 +1,7 @@
 "use client"
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 04 · THE CALENDAR (#calendar), brief landing v3 §4.6. O roadmap do mint, em
+// 05 · THE CALENDAR (#calendar), brief landing v3 §4.6. O roadmap do mint, em
 // blocos a partir de B (o bloco em que o fundo chega a 10.000.000 $DOG).
 // Régua horizontal no desktop, vertical no celular; o "YOU ARE HERE" vem do
 // mesmo estado do contador do herói (./landing/mint-state.ts). Antes de B ele
@@ -31,7 +31,7 @@ export default function Calendar({ cd }: { cd: CountdownState }) {
   return (
     <section id="calendar" aria-labelledby="dc-cal-h2" className="relative bg-dc-void pt-24 dk:pt-40 scroll-mt-14">
       <Frame>
-        <SectionHead n="04" label="THE MINT CALENDAR" />
+        <SectionHead n="05" label="THE MINT CALENDAR" />
         <h2 id="dc-cal-h2" className="dc-h2 mt-4 text-dc-snow"><SplitLine text="Counted in blocks, not dates." /></h2>
         <p className="dc-lede mt-6">
           Call B the block in which the construction fund reaches 10,000,000 $DOG. Every phase is fixed in blocks from

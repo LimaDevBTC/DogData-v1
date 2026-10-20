@@ -1,7 +1,7 @@
 "use client"
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 02 · THE DEEDS (#deeds), brief landing v3 §4.4.
+// 03 · THE DEEDS (#deeds), brief landing v3 §4.4.
 //
 // As escrituras top de linha ANTES da busca, para dar vontade de buscar. Todas
 // renderizadas pelo gerador real (dogcity-mundo plano/carta/escritura_render.mjs),
@@ -471,7 +471,7 @@ export default function Deeds() {
   return (
     <section id="deeds" aria-labelledby="dc-deeds-h2" className="relative bg-dc-void pt-24 dk:pt-40 scroll-mt-14">
       <Frame>
-        <SectionHead n="02" label="ORDINALS ON BITCOIN L1 · CHILDREN OF THE CITY CHARTER" />
+        <SectionHead n="03" label="ORDINALS ON BITCOIN L1 · CHILDREN OF THE CITY CHARTER" />
         <h2 id="dc-deeds-h2" className="dc-h2 mt-4 text-dc-snow"><SplitLine text="Every lot becomes a deed." /></h2>
         <p className="dc-lede mt-6">
           Each deed is a dark survey plat inscribed as a child of the City Charter, the map that parents the whole
@@ -479,7 +479,7 @@ export default function Deeds() {
         </p>
         <p className="mt-5 inline-flex items-center gap-2 font-mono text-[11px] tracking-[0.16em] uppercase text-dc-snow">
           <span aria-hidden className="h-[6px] w-[6px] bg-dc-lava" />
-          Specimens. Nothing has been inscribed yet.
+          Specimens. No deed has been inscribed yet.
         </p>
       </Frame>
 

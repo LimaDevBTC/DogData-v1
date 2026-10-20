@@ -1,7 +1,7 @@
 "use client"
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 05 · DOCS AND ATLAS (#docs), brief landing v3 §4.7. Posso conferir? As regras,
+// 06 · DOCS AND ATLAS (#docs), brief landing v3 §4.7. Posso conferir? As regras,
 // o atlas inteiro, o bloco e o hash.
 //
 // ⚠️ O número de pranchas vem de ATLAS_PLATES.length (app/dogcity/atlas/
@@ -46,7 +46,7 @@ export default function DocsAtlas() {
   return (
     <section id="docs" aria-labelledby="dc-docs-h2" className="relative bg-dc-void pt-24 dk:pt-40 pb-24 dk:pb-40 scroll-mt-14">
       <Frame>
-        <SectionHead n="05" label="VERIFY EVERYTHING" />
+        <SectionHead n="06" label="VERIFY EVERYTHING" />
         <h2 id="dc-docs-h2" className="dc-h2 mt-4 text-dc-snow"><SplitLine text="Read the rules. Check the map." /></h2>
 
         <div className="mt-12 grid gap-6 dkl:grid-cols-2">
