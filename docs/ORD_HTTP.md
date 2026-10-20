@@ -202,6 +202,42 @@ estiver estável, pode-se renomear a trava para `/tmp/dogdata-holders.lock`.
 3. Se preferir o código antigo inteiro: `git revert <merge>` (traz de volta o
    `pkill` do servidor; só faça com o `ord-mainnet` desligado).
 
-## 5. Prova de equivalência
+## 5. Prova de equivalência (20/10/2026, mainnet, ord 0.23.2)
 
-(preenchida abaixo com a execução real)
+Feita fora da janela :00 a :35, com `/tmp/dogdata-update.lock` segurada o tempo todo
+e o servidor sob `systemd-run --user --scope -p MemoryMax=6G nice -n 19`. Como o
+`ord balances` não abre o índice com o servidor no ar, cada rodada fez: (1) `ord
+balances` com o servidor parado, gravando o dump; (2) servidor com `--no-sync`
+(índice congelado na altura do dump); (3) leitura HTTP comparada com o dump. O
+servidor foi derrubado e a trava solta ao fim de cada rodada.
+
+| Rodada | Altura | Candidatos | Resultado |
+|---|---|---|---|
+| dump vs HTTP, candidatos = outpoints do dump | 972.254 | 240.330 | 0 só no CLI, 0 só no HTTP, 0 de amount/divisibilidade/símbolo; soma 9.997.559.319.282.812 nos dois |
+| dump vs HTTP, caminho de produção (semente 972.254 + 13 blocos de expansão + scanner) | 972.267 | 240.327 | idêntico (0 diferenças), +53 candidatos pela expansão; soma 9.997.559.319.282.812 nos dois |
+| 22 carteiras amostradas (as 3 maiores, multi-UTXO e uma só) | 972.254 e 972.267 | até 20.310 UTXOs cada | total por carteira igual; endereço do ord igual ao do bitcoind (`gettxout`, até 40 UTXOs por carteira) |
+| `ord decode --txid` vs `GET /decode/<txid>` | blocos 880.000, 969.254, 971.954, 972.253, 972.261, 972.262, 972.267, 972.268 | 80 txs (runestones e vazias) | 0 diferenças (JSON idêntico) |
+| `ord decode` vs `/decode` na signet | - | 2 txs com inscrição | idêntico |
+
+O que a prova mostrou além da igualdade:
+
+- A lei da trava vale nos dados reais: a soma do dump do `ord balances` é
+  exatamente `premine + mints * amount - burned` (9.997.559.319.282.812, altura
+  972.254 e 972.267). Por isso a soma fechando prova que não falta outpoint.
+- O set do scanner NÃO fecha: na altura 972.254 tinha 240.339 outpoints e somava
+  12,68 milhões de DOG a menos que o ord (240.330 outpoints). A trava o recusou
+  (`OrdHttpIncomplete`), que é o comportamento desejado, e é o motivo da semente.
+- Um estado incompleto também é recusado: a semente tirada de
+  `dog_utxos_by_address.json` (que o holders monta sem os outputs sem endereço)
+  ficou 4,87 milhões de DOG abaixo e a leitura levantou `OrdHttpIncomplete`.
+- Achado de projeto: o campo `spent` do `/outputs` vem do bitcoind (ponta da
+  cadeia) e `runes` vem do índice. Com o servidor congelado um bloco atrás, filtrar
+  por `spent` perdia 5,36 milhões de DOG e a soma não fechava; passou a valer só
+  `runes`.
+- A segunda leitura, partindo do estado regravado na altura nova, deu o mesmo
+  resultado da primeira.
+
+Não provado em produção: a rodada completa do `update_holders_and_fees.py` (27
+minutos, cai dentro de :00 a :35) contra o servidor, e o caminho do
+`dog_block_scanner.py --bootstrap`. Ambos usam `get_dog_balances()`, que foi o que
+se provou; confirmar na primeira hora cheia após a virada (seção 4, passo 5).
