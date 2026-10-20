@@ -444,8 +444,10 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
   const feed: (RecentEntry | null)[] = Array.from({ length: 8 }, (_, i) => lb?.recent?.[i] ?? null)
   const feedEmptyLine = lb ? "Awaiting the next contribution." : "Loading live feed…"
 
+  // ⚠️ id="fund", NÃO "build": na landing v3 o #build é o bloco do contador do herói
+  // (links de fora, como /dogcity#build, caem ali); dois ids iguais quebram a âncora.
   return (
-    <section id="build" className={`relative border-t ${HAIR_SOFT} scroll-mt-16`}>
+    <section id="fund" className={`relative border-t ${HAIR_SOFT} scroll-mt-16`}>
       <style jsx global>{`
         @keyframes sv-ping {
           0%   { transform: scale(1);   opacity: 0.6; }
@@ -608,7 +610,7 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
                     <div className="font-display font-bold text-xl sm:text-2xl text-snow mt-1 tabular-nums">
                       <SteadyCounter
                         value={s.value}
-                        ghost={s.value === null ? "—" : format(s.value)}
+                        ghost={s.value === null ? "n/a" : format(s.value)}
                         format={format}
                       />
                     </div>

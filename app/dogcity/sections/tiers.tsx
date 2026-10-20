@@ -40,6 +40,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { motion, useReducedMotion } from "framer-motion"
+import { useDonate } from "@/components/donate/donate-modal"
 import { TIERS } from "../dogcity-data"
 import {
   EASE, HAIR, DrawRule, Reveal, Scramble, SplitLine,
@@ -138,6 +139,10 @@ function pad2(n: number): string {
 // ── one deed ───────────────────────────────────────────────────────────────
 function Deed({ t, index, count }: { t: Tier; index: number; count: number }) {
   const { ref, onPointerMove } = useSpotlight<HTMLDivElement>()
+  // 19/10: o CTA abre a janela da carteira JÁ no valor do degrau (o limiar sai da própria
+  // `threshold`, "10,000 DOG" → 10000); Citizen é "Any amount", abre sem valor
+  const { open: openWallet } = useDonate()
+  const amount = Number(t.threshold.replace(/[^\d]/g, "")) || undefined
   const fill = LOT_REST_FILL[t.key] ?? 22
   const slot = index * 0.075   // this card's place in the deck's stagger
 
@@ -222,8 +227,9 @@ function Deed({ t, index, count }: { t: Tier; index: number; count: number }) {
             </p>
           )}
 
-          <a
-            href="#build"
+          <button
+            type="button"
+            onClick={() => openWallet({ asset: "dog", amount })}
             // min-h-[44px]: these measured 192x40, under the 44px touch floor
             className={`mt-5 inline-flex justify-center items-center gap-2 px-4 py-2.5 min-h-[44px] font-mono text-[12px] font-bold transition-colors ${
               t.featured
@@ -232,7 +238,7 @@ function Deed({ t, index, count }: { t: Tier; index: number; count: number }) {
             }`}
           >
             {t.cta}
-          </a>
+          </button>
         </div>
       </div>
     </StaggerItem>

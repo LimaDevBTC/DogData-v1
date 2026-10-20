@@ -9,7 +9,7 @@
 // ./landing/landing.tsx:
 //
 //   Hero (filme + contador) · Find your lot · The deeds · The city ·
-//   The calendar · Docs and atlas · rodapé
+//   The calendar · Fund the city + degraus · Docs and atlas · rodapé
 //
 // Este arquivo virou componente de SERVIDOR: só carrega os metadados da página
 // (que o layout não pode dar só a ela) e a pré-carga do pôster do herói, o
@@ -39,10 +39,9 @@ import { POSTER } from "./landing/media"
 // import MapFull from "./sections/map-full"
 //   o mapa largo antigo (citymap-2000-v9) vira o fundo da busca, na versão City v1.
 // import OfferIntro from "./sections/offer-intro"            era do funil
-// import ConstructionFund from "./sections/construction-fund"
-//   o contador do herói substitui; o fluxo de contribuição segue em
-//   /dogcity/founders. A fita LED (marquee) é linguagem rejeitada.
-// import Tiers from "./sections/tiers"                         escada de licenças, era do funil
+// ConstructionFund e Tiers VOLTARAM em 19/10 (ver ./landing/landing.tsx): tirá-los deixou a
+//   página sem nenhum caminho de contribuição, e o fundo é o que dispara o mint. O contador
+//   do herói não os substitui; ele ganhou o botão "Become a founder".
 // import FoundersRegister from "./sections/founders-register" segue em /dogcity/founders
 // import {
 //   ObjectionAirdrop, ObjectionWhales, ObjectionToken, ObjectionWait, ObjectionMultipleWallets,
@@ -53,7 +52,8 @@ import { POSTER } from "./landing/media"
 //   desta página por pedido do fundador.
 // import FinalCta from "./sections/final-cta"                  a página é curta
 // A pílula flutuante "Build DogCity" virou o botão vivo do contador, DENTRO da
-// navegação (./landing/chrome.tsx). O <Layout currentPage="donate"> saiu.
+// navegação (./landing/chrome.tsx). O <Layout currentPage="donate"> saiu; a janela da
+// carteira (DonateProvider) vem da raiz, app/layout.tsx, então nada a montar aqui.
 //
 // ─ JÁ ESTAVAM FORA ANTES (13/09 e antes), seguem fora ──────────────────────
 // MempoolBand, HeroLive, HeroFunil, TwoPaths, Snapshot, PlazaLive, Galaxy,
