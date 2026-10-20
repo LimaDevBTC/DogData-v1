@@ -13,6 +13,9 @@ qualquer diferença. Sai com código 1 se achar uma.
     python3 scripts/ord_http_compare.py decode --blocks 972240,972241 --per-block 6
     python3 scripts/ord_http_compare.py decode --txids <txid>,<txid>
 
+    # seed: estado inicial (UMA vez, servidor desligado); depois a leitura HTTP se mantém sozinha
+    python3 scripts/ord_http_compare.py seed --run-cli
+
     # dump: grava /tmp/ord-dog-balances.json por HTTP (entrada do compare-utxo-vs-ord.py)
     python3 scripts/ord_http_compare.py dump
 
@@ -62,10 +65,10 @@ def cmd_balances(a):
 
     info = {}
     # candidates=cli: servidor congelado na altura do dump (--no-sync), os outpoints
-    # do dump são os candidatos; padrão: o caminho de produção (set do scanner).
+    # do dump são os candidatos; padrão: o caminho de produção (estado + expansão).
     try:
         http = oh.dog_balances_http(candidates=list(cli) if a.candidates == 'cli' else None,
-                                    info_out=info)
+                                    info_out=info, persist=False)
     except oh.OrdHttpError as e:
         print(f'HTTP: {type(e).__name__}: {e}')
         print('DIFERENTE')
@@ -155,6 +158,22 @@ def cmd_decode(a):
     return 1 if bad else 0
 
 
+def cmd_seed(a):
+    """Grava o estado (outpoints de DOG + altura) a partir de um `ord balances`.
+    A altura gravada é a do bitcoind ANTES do CLI (conservadora: se o CLI indexou um
+    bloco a mais, a expansão só reprocessa esse bloco)."""
+    if a.run_cli:
+        height = int(bitcoin_cli('getblockcount'))
+        dog = oh.dog_balances_cli(dump_path=a.keep)
+    elif a.cli_file and a.height:
+        height, dog = a.height, oh._dog_section_from_file(a.cli_file)
+    else:
+        sys.exit('use --run-cli (servidor desligado) ou --cli-file F --height H')
+    oh.save_state(height, list(dog))
+    print(f'estado gravado em {oh.STATE_FILE}: {len(dog)} outpoints de DOG, altura {height}')
+    return 0
+
+
 def cmd_dump(a):
     """Grava a seção de DOG lida por HTTP no formato que compare-utxo-vs-ord.py e
     reseed-utxo-from-ord.py esperam (o antigo /tmp/ord-dog-balances.json)."""
@@ -174,17 +193,23 @@ def main():
     b.add_argument('--keep', help='onde gravar o dump do --run-cli')
     b.add_argument('--against-scanner', action='store_true',
                    help='referência = data/dog_utxo_set.json em vez de um dump do CLI')
-    b.add_argument('--candidates', choices=['scanner', 'cli'], default='scanner',
-                   help='de onde vêm os outpoints candidatos da leitura HTTP')
+    b.add_argument('--candidates', choices=['prod', 'cli'], default='prod',
+                   help='prod: estado + expansão por blocos (caminho de produção, não grava o estado); '
+                        'cli: os outpoints do dump (altura congelada)')
     b.add_argument('--wallets', type=int, default=0, help='amostra de carteiras (mín. 6)')
     d = sub.add_parser('decode')
     d.add_argument('--txids')
     d.add_argument('--blocks')
     d.add_argument('--per-block', type=int, default=6)
+    z = sub.add_parser('seed', help='grava o estado inicial a partir de um ord balances')
+    z.add_argument('--run-cli', action='store_true', help='roda `ord balances` (servidor desligado)')
+    z.add_argument('--keep', help='onde gravar o dump do --run-cli')
+    z.add_argument('--cli-file', help='dump de `ord balances` já gravado')
+    z.add_argument('--height', type=int, help='altura do dump (com --cli-file)')
     u = sub.add_parser('dump')
     u.add_argument('--out', default='/tmp/ord-dog-balances.json')
     a = ap.parse_args()
-    sys.exit({'balances': cmd_balances, 'decode': cmd_decode, 'dump': cmd_dump}[a.cmd](a))
+    sys.exit({'balances': cmd_balances, 'decode': cmd_decode, 'dump': cmd_dump, 'seed': cmd_seed}[a.cmd](a))
 
 
 if __name__ == '__main__':

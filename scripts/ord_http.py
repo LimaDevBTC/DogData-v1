@@ -10,6 +10,8 @@ Configuração (ambiente):
     ORD_HTTP_BATCH        outpoints por POST /outputs (padrão 500)
     ORD_BALANCES_SOURCE   http (padrão) | cli. `cli` é a volta atrás: só funciona
                           com o servidor DESLIGADO (o redb tem um escritor só).
+    ORD_CANDIDATES_FILE   set do scanner, candidatos extras (padrão data/dog_utxo_set.json).
+    ORD_STATE_FILE        estado: outpoints de DOG + altura (padrão ~/.local/share/dogdata/).
     ORD_BINARY / ORD_DATA_DIR   só para a forma `cli` e para o modo de comparação.
 
 O que a API do ord 0.23.2 NÃO dá: não existe rota que liste os holders de uma
@@ -17,16 +19,28 @@ runa (`/runes/balances` só aparece em versões posteriores) e `/address` e
 `/outputs/<endereço>` exigem `--index-addresses`. Então o dicionário de UTXOs de
 DOG que o `ord balances` devolvia é montado assim:
 
-    1. candidatos = outpoints do set do scanner (data/dog_utxo_set.json);
-    2. cada candidato é lido do servidor (POST /outputs): gasto ou não, quanto DOG;
-    3. TRAVA DE COMPLETUDE: a soma do que o servidor confirma tem de ser IGUAL a
+    1. ESTADO: os outpoints de DOG da última leitura confirmada pelo ord, com a
+       altura em que valeram (ORD_STATE_FILE, fora do repositório). Nasce de UM
+       `ord balances` com o servidor parado (`ord_http_compare.py seed`).
+    2. EXPANSÃO: para cada bloco depois dessa altura, até a altura que o servidor
+       indexou, toda transação que gasta um outpoint do conjunto tem TODAS as
+       saídas adicionadas como candidatas (o DOG já foi todo cunhado; só nasce
+       outpoint de DOG numa tx que gasta outpoint de DOG). Os blocos vêm do
+       bitcoind (`getblock <hash> 2`). O set do scanner entra como candidato extra.
+    3. Cada candidato é lido do servidor (POST /outputs): gasto ou não, quanto DOG.
+    4. TRAVA DE COMPLETUDE: a soma do que o servidor confirma tem de ser IGUAL a
        premine + mints * amount - burned da runa (GET /rune/<DOG>). Se for igual,
        não existe outpoint de DOG fora do conjunto (a soma não deixa folga); se
-       não for, o scanner está atrasado ou errado e a função levanta
-       OrdHttpIncomplete em vez de devolver dado parcial.
+       não for, levanta OrdHttpIncomplete em vez de devolver dado parcial.
+    5. Confirmado, o estado é regravado na altura lida.
 
-Quem precisar enumerar do zero (bootstrap, reseed) usa a forma `cli` com o
-servidor parado, ou o `/runes/balances` de um ord mais novo.
+O set do scanner NÃO serve sozinho como lista: medido em 20/10, altura 972.254,
+ele diverge do ord em 12,68 milhões de DOG (0,013% do supply). O ord é quem diz
+quanto cada outpoint tem; o scanner só sugere onde olhar.
+
+Quem precisar enumerar do zero (primeira vez, depois de reorg que invalide o
+estado) usa `ord_http_compare.py seed` com o servidor parado, ou o
+`/runes/balances` de um ord mais novo.
 """
 import json
 import mmap
@@ -45,8 +59,13 @@ DOG_RUNE_NAME = 'DOG•GO•TO•THE•MOON'
 DOG_RUNE_PLAIN = 'DOGGOTOTHEMOON'
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-UTXO_SET_FILE = PROJECT_ROOT / 'data' / 'dog_utxo_set.json'
+# ORD_CANDIDATES_FILE: set do scanner em outro lugar (testes, worktree com data/ velho)
+UTXO_SET_FILE = Path(os.environ.get('ORD_CANDIDATES_FILE', PROJECT_ROOT / 'data' / 'dog_utxo_set.json'))
 SCANNER_STATE_FILE = PROJECT_ROOT / 'data' / 'scanner_state.json'
+
+STATE_FILE = Path(os.environ.get(
+    'ORD_STATE_FILE', Path.home() / '.local' / 'share' / 'dogdata' / 'ord_http_dog_outpoints.json'))
+BITCOIN_CLI = os.environ.get('BITCOIN_CLI', 'bitcoin-cli')
 
 ORD_BINARY = os.environ.get(
     'ORD_BINARY', '/home/bitmax/Projects/bitcoin-fullstack/ord/target/release/ord')
@@ -166,28 +185,91 @@ def _load_json_retry(path, tries=5):
             time.sleep(2)
 
 
-def load_candidates():
-    return list(_load_json_retry(UTXO_SET_FILE).keys())
+def load_scanner_set():
+    try:
+        return list(_load_json_retry(UTXO_SET_FILE).keys())
+    except (OSError, ValueError):
+        return []
+
+
+def load_state():
+    """{'height': int, 'outpoints': [...]} da última leitura confirmada, ou None."""
+    try:
+        with open(STATE_FILE) as fh:
+            st = json.load(fh)
+        return {'height': int(st['height']), 'outpoints': list(st['outpoints'])}
+    except (OSError, ValueError, KeyError):
+        return None
+
+
+def save_state(height, outpoints):
+    """Grava o estado de forma atômica (arquivo temporário + rename)."""
+    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    tmp = STATE_FILE.with_suffix('.tmp')
+    with open(tmp, 'w') as fh:
+        json.dump({'height': int(height), 'outpoints': sorted(outpoints),
+                   'saved_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}, fh)
+    os.replace(tmp, STATE_FILE)
+
+
+def _bitcoin_cli(*args, timeout=300):
+    r = subprocess.run([BITCOIN_CLI, *map(str, args)], capture_output=True, text=True,
+                       timeout=timeout)
+    if r.returncode != 0:
+        raise OrdHttpError(f'bitcoin-cli {args[:2]}: {r.stderr.strip()[:200]}')
+    return r.stdout
+
+
+def expand_candidates(known, from_height, to_height, log=print):
+    """Soma a `known` (set, alterado no lugar) as saídas de toda tx dos blocos
+    from_height..to_height que gasta um outpoint de `known`. Devolve quantas somou."""
+    added = 0
+    for height in range(from_height, to_height + 1):
+        block = json.loads(_bitcoin_cli('getblock', _bitcoin_cli('getblockhash', height).strip(), 2))
+        for tx in block['tx']:
+            if any(f"{v['txid']}:{v['vout']}" in known for v in tx['vin'] if 'txid' in v):
+                for o in tx['vout']:
+                    if o['scriptPubKey'].get('type') != 'nulldata':
+                        known.add(f"{tx['txid']}:{o['n']}")
+                        added += 1
+    if added:
+        log(f'ord http: +{added} candidatos nos blocos {from_height}..{to_height}')
+    return added
+
+
+def build_candidates(height, log=print):
+    """Candidatos para a altura `height` do servidor: estado + scanner + expansão."""
+    known = set(load_scanner_set())
+    state = load_state()
+    if state:
+        known.update(state['outpoints'])
+        if state['height'] < height:
+            expand_candidates(known, state['height'] + 1, height, log)
+    else:
+        log('ord http: sem estado (rode `ord_http_compare.py seed` uma vez); so o scanner como candidato')
+    return sorted(known)
 
 
 def _is_dog(pile_map):
     return DOG_RUNE_NAME in (pile_map or {})
 
 
-def dog_balances_http(candidates=None, max_wait=None, log=print, info_out=None):
+def dog_balances_http(candidates=None, max_wait=None, log=print, info_out=None,
+                      persist=None):
     """UTXOs de DOG no mesmo formato de `ord balances`['runes'][DOG]:
     {'txid:vout': {'amount': int, 'divisibility': int, 'symbol': str}}.
 
     Levanta OrdHttpError se o servidor não responde e OrdHttpIncomplete se, depois
     de esperar o scanner e o servidor chegarem na mesma altura (padrão 300 s,
     ORD_HTTP_WAIT), a soma não fechar com o supply da runa. `info_out` (dict),
-    se dado, recebe a resposta crua de /outputs (endereço, valor) dos candidatos."""
+    se dado, recebe a resposta crua de /outputs (endereço, valor) dos candidatos.
+    Sem `candidates`, usa estado + expansão e regrava o estado ao fechar (`persist`)."""
     max_wait = float(os.environ.get('ORD_HTTP_WAIT', '300')) if max_wait is None else max_wait
     deadline = time.time() + max_wait
     last = ''
     while True:
         h0 = block_height()
-        cands = candidates if candidates is not None else load_candidates()
+        cands = candidates if candidates is not None else build_candidates(h0, log)
         info = outputs(cands)
         rune = rune_entry()
         h1 = block_height()
@@ -205,6 +287,8 @@ def dog_balances_http(candidates=None, max_wait=None, log=print, info_out=None):
         if h0 == h1 and total == expected:
             if info_out is not None:
                 info_out.update(info)
+            if persist if persist is not None else candidates is None:
+                save_state(h1, list(got))
             log(f'ord http: {len(got)} UTXOs de DOG, soma {total} = supply-burned, altura {h1}')
             return got
         last = (f'altura {h0}->{h1}, soma dos {len(cands)} candidatos = {total}, '
