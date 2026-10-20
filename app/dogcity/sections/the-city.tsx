@@ -1,7 +1,7 @@
 "use client"
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 03 · THE CITY (#city), brief landing v3 §4.5.
+// 04 · THE CITY (#city), brief landing v3 §4.5.
 //
 // Prova que a cidade existe e entrega o controle. Duas metades: o $DOG
 // interativo (three.js puro, carregado só a 600 px da seção, ./dog-stage.tsx) e
@@ -374,7 +374,7 @@ function Opener() {
               transform: shown ? "none" : "translate3d(0, 32px, 0)",
             }}
           >
-            <SectionHead n="03" label="PLAYABLE IN YOUR BROWSER · DOGCITY.SPACE" onImage />
+            <SectionHead n="04" label="PLAYABLE IN YOUR BROWSER · DOGCITY.SPACE" onImage />
             <h2 id="dc-city-h2" className="dc-h2 dc-op-h2 mt-4 max-w-[11ch] dk:max-w-[20ch] text-dc-snow dc-halo">Walk your street before you mint it.</h2>
           </div>
         </Frame>
