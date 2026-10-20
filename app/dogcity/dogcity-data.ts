@@ -244,7 +244,11 @@ export const PHASE_ANNOTATIONS: PhaseAnnotation[][] = [
 // 19/10: as três licenças aceitam Bitcoin pelo mesmo valor em $DOG (cotação ao vivo, travada por 15
 // minutos; /dogcity/docs, seções 6 e 8). O cartão repete a frase das docs e mostra os sats ao vivo
 // (GET /api/dogcity/licence-quote). BTC NÃO conta para os 10.000.000 $DOG do mint.
+// 20/10 (decisão do fundador): quem paga em BTC recebe SÓ a licença de construção e o item pack do
+// degrau; número de Founder, Monument, Club, sorteio, mint grátis primeiro e luz do Founder exigem
+// $DOG no fundo. A linha abaixo é a mesma frase das docs (seção 6, "Paying a rung").
 export const LICENCE_BTC_LINE = "or the same value in BTC"
+export const LICENCE_BTC_NOTE = "Paid in BTC: building licence and item pack only. Founder benefits need $DOG in the fund."
 
 export const TIERS = [
   {
@@ -277,6 +281,7 @@ export const TIERS = [
     name: "Personal",
     threshold: "10,000 $DOG",
     btcLine: LICENCE_BTC_LINE,
+    btcNote: LICENCE_BTC_NOTE,
     color: "#F56E0F",
     featured: true,
     perks: [
@@ -294,6 +299,7 @@ export const TIERS = [
     name: "Commercial",
     threshold: "50,000 $DOG",
     btcLine: LICENCE_BTC_LINE,
+    btcNote: LICENCE_BTC_NOTE,
     color: "#FB923C",
     perks: [
       "Everything in Personal",
@@ -308,6 +314,7 @@ export const TIERS = [
     name: "Patron",
     threshold: "500,000 $DOG",
     btcLine: LICENCE_BTC_LINE,
+    btcNote: LICENCE_BTC_NOTE,
     color: "#FFAD42",
     perks: [
       "Everything in Commercial",

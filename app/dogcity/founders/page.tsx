@@ -520,7 +520,10 @@ export default function DogCityFoundersPage() {
 
             {/* ═══════════════════════════ 3 ═══════════════════════════ */}
             <Section id="the-ladder" n="3" title="The ladder">
-              <P className="mt-0">Every rung includes everything below it.</P>
+              <P className="mt-0">
+                Every rung includes everything below it. A rung paid in BTC brings its building
+                licence and item pack only: the Founder benefits need $DOG in the fund.
+              </P>
 
               <div className="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                 {RUNGS.map((r, i) => (

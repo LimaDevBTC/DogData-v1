@@ -603,6 +603,10 @@ function DonateModal({
             {licenceBtc ? (
               // ── licença em BTC: o preço vem do servidor, não se digita ──
               <div className="space-y-3">
+                <p className="font-mono text-[11px] text-mist leading-relaxed">
+                  Paid in BTC: building licence and item pack only. Founder benefits need $DOG in
+                  the fund.
+                </p>
                 {!account ? (
                   <p className="font-mono text-[10px] text-dusty leading-relaxed">
                     Connect a wallet to get a price. The quote ties your payment address to your

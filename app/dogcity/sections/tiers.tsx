@@ -131,6 +131,8 @@ interface Tier {
   threshold: string
   /** the three licences also take Bitcoin at the same value (19/10): the docs' own sentence */
   btcLine?: string
+  /** what a licence paid in Bitcoin does and does not include (docs, section 6) */
+  btcNote?: string
   usd?: string
   color: string
   featured?: boolean
@@ -264,6 +266,9 @@ function Deed({ t, index, count, sats }: { t: Tier; index: number; count: number
                   </button>
                 ))}
               </div>
+              {t.btcNote && (
+                <p className="font-mono text-[11px] text-dusty leading-relaxed mt-2.5">{t.btcNote}</p>
+              )}
             </div>
           )}
 
