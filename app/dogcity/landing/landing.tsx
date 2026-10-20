@@ -82,14 +82,15 @@ export default function DogCityLanding({ initialFund = null }: { initialFund?: F
           <Nav cd={cd} live={chrome.live} solid={chrome.solid} quiet={chrome.quiet} />
           <main>
             <Opening cd={cd} intro={intro} onIntroDone={introDone} onChrome={setChrome} />
-            <Deeds />
-            <TheCity />
-            <Calendar cd={cd} />
-            {/* o modelo da landing anterior, no mínimo para encaixar (cores: landing.css) */}
+            {/* o modelo da landing anterior, no mínimo para encaixar (cores: landing.css); 20/10, fundador: logo depois do
+                hero, como segunda e terceira seções (o fundo é o que dispara o mint) */}
             <div data-dc-legacy>
               <ConstructionFund lb={lb} />
               <Tiers />
             </div>
+            <Deeds />
+            <TheCity />
+            <Calendar cd={cd} />
             <DocsAtlas />
           </main>
           <Footer />
