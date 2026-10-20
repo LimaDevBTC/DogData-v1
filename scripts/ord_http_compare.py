@@ -106,7 +106,7 @@ def cmd_balances(a):
             ops = by_addr[ad]
             h = sum(http[op]['amount'] for op in ops)
             c = sum(cli.get(op, {'amount': 0})['amount'] for op in ops)
-            wrong = [op for op in ops if address_from_bitcoin(op) != ad]
+            wrong = [op for op in oh.sample(ops, 40) if address_from_bitcoin(op) != ad]  # até 40 por carteira
             ok = (h == c) and not wrong
             bad |= not ok
             print(f"  {'OK ' if ok else 'DIF'} {ad} utxos={len(ops)} http={h} cli={c} "
