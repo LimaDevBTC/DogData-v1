@@ -8,7 +8,15 @@
 // do próprio lote. Seis batidas e um rodapé, nada mais:
 //
 //   Hero (filme + contador) · 01 Find your lot · 02 The deeds · 03 The city ·
-//   04 The calendar · 05 Docs and atlas · rodapé
+//   04 The calendar · Fund the city + os quatro degraus (#fund, #tiers) ·
+//   05 Docs and atlas · rodapé
+//
+// 19/10: o fundo de construção e os cartões Citizen, Personal, Commercial e Patron
+// VOLTARAM, no modelo da landing anterior (../sections/construction-fund.tsx e
+// ../sections/tiers.tsx, intactos). A v3 os tinha tirado e com eles o único caminho
+// de contribuição da página (o fundo está perto da meta e é ele que dispara o mint).
+// A janela da carteira (DonateProvider) mora na raiz (app/layout.tsx), então esta
+// página, sem o <Layout>, já está dentro dela.
 //
 // Página própria: SEM o <Layout> do DogData (cabeçalho, faixa da BitFlow,
 // rodapé do site). O cromo é o de ./chrome.tsx.
@@ -25,11 +33,15 @@ import Deeds from "../sections/deeds"
 import TheCity from "../sections/the-city"
 import Calendar from "../sections/calendar"
 import DocsAtlas from "../sections/docs-atlas"
+import ConstructionFund from "../sections/construction-fund"
+import Tiers from "../sections/tiers"
+import { useLeaderboard } from "./use-leaderboard"
 
 const TITLE_KEY = "dc-title-card"
 
 export default function DogCityLanding({ initialFund = null }: { initialFund?: FundData | null }) {
   const cd = useCountdown(initialFund)
+  const lb = useLeaderboard()
 
   // ── o cartão de título: só na primeira visita da sessão ──
   // Quem decide é o script pré-hidratação de ../layout.tsx (marca <html
@@ -70,6 +82,12 @@ export default function DogCityLanding({ initialFund = null }: { initialFund?: F
           <Nav cd={cd} live={chrome.live} solid={chrome.solid} quiet={chrome.quiet} />
           <main>
             <Opening cd={cd} intro={intro} onIntroDone={introDone} onChrome={setChrome} />
+            {/* o modelo da landing anterior, no mínimo para encaixar (cores: landing.css); 20/10, fundador: logo depois do
+                hero, como segunda e terceira seções (o fundo é o que dispara o mint) */}
+            <div data-dc-legacy>
+              <ConstructionFund lb={lb} />
+              <Tiers />
+            </div>
             <Deeds />
             <TheCity />
             <Calendar cd={cd} />

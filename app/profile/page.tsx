@@ -998,7 +998,7 @@ export default function ProfilePage() {
           <Head
             eyebrow="◆ dogcity"
             title="Your seat in the city"
-            sub="Every wallet that held DOG at block 966,670 is in the sealed city registry: a lot if its balance reached the smallest lot the city builds, a headstone if it did not. Donors get a plaque in the Founders Register."
+            sub="Every wallet that held DOG at block 966,670 is in the sealed city registry: a lot if its balance reached the smallest lot the city builds, a headstone if it did not. Contributors get a plaque in the Founders Register."
           />
 
           <div className="grid md:grid-cols-2 gap-px bg-white/10 border border-white/10">
@@ -1048,7 +1048,7 @@ export default function ProfilePage() {
               ) : (
                 <div className="space-y-3">
                   <p className="text-[12px] text-mist leading-relaxed">
-                    This address has not donated to the build yet. Any amount before the goal makes
+                    This address has not contributed to the build yet. Any amount before the goal makes
                     you a Founder, and the register records the order of arrival.
                   </p>
                   <div className="flex flex-wrap items-center gap-3">

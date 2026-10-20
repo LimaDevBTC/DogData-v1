@@ -330,7 +330,7 @@ export default function DogCityDocsPage() {
                 items={[
                   {
                     lead: "Location is not for sale.",
-                    text: "A wallet's position comes from its on-chain history at one fixed block. Nothing that can be paid for, licence, donation, or partnership, moves it.",
+                    text: "A wallet's position comes from its on-chain history at one fixed block. Nothing that can be paid for, licence, contribution, or partnership, moves it.",
                   },
                   {
                     lead: "The city is a photograph, not a ledger.",
@@ -1076,6 +1076,28 @@ export default function DogCityDocsPage() {
                 ))}
               </div>
 
+              <Sub>Paying a rung in $DOG or in Bitcoin</Sub>
+              <P className="mt-3">
+                Personal, Commercial and Patron can be paid in $DOG or in Bitcoin. Three rules
+                govern it.
+              </P>
+              <BulletList
+                items={[
+                  {
+                    lead: "The price stays in $DOG.",
+                    text: "A licence is worth 10,000, 50,000 or 500,000 $DOG. In Bitcoin you pay the same value, quoted live from the median of exchange prices: Kraken, Coinbase and Bitstamp for BTC/USD, and Kraken, Gate.io and MEXC for DOG/USD (Gate.io and MEXC price DOG in USDT, counted here as dollars). The quote needs at least two independent exchanges for each pair, and exchanges more than 5% away from the median are left out. If that cannot be met, there is no quote and nothing can be paid in Bitcoin until it can. A quote holds for 15 minutes.",
+                  },
+                  {
+                    lead: "Bitcoin does not count toward the 10,000,000 $DOG.",
+                    text: "The fund counter, Block B and everything that opens the mint (section 7) are measured in $DOG only. A payment in Bitcoin never moves them, whatever its size.",
+                  },
+                  {
+                    lead: "One wallet, both coins.",
+                    text: "For the rung of a wallet, its $DOG and its Bitcoin add up. The quote ties the address that pays to the ordinals address of the same wallet, so the Bitcoin is credited to the wallet that asked for it. It is counted at its $DOG value from the locked quote when the network saw the payment before the 15 minutes ended and it covers the quoted amount; a payment seen after that is counted at the median price at the block that confirmed it. Credit comes after 6 confirmations. A payment that cannot be tied to a quote, or priced from enough exchanges, is held for a manual check and never becomes a licence on its own. Pay from the wallet you asked the quote with.",
+                  },
+                ]}
+              />
+
               <Sub>The Founders&apos; draw</Sub>
               <P className="mt-3">
                 One draw, among every Founder at any rung, on an announced date. Prizes: a
@@ -1121,6 +1143,8 @@ export default function DogCityDocsPage() {
                 The mint is triggered by the construction fund, not by a date. Call B the block in
                 which the fund reaches 10,000,000 $DOG. Every phase is counted in blocks from B (144
                 blocks is about one day), and the calendar is inscribed on chain once B is known.
+                Only $DOG counts toward the 10,000,000: a licence paid in Bitcoin (section 6) does
+                not move B.
               </P>
               <BulletList
                 items={[
@@ -1325,8 +1349,11 @@ export default function DogCityDocsPage() {
               />
               <P>
                 A Founder at one of these rungs already holds that licence (section 6). Any other
-                wallet takes the same licence for the same amount of $DOG. How it is paid after the
-                mint, and where that $DOG goes, will be published here before building opens.
+                wallet takes the same licence for the same amount of $DOG, or for the same value in
+                Bitcoin under the three rules of section 6: priced in $DOG, never counted toward the
+                10,000,000 $DOG of the mint, and added to the wallet&apos;s $DOG for its rung. How
+                it is paid after the mint, and where that $DOG goes, will be published here before
+                building opens.
               </P>
 
               <Sub>One architecture per district, one model per lot size</Sub>

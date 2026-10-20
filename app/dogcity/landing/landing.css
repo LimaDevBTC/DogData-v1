@@ -44,6 +44,11 @@ body:has([data-dogcity-landing]) > div.min-h-screen { background: #15130F; }
 /* o globals.css força .font-mono para JetBrains por nome; aqui a família é a mesma */
 [data-dogcity-landing] .font-mono { font-family: var(--font-mono), 'JetBrains Mono', monospace; }
 
+/* ── as seções da landing ANTERIOR que voltaram (fundo de construção e degraus) ──
+   Usam os tokens do site (`bg-void` é preto puro); aqui o fundo é o void quente. É o
+   único ajuste de cor: o resto (lava, snow, Syne, JetBrains Mono) já existe no Tailwind. */
+[data-dc-legacy] .bg-void { background-color: var(--dc-void); }
+
 /* ── foco de teclado: anel lava de 2 px com 2 px de folga, em tudo ── */
 [data-dogcity-landing] :focus { outline: none; }
 [data-dogcity-landing] :focus-visible {

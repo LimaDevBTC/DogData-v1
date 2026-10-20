@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { redisClient } from '@/lib/upstash'
 import { DONATION_WALLET } from '@/app/dogcity/dogcity-data'
+import { FUND_BTC_ADDRESS } from '@/lib/dog/licence-btc'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 /**
- * GET /api/donate/verify?txid=<64 hex>
+ * GET /api/donate/verify?txid=<64 hex>[&asset=dog|btc]
+ *
+ * `asset` (padrão dog) só escolhe QUAL endereço do fundo é o esperado: o de $DOG ou o de
+ * Bitcoin. Os dois moram no código do servidor; o cliente nunca manda endereço.
  *
  * PARA QUE ISTO EXISTE: a janela de doação monta o pedido no navegador, e um
  * navegador é território do visitante. Extensão hostil, devtools aberto ou um
@@ -42,7 +46,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid transaction id.' }, { status: 400 })
   }
 
-  const key = `donateverify:${txid}`
+  const asset = req.nextUrl.searchParams.get('asset') === 'btc' ? 'btc' : 'dog'
+  const fundAddress = asset === 'btc' ? FUND_BTC_ADDRESS : DONATION_WALLET
+
+  const key = `donateverify:${asset}:${txid}`
   try {
     const hit = await redisClient.get<Verdict>(key)
     // Só o veredito de uma transação JÁ CONFIRMADA é reaproveitado: enquanto
@@ -60,7 +67,7 @@ export async function GET(req: NextRequest) {
 
     if (res.status === 404) {
       return NextResponse.json({
-        txid, found: false, paysFund: false, fundAddress: DONATION_WALLET,
+        txid, found: false, paysFund: false, fundAddress,
         valueToFund: 0, confirmed: false,
       })
     }
@@ -68,13 +75,13 @@ export async function GET(req: NextRequest) {
 
     const tx = await res.json()
     const outs: any[] = tx?.vout ?? []
-    const toFund = outs.filter((o) => o?.scriptpubkey_address === DONATION_WALLET)
+    const toFund = outs.filter((o) => o?.scriptpubkey_address === fundAddress)
 
     const verdict: Verdict = {
       txid,
       found: true,
       paysFund: toFund.length > 0,
-      fundAddress: DONATION_WALLET,
+      fundAddress,
       valueToFund: toFund.reduce((sum, o) => sum + (Number(o?.value) || 0), 0),
       confirmed: Boolean(tx?.status?.confirmed),
     }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { buildLedger, type TxRow } from '@/lib/dog/founders-ledger'
+import { applyBtcCredits, type Credit } from '@/lib/dog/licence-btc'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -31,6 +32,34 @@ function licenseFor(total: number): 'patron' | 'commercial' | 'personal' | 'citi
   if (total >= COMMERCIAL_LICENSE) return 'commercial'
   if (total >= PERSONAL_LICENSE) return 'personal'
   return 'citizen'
+}
+
+// LICENÇA PAGA EM BTC (19/10/2026): o BTC creditado a uma carteira (dogcity_btc_payments, status
+// 'credited', escrito só pela varredura /api/cron/licence-btc) SOMA no degrau da licença da
+// carteira, pelo valor em DOG da cotação travada. Ele NUNCA entra em `total_received`, em
+// `progress_pct`, em `donor_count` nem no bloco B: o livro acima segue só em $DOG, e os créditos
+// são aplicados DEPOIS dele, só sobre `license`. Sem a tabela (migração 034 ainda não aplicada)
+// ou com o banco falhando, a lista vem vazia e a licença sai só do DOG, o que nunca credita a mais.
+async function loadBtcCredits(): Promise<Credit[]> {
+  try {
+    const out: Credit[] = []
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase
+        .from('dogcity_btc_payments')
+        .select('ordinals_address, credit_dog')
+        .eq('status', 'credited')
+        .order('txid', { ascending: true })
+        .order('vout', { ascending: true })
+        .range(from, from + 999)
+      if (error) throw new Error(error.message)
+      for (const r of data ?? []) out.push({ ordinalsAddress: String(r.ordinals_address ?? ''), creditDog: Number(r.credit_dog) })
+      if (!data || data.length < 1000) break
+    }
+    return out
+  } catch (e) {
+    console.error('[donate/leaderboard] btc credits unavailable:', (e as Error)?.message)
+    return []
+  }
 }
 
 // ⚠️ DISJUNTOR (incidente de IO de 26/08): esta rota mora no portão de carga
@@ -84,8 +113,10 @@ async function handler(req: NextRequest) {
     // contribution (block, position in block), anonymous never numbered.
     const ledger = buildLedger(rows, DONATION_WALLET, { licenseFor })
     const totalReceived = ledger.totalReceived
-    const leaderboard = ledger.leaderboard
-    const founders = ledger.founders.map(({ totalAtomos: _t, ...f }) => f)
+    const credits = slim ? [] : await loadBtcCredits()
+    const board = applyBtcCredits(ledger.leaderboard, credits)
+    const leaderboard = board.entries
+    const founders = applyBtcCredits(ledger.founders.map(({ totalAtomos: _t, ...f }) => f), credits).entries
     const recent = ledger.recent
 
     const foundersCount = founders.length
@@ -118,6 +149,8 @@ async function handler(req: NextRequest) {
         },
         founders_count: foundersCount,
         founders,
+        // carteiras com BTC creditado e nenhum DOG no fundo: fora do placar, com o degrau da soma
+        btc_licences: board.btcOnly,
         recent,
         last_updated: new Date().toISOString(),
       },

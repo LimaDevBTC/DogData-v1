@@ -20,11 +20,16 @@ import {
   sendDogDonation, type RuneBalance,
 } from '@/lib/wallet/donate'
 import { DONATION_METHODS, DONATION_WALLET } from '@/app/dogcity/dogcity-data'
+import { LICENCE_DOG, type LicenceTier } from '@/lib/dog/licence-btc'
 
 // ── contexto ───────────────────────────────────────────────────────────────
 
 interface DonateContextValue {
-  open: (opts?: { asset?: Asset; amount?: number }) => void
+  /**
+   * `tier` abre a janela no modo LICENÇA: DOG ou BTC pelo mesmo valor em DOG do degrau. Em BTC o
+   * valor sai de uma cotação travada por 15 minutos (POST /api/dogcity/licence-quote).
+   */
+  open: (opts?: { asset?: Asset; amount?: number; tier?: LicenceTier }) => void
   close: () => void
 }
 
@@ -37,6 +42,33 @@ export function useDonate(): DonateContextValue {
 }
 
 type Asset = 'dog' | 'btc'
+
+/** a cotação que o servidor gravou e devolveu (POST /api/dogcity/licence-quote) */
+interface LicenceQuote {
+  id: string
+  tier: LicenceTier
+  dogAmount: number
+  sats: number
+  dogUsd: number
+  btcUsd: number
+  sources: { name: string; price: number }[]
+  expiresAt: string
+  serverTime: string
+  payTo: string
+}
+
+const TIER_NAME: Record<LicenceTier, string> = { personal: 'Personal', commercial: 'Commercial', patron: 'Patron' }
+
+/** mm:ss */
+function clock(ms: number): string {
+  const s = Math.max(0, Math.ceil(ms / 1000))
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+}
+
+/** Só aceita da cotação o que um pagamento seguro aceita: sats inteiros e seguros, prazo válido. */
+function quoteIsUsable(q: LicenceQuote | null): q is LicenceQuote {
+  return !!q && Number.isSafeInteger(q.sats) && q.sats > 0 && Number.isFinite(Date.parse(q.expiresAt)) && Number.isFinite(Date.parse(q.serverTime))
+}
 
 /** O que o servidor viu na rede sobre a transação que a carteira transmitiu. */
 interface Verdict {
@@ -79,7 +111,7 @@ function cleanAmount(raw: string, decimals: number): string {
 
 /** A frase que traduz o número digitado em posição na escada. */
 function ladderHint(dog: number): string {
-  if (dog <= 0) return 'Any amount makes you a Founder. 10,000 DOG unlocks the Personal license.'
+  if (dog <= 0) return 'Any amount makes you a Founder. 10,000 DOG unlocks the Personal licence.'
   const reached = licenseFor(dog)
   const next = LADDER.find((l) => dog < l.amount)
   if (!next) return `${nAmt(dog)} DOG unlocks Patron, the top rung of the ladder.`
@@ -195,10 +227,12 @@ export function DonateProvider({ children }: { children: ReactNode }) {
   const [isOpen, setOpen] = useState(false)
   const [asset, setAsset] = useState<Asset>('dog')
   const [preset, setPreset] = useState<number | null>(null)
+  const [tier, setTier] = useState<LicenceTier | null>(null)
 
-  const open = useCallback((opts?: { asset?: Asset; amount?: number }) => {
+  const open = useCallback((opts?: { asset?: Asset; amount?: number; tier?: LicenceTier }) => {
     setAsset(opts?.asset ?? 'dog')
     setPreset(opts?.amount ?? null)
+    setTier(opts?.tier ?? null)
     setOpen(true)
   }, [])
   const close = useCallback(() => setOpen(false), [])
@@ -208,7 +242,7 @@ export function DonateProvider({ children }: { children: ReactNode }) {
   return (
     <DonateContext.Provider value={value}>
       {children}
-      <DonateModal isOpen={isOpen} onClose={close} asset={asset} setAsset={setAsset} preset={preset} />
+      <DonateModal isOpen={isOpen} onClose={close} asset={asset} setAsset={setAsset} preset={preset} tier={tier} />
     </DonateContext.Provider>
   )
 }
@@ -216,13 +250,14 @@ export function DonateProvider({ children }: { children: ReactNode }) {
 // ── janela ─────────────────────────────────────────────────────────────────
 
 function DonateModal({
-  isOpen, onClose, asset, setAsset, preset,
+  isOpen, onClose, asset, setAsset, preset, tier,
 }: {
   isOpen: boolean
   onClose: () => void
   asset: Asset
   setAsset: (a: Asset) => void
   preset: number | null
+  tier: LicenceTier | null
 }) {
   const { account, openModal } = useWallet()
   const walletId = account?.walletId ?? null
@@ -237,6 +272,17 @@ function DonateModal({
   const [showManual, setShowManual] = useState(false)
   const [verdict, setVerdict] = useState<Verdict | null>(null)
 
+  // Modo LICENÇA em BTC: o valor não é digitado, vem de uma cotação que o servidor grava e trava
+  // por 15 minutos (a mediana de corretoras). A cotação liga o endereço de pagamento ao endereço
+  // ordinals desta carteira, e é assim que o BTC se soma ao DOG dela no degrau da licença.
+  const licenceBtc = asset === 'btc' && tier !== null
+  const [quote, setQuote] = useState<LicenceQuote | null>(null)
+  const [quoteError, setQuoteError] = useState<string | null>(null)
+  const [quoteLoading, setQuoteLoading] = useState(false)
+  const [quoteNonce, setQuoteNonce] = useState(0)
+  const [clockOffset, setClockOffset] = useState(0)
+  const [nowMs, setNowMs] = useState(() => Date.now())
+
   const address = asset === 'dog' ? DONATION_WALLET : BTC_METHOD?.address ?? DONATION_WALLET
 
   // Estado limpo a cada abertura: ninguém quer reabrir a janela e encontrar o
@@ -250,6 +296,53 @@ function DonateModal({
     setSending(false)
     setShowManual(false)
   }, [isOpen, preset, asset])
+
+  // A cotação nasce quando a janela está no modo licença em BTC e há carteira conectada. Cada
+  // pedido grava uma linha no servidor; "New quote" pede outra (a anterior só vence, não é apagada).
+  const ordAddr = account?.ordinalsAddress ?? null
+  const payAddr = account?.paymentAddress ?? null
+  useEffect(() => {
+    setQuote(null)
+    setQuoteError(null)
+    if (!isOpen || !licenceBtc || !tier || !ordAddr || !payAddr) return
+    let alive = true
+    setQuoteLoading(true)
+    fetch('/api/dogcity/licence-quote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tier, ordinalsAddress: ordAddr, paymentAddress: payAddr }),
+    })
+      .then(async (r) => {
+        const j = await r.json().catch(() => null)
+        if (!r.ok) {
+          throw new Error(
+            r.status === 503 ? 'No reliable price right now. Try again in a minute.'
+              : r.status === 429 ? 'Too many quotes for this wallet. Try again later.'
+                : (j?.error as string) || 'Could not get a price.',
+          )
+        }
+        return j as LicenceQuote
+      })
+      .then((q) => {
+        if (!alive) return
+        if (!quoteIsUsable(q) || q.tier !== tier) throw new Error('The price came back malformed. Try again.')
+        setClockOffset(Date.parse(q.serverTime) - Date.now())
+        setNowMs(Date.now())
+        setQuote(q)
+      })
+      .catch((e) => { if (alive) setQuoteError(e?.message || 'Could not get a price.') })
+      .finally(() => { if (alive) setQuoteLoading(false) })
+    return () => { alive = false }
+  }, [isOpen, licenceBtc, tier, ordAddr, payAddr, quoteNonce])
+
+  // O relógio do prazo corre pelo horário do SERVIDOR (deslocamento medido na resposta).
+  useEffect(() => {
+    if (!quote) return
+    const id = setInterval(() => setNowMs(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [quote])
+  const leftMs = quote ? Math.max(0, Date.parse(quote.expiresAt) - (nowMs + clockOffset)) : 0
+  const quoteLive = quoteIsUsable(quote) && leftMs > 0
 
   // O saldo é pedido à carteira, não ao nosso indexador: é ele que decide se a
   // transferência cabe, e ele conhece o que ainda está na mempool.
@@ -271,7 +364,7 @@ function DonateModal({
     let alive = true
     let attempt = 0
     const check = () => {
-      fetch(`/api/donate/verify?txid=${txid}`)
+      fetch(`/api/donate/verify?txid=${txid}&asset=${asset}`)
         .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
         .then((v: Verdict) => {
           if (!alive) return
@@ -292,7 +385,7 @@ function DonateModal({
     }
     check()
     return () => { alive = false }
-  }, [txid])
+  }, [txid, asset])
 
   useEffect(() => {
     if (!isOpen) return
@@ -301,7 +394,9 @@ function DonateModal({
     return () => document.removeEventListener('keydown', onKey)
   }, [isOpen, onClose])
 
-  const value = Number(amount.replace(/[^\d.]/g, '')) || 0
+  const value = licenceBtc
+    ? (quoteLive && quote ? quote.sats : 0)
+    : Number(amount.replace(/[^\d.]/g, '')) || 0
   const unlocked = asset === 'dog' ? licenseFor(value) : null
   const overBalance = asset === 'dog' && balance ? value > balance.spendable : false
 
@@ -325,6 +420,13 @@ function DonateModal({
     setSending(true)
     setError(null)
     try {
+      if (licenceBtc) {
+        // O valor é o da cotação do servidor, o destino é a constante daqui (e tem de bater com a
+        // que o servidor cotou), e a trava tem de estar viva no instante do clique.
+        if (!enderecoOk) throw new Error('Address check failed. Do not send from this screen.')
+        if (!quote || !quoteIsUsable(quote) || quote.payTo !== address) throw new Error('This price does not match the fund address. Get a new quote.')
+        if (Date.parse(quote.expiresAt) - (Date.now() + clockOffset) <= 0) throw new Error('The price expired. Get a new quote.')
+      }
       const res = asset === 'dog'
         ? await sendDogDonation(walletId, address, value, balance?.divisibility ?? DOG_DIVISIBILITY_FALLBACK)
         : await sendBtcDonation(walletId, address, value)
@@ -337,7 +439,7 @@ function DonateModal({
     } finally {
       setSending(false)
     }
-  }, [asset, walletId, address, value, balance])
+  }, [asset, walletId, address, value, balance, licenceBtc, quote, clockOffset, enderecoOk])
 
   if (!isOpen || typeof document === 'undefined') return null
 
@@ -346,7 +448,7 @@ function DonateModal({
       className="fixed inset-0 z-[120] flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="Support the build"
+      aria-label={tier ? `${TIER_NAME[tier]} licence` : 'Support the build'}
     >
       <div className="absolute inset-0 bg-black/80 animate-fade-in" onClick={onClose} />
 
@@ -355,7 +457,9 @@ function DonateModal({
         <div className="flex items-start justify-between gap-4 px-5 py-4 border-b border-white/[0.06]">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-lava">◆ construction fund</p>
-            <h2 className="font-display font-bold text-xl text-snow mt-1.5">Support the build</h2>
+            <h2 className="font-display font-bold text-xl text-snow mt-1.5">
+              {tier ? `${TIER_NAME[tier]} licence` : 'Support the build'}
+            </h2>
           </div>
           <button
             onClick={onClose}
@@ -414,9 +518,16 @@ function DonateModal({
               </div>
             )}
 
+            {licenceBtc && quote && verdict?.paysFund && verdict.valueToFund < quote.sats && (
+              <p className="font-mono text-[11px] text-[#F59E0B] leading-relaxed">
+                This transaction pays {n0(verdict.valueToFund)} sats, fewer than the {n0(quote.sats)} quoted.
+                It will wait for a manual check instead of counting on its own.
+              </p>
+            )}
             <p className="text-[12px] text-mist leading-relaxed">
-              The Founders Register reads confirmed blocks, so your plaque appears once the
-              transaction confirms and our scanner sees it. Nothing else is needed from you.
+              {licenceBtc
+                ? 'Your BTC counts toward your licence once the transaction has 6 confirmations, about an hour. It is credited at the price locked in your quote if the network saw it before the lock ended, and at the price of the confirming block otherwise. Nothing else is needed from you.'
+                : 'The Founders Register reads confirmed blocks, so your plaque appears once the transaction confirms and our scanner sees it. Nothing else is needed from you.'}
             </p>
             <div className="flex flex-wrap gap-2">
               <Link
@@ -475,19 +586,83 @@ function DonateModal({
                     asset === a ? 'bg-lava/[0.12] text-lava' : 'bg-void text-dusty hover:text-snow'
                   }`}
                 >
-                  {a === 'dog' ? 'DOG' : 'Bitcoin'}
+                  {tier ? (a === 'dog' ? '$DOG' : 'BTC') : (a === 'dog' ? 'DOG' : 'Bitcoin')}
                 </button>
               ))}
             </div>
-            <p className="font-mono text-[10px] text-dusty -mt-3">
-              {asset === 'dog'
-                ? 'DOG on Bitcoin L1. This is what counts toward your license.'
-                : 'Native SegWit. General support, it does not count toward a license.'}
+            <p className="font-mono text-[10px] text-dusty -mt-3 leading-relaxed">
+              {tier
+                ? asset === 'dog'
+                  ? `The ${TIER_NAME[tier]} licence is ${n0(LICENCE_DOG[tier])} $DOG. Pick BTC to pay the same value in bitcoin.`
+                  : `The same value as ${n0(LICENCE_DOG[tier])} $DOG, at the median of live exchange prices, locked for 15 minutes. BTC counts toward your licence, not toward the 10,000,000 $DOG that opens the mint.`
+                : asset === 'dog'
+                  ? 'DOG on Bitcoin L1. This is what counts toward your licence.'
+                  : 'Native SegWit. General support, it does not count toward a licence. To pay a licence in BTC, pick BTC on a licence card.'}
             </p>
 
-            {/* quanto: o campo livre é o principal. Os degraus da escada são
-                atalhos ao lado dele, não a única forma de escolher: a maior
-                parte das doações não cai exatamente em 10k, 50k ou 500k. */}
+            {licenceBtc ? (
+              // ── licença em BTC: o preço vem do servidor, não se digita ──
+              <div className="space-y-3">
+                {!account ? (
+                  <p className="font-mono text-[10px] text-dusty leading-relaxed">
+                    Connect a wallet to get a price. The quote ties your payment address to your
+                    ordinals address, so the BTC adds to the $DOG of the same wallet.
+                  </p>
+                ) : quoteLoading ? (
+                  <p className="inline-flex items-center gap-2 font-mono text-[11px] text-dusty">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Reading live prices from the exchanges…
+                  </p>
+                ) : quoteError ? (
+                  <div className="space-y-2">
+                    <p className="font-mono text-[11px] text-[#F59E0B]">{quoteError}</p>
+                    <button
+                      onClick={() => setQuoteNonce((n) => n + 1)}
+                      className="font-mono text-[10px] uppercase tracking-[0.18em] text-dusty hover:text-lava transition-colors"
+                    >
+                      Try again
+                    </button>
+                  </div>
+                ) : quote && quoteIsUsable(quote) ? (
+                  <>
+                    <div className="border border-white/15 bg-white/[0.02] px-4 py-3">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-dusty">
+                        {TIER_NAME[quote.tier]} licence · {n0(quote.dogAmount)} $DOG
+                      </p>
+                      <p className="font-display font-bold text-[26px] leading-none text-snow tabular-nums mt-2">
+                        {n0(quote.sats)} <span className="font-mono text-[12px] font-normal text-mist">sats</span>
+                      </p>
+                      <p className="font-mono text-[10px] text-dusty mt-2 tabular-nums">
+                        {(quote.sats / 1e8).toFixed(8)} BTC · $DOG ${quote.dogUsd.toLocaleString('en-US', { maximumSignificantDigits: 4 })} · BTC ${n0(quote.btcUsd)}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <p
+                        className={`font-mono text-[11px] tabular-nums ${leftMs <= 0 ? 'text-[#EF4444]' : leftMs < 60_000 ? 'text-[#F59E0B]' : 'text-mist'}`}
+                        aria-live="polite"
+                      >
+                        {leftMs <= 0 ? 'Price expired' : `Price locked for ${clock(leftMs)}`}
+                      </p>
+                      <button
+                        onClick={() => setQuoteNonce((n) => n + 1)}
+                        className="font-mono text-[10px] uppercase tracking-[0.16em] text-dusty hover:text-lava transition-colors"
+                      >
+                        New quote
+                      </button>
+                    </div>
+                    <p className="font-mono text-[10px] text-dusty leading-relaxed">
+                      Median of {Array.from(new Set(quote.sources.map((s) => s.name.replace(/^(DOG|BTC)\/USD /, '')))).join(', ')}.
+                      {leftMs > 0 && leftMs < 60_000
+                        ? ' Less than a minute left: if it ends before the network sees your payment, it is credited at the price of the confirming block instead.'
+                        : ' Pay from the wallet you connected, within the lock.'}
+                    </p>
+                  </>
+                ) : null}
+              </div>
+            ) : (
+            // quanto: o campo livre é o principal. Os degraus da escada são
+            // atalhos ao lado dele, não a única forma de escolher: a maior
+            // parte das doações não cai exatamente em 10k, 50k ou 500k.
             <div className="space-y-3">
               <div className="flex items-baseline justify-between gap-3">
                 <label
@@ -563,6 +738,7 @@ function DonateModal({
                 </p>
               )}
             </div>
+            )}
 
             {error && <p className="font-mono text-[11px] text-[#EF4444]">{error}</p>}
 
@@ -571,14 +747,16 @@ function DonateModal({
             {account && support === 'rpc' ? (
               <div className="space-y-2">
                 <button
-                  onClick={send}
-                  disabled={sending || value <= 0 || overBalance}
+                  onClick={licenceBtc && quote && !quoteLive ? () => setQuoteNonce((n) => n + 1) : send}
+                  disabled={sending || (licenceBtc ? (quoteLoading || !quote) : (value <= 0 || overBalance))}
                   className="w-full flex items-center justify-center gap-2 bg-lava px-4 py-4 font-mono text-[12px] font-bold uppercase tracking-[0.2em] text-void hover:bg-lava-light transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {sending && <Loader2 className="w-4 h-4 animate-spin" />}
                   {sending
                     ? 'Confirm in your wallet'
-                    : `Send ${value > 0 ? nAmt(value) : ''} ${asset === 'dog' ? 'DOG' : 'sats'}`}
+                    : licenceBtc
+                      ? (quote && !quoteLive ? 'Price expired, get a new quote' : `Send ${value > 0 ? n0(value) : ''} sats`)
+                      : `Send ${value > 0 ? nAmt(value) : ''} ${asset === 'dog' ? 'DOG' : 'sats'}`}
                 </button>
                 <p className="font-mono text-[10px] text-dusty text-center">
                   Your wallet shows the final amount and asks for confirmation. Network fees are
@@ -601,7 +779,7 @@ function DonateModal({
             {/* ⚠️ PORTÃO DE SEGURANÇA. Se a segunda declaração do endereço discordar da
                 constante, NADA de endereço, QR ou link vai para a tela. Melhor a pessoa não
                 conseguir pagar do que pagar no endereço errado. */}
-            {!enderecoOk ? (
+            {(licenceBtc && !quoteLive) ? null : !enderecoOk ? (
               <div className="border border-lava/60 bg-lava/[0.08] px-3 py-3">
                 <p className="font-mono text-[11px] text-lava">
                   Address check failed. This screen will not show a payment address.
@@ -679,6 +857,7 @@ function DonateModal({
 
                   <p className="font-mono text-[10px] text-dusty text-center">
                     Scan from your wallet. Confirm the address matches the one above.
+                    {licenceBtc && payAddr ? ` Send from ${payAddr.slice(0, 10)}…${payAddr.slice(-8)} so it counts toward your licence.` : ''}
                   </p>
                 </div>
               )}

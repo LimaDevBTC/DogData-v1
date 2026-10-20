@@ -436,16 +436,18 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
 
   // ── the ticker's payload: live values only, never static copy ────────────
   const tickerText = lb
-    ? `TOTAL RAISED ● ${formatDog(lb.total_received)} DOG ● ${pct.toFixed(2)}% OF THE GRAND OPENING ` +
-      `● ${lb.donor_count.toLocaleString()} BUILDERS ● ${lb.founders_count.toLocaleString()} FOUNDERS ` +
+    ? `TOTAL IN THE FUND ● ${formatDog(lb.total_received)} DOG ● ${pct.toFixed(2)}% OF THE GOAL ` +
+      `● ${lb.donor_count.toLocaleString()} CONTRIBUTORS ● ${lb.founders_count.toLocaleString()} FOUNDERS ` +
       `● GOAL ${formatDog(DONATION_GOAL)} DOG ● `
     : "CONNECTING TO THE CONSTRUCTION FUND ● "
 
   const feed: (RecentEntry | null)[] = Array.from({ length: 8 }, (_, i) => lb?.recent?.[i] ?? null)
   const feedEmptyLine = lb ? "Awaiting the next contribution." : "Loading live feed…"
 
+  // ⚠️ id="fund", NÃO "build": na landing v3 o #build é o bloco do contador do herói
+  // (links de fora, como /dogcity#build, caem ali); dois ids iguais quebram a âncora.
   return (
-    <section id="build" className={`relative border-t ${HAIR_SOFT} scroll-mt-16`}>
+    <section id="fund" className={`relative border-t ${HAIR_SOFT} scroll-mt-16`}>
       <style jsx global>{`
         @keyframes sv-ping {
           0%   { transform: scale(1);   opacity: 0.6; }
@@ -474,8 +476,8 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
           </h2>
           <Reveal delay={0.3} y={14}>
             <p className="text-sm text-mist mt-3 leading-relaxed">
-              The construction fund finances the systems, terrain, infrastructure and property tools
-              needed to bring the city online. Every number below is live.
+              The mint is triggered by the construction fund, not by a date: at 10,000,000 $DOG
+              the mint clock starts. Every number below is live.
             </p>
           </Reveal>
         </div>
@@ -507,7 +509,7 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
                     valueRef={raisedRef}
                     className="text-snow"
                   />
-                  {raised !== null && " DOG raised"}
+                  {raised !== null && " DOG in the fund"}
                 </span>
                 <span className="tabular-nums">goal {formatDog(DONATION_GOAL)} DOG</span>
               </div>
@@ -518,7 +520,7 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
                   ref={readoutRef}
                   className="absolute left-0 top-0 w-[72px] text-center font-mono text-[11px] font-bold text-lava tabular-nums will-change-transform"
                 >
-                  <span className="sr-only">{pct.toFixed(2)}% of the Grand Opening</span>
+                  <span className="sr-only">{pct.toFixed(2)}% of the goal</span>
                   <span aria-hidden ref={pctHeadRef} />
                 </div>
               </div>
@@ -582,7 +584,7 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
 
               <div className="mt-3 font-mono text-[11px] text-dusty">
                 <Steady ghost={`${pct.toFixed(2)}%`} valueRef={pctCapRef} className="text-lava" />
-                {lb && " of the Grand Opening"}
+                {lb && " of the goal"}
               </div>
             </div>
 
@@ -595,7 +597,7 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
               className={`grid grid-cols-1 sm:grid-cols-3 gap-px ${GRIDLINE} border ${HAIR} mt-8`}
             >
               {[
-                { label: "Builders", value: lb?.donor_count ?? null, fmt: false },
+                { label: "Contributors", value: lb?.donor_count ?? null, fmt: false },
                 { label: "Founders", value: lb?.founders_count ?? null, fmt: false },
                 { label: "Goal", value: DONATION_GOAL, fmt: true },
               ].map((s) => {
@@ -608,7 +610,7 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
                     <div className="font-display font-bold text-xl sm:text-2xl text-snow mt-1 tabular-nums">
                       <SteadyCounter
                         value={s.value}
-                        ghost={s.value === null ? "—" : format(s.value)}
+                        ghost={s.value === null ? "n/a" : format(s.value)}
                         format={format}
                       />
                     </div>
@@ -634,7 +636,8 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
                 </button>
               </Reveal>
 
-              {DONATION_METHODS.map((m, i) => {
+              {/* 19/10, fundador: o endereço STX sai; as docs publicadas listam só os endereços $DOG e Bitcoin do fundo */}
+              {DONATION_METHODS.filter((m) => m.key !== "stacks").map((m, i) => {
                 const isCopied = copied === m.key
                 const featured = Boolean(m.featured)
                 return (
@@ -707,8 +710,8 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
               })}
               <Reveal delay={0.24} y={10}>
                 <p className="font-mono text-[11px] sm:text-[10px] text-dusty leading-relaxed pt-1">
-                  Send from the wallet you want registered; the sending address becomes your identity in DogCity.
-                  No seed phrase is ever requested.
+                  Send from the wallet you want counted: contributions are counted per wallet and add up
+                  across several transactions. No seed phrase is ever requested.
                 </p>
               </Reveal>
 
@@ -727,22 +730,24 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
                     Don&apos;t trust. Verify.
                   </p>
                   <p className="mt-2 font-mono text-[11px] leading-relaxed text-dusty">
-                    The treasury is one public address on Bitcoin. Every contribution above was read
-                    from the chain, and so is the total: check the ledger yourself before you send.
+                    The DOG and Bitcoin addresses are published in the{" "}
+                    <a href="/dogcity/docs#founders-program" className="text-lava hover:text-lava-light">docs</a>:
+                    check them there before you send. Every contribution above was read from the chain,
+                    and so is the total.
                   </p>
                   <div className="mt-2.5 flex items-baseline gap-3">
                     <a
                       href={`/address/bitcoin/${DONATION_WALLET}`}
                       className="font-mono text-[11px] text-lava hover:text-lava-light"
                     >
-                      Open the treasury &rarr;
+                      Open the fund address &rarr;
                     </a>
                     <a
                       href={`https://mempool.space/address/${DONATION_WALLET}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-mono text-[10px] text-dusty/60 hover:text-dusty"
-                      aria-label="Open the treasury on mempool.space"
+                      aria-label="Open the fund address on mempool.space"
                       title="mempool.space"
                     >
                       mempool.space &#8599;

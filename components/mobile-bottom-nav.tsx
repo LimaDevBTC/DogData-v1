@@ -17,7 +17,7 @@ const moreNav = [
   { name: 'Airdrop', page: 'airdrop' as PageType, icon: Sparkles },
   { name: 'Bitcoin', page: 'bitcoin-network' as PageType, icon: Network },
   // /donate aposentada em 27/08: o item leva pro fundo dentro da landing
-  { name: 'Donate', page: 'donate' as PageType, icon: Heart, href: '/dogcity#build' },
+  { name: 'Fund the city', page: 'donate' as PageType, icon: Heart, href: '/dogcity#build' },
 ]
 
 interface MobileBottomNavProps {
