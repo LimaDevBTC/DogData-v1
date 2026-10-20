@@ -275,7 +275,8 @@ def diff_balances(cli, http):
     meta = {k: ((cli[k].get('divisibility'), cli[k].get('symbol')),
                 (http[k].get('divisibility'), http[k].get('symbol')))
             for k in set(cli) & set(http)
-            if (cli[k].get('divisibility'), cli[k].get('symbol')) !=
+            if 'divisibility' in cli[k] and
+               (cli[k].get('divisibility'), cli[k].get('symbol')) !=
                (http[k].get('divisibility'), http[k].get('symbol'))}
     return {'so_no_cli': only_cli, 'so_no_http': only_http,
             'amount_diferente': amount, 'divisibilidade_ou_simbolo': meta}

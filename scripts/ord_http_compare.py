@@ -53,11 +53,23 @@ def cmd_balances(a):
     elif a.run_cli:
         cli = oh.dog_balances_cli(dump_path=a.keep)
         print(f'CLI: {len(cli)} UTXOs de DOG (servidor desligado)')
+    elif a.against_scanner:
+        # referência independente: o set do scanner (replay do bloco a bloco), só amounts
+        cli = {k: {'amount': v} for k, v in oh._load_json_retry(oh.UTXO_SET_FILE).items()}
+        print(f'scanner: {len(cli)} UTXOs de DOG em {oh.UTXO_SET_FILE.name}')
     else:
-        sys.exit('use --cli-file ou --run-cli')
+        sys.exit('use --cli-file, --run-cli ou --against-scanner')
 
     info = {}
-    http = oh.dog_balances_http(info_out=info)
+    # candidates=cli: servidor congelado na altura do dump (--no-sync), os outpoints
+    # do dump são os candidatos; padrão: o caminho de produção (set do scanner).
+    try:
+        http = oh.dog_balances_http(candidates=list(cli) if a.candidates == 'cli' else None,
+                                    info_out=info)
+    except oh.OrdHttpError as e:
+        print(f'HTTP: {type(e).__name__}: {e}')
+        print('DIFERENTE')
+        return 1
     try:
         node = bitcoin_cli('getblockcount')
     except Exception:
@@ -84,9 +96,11 @@ def cmd_balances(a):
             if op in http:
                 by_addr.setdefault(o.get('address'), []).append(op)
         ranked = sorted(by_addr, key=lambda ad: -sum(http[op]['amount'] for op in by_addr[ad]))
-        multi = [ad for ad in by_addr if len(by_addr[ad]) > 1 and ad not in ranked[:3]]
-        pick = [ad for ad in ranked[:3] if ad] + oh.sample(multi, a.wallets - 3) \
-            + oh.sample([ad for ad in by_addr if ad not in ranked[:3] and ad not in multi], 3)
+        top = ranked[:3]
+        rest = [ad for ad in ranked[3:]]
+        multi = [ad for ad in rest if len(by_addr[ad]) > 1]
+        single = [ad for ad in rest if len(by_addr[ad]) == 1]
+        pick = top + oh.sample(multi, max(0, a.wallets - 6)) + oh.sample(single, 3)
         print(f'carteiras: {len(by_addr)} no HTTP; amostra de {len(pick)}')
         for ad in pick:
             ops = by_addr[ad]
@@ -158,6 +172,10 @@ def main():
     b.add_argument('--cli-file', help='dump de `ord balances` já gravado')
     b.add_argument('--run-cli', action='store_true', help='roda `ord balances` agora (servidor desligado)')
     b.add_argument('--keep', help='onde gravar o dump do --run-cli')
+    b.add_argument('--against-scanner', action='store_true',
+                   help='referência = data/dog_utxo_set.json em vez de um dump do CLI')
+    b.add_argument('--candidates', choices=['scanner', 'cli'], default='scanner',
+                   help='de onde vêm os outpoints candidatos da leitura HTTP')
     b.add_argument('--wallets', type=int, default=0, help='amostra de carteiras (mín. 6)')
     d = sub.add_parser('decode')
     d.add_argument('--txids')
