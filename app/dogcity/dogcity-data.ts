@@ -247,57 +247,64 @@ export const TIERS = [
     // dobra 4: "A escada: Citizen, Personal, Commercial, Patron"). A palavra
     // "Founder" continua existindo no produto, só que para OUTRA coisa: o
     // programa inteiro (qualquer contribuinte, o número de ordem de chegada,
-    // o monumento em ./sections/founders-register.tsx). Chamar o primeiro
-    // degrau da escada de "Founder" também fazia as duas coisas colidirem no
-    // mesmo texto ("Become a Founder" citando o degrau de baixo, ao lado de
-    // "Founders' Monument" citando o programa inteiro). `key` muda porque
+    // o monumento em ./sections/founders-register.tsx). `key` muda porque
     // alimenta o CSS (--lot-rest etc. em tiers.tsx); a cor e o limiar não mudam.
+    //
+    // ⚠️ O TEXTO DOS QUATRO DEGRAUS É O DAS DOCS (19/10): /dogcity/docs, seções 6 e 8, "The
+    // ladder", é o contrato público; este arquivo repete as palavras de lá (a mesma cópia
+    // fechada de ../founders/page.tsx, RUNGS). Benefício que as docs não prometem NÃO entra
+    // aqui; mudou lá, muda aqui. Grafia das docs: "licence", "Personal", "Commercial".
     key: "citizen",
     name: "Citizen",
     threshold: "Any amount",
     color: "#CBD5E1",
     perks: [
-      "Name engraved on the Founders' Monument, by order of arrival",
-      "Counts toward the 10M Grand Opening",
-      "Personal progress bar toward your license",
+      "Name on the Founders' Monument, in order of arrival",
+      "Founder number, permanent and never issued again",
+      "Access to the Founders Club, on its island in the city's bay",
+      "One entry in the Founders' draw",
     ],
-    note: "Contributions below 10,000 DOG do not include the right to mint a building. Citizen recognition is permanent; the mint license starts at Personal.",
+    note: "There is no building licence below 10,000 $DOG: the recognition is permanent either way, and the order number is the one thing that cannot be obtained later.",
     cta: "Become a Citizen",
   },
   {
     key: "personal",
-    name: "Personal Property",
-    threshold: "10,000 DOG",
+    name: "Personal",
+    threshold: "10,000 $DOG",
     color: "#F56E0F",
     featured: true,
     perks: [
-      "Mint your lot deed first, free, in the Founder phase: only Bitcoin network fees",
-      "One-time, permanent, tied to your wallet",
-      "Verified DogCity profile",
+      "Everything in Citizen",
+      "A one time, permanent building licence",
+      "Mints first, free, in the Founder phase, so the building stands on day one: only the Bitcoin network fee and postage",
+      "Early access to the game, to every test and every update",
+      "The Founder's light on the building, visible from above at night",
+      "Base item pack: yard and house number plaque",
     ],
-    cta: "Register Personal Property",
+    cta: "Choose Personal",
   },
   {
     key: "commercial",
-    name: "Commercial Property",
-    threshold: "50,000 DOG",
+    name: "Commercial",
+    threshold: "50,000 $DOG",
     color: "#FB923C",
     perks: [
       "Everything in Personal",
-      "Customize building model and color",
-      "Ad space on your building's facade",
+      "The commercial licence: a commercial building instead of a residence, on any lot",
+      "Extended item pack: leisure ground, garden, lighting",
+      "A lunar rover parked on the lot",
     ],
-    cta: "Register Commercial Property",
+    cta: "Choose Commercial",
   },
   {
     key: "patron",
     name: "Patron",
-    threshold: "500,000 DOG",
+    threshold: "500,000 $DOG",
     color: "#FFAD42",
     perks: [
-      "Patron title inside the DogCity ecosystem",
-      "Founding supporter recognition",
-      "Priority access to future features where applicable",
+      "Everything in Commercial",
+      "Names a street, and the name stays on the city map",
+      "A custom building, designed outside the district catalogue",
     ],
     cta: "Become a Patron",
   },
@@ -323,7 +330,7 @@ export const DONATION_METHODS = [
     symbol: "DOG",
     logo: "/DOG.png",
     address: DONATION_WALLET,
-    note: "Bitcoin L1 Rune · counts toward your license",
+    note: "Bitcoin L1 Rune · counts toward your licence",
     featured: true,
   },
   {

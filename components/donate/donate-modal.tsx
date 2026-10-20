@@ -79,7 +79,7 @@ function cleanAmount(raw: string, decimals: number): string {
 
 /** A frase que traduz o número digitado em posição na escada. */
 function ladderHint(dog: number): string {
-  if (dog <= 0) return 'Any amount makes you a Founder. 10,000 DOG unlocks the Personal license.'
+  if (dog <= 0) return 'Any amount makes you a Founder. 10,000 DOG unlocks the Personal licence.'
   const reached = licenseFor(dog)
   const next = LADDER.find((l) => dog < l.amount)
   if (!next) return `${nAmt(dog)} DOG unlocks Patron, the top rung of the ladder.`
@@ -481,8 +481,8 @@ function DonateModal({
             </div>
             <p className="font-mono text-[10px] text-dusty -mt-3">
               {asset === 'dog'
-                ? 'DOG on Bitcoin L1. This is what counts toward your license.'
-                : 'Native SegWit. General support, it does not count toward a license.'}
+                ? 'DOG on Bitcoin L1. This is what counts toward your licence.'
+                : 'Native SegWit. General support, it does not count toward a licence.'}
             </p>
 
             {/* quanto: o campo livre é o principal. Os degraus da escada são

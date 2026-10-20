@@ -34,12 +34,16 @@
 // plate IS the staggered item, so a corner drawn before its card has faded in
 // is a corner nobody sees.
 //
+// 19/10: the card TEXT is the published contract's (/dogcity/docs, sections 6 and 8, "The
+// ladder"), word for word; see the note on TIERS in dogcity-data.ts.
+//
 // Every string, threshold, perk, note, href and id below is verbatim from
 // dogcity-data.ts and the markup this replaces. The Founder note is a legal
 // distinction between recognition and mint licence — it is not copy.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { motion, useReducedMotion } from "framer-motion"
+import { useDonate } from "@/components/donate/donate-modal"
 import { TIERS } from "../dogcity-data"
 import {
   EASE, HAIR, DrawRule, Reveal, Scramble, SplitLine,
@@ -138,6 +142,10 @@ function pad2(n: number): string {
 // ── one deed ───────────────────────────────────────────────────────────────
 function Deed({ t, index, count }: { t: Tier; index: number; count: number }) {
   const { ref, onPointerMove } = useSpotlight<HTMLDivElement>()
+  // 19/10: o CTA abre a janela da carteira JÁ no valor do degrau (o limiar sai da própria
+  // `threshold`, "10,000 DOG" → 10000); Citizen é "Any amount", abre sem valor
+  const { open: openWallet } = useDonate()
+  const amount = Number(t.threshold.replace(/[^\d]/g, "")) || undefined
   const fill = LOT_REST_FILL[t.key] ?? 22
   const slot = index * 0.075   // this card's place in the deck's stagger
 
@@ -186,14 +194,14 @@ function Deed({ t, index, count }: { t: Tier; index: number; count: number }) {
 
         {t.featured && (
           <span className="absolute -top-px right-4 font-mono text-[9px] tracking-[0.2em] text-void bg-lava px-2 py-0.5">
-            MINT LICENSE
+            BUILDING LICENCE
           </span>
         )}
 
         {/* contents sit above the lot: a positioned wrapper, no z-index war */}
         <div className="relative flex flex-col flex-1">
           <div className="flex items-baseline justify-between gap-3 font-mono text-[9px] tracking-[0.25em] text-dusty">
-            <span>DEED OF REGISTRATION</span>
+            <span>THE LADDER</span>
             <span className="tabular-nums shrink-0">{pad2(index + 1)} / {pad2(count)}</span>
           </div>
 
@@ -222,8 +230,9 @@ function Deed({ t, index, count }: { t: Tier; index: number; count: number }) {
             </p>
           )}
 
-          <a
-            href="#build"
+          <button
+            type="button"
+            onClick={() => openWallet({ asset: "dog", amount })}
             // min-h-[44px]: these measured 192x40, under the 44px touch floor
             className={`mt-5 inline-flex justify-center items-center gap-2 px-4 py-2.5 min-h-[44px] font-mono text-[12px] font-bold transition-colors ${
               t.featured
@@ -232,7 +241,7 @@ function Deed({ t, index, count }: { t: Tier; index: number; count: number }) {
             }`}
           >
             {t.cta}
-          </a>
+          </button>
         </div>
       </div>
     </StaggerItem>
@@ -246,9 +255,9 @@ export default function Section({}) {
     <section id="tiers" className="border-t border-white/[0.06] scroll-mt-16">
       <div className="max-w-6xl mx-auto px-6 md:px-10 py-20 md:py-28">
         <SectionHead
-          eyebrow="FOUNDING ERA REGISTRATIONS"
-          title="Choose how you enter the Founding Era."
-          sub="These are not subscriptions; they are one-time founding property registrations. Your contribution funds construction and defines your participation level."
+          eyebrow="THE FOUNDERS PROGRAM"
+          title="Choose your rung on the ladder."
+          sub="A Founder is any wallet that contributes to the construction fund before the fund reaches 10,000,000 $DOG. Every rung includes everything in the rung below it."
         />
 
         <Stagger className="mt-10 grid md:grid-cols-2 xl:grid-cols-4 gap-4" delay={0.62} step={0.075}>
