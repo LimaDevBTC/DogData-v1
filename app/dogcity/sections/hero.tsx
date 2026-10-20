@@ -19,6 +19,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react"
+import { useDonate } from "@/components/donate/donate-modal"
 import { Btn, Odometer, TextLink, WORDMARK_DOT, WORDMARK_RATIO, WORDMARK_SRC } from "../landing/ui"
 import { HERO_FILM, POSTER } from "../landing/media"
 import { FUND_GOAL, RULER, type CountdownState } from "../landing/mint-state"
@@ -350,6 +351,11 @@ export function HeroVisor({
 }: { cd: CountdownState; intro: boolean; onIntroDone: () => void; reduced: boolean }) {
   const [roll, setRoll] = useState(false)
   const [early, setEarly] = useState<number | null>(null)
+  // 19/10: o caminho de contribuição voltou ao herói. "Become a founder" abre a janela da
+  // carteira (a mesma do rodapé e do perfil, provedor na raiz). Só enquanto o fundo ENCHE
+  // (`founderLine` é a marca desses estados: contador vivo ou ainda sem dado); com o fundo
+  // cheio, quem contribui já não vira Founder e o botão sai
+  const { open: openWallet } = useDonate()
   useEffect(() => {
     if (!intro) return
     const html = document.documentElement
@@ -435,6 +441,11 @@ export function HeroVisor({
 
           <div className="dc-in-btns mt-5 dk:mt-7 flex max-w-[440px] dk:max-w-none flex-col dk:flex-row dk:items-center gap-3 dk:gap-4">
             <Btn href={cd.primary.href} className="w-full dk:w-auto">{cd.primary.label}</Btn>
+            {cd.founderLine && (
+              <button type="button" onClick={() => openWallet({ asset: "dog" })} className="dc-btn dc-btn-line w-full dk:w-auto">
+                Become a founder
+              </button>
+            )}
             <Btn href={cd.secondary.href} variant="line" className="hidden dk:inline-flex">{cd.secondary.label}</Btn>
             <TextLink href={cd.secondary.href} className="dk:hidden self-center font-mono text-[12px] tracking-[0.16em] uppercase text-dc-snow">
               {cd.secondary.label}
