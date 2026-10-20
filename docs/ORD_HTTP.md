@@ -58,7 +58,10 @@ UTXOs de DOG é mantida por nós e CONFERIDA pelo ord a cada leitura:
    candidato extra.
 3. Cada candidato é lido do servidor em lotes de 500 (`POST /outputs`): gasto ou
    não, e quanto DOG carrega (`runes["DOG•GO•TO•THE•MOON"]`, o mesmo `Pile`
-   `{amount, divisibility, symbol}` do `ord balances`).
+   `{amount, divisibility, symbol}` do `ord balances`). Só o campo `runes` vale: o
+   `spent` da resposta vem do bitcoind (ponta da cadeia) e o `runes` vem do índice
+   do ord (altura indexada); com um bloco de diferença entre os dois, descartar por
+   `spent` perderia DOG que o índice ainda conta.
 4. **Trava de completude**: a soma tem de ser IGUAL a
    `premine + mints * terms.amount - burned` da runa (`GET /rune/DOGGOTOTHEMOON`).
    Se bate, não existe outpoint de DOG fora do conjunto (a soma não deixa folga).
