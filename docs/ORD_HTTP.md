@@ -215,8 +215,8 @@ servidor foi derrubado e a trava solta ao fim de cada rodada.
 |---|---|---|---|
 | dump vs HTTP, candidatos = outpoints do dump | 972.254 | 240.330 | 0 só no CLI, 0 só no HTTP, 0 de amount/divisibilidade/símbolo; soma 9.997.559.319.282.812 nos dois |
 | dump vs HTTP, caminho de produção (semente 972.254 + 13 blocos de expansão + scanner) | 972.267 | 240.327 | idêntico (0 diferenças), +53 candidatos pela expansão; soma 9.997.559.319.282.812 nos dois |
-| 22 carteiras amostradas (as 3 maiores, multi-UTXO e uma só) | 972.254 e 972.267 | até 20.310 UTXOs cada | total por carteira igual; endereço do ord igual ao do bitcoind (`gettxout`, até 40 UTXOs por carteira) |
-| `ord decode --txid` vs `GET /decode/<txid>` | blocos 880.000, 969.254, 971.954, 972.253, 972.261, 972.262, 972.267, 972.268 | 80 txs (runestones e vazias) | 0 diferenças (JSON idêntico) |
+| 32 verificações de carteira em 3 rodadas (12 + 10 + 10; as 3 maiores sempre, mais multi-UTXO e uma só) | 972.254 e 972.267 | até 20.310 UTXOs cada | total por carteira igual; endereço do ord igual ao do bitcoind (`gettxout`, até 40 UTXOs por carteira) |
+| `ord decode --txid` vs `GET /decode/<txid>` | blocos 880.000, 969.254, 971.954 e os mais recentes de cada rodada | 96 txs (runestones e vazias), servidor no ar | 0 diferenças (JSON idêntico) |
 | `ord decode` vs `/decode` na signet | - | 2 txs com inscrição | idêntico |
 
 O que a prova mostrou além da igualdade:
@@ -228,7 +228,7 @@ O que a prova mostrou além da igualdade:
   12,68 milhões de DOG a menos que o ord (240.330 outpoints). A trava o recusou
   (`OrdHttpIncomplete`), que é o comportamento desejado, e é o motivo da semente.
 - Um estado incompleto também é recusado: a semente tirada de
-  `dog_utxos_by_address.json` (que o holders monta sem os outputs sem endereço)
+  `dog_utxos_by_address.json` (que o holders monta e que provavelmente deixa de fora outputs sem endereço)
   ficou 4,87 milhões de DOG abaixo e a leitura levantou `OrdHttpIncomplete`.
 - Achado de projeto: o campo `spent` do `/outputs` vem do bitcoind (ponta da
   cadeia) e `runes` vem do índice. Com o servidor congelado um bloco atrás, filtrar
