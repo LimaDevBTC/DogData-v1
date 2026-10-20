@@ -30,6 +30,10 @@
     {
       "path": "/cron/health-probes",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/licence-btc",
+      "schedule": "*/2 * * * *"
     }
   ]
 }
