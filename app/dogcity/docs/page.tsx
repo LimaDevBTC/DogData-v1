@@ -39,6 +39,11 @@ import { Layout } from "@/components/layout"
 // ../dogcity-data.ts, com a data da medição e o comando que remede.
 import { ENTREGA } from "../dogcity-data"
 import { ATLAS_PLATES, ATLAS_SHEETS, ATLAS_PDF_MB } from "../atlas/atlas-data"
+// proveniência on-chain: ids, tamanhos e diagrama vêm de UM módulo, o mesmo da landing
+import {
+  PIECES, ProvenanceDiagram, REHEARSAL_DEED, REHEARSAL_DEED_BYTES, VERIFY_URL,
+  MERKLE_ROOT, LOT_COUNT, fmtBytes, shortId, inscriptionUrl,
+} from "../provenance"
 
 // ── mesmas constantes de hairline de ../motion.tsx, copiadas localmente ────
 // (aquele arquivo é "use client"; esta página é Server Component de propósito
@@ -177,7 +182,10 @@ function Signal({ title, children }: { title: string; children: React.ReactNode 
 }
 
 // ── índice: seções 1 a 9 do documento ───────────────────────────────────────
+// A primeira entrada (proveniência on-chain) não tem número de propósito: o texto cita as
+// seções 1 a 9 por número ("section 4") e os links públicos usam o id; renumerar quebraria os dois.
 const TOC = [
+  { id: "fully-on-bitcoin", n: "", label: "Fully on Bitcoin" },
   { id: "what-is-dogcity", n: "1", label: "What DogCity is" },
   { id: "the-snapshot", n: "2", label: "The snapshot" },
   { id: "how-land-follows-the-coins", n: "3", label: "How land follows the coins" },
@@ -190,17 +198,19 @@ const TOC = [
 ]
 
 function Section({
-  id, n, title, children,
+  id, n, eyebrow, title, children,
 }: {
   id: string
   n: string
+  /** substitui "SECTION n" (a seção de proveniência não tem número) */
+  eyebrow?: string
   title: string
   children: React.ReactNode
 }) {
   return (
     <section id={id} className={`relative border-t ${HAIR_SOFT} scroll-mt-24`}>
       <div className="py-14 md:py-20">
-        <Eyebrow>SECTION {n}</Eyebrow>
+        <Eyebrow>{eyebrow ?? `SECTION ${n}`}</Eyebrow>
         <h2 className="font-display font-bold text-2xl md:text-[32px] text-snow mt-3 leading-tight max-w-2xl">
           {title}
         </h2>
@@ -293,7 +303,7 @@ export default function DogCityDocsPage() {
                   href={`#${t.id}`}
                   className={`shrink-0 whitespace-nowrap border ${HAIR} font-mono text-[10px] tracking-[0.1em] text-mist hover:text-lava hover:border-white/[0.35] px-3 py-1.5`}
                 >
-                  {t.n}. {t.label}
+                  {t.n ? `${t.n}. ` : ""}{t.label}
                 </a>
               ))}
             </div>
@@ -301,7 +311,7 @@ export default function DogCityDocsPage() {
               {TOC.map((t) => (
                 <li key={t.id}>
                   <a href={`#${t.id}`} className="block text-[12px] text-mist hover:text-lava leading-snug">
-                    <span className="text-dusty font-mono mr-1.5">{t.n}</span>
+                    <span className="text-dusty font-mono mr-1.5 inline-block w-2.5">{t.n || "·"}</span>
                     {t.label}
                   </a>
                 </li>
@@ -310,6 +320,110 @@ export default function DogCityDocsPage() {
           </nav>
 
           <div>
+            {/* ═══════════════════ PROVENIÊNCIA ON-CHAIN ═══════════════════
+                Sem número: abre o corpo sem renumerar 1 a 9 (ver o comentário do TOC). Ids, tamanhos e
+                diagrama vêm de ../provenance.tsx, o mesmo módulo da landing. Os tamanhos foram conferidos
+                em ordinals.com em 20/10/2026. A escritura de ensaio NÃO é escritura da cidade (pai descartável). */}
+            <Section id="fully-on-bitcoin" n="" eyebrow="ON-CHAIN PROVENANCE" title="Fully on Bitcoin">
+              <P className="mt-0">
+                Every deed is an inscription of about 1.5 KB that draws itself. It holds no image and
+                points at no server: when it is opened, it asks the Bitcoin chain for the pieces of the
+                city it is made from, through recursive inscriptions (<Code>/content/&lt;id&gt;</Code>),
+                and draws its lot from them. No server, no IPFS, no hosted image. Everything a deed
+                shows comes from the chain.
+              </P>
+
+              <div className="mt-8 max-w-xl">
+                <ProvenanceDiagram tone="docs" />
+              </div>
+
+              <Sub>The pieces</Sub>
+              <P className="mt-3">
+                Six inscriptions are on Bitcoin mainnet today. Each link opens the inscription on
+                ordinals.com. No deed has been inscribed yet; the deeds come with the mint (section 7).
+              </P>
+              {/* tabela própria (não o <Table>): no celular o link da inscrição desce para baixo do nome em vez de
+                  sumir numa terceira coluna fora da tela */}
+              <div className={`mt-4 border ${HAIR} max-w-3xl`}>
+                <div className={`hidden md:grid grid-cols-[1.5fr_1fr_auto] gap-x-4 border-b ${HAIR} px-4 py-2 font-mono text-[10px] tracking-[0.14em] text-dusty`}>
+                  <span>PIECE</span>
+                  <span>SIZE</span>
+                  <span>INSCRIPTION</span>
+                </div>
+                <ul>
+                  {PIECES.map((p) => (
+                    <li
+                      key={p.key}
+                      className={`grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[1.5fr_1fr_auto] gap-x-4 gap-y-1.5 items-start border-b ${HAIR_SOFT} last:border-b-0 px-3 py-3 md:px-4 text-[12px] md:text-[13px] text-snow`}
+                    >
+                      <div className="min-w-0">
+                        <div>{p.name}</div>
+                        <div className="text-[11px] md:text-xs text-dusty leading-snug">{p.role}</div>
+                      </div>
+                      <div className="text-right md:text-left tabular-nums whitespace-nowrap">
+                        <div>{fmtBytes(p.bytes)}</div>
+                        {p.onChain && (
+                          <div className="text-[11px] md:text-xs text-dusty">{fmtBytes(p.onChain)} on chain<span className="hidden md:inline">, brotli</span></div>
+                        )}
+                      </div>
+                      <a
+                        href={inscriptionUrl(p.id)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={p.id}
+                        className="col-span-2 md:col-span-1 font-mono text-[11px] md:text-xs text-lava hover:text-lava-light underline underline-offset-2 whitespace-nowrap"
+                      >
+                        {shortId(p.id)}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <Sub>The chain of provenance</Sub>
+              <P className="mt-3">
+                R is the city&apos;s DID. The City Charter is the child of R, and every lot deed is a
+                child of the Charter. Only the first valid deed of each lot counts. The ground layer is
+                also a child of the Charter, and so is the mint calendar, which is inscribed at B+6.
+              </P>
+              <P>
+                The Charter carries the Merkle root <Code>{MERKLE_ROOT}</Code>, which commits the
+                geometry of all {LOT_COUNT.toLocaleString("en-US")} lots. Each deed proves its own lot
+                against that root.
+              </P>
+
+              <Sub>How to verify</Sub>
+              <NumberedList
+                items={[
+                  {
+                    lead: "Follow the parents.",
+                    text: "Open a deed on ordinals.com. Its parent must be the City Charter, and the Charter's parent must be R, the inscription in the table above.",
+                  },
+                  {
+                    lead: "Check the proof.",
+                    text: "The deed proves its lot against the Merkle root carried by the Charter.",
+                  },
+                  {
+                    lead: "Rebuild it.",
+                    text: "Anyone can regenerate the HTML of a deed from these pieces, byte for byte, and compare it with the inscription. The public verifier does exactly that:",
+                  },
+                ]}
+              />
+              <div className="mt-4 font-mono text-[11px] tracking-[0.14em]">
+                <a href={VERIFY_URL} target="_blank" rel="noopener noreferrer" className="text-lava hover:text-lava-light">
+                  OPEN THE VERIFIER →
+                </a>
+              </div>
+
+              <Sub>A rehearsal on mainnet</Sub>
+              <P className="mt-3">
+                A test deed of {fmtBytes(REHEARSAL_DEED_BYTES)} is inscribed on mainnet:{" "}
+                <ExtLink href={inscriptionUrl(REHEARSAL_DEED)}>{shortId(REHEARSAL_DEED)}</ExtLink>. Its
+                parent is a disposable inscription, not the City Charter, so it is a rehearsal and not a
+                deed of the city. It draws correctly on ordinals.com and in the Xverse wallet.
+              </P>
+            </Section>
+
             {/* ═══════════════════════════ 1 ═══════════════════════════ */}
             <Section id="what-is-dogcity" n="1" title="What DogCity is, in one page">
               <P className="mt-0">
@@ -1144,7 +1258,7 @@ export default function DogCityDocsPage() {
                 Every lot in the registry becomes an Ordinal on Bitcoin L1: a deed, inscribed as a
                 child of the City Charter, the map that parents the whole city. The deed draws the lot
                 as a surveyor&apos;s plat, with its corners, its area and the Merkle proof that ties it
-                to the registry. It carries no owner data. Nothing has been inscribed yet.
+                to the registry. It carries no owner data. No deed has been inscribed yet.
               </P>
 
               <Sub>When it opens</Sub>
