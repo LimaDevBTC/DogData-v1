@@ -330,7 +330,7 @@ export default function DogCityDocsPage() {
                 items={[
                   {
                     lead: "Location is not for sale.",
-                    text: "A wallet's position comes from its on-chain history at one fixed block. Nothing that can be paid for, licence, donation, or partnership, moves it.",
+                    text: "A wallet's position comes from its on-chain history at one fixed block. Nothing that can be paid for, licence, contribution, or partnership, moves it.",
                   },
                   {
                     lead: "The city is a photograph, not a ledger.",
