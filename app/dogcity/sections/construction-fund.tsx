@@ -636,7 +636,8 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
                 </button>
               </Reveal>
 
-              {DONATION_METHODS.map((m, i) => {
+              {/* 19/10, fundador: o endereço STX sai; as docs publicadas listam só os endereços $DOG e Bitcoin do fundo */}
+              {DONATION_METHODS.filter((m) => m.key !== "stacks").map((m, i) => {
                 const isCopied = copied === m.key
                 const featured = Boolean(m.featured)
                 return (
