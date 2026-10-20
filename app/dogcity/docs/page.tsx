@@ -1160,7 +1160,7 @@ export default function DogCityDocsPage() {
                 items={[
                   {
                     lead: "Closed, B to B+288 (about 48 hours).",
-                    text: "Nobody mints. The Founder list is cut at block B, every contribution confirmed up to and including that block, published for 24 hours of review, and then its root is inscribed.",
+                    text: "Nobody mints. The Founder list is cut at block B, every contribution confirmed up to and including that block. At B+6, once B has six confirmations, the mint calendar is inscribed and the Founder list is published here for review. About 24 hours later, around B+144, the root of the list is inscribed, a full day before the Founder phase opens at B+288.",
                   },
                   {
                     lead: "Founder, B+288 to B+720 (about 3 days).",
