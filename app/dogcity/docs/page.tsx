@@ -384,7 +384,7 @@ export default function DogCityDocsPage() {
               <P className="mt-3">
                 R is the city&apos;s DID. The City Charter is the child of R, and every lot deed is a
                 child of the Charter. Only the first valid deed of each lot counts. The ground layer is
-                also a child of the Charter, and so is the mint calendar, which is inscribed at B+6.
+                also a child of the Charter, and so is the mint calendar, inscribed at block 972,421 once B was known.
               </P>
               <P>
                 The Charter carries the Merkle root <Code>{MERKLE_ROOT}</Code>, which commits the
@@ -1274,7 +1274,7 @@ export default function DogCityDocsPage() {
                 items={[
                   {
                     lead: "Closed, B to B+288 (about 48 hours).",
-                    text: "Nobody mints. The Founder list is cut at block B, every contribution confirmed up to and including that block. At B+6, once B has six confirmations, the mint calendar is inscribed and the Founder list is published here for review. About 24 hours later, around B+144, the root of the list is inscribed, a full day before the Founder phase opens at B+288.",
+                    text: "Nobody mints. The Founder list is cut at block B, every contribution confirmed up to and including that block. Once B has six confirmations, the mint calendar and the root of the Founder list are inscribed as children of the City Charter, and the list is published with them, before the Founder phase opens at B+288. For this mint, B was block 972,336: the calendar was inscribed at block 972,421 and the Founder root at block 972,422.",
                   },
                   {
                     lead: "Founder, B+288 to B+720 (about 3 days).",
