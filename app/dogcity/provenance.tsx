@@ -159,7 +159,7 @@ export function ProvenanceDiagram({ tone = "docs", className = "" }: { tone?: Pr
           </Node>
         </Branch>
         <Branch t={t}>
-          <Node t={t} tag="Child of the Charter · inscribed at B+6" title="Mint calendar">
+          <Node t={t} tag="Child of the Charter · inscribed at block 972,421" title="Mint calendar">
             <p className={small}>The phases of the mint, counted in blocks from B.</p>
           </Node>
         </Branch>

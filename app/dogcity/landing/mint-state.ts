@@ -358,7 +358,7 @@ export function calendarRows(B: number | null) {
   const cal = B != null ? calendarFromB(B) : null
   return [
     { phase: "CLOSED" as Phase, name: "CLOSED", span: "B to B+288 · about 48 hours", price: null,
-      text: "Nobody mints. The Founder list is cut at block B and published for review.",
+      text: "Nobody mints. The Founder list is cut at block B and its root is inscribed on chain.",
       startsAt: B },
     { phase: "FOUNDER" as Phase, name: "FOUNDER", span: "B+288 to B+720 · about 3 days", price: "FREE",
       text: "Founders mint their own lot, paying only the network fee and postage.",
