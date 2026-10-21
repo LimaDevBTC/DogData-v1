@@ -155,6 +155,41 @@ function NumberedList({ items }: { items: { lead: string; text: string }[] }) {
   )
 }
 
+// ── The Build (seção 8): estudos de projeto renderizados sobre quadras reais (dogcity-mundo, plano/the_build). WebP de
+//    1200 px na página e de 2400 px no clique, em public/city/the-build/. <img> comum, como as outras figuras desta página.
+const BUILD_GALLERY = [
+  { slug: "brownstone-heights", alt: "Design study of Brownstone Heights: a row of brownstone rowhouses with stone stoops and iron rails, and a corner store.", caption: "BROWNSTONE HEIGHTS" },
+  { slug: "harbor-canals", alt: "Design study of Harbor Canals: a New England house with dormers and a white picket fence on the lake front.", caption: "HARBOR CANALS" },
+  { slug: "arroyo", alt: "Design study of Arroyo: a California Craftsman house with a gabled porch on tapered columns over river stone piers.", caption: "ARROYO" },
+  { slug: "timberline", alt: "Design study of Timberline: steep roofed mountain houses among tall pines.", caption: "TIMBERLINE" },
+  { slug: "atomic-heights", alt: "Design study of Atomic Heights: mid-century townhouses with butterfly roofs and breeze block screens, ranch houses across the street.", caption: "ATOMIC HEIGHTS" },
+  { slug: "the-spit", alt: "Design study of The Spit: a coastal modern estate with glass walls, a pool, a guest house, a tennis court and a row of palms.", caption: "THE SPIT" },
+  { slug: "bay-shore", alt: "Design study of Bay Shore: Cape Cod houses in white, navy and yellow behind white picket fences.", caption: "BAY SHORE" },
+]
+
+function BuildFigure({ slug, alt, caption, small = false }: { slug: string; alt: string; caption: string; small?: boolean }) {
+  return (
+    <figure className={small ? "m-0" : "m-0 mt-6 max-w-3xl"}>
+      <a
+        href={`/city/the-build/${slug}_2400.webp`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`group relative block border ${HAIR} bg-white/[0.02] overflow-hidden`}
+      >
+        <img src={`/city/the-build/${slug}_1200.webp`} alt={alt} className="w-full h-auto" loading="lazy" />
+        {!small && (
+          <span className={`absolute bottom-0 right-0 border-l border-t ${HAIR} bg-void/85 backdrop-blur-sm font-mono text-[10px] tracking-[0.14em] text-lava group-hover:text-lava-light px-3 py-2`}>
+            OPEN FULL SIZE →
+          </span>
+        )}
+      </a>
+      <figcaption className={`mt-3 border-t ${HAIR_SOFT} pt-3 font-mono text-[9px] md:text-[10px] tracking-[0.14em] text-mist leading-relaxed`}>
+        {caption}
+      </figcaption>
+    </figure>
+  )
+}
+
 function BulletList({ items }: { items: { lead: string; text: string }[] }) {
   return (
     <ul className="mt-4 space-y-3 max-w-3xl">
@@ -1443,7 +1478,8 @@ export default function DogCityDocsPage() {
               <P>
                 Everything in sections 1 to 7 is about the land: who receives which lot, and the deed
                 that proves it. The city grows in three phases. This section says what is decided
-                about the next two and what is still being designed.
+                about the next two and shows where the architecture is heading. No building stands on
+                any lot yet: the owner takes the deed first, and builds after it, with a licence.
               </P>
               <BulletList
                 items={[
@@ -1461,6 +1497,11 @@ export default function DogCityDocsPage() {
                   },
                 ]}
               />
+              <BuildFigure
+                slug="liberty-row"
+                alt="Design study of Liberty Row: Federal brick rowhouses with white trim, black shutters and fanlight doors on one side of a real street of the registry, painted gable-front houses on the other, street lamps and trees."
+                caption="DESIGN STUDY · LIBERTY ROW · A REAL STREET OF THE REGISTRY"
+              />
 
               <Sub>Three licences</Sub>
               <Table
@@ -1472,64 +1513,92 @@ export default function DogCityDocsPage() {
                 ]}
               />
               <P>
-                A Founder at one of these rungs already holds that licence (section 6). Any other
-                wallet takes the same licence for the same amount of $DOG, or for the same value in
-                Bitcoin under the four rules of section 6: priced in $DOG, never counted toward the
-                10,000,000 $DOG of the mint, giving the licence and the item pack of the rung but no
-                Founder benefits, and added to the wallet&apos;s $DOG for its rung. How
-                it is paid after the mint, and where that $DOG goes, will be published here before
-                building opens.
+                The construction fund reached 10,000,000 $DOG at block 972,336, and that block started
+                the mint (section 7). From there the fund pays for building, and a licence is how a
+                wallet takes part. A Founder at one of these rungs already holds that licence (section
+                6). Any other wallet takes it the same way as before: $DOG sent to the construction
+                fund wallet, or the same value in Bitcoin under the four rules of section 6, priced in
+                $DOG. The licence gives the item pack of its rung and no Founder benefits, and it is
+                added to the wallet&apos;s $DOG for its rung. The $DOG of every licence goes to the
+                city&apos;s construction fund, which pays for phases 2 and 3.
               </P>
 
-              <Sub>One architecture per district, one model per lot size</Sub>
+              <Sub>Eight districts, one architecture each</Sub>
               <P className="mt-3">
                 Every district keeps its own architectural language, so a street reads as one place.
-                Inside that language the catalogue has a model for each of five lot sizes, so a
-                120 m² lot and a 70,000 m² estate each get a building that fits it.
-              </P>
-              <Table
-                head={["Size", "Area", "Lots in the city"]}
-                rows={[
-                  ["S", "up to 300 m²", "25,468"],
-                  ["M", "300 to 1,200 m²", "37,960"],
-                  ["L", "1,200 to 5,000 m²", "6,441"],
-                  ["XL", "5,000 to 20,000 m²", "761"],
-                  ["XXL", "20,000 m² and up", "84"],
-                ]}
-              />
-              <P>
                 Personality lives in the items around a building, not in the building itself. The
                 Patron&apos;s custom building is the one exception (section 6).
               </P>
+              <Table
+                head={["District", "Architecture", "Drawn after"]}
+                rows={[
+                  ["Harbor Canals", "New England Shingle, on the canals and the lake", "Nantucket, Martha's Vineyard"],
+                  ["Liberty Row", "Federal brick rowhouses and Colonial houses", "Back Bay, Georgetown"],
+                  ["Brownstone Heights", "Brownstone rowhouses and American houses", "Park Slope, Brooklyn"],
+                  ["Arroyo", "California Craftsman", "Pasadena"],
+                  ["Timberline", "Mountain rustic among the pines", "Aspen, Lake Tahoe"],
+                  ["Atomic Heights", "Mid-century modern, with Googie commerce", "Palm Springs"],
+                  ["The Spit", "Coastal modern estates", "Malibu"],
+                  ["Bay Shore", "Cape Cod and Hamptons Shingle", "Cape Cod, the Hamptons"],
+                ]}
+              />
+              <div className="mt-6 grid gap-6 sm:grid-cols-2 max-w-3xl">
+                {BUILD_GALLERY.map((g) => (
+                  <BuildFigure key={g.slug} slug={g.slug} alt={g.alt} caption={g.caption} small />
+                ))}
+              </div>
               <P>
                 The Financial District is separate from the licences. A company whose wallets are
                 shown to be institutional (section 5) gets its own building around Satoshi Plaza,
-                carrying its brand. The commercial licence is something else: it is how a $DOG holder
-                opens a business inside the city.
+                carrying its brand.
               </P>
 
-              <Sub>Where commercial buildings rise</Sub>
+              <Sub>Five lot types, measured on the street</Sub>
               <P className="mt-3">
-                On any lot. Whoever holds the commercial licence builds on the lot they own, on a ring
-                road or on a lane, in the language of the district. The catalogue has a commercial
-                model for every lot size, so a narrow lot gets a narrow shopfront and a large one a
-                larger building.
+                A lot&apos;s type is set by its frontage, the side that faces the street, because the
+                frontage decides what fits: a 5 m lot takes a rowhouse wall to wall, a 40 m lot a large
+                detached house. In every district the catalogue has a residential and a commercial
+                model for Row, Small, Standard and Large. Estate is shared by the whole city, finished
+                in each district&apos;s palette, and The Spit has estates of its own.
               </P>
+              <Table
+                head={["Type", "Frontage", "Lots in the city"]}
+                rows={[
+                  ["Row", "up to 6 m", "17,558"],
+                  ["Small", "6 to 22 m", "16,111"],
+                  ["Standard", "22 to 27 m", "18,363"],
+                  ["Large", "27 to 50 m", "16,618"],
+                  ["Estate", "50 m and up", "2,064"],
+                ]}
+              />
+
+              <Sub>The building code</Sub>
+              <BulletList
+                items={[
+                  { lead: "Front garden.", text: "Every building sits behind a set front yard. Rowhouses get a short stoop and a planting bed behind a low iron rail." },
+                  { lead: "Street line.", text: "Facades run parallel to the street. Sidewalk, mailbox and street lamp line up along the block, with one street tree per lot." },
+                  { lead: "Height.", text: "Row 3 storeys, Small 2, Standard 2, Large 3, Estate 3. A commercial building may add one." },
+                  { lead: "Fences.", text: "Low at the front, hedges on the estates. Tall walls only at the back." },
+                  { lead: "Palette.", text: "Each district has five approved colour combinations for walls, trim, roof and door. The owner picks one, and nothing outside them." },
+                  { lead: "Variety without noise.", text: "Every model comes in facade variations and in the district palette, so a street does not repeat itself." },
+                  { lead: "Commerce.", text: "An active ground floor with a shopfront, and signs in the format of the district, on any lot whose owner holds the commercial licence, on a ring road or on a lane." },
+                ]}
+              />
 
               <Sub>Still being designed</Sub>
               <BulletList
                 items={[
                   {
+                    lead: "The final models.",
+                    text: "The images in this section are design studies drawn on real blocks of the registry. Models, palettes and details may still change before building opens.",
+                  },
+                  {
                     lead: "What a building is on chain.",
                     text: "Whether a building is inscribed as a child of the deed, permanent and verifiable by anyone, or kept as state in the game tied to the deed's owner.",
                   },
                   {
-                    lead: "The licence after the mint.",
-                    text: "How a licence is paid by a wallet that is not a Founder, and where that $DOG goes.",
-                  },
-                  {
                     lead: "The Living City.",
-                    text: "What a commercial building does (storefront, item shop, advertising, a community's home), whether space can be rented between players, and how $DOG moves through the city. What does not change: no new token, no staking, no yield, everything in $DOG.",
+                    text: "What a commercial building does (storefront, item shop, advertising, a community's home), whether space can be rented between players, and how $DOG moves through the city.",
                   },
                 ]}
               />
@@ -1544,8 +1613,12 @@ export default function DogCityDocsPage() {
                     text: "The snapshot decides how much land a wallet receives, not where in the city that land sits. The working record that places every wallet is kept in the open while it is drawn, and it is still being redrawn: no address in it has been announced and none of it is final. The version that counts is the one published with the same method, numbers, and fingerprint used here, on the day the city is sealed. It is being redrawn now to follow the tier ladder of section 2.",
                   },
                   {
-                    lead: "No deed has been minted.",
-                    text: "There is nothing to claim, nothing to sign, nothing to pay today. The mint opens 288 blocks after the fund reaches 10,000,000 $DOG (section 7).",
+                    lead: "No deed is minted before block 972,624.",
+                    text: "The fund reached 10,000,000 $DOG at block 972,336, and the Founder phase opens 288 blocks later, at block 972,624 (section 7). Until then there is nothing to claim.",
+                  },
+                  {
+                    lead: "No building stands on any lot.",
+                    text: "The owner takes the deed first. Building comes after it, with a licence, in the architecture of the district (section 8).",
                   },
                   {
                     lead: "Nothing you do now changes the snapshot.",
