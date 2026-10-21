@@ -59,6 +59,30 @@ function useFund(initial: FundData | null): FundData | null {
  * perguntando a cada 30 s, porque uma reorg ainda pode desfazer o cruzamento. Falha de
  * rede, 503 ou forma estranha mantém a última leitura.
  */
+const MINTER_POLL_MS = 30_000
+
+/** `accepting` do minter, lido pela rota do servidor (/api/dogcity/minter). null até a primeira leitura boa ou em erro. */
+function useMinterAccepting(): boolean | null {
+  const [accepting, setAccepting] = useState<boolean | null>(null)
+  useEffect(() => {
+    let alive = true
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const tick = async () => {
+      if (document.visibilityState === "visible") {
+        try {
+          const r = await fetch("/api/dogcity/minter", { signal: AbortSignal.timeout(10_000) })
+          const j = r.ok ? ((await r.json()) as { accepting?: unknown }) : null
+          if (alive) setAccepting(j && typeof j.accepting === "boolean" ? j.accepting : null)
+        } catch { if (alive) setAccepting(null) }
+      }
+      if (alive) timer = setTimeout(tick, MINTER_POLL_MS)
+    }
+    void tick()
+    return () => { alive = false; if (timer) clearTimeout(timer) }
+  }, [])
+  return accepting
+}
+
 function useMintB(manual: number | null): MintBInfo | null {
   const [info, setInfo] = useState<MintBInfo | null>(null)
   useEffect(() => {
@@ -111,6 +135,7 @@ function simulated(): CountdownInput | null {
 export function useCountdown(initialFund: FundData | null = null): CountdownState {
   const fund = useFund(initialFund)
   const mintB = useMintB(B_ENV)
+  const minterAccepting = useMinterAccepting()
   const { feed } = useMempoolFeed()
   const feedTip = feed?.snapshot?.tip_height ?? null
   const [sim, setSim] = useState<CountdownInput | null>(null)
@@ -125,6 +150,6 @@ export function useCountdown(initialFund: FundData | null = null): CountdownStat
       : fund?.raised ?? null
     // a ponta do feed é a viva; a do detector segura quando o feed ainda não chegou
     const tip = feedTip != null && mintB?.tip != null ? Math.max(feedTip, mintB.tip) : feedTip ?? mintB?.tip ?? null
-    return countdownState({ raised, goal: fund?.goal ?? FUND_GOAL, B: mintB?.status === "set" ? mintB.B : null, tip, fundFull })
-  }, [sim, fund, feedTip, mintB])
+    return countdownState({ raised, goal: fund?.goal ?? FUND_GOAL, B: mintB?.status === "set" ? mintB.B : null, tip, fundFull, minterAccepting })
+  }, [sim, fund, feedTip, mintB, minterAccepting])
 }
