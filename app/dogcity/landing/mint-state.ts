@@ -159,6 +159,9 @@ export interface CountdownInput {
   fundFull?: boolean
   /** escrituras cunhadas (só o estado F usa; sem ele, F mostra o preço) */
   inscribed?: number | null
+  /** o minter aceita pedidos agora (/api/dogcity/minter). null = não confirmado (sem leitura ou erro): numa fase aberta a
+   *  landing NÃO mostra o botão de mint. Ausente (simulações) = não trava. */
+  minterAccepting?: boolean | null
 }
 
 export interface Cta { label: string; href: string; external?: boolean }
@@ -211,7 +214,25 @@ function rulerFraction(phase: Phase, tip: number, cal: Calendar, B: number): { f
   return { fraction: (i + within) / PHASES.length, current: i }
 }
 
+const OPEN_PHASES: Phase[] = ["FOUNDER", "WHITELIST", "PARTNER", "PUBLIC"]
+
+/** A fase pela altura, travada pelo estado real do minter: fase aberta sem `accepting: true` não anuncia mint. */
 export function countdownState(input: CountdownInput): CountdownState {
+  const st = countdownByHeight(input)
+  if (input.minterAccepting === undefined || input.minterAccepting === true) return st
+  if (st.phase == null || !OPEN_PHASES.includes(st.phase)) return st
+  const name = st.phase === "PARTNER" ? "PARTNERS" : st.phase
+  return {
+    ...st,
+    label: `${name} PHASE · OPENING SHORTLY`,
+    sub: "The minter is not taking orders right now. This page checks again on its own.",
+    primary: FIND, secondary: CALENDAR,
+    aria: `${name} phase by block height, but the minter is not taking orders right now`,
+    nav: { desktop: `${name} PHASE · OPENING SHORTLY`, mobile: "OPENING SHORTLY", cta: "FIND MY LOT", href: "#lookup" },
+  }
+}
+
+function countdownByHeight(input: CountdownInput): CountdownState {
   const goal = input.goal && input.goal > 0 ? input.goal : FUND_GOAL
   const { raised, B, tip } = input
   const base = { calendar: null as Calendar | null, B, tip }
@@ -358,7 +379,7 @@ export function calendarRows(B: number | null) {
   const cal = B != null ? calendarFromB(B) : null
   return [
     { phase: "CLOSED" as Phase, name: "CLOSED", span: "B to B+288 · about 48 hours", price: null,
-      text: "Nobody mints. The Founder list is cut at block B and published for review.",
+      text: "Nobody mints. The Founder list is cut at block B and its root is inscribed on chain.",
       startsAt: B },
     { phase: "FOUNDER" as Phase, name: "FOUNDER", span: "B+288 to B+720 · about 3 days", price: "FREE",
       text: "Founders mint their own lot, paying only the network fee and postage.",

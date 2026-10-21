@@ -218,3 +218,26 @@ test('calendário: cinco fases, bloco absoluto só com B', () => {
   assert.deepEqual(com.map((r) => r.startsAt), [B, B + 288, B + 720, B + 3744, B + 4032])
   assert.deepEqual(com.map((r) => r.price), [null, 'FREE', 'FROM US$1', 'FROM US$1.50', 'FROM US$2'])
 })
+
+test('fase aberta pela altura sem o minter aceitando: não anuncia mint', () => {
+  for (const minterAccepting of [false, null] as const) {
+    const s = countdownState({ raised: null, B, tip: B + 380, minterAccepting })
+    assert.equal(s.phase, 'FOUNDER')
+    assert.equal(s.label, 'FOUNDER PHASE · OPENING SHORTLY')
+    assert.equal(s.nav.href, '#lookup')
+    assert.notEqual(s.primary.href, 'https://mint.dogcity.space')
+    assert.ok(!s.nav.external)
+  }
+})
+
+test('fase aberta com o minter aceitando: mostra o mint', () => {
+  const s = countdownState({ raised: null, B, tip: B + 380, minterAccepting: true })
+  assert.equal(s.label, 'FOUNDER PHASE · OPEN')
+  assert.equal(s.nav.desktop, 'FOUNDER PHASE OPEN · MINT')
+})
+
+test('fase fechada não depende do minter', () => {
+  const s = countdownState({ raised: 10_000_250, B, tip: B + 76, minterAccepting: false })
+  assert.equal(s.phase, 'CLOSED')
+  assert.equal(s.nav.cta, 'FIND MY LOT')
+})
