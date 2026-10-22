@@ -229,7 +229,9 @@ test('fase aberta pela altura sem o minter aceitando: não anuncia mint', () => 
   for (const minterAccepting of [false, null] as const) {
     const s = countdownState({ raised: null, B, tip: B + 380, minterAccepting })
     assert.equal(s.phase, 'FOUNDER')
-    assert.equal(s.label, 'FOUNDER PHASE · OPENING SHORTLY')
+    // recusa de verdade: OPENING SHORTLY; ainda sem leitura: só a fase, neutra (22/10/2026)
+    assert.equal(s.label, minterAccepting === false ? 'FOUNDER PHASE · OPENING SHORTLY' : 'FOUNDER PHASE')
+    if (minterAccepting === null) assert.equal(s.sub, 'Checking the minter…')
     assert.equal(s.nav.href, '#lookup')
     assert.notEqual(s.primary.href, 'https://mint.dogcity.space')
     assert.ok(!s.nav.external)

@@ -62,11 +62,12 @@ function useFund(initial: FundData | null): FundData | null {
 const MINTER_POLL_MS = 30_000
 
 /** `accepting` do minter, lido pela rota do servidor (/api/dogcity/minter). null até a primeira leitura boa ou em erro. */
-interface MinterRead { accepting: boolean | null; claimed: number | null; inscribed: number | null }
+export interface MinterRead { accepting: boolean | null; claimed: number | null; inscribed: number | null }
 const num = (v: unknown) => (typeof v === "number" && Number.isSafeInteger(v) && v >= 0 ? v : null)
 
-function useMinterAccepting(): MinterRead {
-  const [accepting, setAccepting] = useState<MinterRead>({ accepting: null, claimed: null, inscribed: null })
+function useMinterAccepting(initial: MinterRead | null): MinterRead {
+  // parte da leitura do servidor (page.tsx): a primeira pintura já sabe se o minter aceita
+  const [accepting, setAccepting] = useState<MinterRead>(initial ?? { accepting: null, claimed: null, inscribed: null })
   useEffect(() => {
     let alive = true
     let timer: ReturnType<typeof setTimeout> | null = null
@@ -138,10 +139,10 @@ function simulated(): CountdownInput | null {
   return map[k] ?? null
 }
 
-export function useCountdown(initialFund: FundData | null = null, initialMintB: MintBInfo | null = null): CountdownState {
+export function useCountdown(initialFund: FundData | null = null, initialMintB: MintBInfo | null = null, initialMinter: MinterRead | null = null): CountdownState {
   const fund = useFund(initialFund)
   const mintB = useMintB(B_ENV, initialMintB)
-  const minter = useMinterAccepting()
+  const minter = useMinterAccepting(initialMinter)
   const { feed } = useMempoolFeed()
   const feedTip = feed?.snapshot?.tip_height ?? null
   const [sim, setSim] = useState<CountdownInput | null>(null)
