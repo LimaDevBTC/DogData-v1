@@ -436,9 +436,9 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
 
   // ── the ticker's payload: live values only, never static copy ────────────
   const tickerText = lb
-    ? `TOTAL IN THE FUND ● ${formatDog(lb.total_received)} DOG ● ${pct.toFixed(2)}% OF THE GOAL ` +
+    ? `TOTAL IN THE FUND ● ${formatDog(lb.total_received)} DOG ● MINT GOAL REACHED AT BLOCK 972,336 ` +
       `● ${lb.donor_count.toLocaleString()} CONTRIBUTORS ● ${lb.founders_count.toLocaleString()} FOUNDERS ` +
-      `● GOAL ${formatDog(DONATION_GOAL)} DOG ● `
+      `● BUILDING LICENCES FROM 10,000 DOG ● `
     : "CONNECTING TO THE CONSTRUCTION FUND ● "
 
   const feed: (RecentEntry | null)[] = Array.from({ length: 8 }, (_, i) => lb?.recent?.[i] ?? null)
@@ -467,17 +467,18 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
         {/* ── section head — the four-beat cadence, identical across #build/#deed/#how */}
         <div className="max-w-2xl">
           <Scramble
-            text="LIVE CONSTRUCTION FUND"
+            text="BUILDING LICENCE"
             speed={34}
             className="block font-mono text-[11px] tracking-[0.3em] text-lava"
           />
           <h2 className="font-display font-bold text-3xl md:text-4xl text-snow mt-3 leading-tight">
-            <SplitLine text="Help move DogCity from terrain to skyline." delay={0.12} step={0.055} />
+            <SplitLine text="The land is minted. The city is built by licence." delay={0.12} step={0.055} />
           </h2>
           <Reveal delay={0.3} y={14}>
             <p className="text-sm text-mist mt-3 leading-relaxed">
-              The mint is triggered by the construction fund, not by a date: at 10,000,000 $DOG
-              the mint clock starts. Every number below is live.
+              The construction fund reached 10,000,000 $DOG at block 972,336, and that block started
+              the mint. From here the fund pays for building: a licence of 10,000, 50,000 or 500,000
+              $DOG gives the right to build on the lot a wallet owns. Every number below is live.
             </p>
           </Reveal>
         </div>
@@ -511,7 +512,7 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
                   />
                   {raised !== null && " DOG in the fund"}
                 </span>
-                <span className="tabular-nums">goal {formatDog(DONATION_GOAL)} DOG</span>
+                <span className="tabular-nums">mint goal {formatDog(DONATION_GOAL)} DOG · reached at block 972,336</span>
               </div>
 
               {/* readout pinned to the head — fixed width so it never measures */}
@@ -632,7 +633,7 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
                   className="w-full min-h-[48px] inline-flex items-center justify-center gap-2 border border-lava/60 bg-lava/[0.12] px-4 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-lava transition-colors hover:bg-lava/[0.2]"
                 >
                   <Wallet className="w-4 h-4" />
-                  Build the city from your wallet
+                  Get a building licence from your wallet
                 </button>
               </Reveal>
 
@@ -817,6 +818,31 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
               </ol>
             </aside>
           </Reveal>
+        </div>
+
+        {/* ── O QUE A LICENÇA CONSTRÓI: estudos de projeto da fase 2 (dogcity-mundo, plano/the_build), com link para a seção 8 */}
+        <div className="mt-16">
+          <p className="font-mono text-[11px] tracking-[0.3em] text-lava">WHAT A LICENCE BUILDS</p>
+          <p className="text-sm text-mist mt-3 max-w-2xl leading-relaxed">
+            Eight districts, one architecture each. A Personal licence builds a residence from the
+            district catalogue, a Commercial licence a commercial building, a Patron licence a custom
+            one. Design studies drawn on real blocks of the registry.
+          </p>
+          <div className="mt-6 grid gap-4 sm:grid-cols-3">
+            {[
+              { slug: "liberty-row", name: "LIBERTY ROW" },
+              { slug: "atomic-heights", name: "ATOMIC HEIGHTS" },
+              { slug: "timberline", name: "TIMBERLINE" },
+            ].map((g) => (
+              <a key={g.slug} href="/dogcity/docs#after-the-deed" className={`group block border ${HAIR} bg-white/[0.02] overflow-hidden`}>
+                <img src={`/city/the-build/${g.slug}_1200.webp`} alt={`Design study of ${g.name.toLowerCase()}`} className="w-full h-auto" loading="lazy" />
+                <span className="block px-3 py-2 font-mono text-[10px] tracking-[0.14em] text-mist group-hover:text-lava">{g.name}</span>
+              </a>
+            ))}
+          </div>
+          <a href="/dogcity/docs#after-the-deed" className="inline-block mt-4 font-mono text-[11px] tracking-[0.2em] text-lava hover:text-lava-light">
+            SEE THE EIGHT DISTRICTS →
+          </a>
         </div>
       </div>
     </section>
