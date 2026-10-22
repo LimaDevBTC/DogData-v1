@@ -225,6 +225,19 @@ export function countdownState(input: CountdownInput): CountdownState {
   if (input.minterAccepting === undefined || input.minterAccepting === true) return st
   if (st.phase == null || !OPEN_PHASES.includes(st.phase)) return st
   const name = st.phase === "PARTNER" ? "PARTNERS" : st.phase
+  // 22/10/2026: SEM leitura ainda (null) não é "o minter recusou". Antes da primeira leitura a landing dizia "not taking
+  // orders" com o mint aberto (a leitura do cliente só sai depois da hidratação, ~16 s com o palco). Sem leitura: a fase
+  // pela altura, sem o botão de mint, e uma linha neutra. A recusa de verdade (false) segue como era.
+  if (input.minterAccepting === null) {
+    return {
+      ...st,
+      label: `${name} PHASE`,
+      sub: "Checking the minter…",
+      primary: FIND, secondary: CALENDAR,
+      aria: `${name} phase by block height, checking the minter`,
+      nav: { desktop: `${name} PHASE`, mobile: name, cta: "FIND MY LOT", href: "#lookup" },
+    }
+  }
   return {
     ...st,
     label: `${name} PHASE · OPENING SHORTLY`,
