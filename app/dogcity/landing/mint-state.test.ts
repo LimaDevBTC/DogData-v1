@@ -247,3 +247,17 @@ test('fase fechada não depende do minter', () => {
   assert.equal(s.phase, 'CLOSED')
   assert.equal(s.nav.cta, 'FIND MY LOT')
 })
+
+test('contador do mint nas fases abertas: N deeds claimed · M on Bitcoin na frente da linha de baixo (22/10/2026)', () => {
+  const f = countdownState({ raised: null, B, tip: B + 300, claimed: 27, inscribed: 3 })
+  assert.equal(f.kind, 'C')
+  assert.ok(f.sub?.startsWith('27 deeds claimed · 3 on Bitcoin · about '), f.sub ?? '')
+  // sem pedido pago ainda: a linha fica como era (nada de "0 claimed")
+  const zero = countdownState({ raised: null, B, tip: B + 300, claimed: 0, inscribed: 0 })
+  assert.ok(zero.sub?.startsWith('about '), zero.sub ?? '')
+  // minter antigo, sem os campos: igual a antes
+  const sem = countdownState({ raised: null, B, tip: B + 300 })
+  assert.ok(sem.sub?.startsWith('about '), sem.sub ?? '')
+  // um só
+  assert.ok(countdownState({ raised: null, B, tip: B + 900, claimed: 1, inscribed: 0 }).sub?.startsWith('1 deed claimed · 0 on Bitcoin · '))
+})
