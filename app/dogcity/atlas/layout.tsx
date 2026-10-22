@@ -4,6 +4,7 @@ import { ATLAS_PLATES, ATLAS_SHEETS } from "./atlas-data"
 
 // page.tsx e "use client" (Layout da casa usa useRouter); a metadata mora aqui.
 export const metadata: Metadata = {
+  alternates: { canonical: "https://dogcity.space/atlas" },
   title: "DogCity Atlas | DOG DATA",
   description:
     `The DogCity Atlas: ${ATLAS_PLATES.length} plates of the city at Bitcoin block 966,670. City plan, relief, water, tiers, streets, landmarks and ${ATLAS_SHEETS.length} registry sheets that place every lot, with a pre-release specimen of the on-chain deed.`,
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
     title: "DogCity Atlas: every lot on a numbered sheet",
     description: `${ATLAS_PLATES.length} plates and ${ATLAS_SHEETS.length} registry sheets for the city fixed at Bitcoin block 966,670.`,
     type: "website",
-    url: "https://www.dogdata.xyz/dogcity/atlas",
+    url: "https://dogcity.space/atlas",
     siteName: "DOG DATA",
     images: [OG_IMAGE],
   },

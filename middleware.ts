@@ -43,10 +43,50 @@ function semSaidaAntiga(req: NextRequest) {
   return NextResponse.redirect(url, 307)
 }
 
+/**
+ * O DOMINIO DA DOGCITY (22/10/2026, decisao do fundador): `dogcity.space` e' a landing, `play.dogcity.space` o jogo,
+ * `mint.dogcity.space` o mint. A landing continua sendo ESTA (app/dogcity): o dominio aponta para este projeto e o
+ * middleware mostra /dogcity na raiz. A Xverse lista `dogcity.space` no explorer dela, e quem chega por la' cai aqui.
+ *
+ * ⚠️ NENHUM LINK DE JOGO QUEBRA. Ate' 22/10 a raiz era o jogo, entao `dogcity.space/?addr=`, `?lot=`, `?tour=carro&live=1`
+ * e qualquer outra consulta de jogo circulam por ai'. Raiz com consulta que nao seja de campanha vai para o `play` com a
+ * consulta inteira. 307 e nao 308: se um dia a landing usar um parametro, o navegador nao guardou o desvio.
+ * Os arquivos do jogo (`/city/...`, de HTML antigo em cache) tambem vao para o `play`.
+ */
+const HOST_SPACE = /^(www\.)?dogcity\.space$/
+const PLAY = 'https://play.dogcity.space'
+const CAMPANHA = /^(utm_[a-z_]+|ref|gclid|fbclid|twclid|mc_cid|mc_eid|s|src)$/
+const ROTAS_SPACE: Record<string, string> = { '/': '/dogcity', '/docs': '/dogcity/docs', '/founders': '/dogcity/founders', '/support': '/dogcity/support', '/atlas': '/dogcity/atlas' }
+
+function noDominioDaCidade(req: NextRequest): NextResponse | null {
+  const host = (req.headers.get('host') || '').split(':')[0].toLowerCase()
+  if (!HOST_SPACE.test(host)) return null
+  const { pathname, search, searchParams } = req.nextUrl
+  if (host.startsWith('www.')) return NextResponse.redirect(`https://dogcity.space${pathname}${search}`, 308)
+  if (pathname === '/' && Array.from(searchParams.keys()).some((k) => !CAMPANHA.test(k))) return NextResponse.redirect(`${PLAY}/${search}`, 307)
+  if (pathname === '/city' || pathname.startsWith('/city/')) return NextResponse.redirect(`${PLAY}${pathname}${search}`, 307)
+  // /dogcity/docs aqui vira /docs (o endereco curto e' o canonico deste dominio)
+  if (pathname === '/dogcity' || pathname.startsWith('/dogcity/')) {
+    const curto = pathname.slice('/dogcity'.length) || '/'
+    if (ROTAS_SPACE[curto]) return NextResponse.redirect(`https://dogcity.space${curto}${search}`, 308)
+  }
+  if (pathname === '/robots.txt' || pathname === '/sitemap.xml') return NextResponse.rewrite(new URL(`/dogcity-space${pathname}`, req.url))
+  const alvo = ROTAS_SPACE[pathname.replace(/\/$/, '') || '/']
+  if (alvo) return comCsp(req, new URL(alvo + search, req.url))
+  // o resto do DogData nao mora neste dominio
+  return NextResponse.redirect(`https://www.dogdata.xyz${pathname}${search}`, 308)
+}
+
 export function middleware(req: NextRequest) {
+  const cidade = noDominioDaCidade(req)
+  if (cidade) return cidade
   if (req.nextUrl.pathname === '/city') return semSaidaAntiga(req)
   if (!ROTAS_COM_ENDERECO.test(req.nextUrl.pathname)) return NextResponse.next()
+  return comCsp(req, null)
+}
 
+/** A CSP com nonce das rotas com endereco; `reescrita` serve a mesma pagina noutro caminho (o dominio da cidade). */
+function comCsp(req: NextRequest, reescrita: URL | null) {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64')
   const csp = [
     "default-src 'self'",
@@ -77,7 +117,7 @@ export function middleware(req: NextRequest) {
 
   const headers = new Headers(req.headers)
   headers.set('x-nonce', nonce)                // o Next le daqui e aplica nos scripts dele
-  const res = NextResponse.next({ request: { headers } })
+  const res = reescrita ? NextResponse.rewrite(reescrita, { request: { headers } }) : NextResponse.next({ request: { headers } })
   res.headers.set('Content-Security-Policy', csp)
   return res
 }
@@ -85,6 +125,9 @@ export function middleware(req: NextRequest) {
 export const config = {
   // ⚠️ NÃO casar com _next/static nem com imagem: middleware em ativo estatico e custo puro.
   matcher: [
+    // o dominio da cidade: tudo, menos os arquivos do Next, a API e os estaticos com extensao
+    { source: '/((?!_next/|api/|.*\\.[a-z0-9]{2,5}$).*)', has: [{ type: 'host', value: '(www\\.)?dogcity\\.space' }] },
+    { source: '/:arq(robots.txt|sitemap.xml)', has: [{ type: 'host', value: '(www\\.)?dogcity\\.space' }] },
     '/dogcity/:path*',
     '/dogcity',
     { source: '/city', has: [{ type: 'query', key: 'view', value: 'war' }] },

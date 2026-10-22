@@ -68,7 +68,8 @@ const ROTAS_ANTIGAS = 'war|plan|explore|luna|plaza'
 // a repassa), entao `/city?addr=X` vira `dogcity.space/?addr=X`. 307 enquanto o
 // dominio novo se firma; vira permanente depois. Os rewrites acima ficam para
 // quem ainda tem o HTML antigo em cache pedir os arquivos do jogo por aqui.
-const CASA_DO_JOGO = 'https://dogcity.space/'
+// 22/10/2026: o jogo foi para play.dogcity.space (dogcity.space virou a landing, servida por este projeto)
+const CASA_DO_JOGO = 'https://play.dogcity.space/'
 
 async function redirectsDaCidadeAntiga() {
   return [
