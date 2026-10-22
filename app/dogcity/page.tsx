@@ -129,8 +129,26 @@ async function mintBInicial(): Promise<MintBInfo | null> {
   }
 }
 
+// O ESTADO DO MINTER JÁ NO HTML (22/10/2026): a leitura do cliente só sai depois da hidratação (~16 s com o palco), e até
+// lá a fase aberta aparecia sem confirmação. Mesma regra: a própria rota, teto de 800 ms, falhou = o cliente busca.
+async function minterInicial(): Promise<{ accepting: boolean | null; claimed: number | null; inscribed: number | null } | null> {
+  try {
+    const h = await headers()
+    const host = h.get("host")
+    if (!host || !/^[a-z0-9.-]+(:\d+)?$/i.test(host)) return null
+    const proto = /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host) ? "http" : "https"
+    const r = await fetch(`${proto}://${host}/api/dogcity/minter`, { signal: AbortSignal.timeout(800), next: { revalidate: 15 } })
+    if (!r.ok) return null
+    const j = await r.json()
+    const n = (v: unknown) => (typeof v === "number" && Number.isSafeInteger(v) && v >= 0 ? v : null)
+    return { accepting: typeof j?.accepting === "boolean" ? j.accepting : null, claimed: n(j?.claimed), inscribed: n(j?.inscribed) }
+  } catch {
+    return null
+  }
+}
+
 export default async function DogCityPage() {
-  const [fund, mintB] = await Promise.all([fundoInicial(), mintBInicial()])
+  const [fund, mintB, minter] = await Promise.all([fundoInicial(), mintBInicial(), minterInicial()])
   // o fundo do contador: o navegador busca o JSON (que sai do cache da CDN) em paralelo com o
   // JS, e o fetch de ./landing/use-countdown.ts reaproveita a resposta. No desktop o número
   // grande é o maior texto da tela: quanto antes ele chega, mais cedo fecha o LCP.
@@ -146,7 +164,7 @@ export default async function DogCityPage() {
           ele chegava 0,8 s depois da primeira pintura no 4G lento). Mesmo arquivo de
           WORDMARK_SRC em ./landing/ui.tsx (módulo de cliente: não dá para importar aqui) */}
       <link rel="preload" as="image" type="image/svg+xml" href="/landing/v3/brand/dogcity-negativa.svg" fetchPriority="high" />
-      <DogCityLanding initialFund={fund} initialMintB={mintB} />
+      <DogCityLanding initialFund={fund} initialMintB={mintB} initialMinter={minter} />
     </>
   )
 }

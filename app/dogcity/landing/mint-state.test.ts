@@ -229,7 +229,9 @@ test('fase aberta pela altura sem o minter aceitando: não anuncia mint', () => 
   for (const minterAccepting of [false, null] as const) {
     const s = countdownState({ raised: null, B, tip: B + 380, minterAccepting })
     assert.equal(s.phase, 'FOUNDER')
-    assert.equal(s.label, 'FOUNDER PHASE · OPENING SHORTLY')
+    // recusa de verdade: OPENING SHORTLY; ainda sem leitura: só a fase, neutra (22/10/2026)
+    assert.equal(s.label, minterAccepting === false ? 'FOUNDER PHASE · OPENING SHORTLY' : 'FOUNDER PHASE')
+    if (minterAccepting === null) assert.equal(s.sub, 'Checking the minter…')
     assert.equal(s.nav.href, '#lookup')
     assert.notEqual(s.primary.href, 'https://mint.dogcity.space')
     assert.ok(!s.nav.external)
@@ -246,4 +248,18 @@ test('fase fechada não depende do minter', () => {
   const s = countdownState({ raised: 10_000_250, B, tip: B + 76, minterAccepting: false })
   assert.equal(s.phase, 'CLOSED')
   assert.equal(s.nav.cta, 'FIND MY LOT')
+})
+
+test('contador do mint nas fases abertas: N deeds claimed · M on Bitcoin na frente da linha de baixo (22/10/2026)', () => {
+  const f = countdownState({ raised: null, B, tip: B + 300, claimed: 27, inscribed: 3 })
+  assert.equal(f.kind, 'C')
+  assert.ok(f.sub?.startsWith('27 deeds claimed · 3 on Bitcoin · about '), f.sub ?? '')
+  // sem pedido pago ainda: a linha fica como era (nada de "0 claimed")
+  const zero = countdownState({ raised: null, B, tip: B + 300, claimed: 0, inscribed: 0 })
+  assert.ok(zero.sub?.startsWith('about '), zero.sub ?? '')
+  // minter antigo, sem os campos: igual a antes
+  const sem = countdownState({ raised: null, B, tip: B + 300 })
+  assert.ok(sem.sub?.startsWith('about '), sem.sub ?? '')
+  // um só
+  assert.ok(countdownState({ raised: null, B, tip: B + 900, claimed: 1, inscribed: 0 }).sub?.startsWith('1 deed claimed · 0 on Bitcoin · '))
 })

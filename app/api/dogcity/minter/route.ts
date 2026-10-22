@@ -21,7 +21,9 @@ export async function GET() {
     const j = (await r.json()) as Record<string, unknown>
     if (typeof j.accepting !== 'boolean' || typeof j.healthy !== 'boolean' || typeof j.phase !== 'string') return erro('minter: unexpected shape')
     const height = typeof j.height === 'number' && Number.isSafeInteger(j.height) ? j.height : null
-    return NextResponse.json({ accepting: j.accepting, healthy: j.healthy, phase: j.phase, height }, { headers: { 'Cache-Control': OK_CACHE } })
+    // o contador do mint (22/10/2026): pedidos pagos e escrituras na cadeia; ausente no minter antigo = null
+    const n = (v: unknown) => (typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 ? v : null)
+    return NextResponse.json({ accepting: j.accepting, healthy: j.healthy, phase: j.phase, height, claimed: n(j.claimed), inscribed: n(j.inscribed) }, { headers: { 'Cache-Control': OK_CACHE } })
   } catch {
     return erro('minter unreachable')
   }
