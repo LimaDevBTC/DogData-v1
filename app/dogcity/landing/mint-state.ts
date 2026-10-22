@@ -34,7 +34,8 @@ export const TOTAL_LOTS = 70_714
 export const B_CONFIRMATIONS = 6
 export const MINT_URL = "https://mint.dogcity.space"
 export const MINT_HOST = "mint.dogcity.space"
-export const CITY_URL = "https://dogcity.space"
+// o jogo mora em play.dogcity.space desde 22/10/2026; dogcity.space e' a landing
+export const CITY_URL = "https://play.dogcity.space"
 
 /** deslocamentos do calendário a partir de B (docs §7) */
 export const CAL_OFFSETS = { founder: 288, whitelist: 720, partner: 3744, public: 4032 } as const
@@ -241,7 +242,10 @@ function countdownByHeight(input: CountdownInput): CountdownState {
   if (B != null) {
     const cal = calendarFromB(B)
     const conf = tip != null ? tip - B + 1 : null
-    if (tip == null || conf == null || conf < B_CONFIRMATIONS) return stateB0(goal, raised, { ...base, calendar: cal }, B)
+    // B conhecido e a ponta ainda não chegou: nada de voltar ao total do fundo (era o "pisca" da primeira pintura);
+    // só o rótulo, e o número entra quando a altura chegar
+    if (tip == null) return { ...stateB0(goal, raised, { ...base, calendar: cal }, B), label: `FUND FULL AT BLOCK ${fmtInt(B)}`, number: null, unit: "READING THE CHAIN", sub: null }
+    if (conf == null || conf < B_CONFIRMATIONS) return stateB0(goal, raised, { ...base, calendar: cal }, B)
     const phase = phaseAt(tip, cal)
     const ruler = rulerFraction(phase, tip, cal, B)
     const rail = { mode: "phases" as const, ...ruler, readout: `BLOCK ${fmtInt(tip)}` }

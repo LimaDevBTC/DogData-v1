@@ -83,10 +83,12 @@ function useMinterAccepting(): boolean | null {
   return accepting
 }
 
-function useMintB(manual: number | null): MintBInfo | null {
-  const [info, setInfo] = useState<MintBInfo | null>(null)
+function useMintB(manual: number | null, initial: MintBInfo | null): MintBInfo | null {
+  // parte da leitura do servidor (page.tsx): a primeira pintura já sabe B e a ponta
+  const [info, setInfo] = useState<MintBInfo | null>(initial)
   useEffect(() => {
     if (manual != null) return
+    if (initial?.status === "set") return   // B congelado: nada mais muda (a ponta viva vem do feed)
     let alive = true
     let timer: ReturnType<typeof setTimeout> | null = null
     const tick = async () => {
@@ -108,8 +110,9 @@ function useMintB(manual: number | null): MintBInfo | null {
     const onVis = () => { if (document.visibilityState === "visible" && timer) { clearTimeout(timer); void tick() } }
     document.addEventListener("visibilitychange", onVis)
     return () => { alive = false; if (timer) clearTimeout(timer); document.removeEventListener("visibilitychange", onVis) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [manual])
-  return useMemo(() => (manual != null ? { status: "set" as const, B: manual, raised: null, tip: null } : info), [manual, info])
+  return useMemo(() => (manual != null ? { status: "set" as const, B: manual, raised: null, tip: initial?.tip ?? null } : info), [manual, info, initial])
 }
 
 function simulated(): CountdownInput | null {
@@ -132,9 +135,9 @@ function simulated(): CountdownInput | null {
   return map[k] ?? null
 }
 
-export function useCountdown(initialFund: FundData | null = null): CountdownState {
+export function useCountdown(initialFund: FundData | null = null, initialMintB: MintBInfo | null = null): CountdownState {
   const fund = useFund(initialFund)
-  const mintB = useMintB(B_ENV)
+  const mintB = useMintB(B_ENV, initialMintB)
   const minterAccepting = useMinterAccepting()
   const { feed } = useMempoolFeed()
   const feedTip = feed?.snapshot?.tip_height ?? null

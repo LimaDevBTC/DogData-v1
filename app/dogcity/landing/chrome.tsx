@@ -17,11 +17,14 @@
 
 import { useEffect, useRef, useState } from "react"
 import { setMotionPref } from "../motion-pref"
-import { Btn, FaviconMark, TextLink, Wordmark, WORDMARK_RATIO, useReduced } from "./ui"
+import { FaviconMark, TextLink, Wordmark, WORDMARK_RATIO, useReduced } from "./ui"
 import type { CountdownState } from "./mint-state"
 import { CITY_URL, MINT_HOST, MINT_URL } from "./mint-state"
 
 const DRAWER_LINKS: { label: string; href: string; note?: string }[] = [
+  // 22/10/2026 (fundador): o jogo e o mint têm de estar a um toque, em qualquer ponto da página
+  { label: "Play DogCity", href: CITY_URL, note: "play.dogcity.space" },
+  { label: "Mint your deed", href: MINT_URL, note: MINT_HOST },
   { label: "Find your lot", href: "#lookup" },
   { label: "The deeds", href: "#deeds" },
   { label: "The city", href: "#city" },
@@ -97,32 +100,23 @@ export function Nav({
             aria-hidden={!live}
           >
             {/* desktop: o botão inteiro, como o "Pre-Order Now" do VI */}
-            {quiet ? (
-              <span className="hidden lg:inline-flex h-10 items-center font-mono text-[11px] tracking-[0.14em] text-dc-snow tabular-nums whitespace-nowrap">
-                {reading}
-              </span>
-            ) : (
-              <a href={cd.nav.href} tabIndex={live ? 0 : -1} className="hidden lg:inline-flex dc-btn dc-btn-fill dc-btn-sm">
-                <span className="tabular-nums">{cd.nav.desktop}</span>
-              </a>
-            )}
+            {/* 22/10/2026: a pílula só LÊ o momento (contador, fase); MINT e PLAY ao lado fazem a ação */}
+            <a href={cd.nav.href} tabIndex={live ? 0 : -1}
+               className="hidden xl:inline-flex h-10 items-center font-mono text-[11px] tracking-[0.14em] text-dc-snow hover:text-dc-hot tabular-nums whitespace-nowrap transition-colors">
+              {quiet ? reading : cd.nav.desktop}
+            </a>
             {/* celular e tablet: a leitura em mono e o botão curto */}
             {cd.nav.mobile && (
-              <span className="lg:hidden max-[359px]:hidden font-mono text-[11px] tracking-[0.12em] text-dc-snow tabular-nums whitespace-nowrap">
+              <span className="lg:hidden max-[479px]:hidden font-mono text-[11px] tracking-[0.12em] text-dc-snow tabular-nums whitespace-nowrap">
                 {cd.nav.mobile}
               </span>
             )}
-            {!quiet && (
-              <a href={cd.nav.href} tabIndex={live ? 0 : -1} className="lg:hidden dc-btn dc-btn-fill !h-9 !px-3 !text-[11px] !tracking-[0.12em]">
-                {cd.nav.cta}
-              </a>
-            )}
           </div>
 
-          {/* P7: sobre o herói o "Enter the city" já está no bloco do contador; aqui só depois */}
-          <Btn href={CITY_URL} variant="line" size="sm" className={`hidden lg:inline-flex ${live ? "" : "!hidden"}`}>
-            Enter the city
-          </Btn>
+          {/* 22/10/2026 (fundador): MINT e PLAY sempre na barra, desde o herói, no desktop e no celular.
+              O mint é a ação principal (cheio); o jogo vem ao lado (linha). */}
+          <a href={MINT_URL} className="dc-btn dc-btn-fill dc-btn-sm max-lg:!h-9 max-lg:!px-3 max-lg:!text-[11px] max-lg:!tracking-[0.12em]">Mint</a>
+          <a href={CITY_URL} className={`dc-btn dc-btn-line dc-btn-sm max-lg:!h-9 max-lg:!px-3 max-lg:!text-[11px] max-lg:!tracking-[0.12em] ${solid ? "" : "dc-halo"}`}>Play</a>
           {/* a porta para o DogData: sempre na barra do desktop, no tom do "Menu" (no celular, na gaveta) */}
           <a
             href="/"

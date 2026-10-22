@@ -39,6 +39,8 @@ const barlowCondensed = Barlow_Condensed({
 const OG = OG_URL
 
 export const metadata: Metadata = {
+  // o endereco canonico da landing e' o dominio da cidade (22/10/2026); /dogcity aqui continua servindo a mesma pagina
+  alternates: { canonical: 'https://dogcity.space/' },
   title: 'DogCity: a virtual city for DOG holders, on real lunar terrain | dogdata.xyz',
   description:
     // ⚠️ DUAS FRASES FALSAS SAIRAM DAQUI EM 22/09. "every self-custody DOG
@@ -53,8 +55,8 @@ export const metadata: Metadata = {
     description:
       "Built over mapped lunar elevation at Mare Tranquillitatis. Whatever $DOG your wallet holds in self custody at that block is what the city reads. A date is our word. A Bitcoin block is Bitcoin's word.",
     type: 'website',
-    url: 'https://www.dogdata.xyz/dogcity',
-    siteName: 'DOG DATA',
+    url: 'https://dogcity.space/',
+    siteName: 'DogCity',
     images: [{ url: OG, width: 1200, height: 630,
                alt: 'Inside the DogCity dome at Mare Tranquillitatis: the honeycomb shell overhead, the bay, the road web and Satoshi Plaza' }],
   },
