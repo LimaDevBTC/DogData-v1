@@ -34,7 +34,8 @@ export const TOTAL_LOTS = 70_714
 export const B_CONFIRMATIONS = 6
 export const MINT_URL = "https://mint.dogcity.space"
 export const MINT_HOST = "mint.dogcity.space"
-export const CITY_URL = "https://dogcity.space"
+// o jogo mora em play.dogcity.space desde 22/10/2026; dogcity.space e' a landing
+export const CITY_URL = "https://play.dogcity.space"
 
 /** deslocamentos do calendário a partir de B (docs §7) */
 export const CAL_OFFSETS = { founder: 288, whitelist: 720, partner: 3744, public: 4032 } as const

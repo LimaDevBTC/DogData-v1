@@ -17,6 +17,7 @@ import { OG_URL, OG_ALT, OG_IMAGE } from '@/lib/og'
 const OG = OG_URL
 
 export const metadata: Metadata = {
+  alternates: { canonical: "https://dogcity.space/founders" },
   title: "DogCity Founders Pack | DOG DATA",
   description:
     "A Founder is anyone who contributes to the construction fund before it reaches 10,000,000 $DOG. There is no cap on the number of Founders. What closes is the time, never the seat.",
@@ -25,7 +26,7 @@ export const metadata: Metadata = {
     description:
       "A goal, not a sale. A construction fund, not a raise. Every rung includes everything below it, the Founder number is assigned by order of arrival, and no lot is ever drawn.",
     type: "website",
-    url: "https://www.dogdata.xyz/dogcity/founders",
+    url: "https://dogcity.space/founders",
     siteName: "DOG DATA",
     images: [
       {

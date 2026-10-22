@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
       faces: info?.faces ?? null,
       position: l ? 'ok' : 'unavailable',
       ...(l && { x_m: l.x_m, z_m: l.z_m }),
-      map: `https://dogcity.space/?lot=${encodeURIComponent(id)}`,
+      map: `https://play.dogcity.space/?lot=${encodeURIComponent(id)}`,
     },
     { headers: { 'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800' } },
   )

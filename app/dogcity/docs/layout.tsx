@@ -4,6 +4,7 @@ import type { Metadata } from "next"
 // puxa useRouter) e um Client Component não pode exportar `metadata`; este
 // layout.tsx irmão, Server Component, é quem carrega isso para /dogcity/docs.
 export const metadata: Metadata = {
+  alternates: { canonical: "https://dogcity.space/docs" },
   title: "DogCity Documentation | DOG DATA",
   description:
     "What DogCity is, how the snapshot was built and verified, how land is sized, how the project tells a person from a service, and what the Financial District is.",
