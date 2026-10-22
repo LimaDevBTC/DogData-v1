@@ -160,6 +160,8 @@ export interface CountdownInput {
   fundFull?: boolean
   /** escrituras cunhadas (só o estado F usa; sem ele, F mostra o preço) */
   inscribed?: number | null
+  /** pedidos pagos que já seguram um lote (/api/mint/status `claimed`, 22/10/2026): o contador das fases abertas */
+  claimed?: number | null
   /** o minter aceita pedidos agora (/api/dogcity/minter). null = não confirmado (sem leitura ou erro): numa fase aberta a
    *  landing NÃO mostra o botão de mint. Ausente (simulações) = não trava. */
   minterAccepting?: boolean | null
@@ -264,6 +266,11 @@ function countdownByHeight(input: CountdownInput): CountdownState {
       }
     }
     const end = phaseEnd(phase, cal)
+    // o contador vivo do mint (22/10/2026): "27 deeds claimed · 3 on Bitcoin · " na frente da linha de baixo
+    const cl = input.claimed, ib = input.inscribed
+    const conta = typeof cl === "number" && Number.isFinite(cl) && cl > 0
+      ? `${fmtInt(cl)} ${cl === 1 ? "deed" : "deeds"} claimed${typeof ib === "number" && Number.isFinite(ib) && ib >= 0 ? ` · ${fmtInt(ib)} on Bitcoin` : ""} · `
+      : ""
     const open = (name: string) => ({
       desktop: `${name} PHASE OPEN · MINT`, mobile: `${name} OPEN`, cta: "MINT", href: MINT_URL, external: true,
     })
@@ -272,7 +279,7 @@ function countdownByHeight(input: CountdownInput): CountdownState {
       return {
         ...common, kind: "C", label: "FOUNDER PHASE · OPEN",
         number: fmtInt(left), unit: "BLOCKS LEFT FOR FOUNDERS",
-        sub: `${aboutBlocks(left)} · ends at block ${fmtInt(end)}`,
+        sub: `${conta}${aboutBlocks(left)} · ends at block ${fmtInt(end)}`,
         h1: `Founders are minting their own lots free. The Whitelist opens at block ${fmtInt(cal.whitelistStart)}, from US$1 a lot.`,
         primary: MINT_AT, secondary: FIND,
         aria: `Founder phase open, ${fmtInt(left)} blocks left for Founders`,
@@ -284,7 +291,7 @@ function countdownByHeight(input: CountdownInput): CountdownState {
       return {
         ...common, kind: "D", label: "WHITELIST · OPEN",
         number: fmtInt(left), unit: "BLOCKS LEFT TO CLAIM YOUR LOT",
-        sub: `${aboutBlocks(left)} · ends at block ${fmtInt(end)}`,
+        sub: `${conta}${aboutBlocks(left)} · ends at block ${fmtInt(end)}`,
         h1: `Every wallet with a lot at block 966,670 mints its own lot at half its public price, from US$1. Unclaimed lots go on sale at block ${fmtInt(cal.partnerStart)}.`,
         primary: { label: "Mint your lot", href: MINT_URL, external: true }, secondary: FIND,
         aria: `Whitelist open, ${fmtInt(left)} blocks left to claim your lot`,
@@ -296,7 +303,7 @@ function countdownByHeight(input: CountdownInput): CountdownState {
       return {
         ...common, kind: "E", label: "PARTNERS · OPEN",
         number: fmtInt(left), unit: "BLOCKS TO THE PUBLIC MINT",
-        sub: `${aboutBlocks(left)} · the public mint opens at block ${fmtInt(end)}`,
+        sub: `${conta}${aboutBlocks(left)} · the public mint opens at block ${fmtInt(end)}`,
         h1: "Holders of partner collections mint unclaimed lots at a quarter off the public price, from US$1.50.",
         primary: MINT_AT, secondary: FIND,
         aria: `Partners phase open, ${fmtInt(left)} blocks to the public mint`,
@@ -312,7 +319,7 @@ function countdownByHeight(input: CountdownInput): CountdownState {
       ...common, kind: "F", label: "PUBLIC MINT · OPEN",
       number: hasCount ? fmtInt(ins as number) : "US$2",
       unit: hasCount ? `/ ${fmtInt(TOTAL_LOTS)} DEEDS INSCRIBED` : "AND UP · BY TIER AND SIZE",
-      sub: null,
+      sub: conta ? conta.replace(/ · $/, "") : null,
       h1: "Anyone mints any unclaimed lot from US$2, priced by its tier and size, up to 10 lots per wallet every 144 blocks.",
       primary: MINT_AT, secondary: FIND,
       aria: hasCount

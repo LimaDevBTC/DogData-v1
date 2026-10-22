@@ -62,8 +62,11 @@ function useFund(initial: FundData | null): FundData | null {
 const MINTER_POLL_MS = 30_000
 
 /** `accepting` do minter, lido pela rota do servidor (/api/dogcity/minter). null até a primeira leitura boa ou em erro. */
-function useMinterAccepting(): boolean | null {
-  const [accepting, setAccepting] = useState<boolean | null>(null)
+interface MinterRead { accepting: boolean | null; claimed: number | null; inscribed: number | null }
+const num = (v: unknown) => (typeof v === "number" && Number.isSafeInteger(v) && v >= 0 ? v : null)
+
+function useMinterAccepting(): MinterRead {
+  const [accepting, setAccepting] = useState<MinterRead>({ accepting: null, claimed: null, inscribed: null })
   useEffect(() => {
     let alive = true
     let timer: ReturnType<typeof setTimeout> | null = null
@@ -71,9 +74,9 @@ function useMinterAccepting(): boolean | null {
       if (document.visibilityState === "visible") {
         try {
           const r = await fetch("/api/dogcity/minter", { signal: AbortSignal.timeout(10_000) })
-          const j = r.ok ? ((await r.json()) as { accepting?: unknown }) : null
-          if (alive) setAccepting(j && typeof j.accepting === "boolean" ? j.accepting : null)
-        } catch { if (alive) setAccepting(null) }
+          const j = r.ok ? ((await r.json()) as { accepting?: unknown; claimed?: unknown; inscribed?: unknown }) : null
+          if (alive) setAccepting(j ? { accepting: typeof j.accepting === "boolean" ? j.accepting : null, claimed: num(j.claimed), inscribed: num(j.inscribed) } : { accepting: null, claimed: null, inscribed: null })
+        } catch { if (alive) setAccepting({ accepting: null, claimed: null, inscribed: null }) }
       }
       if (alive) timer = setTimeout(tick, MINTER_POLL_MS)
     }
@@ -138,7 +141,7 @@ function simulated(): CountdownInput | null {
 export function useCountdown(initialFund: FundData | null = null, initialMintB: MintBInfo | null = null): CountdownState {
   const fund = useFund(initialFund)
   const mintB = useMintB(B_ENV, initialMintB)
-  const minterAccepting = useMinterAccepting()
+  const minter = useMinterAccepting()
   const { feed } = useMempoolFeed()
   const feedTip = feed?.snapshot?.tip_height ?? null
   const [sim, setSim] = useState<CountdownInput | null>(null)
@@ -153,6 +156,7 @@ export function useCountdown(initialFund: FundData | null = null, initialMintB: 
       : fund?.raised ?? null
     // a ponta do feed é a viva; a do detector segura quando o feed ainda não chegou
     const tip = feedTip != null && mintB?.tip != null ? Math.max(feedTip, mintB.tip) : feedTip ?? mintB?.tip ?? null
-    return countdownState({ raised, goal: fund?.goal ?? FUND_GOAL, B: mintB?.status === "set" ? mintB.B : null, tip, fundFull, minterAccepting })
-  }, [sim, fund, feedTip, mintB, minterAccepting])
+    return countdownState({ raised, goal: fund?.goal ?? FUND_GOAL, B: mintB?.status === "set" ? mintB.B : null, tip, fundFull,
+      minterAccepting: minter.accepting, claimed: minter.claimed, inscribed: minter.inscribed })
+  }, [sim, fund, feedTip, mintB, minter])
 }
