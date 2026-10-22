@@ -27,6 +27,7 @@ import { headers } from "next/headers"
 import { preload } from "react-dom"
 import DogCityLanding from "./landing/landing"
 import { POSTER } from "./landing/media"
+import { parseMintB, type MintBInfo } from "./landing/mint-state"
 
 // ─ SAÍRAM DA LANDING EM 18/10/2026 (landing v3, brief §12) ─────────────────
 // import { WalletLookupHero, WalletLookupRepeat } from "./sections/wallet-lookup"
@@ -112,8 +113,24 @@ async function fundoInicial(): Promise<{ raised: number; goal: number } | null> 
   }
 }
 
+// O BLOCO B E A PONTA DA CADEIA JÁ NO HTML (22/10/2026). Sem isto a primeira pintura não sabia de B: o herói
+// mostrava o total do fundo ("10,407,345 raised") e, um instante depois, trocava para "46 BLOCKS TO THE FOUNDER
+// MINT". Mesma regra do fundo: a própria rota, teto de 800 ms, falhou = o cliente busca como sempre.
+async function mintBInicial(): Promise<MintBInfo | null> {
+  try {
+    const h = await headers()
+    const host = h.get("host")
+    if (!host || !/^[a-z0-9.-]+(:\d+)?$/i.test(host)) return null
+    const proto = /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host) ? "http" : "https"
+    const r = await fetch(`${proto}://${host}/api/dogcity/mint-b`, { signal: AbortSignal.timeout(800), next: { revalidate: 30 } })
+    return r.ok ? parseMintB(await r.json()) : null
+  } catch {
+    return null
+  }
+}
+
 export default async function DogCityPage() {
-  const fund = await fundoInicial()
+  const [fund, mintB] = await Promise.all([fundoInicial(), mintBInicial()])
   // o fundo do contador: o navegador busca o JSON (que sai do cache da CDN) em paralelo com o
   // JS, e o fetch de ./landing/use-countdown.ts reaproveita a resposta. No desktop o número
   // grande é o maior texto da tela: quanto antes ele chega, mais cedo fecha o LCP.
@@ -129,7 +146,7 @@ export default async function DogCityPage() {
           ele chegava 0,8 s depois da primeira pintura no 4G lento). Mesmo arquivo de
           WORDMARK_SRC em ./landing/ui.tsx (módulo de cliente: não dá para importar aqui) */}
       <link rel="preload" as="image" type="image/svg+xml" href="/landing/v3/brand/dogcity-negativa.svg" fetchPriority="high" />
-      <DogCityLanding initialFund={fund} />
+      <DogCityLanding initialFund={fund} initialMintB={mintB} />
     </>
   )
 }
