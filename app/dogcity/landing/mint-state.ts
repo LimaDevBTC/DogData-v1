@@ -242,7 +242,10 @@ function countdownByHeight(input: CountdownInput): CountdownState {
   if (B != null) {
     const cal = calendarFromB(B)
     const conf = tip != null ? tip - B + 1 : null
-    if (tip == null || conf == null || conf < B_CONFIRMATIONS) return stateB0(goal, raised, { ...base, calendar: cal }, B)
+    // B conhecido e a ponta ainda não chegou: nada de voltar ao total do fundo (era o "pisca" da primeira pintura);
+    // só o rótulo, e o número entra quando a altura chegar
+    if (tip == null) return { ...stateB0(goal, raised, { ...base, calendar: cal }, B), label: `FUND FULL AT BLOCK ${fmtInt(B)}`, number: null, unit: "READING THE CHAIN", sub: null }
+    if (conf == null || conf < B_CONFIRMATIONS) return stateB0(goal, raised, { ...base, calendar: cal }, B)
     const phase = phaseAt(tip, cal)
     const ruler = rulerFraction(phase, tip, cal, B)
     const rail = { mode: "phases" as const, ...ruler, readout: `BLOCK ${fmtInt(tip)}` }

@@ -52,10 +52,16 @@ test('B0: cheio sem B, ou B com menos de 6 confirmações', () => {
   assert.equal(sem.founderLine, false)
   const cinco = countdownState({ raised: 10_000_250, B, tip: B + 4 }) // 5 confirmações
   assert.equal(cinco.kind, 'B0')
+  // B conhecido e a altura ainda não chegou: só o rótulo do bloco, sem número (22/10/2026)
   const semAltura = countdownState({ raised: null, B, tip: null })
   assert.equal(semAltura.kind, 'B0')
   assert.equal(semAltura.number, null)
-  assert.equal(semAltura.unit, 'GOAL REACHED')
+  assert.equal(semAltura.label, `FUND FULL AT BLOCK ${B.toLocaleString('en-US')}`)
+  assert.equal(semAltura.unit, 'READING THE CHAIN')
+  // o "pisca" da primeira pintura: com o fundo conhecido, o total NÃO volta a aparecer enquanto falta a altura
+  const comFundo = countdownState({ raised: 10_407_345.6, B, tip: null })
+  assert.equal(comFundo.number, null)
+  assert.equal(comFundo.unit, 'READING THE CHAIN')
 })
 
 test('B: fechado até B+288, conta em blocos com "about" e o bloco absoluto', () => {

@@ -28,6 +28,7 @@ import { ResumePill } from "@/components/resume-pill"
 import { MotionScope } from "./ui"
 import { Footer, Nav } from "./chrome"
 import { useCountdown, type FundData } from "./use-countdown"
+import type { MintBInfo } from "./mint-state"
 import Opening, { type ChromeState } from "../sections/opening"
 import Provenance from "../sections/provenance"
 import Deeds from "../sections/deeds"
@@ -40,8 +41,8 @@ import { useLeaderboard } from "./use-leaderboard"
 
 const TITLE_KEY = "dc-title-card"
 
-export default function DogCityLanding({ initialFund = null }: { initialFund?: FundData | null }) {
-  const cd = useCountdown(initialFund)
+export default function DogCityLanding({ initialFund = null, initialMintB = null }: { initialFund?: FundData | null; initialMintB?: MintBInfo | null }) {
+  const cd = useCountdown(initialFund, initialMintB)
   const lb = useLeaderboard()
 
   // ── o cartão de título: só na primeira visita da sessão ──
