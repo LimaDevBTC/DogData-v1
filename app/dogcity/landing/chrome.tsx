@@ -29,7 +29,7 @@ const DRAWER_LINKS: { label: string; href: string; note?: string }[] = [
   { label: "The deeds", href: "#deeds" },
   { label: "The city", href: "#city" },
   { label: "The calendar", href: "#calendar" },
-  { label: "Become a founder", href: "#fund", note: "Fund the city" },
+  { label: "Building licence", href: "#fund", note: "Personal, Commercial, Patron" },
   { label: "Docs", href: "/dogcity/docs" },
   { label: "Atlas", href: "/dogcity/atlas" },
   // a raiz do DogData: a landing grava `dogdata-session`, então "/" não manda de volta para cá

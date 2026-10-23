@@ -250,47 +250,24 @@ export const PHASE_ANNOTATIONS: PhaseAnnotation[][] = [
 export const LICENCE_BTC_LINE = "or the same value in BTC"
 export const LICENCE_BTC_NOTE = "Paid in BTC: building licence and item pack only. Founder benefits need $DOG in the fund."
 
+// 23/10/2026 (fundador): a landing deixou o programa de Founders (fechado no bloco 972.336, 138 founders) e passou a
+// vender a LICENÇA DE CONSTRUÇÃO. Três degraus, o que cada um traz é o das docs (seção 8, "Three licences", a coluna
+// "What comes with it"): mudou lá, muda aqui. O que era por ter chegado antes (número, Monument, Club, sorteio, mint grátis,
+// luz do Founder) segue só dos 138 founders, nas docs seção 6. Rover lunar saiu; os veículos se somam por degrau.
+// `key` alimenta o CSS da escada (--lot-rest etc. em tiers.tsx) e a cotação em sats (/api/dogcity/licence-quote).
 export const TIERS = [
-  {
-    // ⚠️ RENOMEADO DE "founder" PARA "citizen" EM 13/09 (LANDING-V3-DESENHO.md,
-    // dobra 4: "A escada: Citizen, Personal, Commercial, Patron"). A palavra
-    // "Founder" continua existindo no produto, só que para OUTRA coisa: o
-    // programa inteiro (qualquer contribuinte, o número de ordem de chegada,
-    // o monumento em ./sections/founders-register.tsx). `key` muda porque
-    // alimenta o CSS (--lot-rest etc. em tiers.tsx); a cor e o limiar não mudam.
-    //
-    // ⚠️ O TEXTO DOS QUATRO DEGRAUS É O DAS DOCS (19/10): /dogcity/docs, seções 6 e 8, "The
-    // ladder", é o contrato público; este arquivo repete as palavras de lá (a mesma cópia
-    // fechada de ../founders/page.tsx, RUNGS). Benefício que as docs não prometem NÃO entra
-    // aqui; mudou lá, muda aqui. Grafia das docs: "licence", "Personal", "Commercial".
-    key: "citizen",
-    name: "Citizen",
-    threshold: "Any amount",
-    color: "#CBD5E1",
-    perks: [
-      "Name on the Founders' Monument, in order of arrival",
-      "Founder number, permanent and never issued again",
-      "Access to the Founders Club, on its island in the city's bay",
-      "One entry in the Founders' draw",
-    ],
-    note: "There is no building licence below 10,000 $DOG: the recognition is permanent either way, and the order number is the one thing that cannot be obtained later.",
-    cta: "Become a Citizen",
-  },
   {
     key: "personal",
     name: "Personal",
     threshold: "10,000 $DOG",
     btcLine: LICENCE_BTC_LINE,
-    btcNote: LICENCE_BTC_NOTE,
     color: "#F56E0F",
     featured: true,
     perks: [
-      "Everything in Citizen",
-      "A one time, permanent building licence",
-      "Mints first, free, in the Founder phase, so the building stands on day one: only the Bitcoin network fee and postage",
-      "Early access to the game, to every test and every update",
-      "The Founder's light on the building, visible from above at night",
+      "A one time, permanent building licence: a residence from the district catalogue",
       "Base item pack: yard and house number plaque",
+      "The $DOG moto",
+      "Early access to the game, to every test and every update",
     ],
     cta: "Choose Personal",
   },
@@ -299,13 +276,12 @@ export const TIERS = [
     name: "Commercial",
     threshold: "50,000 $DOG",
     btcLine: LICENCE_BTC_LINE,
-    btcNote: LICENCE_BTC_NOTE,
     color: "#FB923C",
     perks: [
       "Everything in Personal",
       "The commercial licence: a commercial building instead of a residence, on any lot",
       "Extended item pack: leisure ground, garden, lighting",
-      "A lunar rover parked on the lot",
+      "An orange Cyber $DOG",
     ],
     cta: "Choose Commercial",
   },
@@ -314,12 +290,13 @@ export const TIERS = [
     name: "Patron",
     threshold: "500,000 $DOG",
     btcLine: LICENCE_BTC_LINE,
-    btcNote: LICENCE_BTC_NOTE,
     color: "#FFAD42",
     perks: [
       "Everything in Commercial",
-      "Names a street, and the name stays on the city map",
       "A custom building, designed outside the district catalogue",
+      "Names a street, and the name stays on the city map",
+      "The DOG helicopter",
+      "A special car, revealed soon",
     ],
     cta: "Become a Patron",
   },

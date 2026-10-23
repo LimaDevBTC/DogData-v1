@@ -55,7 +55,7 @@ export default function Provenance() {
               </ul>
               <p className="dc-body mt-8 text-dc-snow">
                 Anyone can rebuild a deed byte for byte from these pieces and check its lot against the Merkle root
-                the City Charter carries. The six pieces are inscribed on mainnet today; the deeds follow with the mint.
+                the City Charter carries. The six pieces are inscribed on mainnet, and every deed of the mint is a child of the City Charter.
               </p>
               <div className="mt-8 flex flex-col gap-4 dk:flex-row dk:items-center">
                 <Btn href="/dogcity/docs#fully-on-bitcoin">Read the provenance</Btn>
