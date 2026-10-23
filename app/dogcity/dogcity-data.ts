@@ -255,6 +255,9 @@ export const LICENCE_BTC_NOTE = "Paid in BTC: building licence and item pack onl
 // "What comes with it"): mudou lá, muda aqui. O que era por ter chegado antes (número, Monument, Club, sorteio, mint grátis,
 // luz do Founder) segue só dos 138 founders, nas docs seção 6. Rover lunar saiu; os veículos se somam por degrau.
 // `key` alimenta o CSS da escada (--lot-rest etc. em tiers.tsx) e a cotação em sats (/api/dogcity/licence-quote).
+// 23/10: `vehicle` é o veículo que o degrau ACRESCENTA, fotografado no estúdio do Blender (dogcity-mundo,
+// plano/the_build/filme/estudio_veiculos.py, modo cartão). O helicóptero é o "Bell 429 Helicopter" de agreene (Sketchfab,
+// CC BY 4.0): o crédito sai no próprio cartão (`credit`), é condição da licença.
 export const TIERS = [
   {
     key: "personal",
@@ -269,6 +272,7 @@ export const TIERS = [
       "The $DOG moto",
       "Early access to the game, to every test and every update",
     ],
+    vehicle: { src: "/landing/licences/moto.webp", w: 514, h: 520, label: "THE $DOG MOTO", alt: "The black $DOG motorbike with orange rims and the $DOG sticker on the fairing" },
     cta: "Choose Personal",
   },
   {
@@ -283,6 +287,7 @@ export const TIERS = [
       "Extended item pack: leisure ground, garden, lighting",
       "An orange Cyber $DOG",
     ],
+    vehicle: { src: "/landing/licences/cyber.webp", w: 844, h: 520, label: "THE ORANGE CYBER $DOG", alt: "The orange Cyber $DOG pickup with the $DOG sticker on the hood" },
     cta: "Choose Commercial",
   },
   {
@@ -298,9 +303,21 @@ export const TIERS = [
       "The DOG helicopter",
       "A special car, revealed soon",
     ],
+    vehicle: {
+      src: "/landing/licences/helicopter.webp", w: 780, h: 520, label: "THE DOG HELICOPTER",
+      alt: "The DOG helicopter in Bitcoin orange and white with the $DOG sticker on the side",
+      credit: { text: "3D model: Bell 429 Helicopter by agreene, CC BY 4.0", href: "https://sketchfab.com/3d-models/bell-429-helicopter-8dda855f3ab343b7b69ca7adcbf24f03" },
+    },
     cta: "Become a Patron",
   },
 ]
+
+// O contador de licenças da landing (23/10): o livro do fundo (/api/donate/leaderboard) dá o degrau de cada carteira;
+// licença é todo degrau a partir de Personal (quem doou menos de 10.000 $DOG é founder sem licença). No fechamento
+// do fundo (bloco 972.336) os 138 founders tinham 129 licenças (68 Personal, 51 Commercial, 10 Patron; 9 abaixo de
+// 10k), conferido contra a lista F. O que passar disso foi vendido depois da fase de founders.
+export const LICENCES_AT_FUND_CLOSE = 129
+export const FUND_CLOSE_BLOCK = 972_336
 
 export const WALLET_STEPS = [
   { n: "01", title: "DOG wallet", text: "Your wallet is the identity. No seed phrase, no signup: the address is enough." },

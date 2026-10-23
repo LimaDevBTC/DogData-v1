@@ -46,7 +46,7 @@ import { useEffect, useState } from "react"
 import { motion, useReducedMotion } from "framer-motion"
 import { useDonate } from "@/components/donate/donate-modal"
 import type { LicenceTier } from "@/lib/dog/licence-btc"
-import { TIERS } from "../dogcity-data"
+import { FUND_CLOSE_BLOCK, LICENCES_AT_FUND_CLOSE, TIERS } from "../dogcity-data"
 import {
   EASE, HAIR, DrawRule, Reveal, Scramble, SplitLine,
   Stagger, StaggerItem, useOnce, useSpotlight,
@@ -138,7 +138,71 @@ interface Tier {
   featured?: boolean
   perks: string[]
   note?: string
+  /** the vehicle this rung adds, photographed in the studio; `credit` is a CC BY condition, shown on the card */
+  vehicle?: { src: string; w: number; h: number; label: string; alt: string; credit?: { text: string; href: string } }
   cta: string
+}
+
+type LicenceCount = { personal: number; commercial: number; patron: number }
+
+// How many licences exist, from the fund ledger the construction fund section already reads (one wallet, one rung:
+// its $DOG plus any credited Bitcoin). A wallet under 10,000 $DOG is a founder without a licence and is not counted.
+// No answer, no strip: the section never shows a number it did not read.
+function useLicenceCount(): LicenceCount | null {
+  const [n, setN] = useState<LicenceCount | null>(null)
+  useEffect(() => {
+    let alive = true
+    const load = () =>
+      fetch("/api/donate/leaderboard")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => {
+          const rows: Array<{ license?: string }> = Array.isArray(j?.leaderboard) ? j.leaderboard : []
+          if (!alive || rows.length === 0) return
+          const c: LicenceCount = { personal: 0, commercial: 0, patron: 0 }
+          for (const r of rows) if (r.license === "personal" || r.license === "commercial" || r.license === "patron") c[r.license]++
+          setN(c)
+        })
+        .catch(() => {})
+    load()
+    const id = setInterval(load, 300_000)
+    return () => { alive = false; clearInterval(id) }
+  }, [])
+  return n
+}
+
+function LicenceStrip({ n }: { n: LicenceCount | null }) {
+  const total = n ? n.personal + n.commercial + n.patron : 0
+  const since = Math.max(0, total - LICENCES_AT_FUND_CLOSE)
+  const cells: Array<[string, number | null, string]> = [
+    ["LICENCES ISSUED", n ? total : null, "#F0F0F2"],
+    ["PERSONAL", n?.personal ?? null, TIERS[0].color],
+    ["COMMERCIAL", n?.commercial ?? null, TIERS[1].color],
+    ["PATRON", n?.patron ?? null, TIERS[2].color],
+  ]
+  return (
+    <Reveal delay={0.5} y={10}>
+      <div className={`mt-8 border ${HAIR}`} aria-live="polite">
+        <dl className="grid grid-cols-2 md:grid-cols-4">
+          {cells.map(([label, v, color], i) => (
+            <div
+              key={label}
+              className={`px-5 py-4 ${i > 0 ? "border-l" : ""} ${i >= 2 ? "border-t md:border-t-0" : ""} ${i === 2 ? "border-l-0 md:border-l" : ""} ${HAIR}`}
+            >
+              <dt className="font-mono text-[10px] tracking-[0.22em] text-dusty">{label}</dt>
+              <dd className="font-display font-bold text-3xl mt-1 tabular-nums" style={{ color }}>
+                {v === null ? "\u2014" : v.toLocaleString("en-US")}
+              </dd>
+            </div>
+          ))}
+        </dl>
+        <p className={`px-5 py-3 border-t ${HAIR} font-mono text-[11px] text-dusty leading-relaxed`}>
+          {n
+            ? `${LICENCES_AT_FUND_CLOSE} held by the 138 founders when the fund closed at block ${FUND_CLOSE_BLOCK.toLocaleString("en-US")}, ${since} issued since. Read live from the construction fund.`
+            : "Reading the construction fund\u2026"}
+        </p>
+      </div>
+    </Reveal>
+  )
 }
 
 // The sats each licence costs RIGHT NOW, from the same median the quote uses (indicative only:
@@ -272,6 +336,35 @@ function Deed({ t, index, count, sats }: { t: Tier; index: number; count: number
             </div>
           )}
 
+          {t.vehicle && (
+            <figure className="mt-4">
+              <div className="relative aspect-[16/10] w-full max-w-full">
+                <img
+                  src={t.vehicle.src}
+                  alt={t.vehicle.alt}
+                  width={t.vehicle.w}
+                  height={t.vehicle.h}
+                  loading="lazy"
+                  decoding="async"
+                  className="absolute inset-0 h-full w-full object-contain"
+                />
+              </div>
+              <figcaption className="mt-1 font-mono text-[9px] tracking-[0.2em] text-dusty">
+                {t.vehicle.label}
+                {t.vehicle.credit && (
+                  <a
+                    href={t.vehicle.credit.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block mt-1 tracking-normal text-[9px] text-dusty/80 hover:text-mist"
+                  >
+                    {t.vehicle.credit.text}
+                  </a>
+                )}
+              </figcaption>
+            </figure>
+          )}
+
           <ul className="mt-4 space-y-2 flex-1">
             {t.perks.map((p) => (
               <li key={p} className="text-[12.5px] text-mist leading-relaxed flex gap-2">
@@ -313,6 +406,7 @@ function Deed({ t, index, count, sats }: { t: Tier; index: number; count: number
 export default function Section({}) {
   const tiers = TIERS as Tier[]
   const licenceSats = useLicenceSats()
+  const licenceCount = useLicenceCount()
 
   return (
     <section id="tiers" className="border-t border-white/[0.06] scroll-mt-16">
@@ -323,7 +417,9 @@ export default function Section({}) {
           sub="A licence is paid once, in $DOG or the same value in Bitcoin, to the construction fund, and it builds on the lot your wallet owns. Every licence includes everything in the one below it."
         />
 
-        <Stagger className="mt-10 grid md:grid-cols-3 gap-4" delay={0.62} step={0.075}>
+        <LicenceStrip n={licenceCount} />
+
+        <Stagger className="mt-6 grid md:grid-cols-3 gap-4" delay={0.62} step={0.075}>
           {tiers.map((t, i) => (
             <Deed key={t.key} t={t} index={i} count={tiers.length} sats={licenceSats?.[t.key] ?? null} />
           ))}
