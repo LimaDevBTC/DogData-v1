@@ -318,12 +318,12 @@ export default function Section({}) {
     <section id="tiers" className="border-t border-white/[0.06] scroll-mt-16">
       <div className="max-w-6xl mx-auto px-6 md:px-10 py-20 md:py-28">
         <SectionHead
-          eyebrow="THE FOUNDERS PROGRAM"
-          title="Choose your rung on the ladder."
-          sub="A Founder is any wallet that contributes to the construction fund before the fund reaches 10,000,000 $DOG. Every rung includes everything in the rung below it."
+          eyebrow="BUILDING LICENCE"
+          title="Three licences to build on your deed."
+          sub="A licence is paid once, in $DOG or the same value in Bitcoin, to the construction fund, and it builds on the lot your wallet owns. Every licence includes everything in the one below it."
         />
 
-        <Stagger className="mt-10 grid md:grid-cols-2 xl:grid-cols-4 gap-4" delay={0.62} step={0.075}>
+        <Stagger className="mt-10 grid md:grid-cols-3 gap-4" delay={0.62} step={0.075}>
           {tiers.map((t, i) => (
             <Deed key={t.key} t={t} index={i} count={tiers.length} sats={licenceSats?.[t.key] ?? null} />
           ))}
@@ -338,7 +338,7 @@ export default function Section({}) {
             href="/dogcity/founders"
             className="inline-flex items-center gap-2 font-mono text-[11px] tracking-[0.12em] text-dusty hover:text-mist transition-colors duration-200"
           >
-            SEE EVERYTHING A FOUNDER GETS
+            THE 138 FOUNDERS WHO FUNDED THE CITY
             <span aria-hidden="true">&rarr;</span>
           </a>
         </div>
