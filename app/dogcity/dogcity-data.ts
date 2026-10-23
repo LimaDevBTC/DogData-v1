@@ -322,7 +322,7 @@ export const DONATION_METHODS = [
     symbol: "DOG",
     logo: "/DOG.png",
     address: DONATION_WALLET,
-    note: "Bitcoin L1 Rune · counts toward your licence and the mint goal",
+    note: "Bitcoin L1 Rune · pays a licence in $DOG",
     featured: true,
   },
   {
