@@ -393,7 +393,7 @@ export default function TheCity() {
           <div className="dkl:col-span-5">
             <Reveal y={16} blur={false}>
               <p className="dc-lede">
-                DogCity is built on real lunar terrain. Walk it as the $DOG, drive the Cybertruck down the ring roads, take
+                DogCity is built on real lunar terrain. Walk it as the $DOG, drive the Cyber $DOG down the ring roads, take
                 a yacht across the bay, and find your own lot from the street.
               </p>
               <div className="mt-8"><Btn href={CITY_URL}>Enter the city</Btn></div>

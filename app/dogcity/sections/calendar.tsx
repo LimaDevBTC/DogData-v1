@@ -34,8 +34,8 @@ export default function Calendar({ cd }: { cd: CountdownState }) {
         <SectionHead n="05" label="THE MINT CALENDAR" />
         <h2 id="dc-cal-h2" className="dc-h2 mt-4 text-dc-snow"><SplitLine text="Counted in blocks, not dates." /></h2>
         <p className="dc-lede mt-6">
-          Call B the block in which the construction fund reaches 10,000,000 $DOG. Every phase is fixed in blocks from
-          B, and the calendar is inscribed on chain once B is known. 144 blocks is about one day.
+          B is block 972,336, where the construction fund reached 10,000,000 $DOG. Every phase is fixed in blocks from B,
+          and the calendar was inscribed on chain at block 972,421. 144 blocks is about one day.
         </p>
 
         {/* ── desktop: a régua é uma grade de 5 colunas com o MESMO vão das pranchas,

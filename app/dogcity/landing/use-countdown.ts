@@ -20,7 +20,10 @@ import { useEffect, useMemo, useState } from "react"
 import { useMempoolFeed } from "../use-mempool"
 import { countdownState, parseB, parseMintB, FUND_GOAL, type CountdownInput, type CountdownState, type MintBInfo } from "./mint-state"
 
-const B_ENV = parseB(process.env.NEXT_PUBLIC_DOGCITY_MINT_B)
+// 23/10 (revisão da landing): B é fato permanente desde 21/10, o bloco 972.336, e o calendário foi inscrito no bloco
+// 972.421. Ele vale como padrão (o detector não é mais consultado); a variável pública continua podendo sobrepor.
+export const B_FIXO = 972_336
+const B_ENV = parseB(process.env.NEXT_PUBLIC_DOGCITY_MINT_B) ?? B_FIXO
 const FUND_POLL_MS = 60_000
 const MINT_B_POLL_MS = 30_000
 

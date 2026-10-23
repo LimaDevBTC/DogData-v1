@@ -60,8 +60,10 @@ import { parseMintB, type MintBInfo } from "./landing/mint-state"
 // MempoolBand, HeroLive, HeroFunil, TwoPaths, Snapshot, PlazaLive, Galaxy,
 // LunarTerrain, Masterplan, Needle, Park, ParkTour (ver git log deste arquivo).
 
+// 23/10 (revisão da landing): o mint abriu; a frase antiga ("At 10,000,000 $DOG the mint clock starts") era a que ia
+// para a prévia do link no X, no Telegram e no Google
 const DESCRIPTION =
-  "70,714 lots on real lunar terrain, decided by Bitcoin block 966,670. At 10,000,000 $DOG the mint clock starts and every lot becomes a deed on Bitcoin. Find yours."
+  "70,714 lots on real lunar terrain, decided by Bitcoin block 966,670. The mint is open: every lot becomes a deed on Bitcoin, and a building licence builds on it. Find yours."
 
 // O OG da landing v3 (18/10): o melhor quadro de T1, a Terra sobre o domo, com o
 // wordmark (public/landing/v3/og/). ARQUIVO NOVO com nome novo a cada troca: o X e o

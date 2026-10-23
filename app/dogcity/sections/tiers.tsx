@@ -409,10 +409,11 @@ export default function Section({}) {
   const licenceCount = useLicenceCount()
 
   return (
-    <section id="tiers" className="border-t border-white/[0.06] scroll-mt-16">
-      <div className="max-w-6xl mx-auto px-6 md:px-10 py-20 md:py-28">
+    <section id="tiers" className="scroll-mt-16">
+      {/* 23/10: continua a frase do fundo (construction-fund.tsx, parte "topo"), sem a linha e o respiro de seção nova */}
+      <div className="max-w-6xl mx-auto px-6 md:px-10 pt-12 md:pt-16 pb-12 md:pb-16">
         <SectionHead
-          eyebrow="BUILDING LICENCE"
+          eyebrow="THE LICENCES"
           title="Three licences to build on your deed."
           sub="A licence is paid once, in $DOG or the same value in Bitcoin, to the construction fund, and it builds on the lot your wallet owns. Every licence includes everything in the one below it."
         />
