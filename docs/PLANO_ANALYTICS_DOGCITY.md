@@ -52,7 +52,8 @@ Cada consulta lê o evento cru, linha a linha. Com 90 dias já são quase um mil
 
 O objetivo é saber o que os dogs fazem lá dentro, sem pesar o jogo nem o banco. O incidente de IO de 26/08 é o limite a respeitar.
 
-- **Onde andam:** um mapa de calor da cidade. A posição é amostrada a cada 10 s e somada no próprio navegador numa grade de 50 m por distrito. O navegador manda o resumo uma vez por minuto, nunca a trilha ponto a ponto.
+- **Onde andam:** um mapa de calor da cidade em grade de 25 m. A posição é amostrada a cada 10 s e somada no próprio navegador; no máximo 6 células por jogador por minuto, e só as visitadas vão no resumo. O navegador manda o resumo uma vez por minuto, nunca a trilha ponto a ponto.
+- **Que lotes visitam:** quando o dog pisa dentro de um lote, conta uma visita àquele lote pelo id dele, com o tempo de permanência. É a medida fina da cidade (mais precisa que qualquer grade): quais lotes atraem gente, se o dono visita o próprio lote, quais vizinhos de prédio famoso recebem visita.
 - **Para onde vão:** zonas, distritos e prédios visitados (Xverse HQ, BitFlow, Sphere, Founders Club, PIPS), com tempo de permanência.
 - **Como se movem:** a pé, carro, moto, iate e helicóptero. Para cada um: entradas, tempo e distância.
 - **O que fazem com os lotes:** buscas, escrituras abertas, o próprio lote visitado e compartilhamentos.
@@ -69,10 +70,10 @@ O objetivo é saber o que os dogs fazem lá dentro, sem pesar o jogo nem o banco
 | 0 | Funil do mint | dogcity-mint PR #14 | pronto, aguarda merge |
 | 1 | Resumo diário e painel rápido (90 e 365 dias) | DogData | a fazer |
 | 2 | Aba DogCity com o funil e o `?vid=` | DogData, landing, jogo, mint | a fazer |
-| 3 | Analytics da cidade (mapa de calor, veículos, prédios, social) | dogcity-mundo e DogData | a planejar em detalhe |
+| 3 | Analytics da cidade (mapa de calor de 25 m, visita por lote, veículos, prédios, social) | dogcity-mundo e DogData | a fazer |
 
-## Decisões do fundador
+## Decisões do fundador (23/10/2026)
 
-1. A aba DogCity fica no mesmo painel da DogData, como uma aba nova, ou num painel separado?
-2. O mapa de calor usa grade de 50 m, ou quer mais fino, mais perto do lote?
-3. O resumo do jogo com carteira conectada pode levar o endereço? O endereço já é público e liga o jogador ao mint e à DogData.
+1. A aba DogCity fica **no mesmo painel** da DogData, como uma aba nova.
+2. O mapa de calor usa **grade de 25 m**, e a visita a lote é contada **pelo id do lote**. Com 50 m uma rua se mistura com a vizinha. Com 10 m o volume seria 6 vezes maior (cerca de 1,6 milhão de células na cidade, contra 260 mil) sem responder nada que o lote já não responda.
+3. Com carteira conectada, o resumo do jogo **leva o endereço**.
