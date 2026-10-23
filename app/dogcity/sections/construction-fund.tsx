@@ -353,7 +353,10 @@ function AddressGlyphs({ addr }: { addr: string }) {
 
 // ═══════════════════════════════════════════════════════════════════════════
 
-export default function Section({ lb }: { lb: LeaderboardData | null }) {
+// 23/10 (revisão da landing): a seção se divide em duas partes em volta da escada (tiers.tsx). "topo": a frase do fundo e
+// a linha FUNDED; "fim": os distritos e o COMO PAGAR (botão da carteira, endereços, Don't trust. Verify.). Antes os
+// endereços vinham ANTES dos preços e o título "BUILDING LICENCE" se repetia em dois blocos seguidos.
+export default function Section({ lb, parte = "topo" }: { lb: LeaderboardData | null; parte?: "topo" | "fim" }) {
   const reduce = useReducedMotion()
 
   const raised = lb?.total_received ?? null
@@ -447,7 +450,7 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
   // ⚠️ id="fund", NÃO "build": na landing v3 o #build é o bloco do contador do herói
   // (links de fora, como /dogcity#build, caem ali); dois ids iguais quebram a âncora.
   return (
-    <section id="fund" className={`relative border-t ${HAIR_SOFT} scroll-mt-16`}>
+    <section id={parte === "topo" ? "fund" : "pay"} className={`relative ${parte === "topo" ? `border-t ${HAIR_SOFT}` : ""} scroll-mt-16`}>
       <style jsx global>{`
         @keyframes sv-ping {
           0%   { transform: scale(1);   opacity: 0.6; }
@@ -461,9 +464,11 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
       `}</style>
 
       {/* beat 0 — the seam is struck */}
-      <DrawRule className="absolute -top-px left-0 w-24" duration={1.0} />
+      {parte === "topo" && <DrawRule className="absolute -top-px left-0 w-24" duration={1.0} />}
 
-      <div className="max-w-6xl mx-auto px-6 md:px-10 py-20 md:py-28">
+      <div className={`max-w-6xl mx-auto px-6 md:px-10 ${parte === "topo" ? "pt-20 md:pt-28 pb-2" : "pt-4 pb-20 md:pb-28"}`}>
+        {parte === "topo" ? (
+          <>
         {/* ── section head — the four-beat cadence, identical across #build/#deed/#how */}
         <div className="max-w-2xl">
           <Scramble
@@ -485,7 +490,6 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
         </div>
 
         <div className="mt-10 max-w-3xl">
-          <div>
             {/* 23/10/2026 (fundador): o fundo de 10.000.000 fechou no bloco B; a régua da meta, o letreiro e a grade de
                 números (contribuidores, founders, meta) saíram. Fica a linha do fundo cheio, fixa (é história, não muda mais). */}
             <Reveal delay={0.4} y={10}>
@@ -498,13 +502,45 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
               </div>
             </Reveal>
 
+        </div>
+          </>
+        ) : (
+          <>
+        {/* ── O QUE A LICENÇA CONSTRÓI: estudos de projeto da fase 2 (dogcity-mundo, plano/the_build), com link para a seção 8 */}
+        <div>
+          <p className="font-mono text-[11px] tracking-[0.3em] text-lava">WHAT A LICENCE BUILDS</p>
+          <p className="text-sm text-mist mt-3 max-w-2xl leading-relaxed">
+            Eight districts, one architecture each. A Personal licence builds a residence from the
+            district catalogue, a Commercial licence a commercial building, a Patron licence a custom
+            one. Design studies drawn on real blocks of the registry.
+          </p>
+          <div className="mt-6 grid gap-4 sm:grid-cols-3">
+            {[
+              { slug: "liberty-row", name: "LIBERTY ROW" },
+              { slug: "atomic-heights", name: "ATOMIC HEIGHTS" },
+              { slug: "timberline", name: "TIMBERLINE" },
+            ].map((g) => (
+              <a key={g.slug} href="/dogcity/docs#after-the-deed" className={`group block border ${HAIR} bg-white/[0.02] overflow-hidden`}>
+                <img src={`/city/the-build/${g.slug}_1200.webp`} alt={`Design study of ${g.name.toLowerCase()}`} className="w-full h-auto" loading="lazy" />
+                <span className="block px-3 py-2 font-mono text-[10px] tracking-[0.14em] text-mist group-hover:text-lava">{g.name}</span>
+              </a>
+            ))}
+          </div>
+          <a href="/dogcity/docs#after-the-deed" className="inline-block mt-4 font-mono text-[11px] tracking-[0.2em] text-lava hover:text-lava-light">
+            SEE THE EIGHT DISTRICTS →
+          </a>
+        </div>
+        {/* ── COMO PAGAR: depois dos preços (a escada) e dos distritos */}
+        <div className="mt-16 max-w-3xl">
+          <p className="font-mono text-[11px] tracking-[0.3em] text-lava">PAY FROM YOUR WALLET</p>
+          <div>
             {/* ── COMO SE PAGA. ⚠️ NUNCA escrever "donation" no texto visivel: quem paga
                  recebe uma LICENCA permanente de construcao, entao nao e doacao, e
                  contradiz o que ja esta publicado ("a construction fund, not a
                  raise" / "a goal, not a sale"). A casa diz "fund the city" e
                  "build the city". Os identificadores internos (openDonate,
                  DONATION_METHODS, /api/donate) podem ficar. ───────────────── */}
-            <div className="mt-10 space-y-3">
+            <div className="mt-6 space-y-3">
               <Reveal y={12}>
                 <button
                   onClick={() => openDonate({ asset: "dog" })}
@@ -589,7 +625,7 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
               })}
               <Reveal delay={0.24} y={10}>
                 <p className="font-mono text-[11px] sm:text-[10px] text-dusty leading-relaxed pt-1">
-                  Send from the wallet you want counted: contributions are counted per wallet and add up
+                  Pay from the wallet that owns the lot: licences are counted per wallet and payments add up
                   across several transactions. No seed phrase is ever requested.
                 </p>
               </Reveal>
@@ -611,8 +647,8 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
                   <p className="mt-2 font-mono text-[11px] leading-relaxed text-dusty">
                     The DOG and Bitcoin addresses are published in the{" "}
                     <a href="/dogcity/docs#founders-program" className="text-lava hover:text-lava-light">docs</a>:
-                    check them there before you send. Every contribution above was read from the chain,
-                    and so is the total.
+                    check them there before you send. Every payment to the fund is read from the chain,
+                    and so is every licence.
                   </p>
                   <div className="mt-2.5 flex items-baseline gap-3">
                     <a
@@ -639,30 +675,8 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
 
         </div>
 
-        {/* ── O QUE A LICENÇA CONSTRÓI: estudos de projeto da fase 2 (dogcity-mundo, plano/the_build), com link para a seção 8 */}
-        <div className="mt-16">
-          <p className="font-mono text-[11px] tracking-[0.3em] text-lava">WHAT A LICENCE BUILDS</p>
-          <p className="text-sm text-mist mt-3 max-w-2xl leading-relaxed">
-            Eight districts, one architecture each. A Personal licence builds a residence from the
-            district catalogue, a Commercial licence a commercial building, a Patron licence a custom
-            one. Design studies drawn on real blocks of the registry.
-          </p>
-          <div className="mt-6 grid gap-4 sm:grid-cols-3">
-            {[
-              { slug: "liberty-row", name: "LIBERTY ROW" },
-              { slug: "atomic-heights", name: "ATOMIC HEIGHTS" },
-              { slug: "timberline", name: "TIMBERLINE" },
-            ].map((g) => (
-              <a key={g.slug} href="/dogcity/docs#after-the-deed" className={`group block border ${HAIR} bg-white/[0.02] overflow-hidden`}>
-                <img src={`/city/the-build/${g.slug}_1200.webp`} alt={`Design study of ${g.name.toLowerCase()}`} className="w-full h-auto" loading="lazy" />
-                <span className="block px-3 py-2 font-mono text-[10px] tracking-[0.14em] text-mist group-hover:text-lava">{g.name}</span>
-              </a>
-            ))}
-          </div>
-          <a href="/dogcity/docs#after-the-deed" className="inline-block mt-4 font-mono text-[11px] tracking-[0.2em] text-lava hover:text-lava-light">
-            SEE THE EIGHT DISTRICTS →
-          </a>
-        </div>
+          </>
+        )}
       </div>
     </section>
   )

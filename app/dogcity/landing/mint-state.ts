@@ -259,7 +259,16 @@ function countdownByHeight(input: CountdownInput): CountdownState {
     const conf = tip != null ? tip - B + 1 : null
     // B conhecido e a ponta ainda não chegou: nada de voltar ao total do fundo (era o "pisca" da primeira pintura);
     // só o rótulo, e o número entra quando a altura chegar
-    if (tip == null) return { ...stateB0(goal, raised, { ...base, calendar: cal }, B), label: `FUND FULL AT BLOCK ${fmtInt(B)}`, number: null, unit: "READING THE CHAIN", sub: null }
+    // 23/10 (revisão da landing): sem a altura, a tela já fala do MINT, que é o fato permanente desde B; antes caía no
+    // "FUND FULL" com a régua do fundo, e o herói passava por três mensagens no primeiro segundo
+    if (tip == null) return {
+      ...stateB0(goal, raised, { ...base, calendar: cal }, B),
+      label: `THE MINT · FROM BLOCK ${fmtInt(B)}`, number: null, unit: "READING THE CHAIN", sub: null,
+      h1: "Every lot becomes a deed on Bitcoin. The mint runs by block height, on a calendar inscribed on chain.",
+      rail: { mode: "connecting" },
+      aria: `The mint runs from block ${fmtInt(B)}, reading the chain`,
+      nav: { desktop: "FIND YOUR LOT", mobile: "", cta: "FIND MY LOT", href: "#lookup" },
+    }
     if (conf == null || conf < B_CONFIRMATIONS) return stateB0(goal, raised, { ...base, calendar: cal }, B)
     const phase = phaseAt(tip, cal)
     const ruler = rulerFraction(phase, tip, cal, B)

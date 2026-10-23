@@ -56,7 +56,8 @@ test('B0: cheio sem B, ou B com menos de 6 confirmações', () => {
   const semAltura = countdownState({ raised: null, B, tip: null })
   assert.equal(semAltura.kind, 'B0')
   assert.equal(semAltura.number, null)
-  assert.equal(semAltura.label, `FUND FULL AT BLOCK ${B.toLocaleString('en-US')}`)
+  assert.equal(semAltura.label, `THE MINT · FROM BLOCK ${B.toLocaleString('en-US')}`)
+  assert.equal(semAltura.rail.mode, 'connecting')
   assert.equal(semAltura.unit, 'READING THE CHAIN')
   // o "pisca" da primeira pintura: com o fundo conhecido, o total NÃO volta a aparecer enquanto falta a altura
   const comFundo = countdownState({ raised: 10_407_345.6, B, tip: null })
