@@ -16,18 +16,19 @@ import { OG_URL, OG_ALT, OG_IMAGE } from '@/lib/og'
 // voltam a buscar quando o arquivo muda no mesmo caminho.
 const OG = OG_URL
 
+// 23/10/2026: a página virou a de honra dos 138 (o programa fechou no bloco 972.336); a metadata acompanha.
 export const metadata: Metadata = {
   alternates: { canonical: "https://dogcity.space/founders" },
-  title: "DogCity Founders Pack | DOG DATA",
+  title: "The 138 Founders of DogCity",
   description:
-    "A Founder is anyone who contributes to the construction fund before it reaches 10,000,000 $DOG. There is no cap on the number of Founders. What closes is the time, never the seat.",
+    "138 wallets funded DogCity: the construction fund reached 10,000,000 $DOG at block 972,336. The list is closed and inscribed on Bitcoin as a child of the City Charter.",
   openGraph: {
-    title: "DogCity Founders Pack: what closes is the time, never the seat",
+    title: "The 138 Founders of DogCity",
     description:
-      "A goal, not a sale. A construction fund, not a raise. Every rung includes everything below it, the Founder number is assigned by order of arrival, and no lot is ever drawn.",
+      "The construction fund reached 10,000,000 $DOG at block 972,336, from 138 wallets. The list is closed and inscribed on Bitcoin.",
     type: "website",
     url: "https://dogcity.space/founders",
-    siteName: "DOG DATA",
+    siteName: "DogCity",
     images: [
       {
         url: OG,
@@ -39,9 +40,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "DogCity Founders Pack: what closes is the time, never the seat",
-    description:
-      "Contributions are counted per wallet and they add up. The Founder number is assigned by order of arrival. No lot is ever drawn.",
+    title: "The 138 Founders of DogCity",
+    description: "138 wallets funded the city. The list is closed and inscribed on Bitcoin.",
     images: [OG],
   },
 }

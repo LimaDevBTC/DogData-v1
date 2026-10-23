@@ -87,8 +87,10 @@ export default function DogCityLanding({ initialFund = null, initialMintB = null
             {/* o modelo da landing anterior, no mínimo para encaixar (cores: landing.css); 20/10, fundador: logo depois do
                 hero, como segunda e terceira seções (o fundo é o que dispara o mint) */}
             <div data-dc-legacy>
+              {/* 23/10: a frase do fundo, a escada (contador e cartões), os distritos e só então como pagar */}
               <ConstructionFund lb={lb} />
               <Tiers />
+              <ConstructionFund lb={lb} parte="fim" />
             </div>
             <Provenance />
             <Deeds />
