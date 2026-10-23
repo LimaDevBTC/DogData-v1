@@ -479,7 +479,8 @@ export default function Deeds() {
         </p>
         <p className="mt-5 inline-flex items-center gap-2 font-mono text-[11px] tracking-[0.16em] uppercase text-dc-snow">
           <span aria-hidden className="h-[6px] w-[6px] bg-dc-lava" />
-          Specimens. No deed has been inscribed yet.
+          Specimens below. The first deed was inscribed at block 972,626:{" "}
+          <a href="https://ordinals.com/inscription/aed41aaf0a460bfaed11dce156bf508ecbd4a6f0163c6062344305885d3d0f52i0" target="_blank" rel="noopener noreferrer" className="text-dc-lava hover:text-dc-hot">inscription 127,709,989 &rarr;</a>
         </p>
       </Frame>
 

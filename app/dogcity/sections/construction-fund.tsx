@@ -476,149 +476,27 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
           </h2>
           <Reveal delay={0.3} y={14}>
             <p className="text-sm text-mist mt-3 leading-relaxed">
-              The construction fund reached 10,000,000 $DOG at block 972,336, and that block started
-              the mint. From here the fund pays for building: a licence of 10,000, 50,000 or 500,000
-              $DOG gives the right to build on the lot a wallet owns. Every number below is live.
+              The construction fund reached 10,000,000 $DOG at block 972,336, from 138 founders, and
+              that block started the mint. From here the fund pays for building: a licence of 10,000,
+              50,000 or 500,000 $DOG, or the same value in Bitcoin, gives the right to build on the
+              lot a wallet owns.
             </p>
           </Reveal>
         </div>
 
-        <div className="mt-10 grid md:grid-cols-[1fr_320px] gap-10">
+        <div className="mt-10 max-w-3xl">
           <div>
-            {/* ── LIVE TICKER ───────────────────────────────────────────── */}
-            {/* Pointer/tablet up only. At 320px the two fixed 40px fade masks
-                eat a third of the strip, leaving a 162px window — nine glyphs
-                of a 102-character message, on a loop that takes 71 seconds to
-                complete a pass. Nobody assembles a sentence from that. Every
-                number it carries (raised · % · builders · founders · goal) is
-                rendered statically a few pixels below, so hiding it on phones
-                loses no information and takes this span's only rAF loop with
-                it: the IntersectionObserver reports a display:none element as
-                not intersecting, so the loop never starts. */}
-            <div className="hidden sm:block">
-              <Reveal delay={0.4} y={10} blur={false}>
-                <LedStrip text={tickerText} />
-              </Reveal>
-            </div>
-
-            {/* ── THE SURVEY RAIL ───────────────────────────────────────── */}
-            <div ref={railGate} className="mt-6">
-              <div className="flex items-baseline justify-between font-mono text-[11px] text-dusty">
-                <span>
-                  <Steady
-                    ghost={raised !== null ? formatDog(raised) : "loading…"}
-                    valueRef={raisedRef}
-                    className="text-snow"
-                  />
-                  {raised !== null && " DOG in the fund"}
-                </span>
-                <span className="tabular-nums">mint goal {formatDog(DONATION_GOAL)} DOG · reached at block 972,336</span>
+            {/* 23/10/2026 (fundador): o fundo de 10.000.000 fechou no bloco B; a régua da meta, o letreiro e a grade de
+                números (contribuidores, founders, meta) saíram. Fica a linha do fundo cheio, fixa (é história, não muda mais). */}
+            <Reveal delay={0.4} y={10}>
+              <div className={`border ${HAIR} bg-white/[0.02] px-5 py-4 font-mono text-[11px] tracking-[0.18em] text-mist`}>
+                <span className="text-lava">FUNDED</span>
+                <span className="mx-2 text-dusty" aria-hidden>·</span>10,407,345 $DOG
+                <span className="mx-2 text-dusty" aria-hidden>·</span>BLOCK 972,336
+                <span className="mx-2 text-dusty" aria-hidden>·</span>
+                <a href="/dogcity/founders" className="text-snow hover:text-lava transition-colors">138 FOUNDERS &rarr;</a>
               </div>
-
-              {/* readout pinned to the head — fixed width so it never measures */}
-              <div className="relative mt-3 h-4">
-                <div
-                  ref={readoutRef}
-                  className="absolute left-0 top-0 w-[72px] text-center font-mono text-[11px] font-bold text-lava tabular-nums will-change-transform"
-                >
-                  <span className="sr-only">{pct.toFixed(2)}% of the goal</span>
-                  <span aria-hidden ref={pctHeadRef} />
-                </div>
-              </div>
-
-              <div ref={railRef} className={`relative h-12 md:h-14 overflow-hidden`}>
-                {/* passed: warm graduations over the lava gradient — static, full width */}
-                <div aria-hidden className="absolute inset-0" style={PASSED_BG} />
-                {/* the shroud hides everything the fill has not reached yet */}
-                <div
-                  ref={shroudRef}
-                  aria-hidden
-                  className="absolute inset-0 origin-right bg-void will-change-transform"
-                  style={{ transform: "scaleX(1)" }}
-                />
-                <div aria-hidden className="absolute inset-0 bg-white/[0.02]" />
-                {/* ahead: the dusty ruler, drawn over both regions */}
-                <div aria-hidden className="absolute inset-0" style={AHEAD_BG} />
-
-                {/* the head — 1px lava column + status glyph */}
-                <div
-                  ref={headRef}
-                  aria-hidden
-                  className="absolute inset-y-0 left-0 w-px will-change-transform"
-                  style={{ background: "#F56E0F", boxShadow: "0 0 12px rgba(245,110,15,0.9)" }}
-                >
-                  <StatusGlyph
-                    state={lb ? "live" : "dead"}
-                    className="absolute left-1/2 top-1/2 -ml-[2.5px] -mt-[2.5px]"
-                  />
-                </div>
-
-                <div aria-hidden className={`absolute inset-0 border ${HAIR}`} />
-
-                {/* the rail draws itself left→right, 0 → 1.0s */}
-                {!reduce && (
-                  <motion.div
-                    aria-hidden
-                    className="absolute inset-0 origin-right bg-void"
-                    initial={{ scaleX: 1 }}
-                    animate={inView ? { scaleX: 0 } : undefined}
-                    transition={{ duration: 1.0, ease: EASE }}
-                  />
-                )}
-              </div>
-
-              {/* legend */}
-              <div aria-hidden className="relative mt-2 h-3 font-mono text-[9px] tracking-[0.25em] text-dusty">
-                {[0, 25, 50, 75, 100].map((n, i) => (
-                  <span
-                    key={n}
-                    className="absolute top-0 tabular-nums"
-                    style={{
-                      left: `${n}%`,
-                      transform: i === 0 ? "none" : i === 4 ? "translateX(-100%)" : "translateX(-50%)",
-                    }}
-                  >
-                    {n}
-                  </span>
-                ))}
-              </div>
-
-              <div className="mt-3 font-mono text-[11px] text-dusty">
-                <Steady ghost={`${pct.toFixed(2)}%`} valueRef={pctCapRef} className="text-lava" />
-                {lb && " of the goal"}
-              </div>
-            </div>
-
-            {/* ── STAT GRID — the signature gap-px hairline grid ─────────── */}
-            <Stagger
-              step={0.075}
-              delay={0.45}
-              // three across needs ~50px per cell at 320px, and "10.00M" in
-              // 32px Syne is ~119px — it was clipped. Stack below sm.
-              className={`grid grid-cols-1 sm:grid-cols-3 gap-px ${GRIDLINE} border ${HAIR} mt-8`}
-            >
-              {[
-                { label: "Contributors", value: lb?.donor_count ?? null, fmt: false },
-                { label: "Founders", value: lb?.founders_count ?? null, fmt: false },
-                { label: "Goal", value: DONATION_GOAL, fmt: true },
-              ].map((s) => {
-                const format = s.fmt ? formatDog : (v: number) => Math.round(v).toLocaleString()
-                return (
-                  <StaggerItem key={s.label} className="bg-void p-4">
-                    <div className="font-mono text-[10px] tracking-[0.2em] text-dusty">
-                      {s.label.toUpperCase()}
-                    </div>
-                    <div className="font-display font-bold text-xl sm:text-2xl text-snow mt-1 tabular-nums">
-                      <SteadyCounter
-                        value={s.value}
-                        ghost={s.value === null ? "n/a" : format(s.value)}
-                        format={format}
-                      />
-                    </div>
-                  </StaggerItem>
-                )
-              })}
-            </Stagger>
+            </Reveal>
 
             {/* ── COMO SE PAGA. ⚠️ NUNCA escrever "donation" no texto visivel: quem paga
                  recebe uma LICENCA permanente de construcao, entao nao e doacao, e
@@ -759,65 +637,6 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
             </div>
           </div>
 
-          {/* ── LIVE CONTRIBUTIONS — eight channels, some empty ──────────── */}
-          <Reveal delay={0.5} y={16}>
-            <aside className={`border ${HAIR} bg-white/[0.02] p-5 self-start`}>
-              <div className="flex items-center gap-2 font-mono text-[10px] tracking-[0.25em] text-dusty">
-                <StatusGlyph state={lb && lb.recent.length > 0 ? "live" : "dead"} />
-                LIVE CONTRIBUTIONS
-              </div>
-              {/* exactly eight slots, always. A new contribution DISPLACES a row;
-                  it never grows the aside, so the hero never re-measures. */}
-              <ol className="mt-4">
-                {feed.map((entry, i) => (
-                  <li
-                    key={i}
-                    className="relative h-7 flex items-center overflow-hidden border-b border-white/[0.04] last:border-b-0"
-                  >
-                    {reduce ? (
-                      entry ? (
-                        <FeedRow entry={entry} />
-                      ) : i === 0 && !lb?.recent?.length ? (
-                        <span className="font-mono text-[11px] text-dusty">{feedEmptyLine}</span>
-                      ) : (
-                        <EmptySlot />
-                      )
-                    ) : (
-                      <AnimatePresence initial={false} mode="wait">
-                        {entry ? (
-                          <motion.div
-                            key={entry.txid}
-                            className="w-full"
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: 6 }}
-                            transition={{ duration: DUR.fast, ease: EASE, delay: i * 0.04 }}
-                          >
-                            <FeedRow entry={entry} />
-                          </motion.div>
-                        ) : (
-                          <motion.div
-                            key={`slot-${i}`}
-                            className="w-full"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            transition={{ duration: 0.18, ease: EASE }}
-                          >
-                            {i === 0 && !lb?.recent?.length ? (
-                              <span className="font-mono text-[11px] text-dusty">{feedEmptyLine}</span>
-                            ) : (
-                              <EmptySlot />
-                            )}
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    )}
-                  </li>
-                ))}
-              </ol>
-            </aside>
-          </Reveal>
         </div>
 
         {/* ── O QUE A LICENÇA CONSTRÓI: estudos de projeto da fase 2 (dogcity-mundo, plano/the_build), com link para a seção 8 */}

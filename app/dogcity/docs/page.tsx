@@ -375,7 +375,8 @@ export default function DogCityDocsPage() {
               <Sub>The pieces</Sub>
               <P className="mt-3">
                 Six inscriptions are on Bitcoin mainnet today. Each link opens the inscription on
-                ordinals.com. No deed has been inscribed yet; the deeds come with the mint (section 7).
+                ordinals.com. The deeds come with the mint (section 7); the first was inscribed at block 972,626,{" "}
+                <a href="https://ordinals.com/inscription/aed41aaf0a460bfaed11dce156bf508ecbd4a6f0163c6062344305885d3d0f52i0" target="_blank" rel="noopener noreferrer" className="text-lava hover:text-lava-light">inscription 127,709,989</a>.
               </P>
               {/* tabela própria (não o <Table>): no celular o link da inscrição desce para baixo do nome em vez de
                   sumir numa terceira coluna fora da tela */}
@@ -1293,7 +1294,7 @@ export default function DogCityDocsPage() {
                 Every lot in the registry becomes an Ordinal on Bitcoin L1: a deed, inscribed as a
                 child of the City Charter, the map that parents the whole city. The deed draws the lot
                 as a surveyor&apos;s plat, with its corners, its area and the Merkle proof that ties it
-                to the registry. It carries no owner data. No deed has been inscribed yet.
+                to the registry. It carries no owner data.
               </P>
 
               <Sub>When it opens</Sub>
@@ -1505,11 +1506,11 @@ export default function DogCityDocsPage() {
 
               <Sub>Three licences</Sub>
               <Table
-                head={["Licence", "$DOG", "What it builds"]}
+                head={["Licence", "$DOG", "What it builds", "What comes with it"]}
                 rows={[
-                  ["Personal", "10,000", "A residence from the district catalogue"],
-                  ["Commercial", "50,000", "A commercial building for a business of its own, or a residence"],
-                  ["Patron", "500,000", "A custom building designed outside the catalogue"],
+                  ["Personal", "10,000", "A residence from the district catalogue", "The base item pack (yard and house number plaque), the $DOG moto, and early access to the game, to every test and every update"],
+                  ["Commercial", "50,000", "A commercial building for a business of its own, or a residence", "Everything in Personal, the extended item pack (leisure ground, garden, lighting) and an orange Cyber $DOG"],
+                  ["Patron", "500,000", "A custom building designed outside the catalogue", "Everything in Commercial, the DOG helicopter, a special car revealed soon, and a street named on the city map"],
                 ]}
               />
               <P>
