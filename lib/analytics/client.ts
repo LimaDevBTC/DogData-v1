@@ -249,9 +249,19 @@ export function enviar(evento: Evento, beacon = false): void {
 
 // Campos que todo evento carrega. Montados na hora do envio e não uma vez no
 // começo, porque viewport muda com rotação de tela e redimensionamento.
+// ── a página como o painel a conta ─────────────────────────────────────────
+// 23/10/2026: desde 22/10 a landing da DogCity mora em dogcity.space, onde o middleware reescreve "/" para /dogcity sem
+// mudar a URL; o navegador (e o usePathname) dizem "/", e as visitas da landing caíam na mesma linha da home da DogData
+// (a "/" saltou de ~80 para 314 pageviews no dia 22). No domínio da DogCity a página é gravada como o caminho interno:
+// "/" -> "/dogcity", "/founders" -> "/dogcity/founders". O jogo (play.dogcity.space) tem o próprio rastreador e já grava /city.
+export function paginaMedida(path: string, host: string = typeof window !== 'undefined' ? window.location.hostname : ''): string {
+  if (!/(^|\.)dogcity\.space$/i.test(host) || /^\/dogcity(\/|$)/.test(path)) return path
+  return path === '/' ? '/dogcity' : `/dogcity${path}`
+}
+
 export function contextoBase(page: string) {
   return {
-    page,
+    page: paginaMedida(page),
     session_id: sessionId(),
     visitor_id: visitorId(),
     device_type: detectarDispositivo(),
