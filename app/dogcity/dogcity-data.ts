@@ -253,7 +253,10 @@ export const LICENCE_BTC_NOTE = "Paid in BTC: building licence and item pack onl
 // 23/10/2026 (fundador): a landing deixou o programa de Founders (fechado no bloco 972.336, 138 founders) e passou a
 // vender a LICENÇA DE CONSTRUÇÃO. Três degraus, o que cada um traz é o das docs (seção 8, "Three licences", a coluna
 // "What comes with it"): mudou lá, muda aqui. O que era por ter chegado antes (número, Monument, Club, sorteio, mint grátis,
-// luz do Founder) segue só dos 138 founders, nas docs seção 6. Rover lunar saiu; os veículos se somam por degrau.
+// luz do Founder) segue só dos 138 founders, nas docs seção 6. Rover lunar saiu.
+// 23/10 (fundador): veículos por degrau, ditos por inteiro em cada cartão ("Vehicles: ..."), sem conta de cabeça:
+// Personal = moto; Commercial = moto + Cyber $DOG laranja; Patron = moto + Cyber $DOG PRETA + helicóptero (a preta
+// substitui a laranja, o Patron não leva dois carros; o "special car, revealed soon" era esta Cyber preta).
 // `key` alimenta o CSS da escada (--lot-rest etc. em tiers.tsx) e a cotação em sats (/api/dogcity/licence-quote).
 // 23/10: `vehicle` é o veículo que o degrau ACRESCENTA, fotografado no estúdio do Blender (dogcity-mundo,
 // plano/the_build/filme/estudio_veiculos.py, modo cartão). O helicóptero é o "Bell 429 Helicopter" de agreene (Sketchfab,
@@ -269,7 +272,7 @@ export const TIERS = [
     perks: [
       "A one time, permanent building licence: a residence from the district catalogue",
       "Base item pack: yard and house number plaque",
-      "The $DOG moto",
+      "Vehicles: the $DOG moto",
       "Early access to the game, to every test and every update",
     ],
     vehicle: { src: "/landing/licences/moto.webp", w: 514, h: 520, label: "THE $DOG MOTO", alt: "The black $DOG motorbike with orange rims and the $DOG sticker on the fairing" },
@@ -285,7 +288,7 @@ export const TIERS = [
       "Everything in Personal",
       "The commercial licence: a commercial building instead of a residence, on any lot",
       "Extended item pack: leisure ground, garden, lighting",
-      "An orange Cyber $DOG",
+      "Vehicles: the $DOG moto and an orange Cyber $DOG",
     ],
     vehicle: { src: "/landing/licences/cyber.webp", w: 844, h: 520, label: "THE ORANGE CYBER $DOG", alt: "The orange Cyber $DOG pickup with the $DOG sticker on the hood" },
     cta: "Choose Commercial",
@@ -300,8 +303,7 @@ export const TIERS = [
       "Everything in Commercial",
       "A custom building, designed outside the district catalogue",
       "Names a street, and the name stays on the city map",
-      "The DOG helicopter",
-      "A special car, revealed soon",
+      "Vehicles: the $DOG moto, a black Cyber $DOG (instead of the orange one) and the DOG helicopter",
     ],
     vehicle: {
       src: "/landing/licences/helicopter.webp", w: 780, h: 520, label: "THE DOG HELICOPTER",

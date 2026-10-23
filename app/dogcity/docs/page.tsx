@@ -1509,8 +1509,8 @@ export default function DogCityDocsPage() {
                 head={["Licence", "$DOG", "What it builds", "What comes with it"]}
                 rows={[
                   ["Personal", "10,000", "A residence from the district catalogue", "The base item pack (yard and house number plaque), the $DOG moto, and early access to the game, to every test and every update"],
-                  ["Commercial", "50,000", "A commercial building for a business of its own, or a residence", "Everything in Personal, the extended item pack (leisure ground, garden, lighting) and an orange Cyber $DOG"],
-                  ["Patron", "500,000", "A custom building designed outside the catalogue", "Everything in Commercial, the DOG helicopter, a special car revealed soon, and a street named on the city map"],
+                  ["Commercial", "50,000", "A commercial building for a business of its own, or a residence", "Everything in Personal and the extended item pack (leisure ground, garden, lighting). Vehicles: the $DOG moto and an orange Cyber $DOG"],
+                  ["Patron", "500,000", "A custom building designed outside the catalogue", "Everything in Commercial and a street named on the city map. Vehicles: the $DOG moto, a black Cyber $DOG (instead of the orange one) and the DOG helicopter"],
                 ]}
               />
               <P>
