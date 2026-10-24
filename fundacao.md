@@ -159,7 +159,7 @@ O QUE SE REAPROVEITA E O QUE MORRE: reaproveito integralmente o terreno lunar e 
 ## Escopo travado em 28/08 pelo fundador
 
 - A cidade e dimensionada por HOLDER ATIVO, nao pela galaxia inteira. Carteira morta nao entra no dimensionamento.
-- O terreno e permanente, o predio nao: saldo zera, o predio some e o lote fica vazio; saldo volta, o predio sobe de novo de graca, porque a licenca e da carteira.
+- (SUBSTITUÍDO em 24/10/2026: a casa construída é fixa; saldo zerado tira a carteira dos drops e eventos, não a casa.) O terreno e permanente, o predio nao: saldo zera, o predio some e o lote fica vazio; saldo volta, o predio sobe de novo de graca, porque a licenca e da carteira.
 - Tipologia: Personal e padrao POR BAIRRO, Commercial e padrao por bairro com espaco de marca, Patron e personalizado.
 - Registro E o fundo. 10M e portao de mint, nao teto de arrecadacao. O loteamento existe independente do portao.
 

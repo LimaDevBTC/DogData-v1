@@ -72,7 +72,7 @@ Other scripts in `scripts/` handle backfills, forensic/airdrop analysis, and his
 | `/bitcoin-network` | Bitcoin L1 network status |
 | `/analytics` | Filters and cross-cutting insights |
 | `/donate` | Donation leaderboard (crowdfunding for DogCity build-out) |
-| `/city/explore` | Live 3D city — every wallet is a building, sized by balance/UTXO age |
+| `/city/explore` | Live 3D city (v1, a test city): every wallet is a lot from the 966,670 snapshot; a building, once built, keeps its size |
 | `/status` | Public uptime dashboard for crons, infra, and external data sources |
 | `/docs` | Human-readable API reference (renders the OpenAPI spec) |
 | `/explorer` | Combined explorer view |
