@@ -36,12 +36,14 @@
    Transferir a inscription não transfere nada — o renderer ignora o novo portador.
 3. **A fundação é uma fotografia.** 🔒 Lote (posição, área, distrito, tipologia) congela no
    bloco do snapshot, para sempre. Gastar UTXO antigo *depois* não move o prédio.
-4. **Só o prédio respira.** Altura/classe/estado derivam do saldo vivo — calculados pelo
+4. ~~**Só o prédio respira.** Altura/classe/estado derivam do saldo vivo~~ (substituído em 24/10/2026, ver a nota abaixo da lista) — calculados pelo
    indexador (padrão deed+oráculo), **nunca armazenados on-chain**.
 5. **Don't trust, verify.** Algoritmo público + snapshot reproduzível + merkle root do
    registry inscrito no Charter ANTES do mint + janela de auditoria pública.
 6. **Nenhum lote de carteira jamais se move.** Terra cívica e Reserva Urbana são
    subtraídas do terreno ANTES da atribuição de lotes.
+
+> **SUBSTITUÍDO em 24/10/2026 (fundador):** a casa, depois de construída, é fixa. O tamanho vem do lote e do código de construção do distrito (docs, seção 8), nunca do saldo; vender $DOG não encolhe, não derruba e não faz a casa sumir. O saldo vivo decide só a participação (drops, recompensas, eventos). Docs públicas, seção 1: "A building, once built, stays."
 
 ---
 
@@ -51,7 +53,7 @@
 |---|---|---|
 | **Lote à espera** | Nunca atingiu 20k DOG | Terreno demarcado, sem prédio (periferia) |
 | **Construção** | Cruzou **20.000 DOG** (1ª vez ou reconstrução) | Animação de canteiro → prédio ergue |
-| **Em pé** | Saldo ≥ **10.000 DOG** (já construído) | Prédio vivo; altura respira com o saldo |
+| **Em pé** | Saldo ≥ **10.000 DOG** (já construído) | Prédio vivo; altura respira com o saldo (SUBSTITUÍDO 24/10/2026: a casa construída é fixa e não vira ruína; ver §1) |
 | **Ruína** | Saldo caiu abaixo de **10.000 DOG** | Colapso; ruína permanente no lote |
 | **Reconstrução** | Voltou a ≥ **20.000 DOG** (punição: 2× o piso) | Nova animação de construção |
 
@@ -422,7 +424,7 @@ das filhas é a linha do tempo da obra.
 ⚠️ Limite duro: a recursão enxerga PROCEDÊNCIA, não POSSE. Peça soldada renderiza 100% na
 cadeia e não é vendável; peça negociável precisa do nosso indexador e deixa de ser
 trustless. Decisão: soldar, casando com o soulbound do §0.2.
-⚠️ Armadilha medida: comprar peça com DOG baixa o saldo e, pela decisão 1, ENCOLHERIA o
+⚠️ (Resolvida em 24/10/2026: a casa não acompanha mais o saldo, ver §1.) Armadilha medida: comprar peça com DOG baixa o saldo e, pela decisão 1, ENCOLHERIA o
 prédio. Conserto: a área olha saldo mais o DOG já enterrado na cidade.
 
 **6. Raridade é o registro, não o dado.** Sorteio seria a primeira coisa arbitrária num
@@ -954,6 +956,8 @@ Detalhe completo em `data/snapshots/dog_966670_dossie_topo.json` e nos scripts
 
 ## §13 — A altura é dado, não recompensa 🔒 (2026-09-13)
 
+> **SUBSTITUÍDO em 24/10/2026 (fundador):** a casa, depois de construída, é fixa. O tamanho vem do lote e do código de construção do distrito (docs, seção 8), nunca do saldo; vender $DOG não encolhe, não derruba e não faz a casa sumir. O saldo vivo decide só a participação (drops, recompensas, eventos). Docs públicas, seção 1: "A building, once built, stays."
+
 Decisão fechada pelo fundador depois de avaliar três caminhos: altura por saldo, por item de
 loja, ou por tamanho de doação. **Fica no saldo**, e a regra em uma linha é:
 
@@ -1003,7 +1007,7 @@ frase do pacote de que ninguém compra a prova de ter chegado primeiro.
 
 ```
 CUSTOM        forma, fachada, materiais, coroa, ornamento, planta, telhado
-NAO CUSTOM    altura, massa, pavimentos   vem do SALDO VIVO (§13)
+NAO CUSTOM    altura, massa, pavimentos   vem do LOTE e do código do distrito (24/10/2026; antes: saldo vivo)
               pegada                      vem da AREA DO LOTE (curva do snapshot)
 ```
 

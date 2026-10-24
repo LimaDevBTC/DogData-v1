@@ -125,7 +125,7 @@ The custom building is custom in **form**, never in **mass**.
 
 ```
 CUSTOM        shape, facade, materials, crown, ornament, plan, roof
-NOT CUSTOM    height, mass, floors    come from the live balance
+NOT CUSTOM    height, mass, floors    come from the lot and the district building code (24/10/2026; was: the live balance)
               footprint               comes from the lot area set by the snapshot
 ```
 

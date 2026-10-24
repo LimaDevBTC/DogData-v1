@@ -629,7 +629,7 @@ Marco dele.
 - **Patron.** Departamento à parte, prédio personalizado, e **ortogonal à posição**. Patron
   não compra raio, porque raio é idade. O que existe é a testada privilegiada, e ela cai por
   idade como todas as outras.
-- **Carteira que zera (regra 6).** O prédio implode e o lote fica como plinto pavimentado com
+- **Carteira que zera (regra 6).** (SUBSTITUÍDO em 24/10/2026: a casa construída é fixa e nunca implode; quem zera o saldo só fica fora de drops, recompensas e eventos.) O prédio implode e o lote fica como plinto pavimentado com
   o endereço gravado, dentro do mesmo quarteirão. Voltando o saldo, o prédio sobe de novo, de
   graça, no mesmo lote, com a mesma família de fachada. **O lote nunca vai para outra
   carteira.** O endereço é permanente, o prédio é que aparece e some.
