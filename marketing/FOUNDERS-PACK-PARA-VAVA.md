@@ -12,7 +12,7 @@ masterplan divergirem, o masterplan vence.
 
 ### 1. Tira "Height class on the building" do degrau COMMERCIAL
 
-Isso foi removido da spec e o motivo está travado no masterplan §1 e §13: **altura, classe e
+(24/10/2026: a regra abaixo foi substituída; a casa construída é fixa e o tamanho vem do lote. O ponto de que doação não compra altura continua valendo.) Isso foi removido da spec e o motivo está travado no masterplan §1 e §13: **altura, classe e
 estado derivam do saldo vivo.** Se doação mexe na altura, o prédio deixa de ser leitura
 honesta do saldo e vira placar de quem pagou. É a única linha do deck que contradiz a
 constituição, e ela está num material de conversão, que é o pior lugar para uma promessa que
@@ -101,7 +101,7 @@ O prédio do Patron é custom na **forma**, nunca na **massa**.
 
 ```
 CUSTOM        forma, fachada, materiais, coroa, ornamento, planta, telhado
-NAO CUSTOM    altura, massa, pavimentos   vem do SALDO VIVO (masterplan 13)
+NAO CUSTOM    altura, massa, pavimentos   vem do LOTE e do código do distrito (24/10/2026; antes: saldo vivo)
               pegada                      vem da AREA DO LOTE (curva do snapshot)
 ```
 
