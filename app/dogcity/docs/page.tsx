@@ -487,8 +487,11 @@ export default function DogCityDocsPage() {
                     text: "A lot's position, size, and district are frozen at the snapshot block, forever. Spending an old coin afterward does not move the building.",
                   },
                   {
-                    lead: "Only the building breathes.",
-                    text: "Height and condition follow the wallet's live balance, computed by the indexer. The lot underneath never changes.",
+                    // 24/10/2026 (fundador): a casa não acompanha mais o saldo. Prédio que muda de tamanho quando o dono compra
+                    // ou vende $DOG seria uma cidade instável e um inferno de construir; o tamanho vem do lote e do código de
+                    // construção (seção 8), e o saldo vivo decide só a participação (drops, recompensas, eventos).
+                    lead: "A building, once built, stays.",
+                    text: "Its size comes from its lot and the building code of its district (section 8), never from a balance. Selling $DOG never shrinks a house. What a wallet's live $DOG balance decides is taking part: drops, rewards and events.",
                   },
                 ]}
               />
