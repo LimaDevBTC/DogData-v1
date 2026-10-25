@@ -1221,7 +1221,7 @@ export default function DogCityDocsPage() {
                   {
                     name: "Patron",
                     threshold: "500,000 $DOG",
-                    text: "Adds naming a street, with the name staying on the city map, and a custom building designed outside the district catalogue. This is the one exception to the rule that every district keeps its own architecture, which is why the privilege stops here: personality lives in the items around a house, not in the house itself.",
+                    text: "Adds naming a street, with the name staying on the city map, and a custom building designed outside the district catalogue. This is the one exception to the rule that every district keeps its own architecture, which is why the privilege stops here: personality lives in the items around a house, not in the house itself. The black Cyber $DOG takes the place of the orange one, and the DOG helicopter is added (section 8).",
                   },
                 ].map((r) => (
                   <div key={r.name} className={`border ${HAIR} bg-white/[0.02] px-5 py-4 md:px-6`}>
