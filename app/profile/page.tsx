@@ -21,7 +21,7 @@ import Image from "next/image"
 import Link from "next/link"
 import {
   ArrowDownLeft, ArrowLeftRight, ArrowUpRight, AtSign, Building2, Check, Copy,
-  ExternalLink, Fingerprint, Gauge, Image as ImageIcon, Loader2, LogOut, MessageSquare,
+  ExternalLink, Fingerprint, Gauge, Image as ImageIcon, Link2, Loader2, LogOut, MessageSquare,
   ShieldAlert, ShieldCheck, Trophy, Wallet,
 } from "lucide-react"
 import { Layout } from "@/components/layout"
@@ -31,6 +31,7 @@ import { useIsAdmin } from "@/lib/admin/use-is-admin"
 import { useDonate } from "@/components/donate/donate-modal"
 import { WALLETS } from "@/lib/wallet"
 import { handleProblem, normalizeHandle } from "@/lib/identity/handle"
+import { refLink } from "@/lib/referral/ref"
 import { PISO_LOTE_M2, alvoDaCurva } from "@/app/dogcity/dogcity-data"
 
 // ── tipos ──────────────────────────────────────────────────────────────────
@@ -104,6 +105,19 @@ interface ChainData {
   tx_count: number
   stats: { first_tx_block: number | null; last_tx_block: number | null }
   metadata: { total_holders: number }
+}
+
+// A contagem propria de referral (GET /api/referral/me). `counts` null = banco de contagem indisponivel
+// agora; o link nao depende dele.
+interface RefMe {
+  handle: string | null
+  link: string | null
+  counts: {
+    referred: number
+    minted: number
+    licences: { personal: number; commercial: number; patron: number }
+    licence_dog: number
+  } | null
 }
 
 interface Standing {
@@ -530,6 +544,9 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
 
+  const [refMe, setRefMe] = useState<RefMe | null>(null)
+  const [refCopied, setRefCopied] = useState(false)
+
   const [input, setInput] = useState("")
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -582,6 +599,28 @@ export default function ProfilePage() {
       })
       .catch(() => setStanding(null))
   }, [address, loadProfile, verified])
+
+  // Referral: o link sai do handle (sem rede); a contagem vem da API, so com sessao e handle.
+  useEffect(() => {
+    if (!verified || !profile?.handle) {
+      setRefMe(null)
+      return
+    }
+    let vivo = true
+    fetch("/api/referral/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: RefMe | null) => { if (vivo) setRefMe(d) })
+      .catch(() => { if (vivo) setRefMe(null) })
+    return () => { vivo = false }
+  }, [verified, profile?.handle])
+
+  const myRefLink = profile?.handle ? refLink(profile.handle) : null
+  const copyRefLink = useCallback(() => {
+    if (!myRefLink) return
+    navigator.clipboard?.writeText(myRefLink)
+    setRefCopied(true)
+    setTimeout(() => setRefCopied(false), 1500)
+  }, [myRefLink])
 
   const copyAddress = useCallback(() => {
     if (!address) return
@@ -991,6 +1030,67 @@ export default function ProfilePage() {
             verified={verified}
             onPick={setAvatar}
           />
+        </section>
+
+        {/* ── referral (fase 1: so contar) ── */}
+        <section className="space-y-5">
+          <Head
+            eyebrow="◆ referrals"
+            title="Your referral link"
+            sub="We're counting. What referrals unlock will be announced."
+          />
+
+          <Plate>
+            <PlateHead icon={Link2}>referral link</PlateHead>
+
+            {!verified ? (
+              <p className="text-[12px] text-mist leading-relaxed max-w-xl">
+                Verify ownership and claim a handle to get your referral link.
+              </p>
+            ) : !profile?.handle || !myRefLink ? (
+              <p className="text-[12px] text-mist leading-relaxed max-w-xl">
+                Claim a handle above to get your referral link. Only verified accounts with a handle can refer.
+              </p>
+            ) : (
+              <div className="space-y-4 max-w-xl">
+                <div className="flex items-center gap-2 border border-white/10 bg-white/[0.02] px-3 py-2">
+                  <Link2 className="w-4 h-4 text-dusty shrink-0" />
+                  <span className="flex-1 min-w-0 truncate font-mono text-[13px] text-snow select-all">{myRefLink}</span>
+                  <button
+                    onClick={copyRefLink}
+                    className="inline-flex items-center gap-1.5 border border-lava/50 bg-lava/[0.08] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-lava transition-colors hover:bg-lava/[0.16] shrink-0"
+                  >
+                    {refCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    {refCopied ? "Copied" : "Copy"}
+                  </button>
+                </div>
+                <p className="font-mono text-[10px] text-dusty leading-relaxed">
+                  It also works at www.dogdata.xyz/?ref=@{profile.handle}. A wallet counts when it proves ownership for the first time after opening your link.
+                </p>
+              </div>
+            )}
+          </Plate>
+
+          {verified && profile?.handle && refMe?.counts && (
+            <PlotGrid className="grid-cols-2 lg:grid-cols-4">
+              <StatTile label="Referred" value={refMe.counts.referred} format={n0} />
+              <StatTile label="Minted" value={refMe.counts.minted} format={n0} sub="after the link" />
+              <StatTile
+                label="Licences"
+                value={refMe.counts.licences.personal + refMe.counts.licences.commercial + refMe.counts.licences.patron}
+                format={n0}
+                sub="paid after the link"
+              />
+              <StatTile label="$DOG paid" value={refMe.counts.licence_dog} format={dog} sub="after the link" />
+            </PlotGrid>
+          )}
+
+          <Link
+            href="/dogcity/referrals"
+            className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-dusty hover:text-lava transition-colors"
+          >
+            Referral board and counting rules <ArrowUpRight className="w-3 h-3" />
+          </Link>
         </section>
 
         {/* ── cidade e registro de fundadores ── */}
