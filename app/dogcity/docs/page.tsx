@@ -1216,7 +1216,7 @@ export default function DogCityDocsPage() {
                   {
                     name: "Commercial",
                     threshold: "50,000 $DOG",
-                    text: "Adds the commercial licence: a commercial building instead of a residence, on the lot the wallet owns (section 8); an extended item pack (leisure ground, garden, lighting); and a lunar rover parked on the lot.",
+                    text: "Adds the commercial licence: a commercial building instead of a residence, on the lot the wallet owns (section 8); an extended item pack (leisure ground, garden, lighting); and an orange Cyber $DOG parked on the lot.",
                   },
                   {
                     name: "Patron",
@@ -1265,8 +1265,8 @@ export default function DogCityDocsPage() {
                 One draw, among every Founder at any rung, on an announced date. Prizes: a
                 Runestone, held by the project and given away once; a custom building, the Patron
                 privilege granted to a winner at any rung; a street name, chosen by the winner and
-                printed on the city map; and the 1 of 1, the first lunar rover ever minted, the only
-                one of its kind. No lot is ever drawn: where a wallet lives is decided by its
+                printed on the city map; and the 1 of 1: black Cyber $DOG #1, the first one ever
+                given to a player. No lot is ever drawn: where a wallet lives is decided by its
                 Bitcoin history at block 966,670, never by a contribution. Only a lot its owner
                 leaves unclaimed goes on sale (section 7).
               </P>
