@@ -253,7 +253,7 @@ export const LICENCE_BTC_NOTE = "Paid in BTC: building licence and item pack onl
 // 23/10/2026 (fundador): a landing deixou o programa de Founders (fechado no bloco 972.336, 138 founders) e passou a
 // vender a LICENÇA DE CONSTRUÇÃO. Três degraus, o que cada um traz é o das docs (seção 8, "Three licences", a coluna
 // "What comes with it"): mudou lá, muda aqui. O que era por ter chegado antes (número, Monument, Club, sorteio, mint grátis,
-// luz do Founder) segue só dos 138 founders, nas docs seção 6. Rover lunar saiu.
+// luz do Founder) segue só dos 138 founders, nas docs seção 6.
 // 23/10 (fundador): veículos por degrau, ditos por inteiro em cada cartão ("Vehicles: ..."), sem conta de cabeça:
 // Personal = moto; Commercial = moto + Cyber $DOG laranja; Patron = moto + Cyber $DOG PRETA + helicóptero (a preta
 // substitui a laranja, o Patron não leva dois carros; o "special car, revealed soon" era esta Cyber preta).

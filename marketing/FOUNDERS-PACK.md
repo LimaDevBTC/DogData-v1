@@ -64,7 +64,7 @@ Adds:
 Adds:
 
 - Extended item pack: leisure ground, garden, lighting
-- **A lunar rover** parked on the lot
+- **An orange Cyber $DOG** parked on the lot
 
 ### Patron, 500,000 $DOG
 
@@ -108,14 +108,14 @@ items.
 
 ```
                  PERSONAL            COMMERCIAL              PATRON
-vehicle          none                lunar rover             black tuned rover
+vehicle          none                orange Cyber $DOG       black Cyber $DOG
 light            Founder's light     pack lighting           its own signature, seen from
                                                              above at night
 plaque           house number        same                    own material and finish
 ground           yard                leisure ground, garden  pieces from the closed catalogue
 ```
 
-⚠️ **Every exclusive variant is SOULBOUND.** If the black rover could be sold, exclusivity
+⚠️ **Every exclusive variant is SOULBOUND.** If the black Cyber $DOG could be sold, exclusivity
 becomes merchandise and anyone buys a Patron's standing on the secondary market. The tradable
 catalogue stays tradable, because it is taste. What proves merit does not circulate.
 
@@ -151,7 +151,7 @@ Prizes:
 | **A Runestone** | One of the 112,384, held by the project, given away once |
 | **A custom building** | The Patron privilege, granted to a winner at any rung |
 | **A street name** | Named by the winner, printed on the city map |
-| **The 1 of 1** | The first lunar rover ever minted, the only one of its kind |
+| **The 1 of 1** | Black Cyber $DOG #1, the first one ever given to a player |
 
 **No lot is ever drawn.** Where a wallet lives is decided by its Bitcoin history at block
 966,670 and by nothing that is paid. See §8 for why this matters more than it looks.
@@ -169,7 +169,7 @@ Nobody buys the proof of having been first. Everybody buys decoration. This give
 a real item market without turning merit into merchandise.
 
 Item families, all living on the lot rather than on the house: **ground** (yard, pool,
-deck, court, fence, paving), **vehicle** (the lunar rover is the hero item), **light** (the
+deck, court, fence, paving), **vehicle** (the Cyber $DOG is the hero item), **light** (the
 Founder marker, lamps), **plaque** (the Founder number on the facade).
 
 ## 6. What a Founder is not

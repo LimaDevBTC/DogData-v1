@@ -1216,12 +1216,12 @@ export default function DogCityDocsPage() {
                   {
                     name: "Commercial",
                     threshold: "50,000 $DOG",
-                    text: "Adds the commercial licence: a commercial building instead of a residence, on the lot the wallet owns (section 8); an extended item pack (leisure ground, garden, lighting); and a lunar rover parked on the lot.",
+                    text: "Adds the commercial licence: a commercial building instead of a residence, on the lot the wallet owns (section 8); an extended item pack (leisure ground, garden, lighting); and an orange Cyber $DOG parked on the lot.",
                   },
                   {
                     name: "Patron",
                     threshold: "500,000 $DOG",
-                    text: "Adds naming a street, with the name staying on the city map, and a custom building designed outside the district catalogue. This is the one exception to the rule that every district keeps its own architecture, which is why the privilege stops here: personality lives in the items around a house, not in the house itself.",
+                    text: "Adds naming a street, with the name staying on the city map, and a custom building designed outside the district catalogue. This is the one exception to the rule that every district keeps its own architecture, which is why the privilege stops here: personality lives in the items around a house, not in the house itself. The black Cyber $DOG takes the place of the orange one, and the DOG helicopter is added (section 8).",
                   },
                 ].map((r) => (
                   <div key={r.name} className={`border ${HAIR} bg-white/[0.02] px-5 py-4 md:px-6`}>
@@ -1265,8 +1265,8 @@ export default function DogCityDocsPage() {
                 One draw, among every Founder at any rung, on an announced date. Prizes: a
                 Runestone, held by the project and given away once; a custom building, the Patron
                 privilege granted to a winner at any rung; a street name, chosen by the winner and
-                printed on the city map; and the 1 of 1, the first lunar rover ever minted, the only
-                one of its kind. No lot is ever drawn: where a wallet lives is decided by its
+                printed on the city map; and the 1 of 1: black Cyber $DOG #1, the first one ever
+                given to a player. No lot is ever drawn: where a wallet lives is decided by its
                 Bitcoin history at block 966,670, never by a contribution. Only a lot its owner
                 leaves unclaimed goes on sale (section 7).
               </P>

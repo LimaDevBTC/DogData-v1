@@ -670,7 +670,7 @@ existe escolher lote, e o sorteio NÃO distribui endereço (ver abaixo).
 | A luz do Fundador (visível de cima) | | ✓ | ✓ | ✓ | ✓ |
 | Pack de itens base (quintal, placa) | | ✓ | ✓ | ✓ | ✓ |
 | Pack ampliado (área de lazer, veículo) | | | ✓ | ✓ | ✓ |
-| Rover lunar | | | ✓ | ✓ | ✓ |
+| Cyber $DOG (a preta no patron) | | | ✓ | ✓ | ✓ |
 | Nome de rua | | | | ✓ | ✓ |
 | **Prédio personalizado** | | | | ✓ | ✓ |
 | Marca em prédio cívico | | | | | ✓ |
@@ -697,7 +697,7 @@ mesma razão pela qual condomínio bonito padroniza fachada e libera jardim.
 Entre TODOS os Fundadores, de qualquer degrau, com **data marcada e anunciada**.
 
 Prêmios: uma **Runestone**, um **prédio personalizado** (normalmente só patron), um **nome de
-rua** e o **1 de 1** do catálogo de itens (o primeiro rover já mintado).
+rua** e o **1 de 1** do catálogo de itens (a Cyber $DOG preta nº 1, a primeira já entregue a um jogador).
 
 ⚠️ **NÃO SE SORTEIA LOTE, E A PROPOSTA ORIGINAL ERA ESSA.** O dono propôs sortear um lote em
 cada um dos três primeiros tiers da Orla Nobre, com o argumento de que três lotes não fazem
@@ -996,8 +996,8 @@ dói e é de onde vem reclamação. Falta decidir se encolhe na hora, com atraso
 ### §11.1 — A escada do Founder sobe em qualidade 🔒 (2026-09-13)
 
 Todo degrau inclui tudo dos de baixo, e **onde existe variante o degrau de cima recebe a VERSÃO
-EXCLUSIVA do mesmo item**, não só itens novos. Exemplo do fundador: o rover do Commercial é o
-lunar rover; o do Patron é o **rover preto tunado**.
+EXCLUSIVA do mesmo item**, não só itens novos. Exemplo do fundador: o veículo do Commercial é a
+Cyber $DOG laranja; o do Patron é a **Cyber $DOG preta**.
 
 ⚠️ **Toda variante exclusiva é SOULBOUND.** Se a versão exclusiva puder ser vendida, a
 exclusividade vira mercadoria e o status do Patron se compra no secundário, o que derruba a

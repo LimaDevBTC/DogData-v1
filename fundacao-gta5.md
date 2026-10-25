@@ -214,7 +214,7 @@ folha seca. Entra o que aquele chão de fato faria:
 - tampa de poço, grelha de boca de lobo, caixa de inspeção
 - poeira de regolito acumulada no pé do meio-fio e na sarjeta, sempre do lado
   contrário ao fluxo de circulação
-- rastro de pneu de rover e trilha de pisada nos atalhos que a teia não previu
+- rastro de pneu e trilha de pisada nos atalhos que a teia não previu
 - ejecta clara em volta das crateras pequenas, que é como a Lua marca o chão
 - pintura de faixa desgastada, gasta na trilha de roda e inteira no acostamento
 
