@@ -286,7 +286,7 @@ export const TIERS = [
     color: "#FB923C",
     perks: [
       "Everything in Personal",
-      "The commercial licence: a commercial building instead of a residence, on any lot",
+      "The commercial licence: a commercial building, a mixed-use one (commercial ground floor, homes above, penthouse on top) or a residence, on the lot your wallet owns",
       "Extended item pack: leisure ground, garden, lighting",
       "Vehicles: the $DOG moto and an orange Cyber $DOG",
     ],
@@ -301,7 +301,7 @@ export const TIERS = [
     color: "#FFAD42",
     perks: [
       "Everything in Commercial",
-      "A custom building, designed outside the district catalogue",
+      "A custom building, designed outside the district catalogue, with whatever mix of uses you want",
       "Names a street, and the name stays on the city map",
       "Vehicles: the $DOG moto, a black Cyber $DOG (instead of the orange one) and the DOG helicopter",
     ],
