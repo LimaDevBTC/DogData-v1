@@ -1211,17 +1211,17 @@ export default function DogCityDocsPage() {
                   {
                     name: "Personal",
                     threshold: "10,000 $DOG",
-                    text: "Adds a one time, permanent building licence; minting first, free, in the Founder phase, so the building stands on day one; early access to the game, to every test and every update; the Founder's light on the building, visible from above at night; and a base item pack (yard and house number plaque).",
+                    text: "Adds a one time, permanent building licence, for a residence from the district catalogue; minting first, free, in the Founder phase, so the building stands on day one; early access to the game, to every test and every update; the Founder's light on the building, visible from above at night; and a base item pack (yard and house number plaque).",
                   },
                   {
                     name: "Commercial",
                     threshold: "50,000 $DOG",
-                    text: "Adds the commercial licence: a commercial building instead of a residence, on the lot the wallet owns (section 8); an extended item pack (leisure ground, garden, lighting); and a lunar rover parked on the lot.",
+                    text: "Adds the commercial licence: a commercial building, a mixed-use one (a commercial ground floor, homes on the floors above, a penthouse on the top floor) or a residence, on the lot the wallet owns, within the storeys the building code of its district gives that lot (section 8); an extended item pack (leisure ground, garden, lighting); and an orange Cyber $DOG parked on the lot.",
                   },
                   {
                     name: "Patron",
                     threshold: "500,000 $DOG",
-                    text: "Adds naming a street, with the name staying on the city map, and a custom building designed outside the district catalogue. This is the one exception to the rule that every district keeps its own architecture, which is why the privilege stops here: personality lives in the items around a house, not in the house itself.",
+                    text: "Adds naming a street, with the name staying on the city map, and a custom building designed outside the district catalogue, with whatever mix of uses its owner wants. This is the one exception to the rule that every district keeps its own architecture, which is why the privilege stops here: personality lives in the items around a house, not in the house itself. The black Cyber $DOG takes the place of the orange one, and the DOG helicopter is added (section 8).",
                   },
                 ].map((r) => (
                   <div key={r.name} className={`border ${HAIR} bg-white/[0.02] px-5 py-4 md:px-6`}>
@@ -1233,6 +1233,13 @@ export default function DogCityDocsPage() {
                   </div>
                 ))}
               </div>
+              <P>
+                <strong className="text-snow">Moving up.</strong> The payments of the wallet that
+                owns the lot add up, so a wallet with Personal pays only the difference to reach
+                Commercial or Patron. Nobody buys two licences. Moving up changes what a building
+                is used for, never how big it is: its size comes from the lot and the building code
+                of its district (section 8).
+              </P>
 
               <Sub>Paying a rung in $DOG or in Bitcoin</Sub>
               <P className="mt-3">
@@ -1265,8 +1272,8 @@ export default function DogCityDocsPage() {
                 One draw, among every Founder at any rung, on an announced date. Prizes: a
                 Runestone, held by the project and given away once; a custom building, the Patron
                 privilege granted to a winner at any rung; a street name, chosen by the winner and
-                printed on the city map; and the 1 of 1, the first lunar rover ever minted, the only
-                one of its kind. No lot is ever drawn: where a wallet lives is decided by its
+                printed on the city map; and the 1 of 1: black Cyber $DOG #1, the first one ever
+                given to a player. No lot is ever drawn: where a wallet lives is decided by its
                 Bitcoin history at block 966,670, never by a contribution. Only a lot its owner
                 leaves unclaimed goes on sale (section 7).
               </P>
@@ -1497,7 +1504,7 @@ export default function DogCityDocsPage() {
                   },
                   {
                     lead: "Phase 3, The Living City.",
-                    text: "The city at work: commerce in the commercial buildings, items, events, games and partners, all in $DOG.",
+                    text: "The city at work: commerce in the commercial and mixed-use buildings, items, events, games and partners, all in $DOG.",
                   },
                 ]}
               />
@@ -1512,8 +1519,8 @@ export default function DogCityDocsPage() {
                 head={["Licence", "$DOG", "What it builds", "What comes with it"]}
                 rows={[
                   ["Personal", "10,000", "A residence from the district catalogue", "The base item pack (yard and house number plaque), the $DOG moto, and early access to the game, to every test and every update"],
-                  ["Commercial", "50,000", "A commercial building for a business of its own, or a residence", "Everything in Personal and the extended item pack (leisure ground, garden, lighting). Vehicles: the $DOG moto and an orange Cyber $DOG"],
-                  ["Patron", "500,000", "A custom building designed outside the catalogue", "Everything in Commercial and a street named on the city map. Vehicles: the $DOG moto, a black Cyber $DOG (instead of the orange one) and the DOG helicopter"],
+                  ["Commercial", "50,000", "A commercial building for a business of its own, a mixed-use one (a commercial ground floor, homes above, a penthouse on top) or a residence, within the storeys the district code gives the lot", "Everything in Personal and the extended item pack (leisure ground, garden, lighting). Vehicles: the $DOG moto and an orange Cyber $DOG"],
+                  ["Patron", "500,000", "A custom building designed outside the catalogue, with whatever mix of uses its owner wants", "Everything in Commercial and a street named on the city map. Vehicles: the $DOG moto, a black Cyber $DOG (instead of the orange one) and the DOG helicopter"],
                 ]}
               />
               <P>
@@ -1525,6 +1532,14 @@ export default function DogCityDocsPage() {
                 $DOG. The licence gives the item pack of its rung and no Founder benefits, and it is
                 added to the wallet&apos;s $DOG for its rung. The $DOG of every licence goes to the
                 city&apos;s construction fund, which pays for phases 2 and 3.
+              </P>
+              <P>
+                The payments of the wallet that owns the lot add up, so a wallet with Personal pays
+                only the difference to reach Commercial or Patron, and nobody buys two licences.
+                Moving up a licence changes the use of the building, not its size. From Personal to
+                Commercial the ground floor can turn into a shopfront, and the building does not
+                grow: its size comes from the lot and the building code of its district, as in
+                section 1.
               </P>
 
               <Sub>Eight districts, one architecture each</Sub>
@@ -1581,11 +1596,11 @@ export default function DogCityDocsPage() {
                 items={[
                   { lead: "Front garden.", text: "Every building sits behind a set front yard. Rowhouses get a short stoop and a planting bed behind a low iron rail." },
                   { lead: "Street line.", text: "Facades run parallel to the street. Sidewalk, mailbox and street lamp line up along the block, with one street tree per lot." },
-                  { lead: "Height.", text: "Row 3 storeys, Small 2, Standard 2, Large 3, Estate 3. A commercial building may add one." },
+                  { lead: "Height.", text: "Row 3 storeys, Small 2, Standard 2, Large 3, Estate 3, for any use. The count comes from the lot, never from the licence." },
                   { lead: "Fences.", text: "Low at the front, hedges on the estates. Tall walls only at the back." },
                   { lead: "Palette.", text: "Each district has five approved colour combinations for walls, trim, roof and door. The owner picks one, and nothing outside them." },
                   { lead: "Variety without noise.", text: "Every model comes in facade variations and in the district palette, so a street does not repeat itself." },
-                  { lead: "Commerce.", text: "An active ground floor with a shopfront, and signs in the format of the district, on any lot whose owner holds the commercial licence, on a ring road or on a lane." },
+                  { lead: "Commerce.", text: "An active ground floor with a shopfront, and signs in the format of the district, on any lot whose owner holds the commercial licence, on a ring road or on a lane. Commercial use follows the district's architecture: in a district of estates, such as The Spit, it does not look like a street shop." },
                 ]}
               />
 
@@ -1602,7 +1617,7 @@ export default function DogCityDocsPage() {
                   },
                   {
                     lead: "The Living City.",
-                    text: "What a commercial building does (storefront, item shop, advertising, a community's home), whether space can be rented between players, and how $DOG moves through the city.",
+                    text: "What a commercial or mixed-use building does (storefront, item shop, advertising, a community's home), whether space can be rented between players, and how $DOG moves through the city.",
                   },
                 ]}
               />

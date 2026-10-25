@@ -275,9 +275,9 @@ painel e continua valendo a regra da praça.)
 **2. A linha de comando (o que serve ao nosso fluxo).**
 `blender/sketchfab_fetch.py`, headless, sem interface:
 
-    python3 blender/sketchfab_fetch.py search "moon rover" --max 8
+    python3 blender/sketchfab_fetch.py search "<termo>" --max 8
     python3 blender/sketchfab_fetch.py info <uid|url>
-    python3 blender/sketchfab_fetch.py get <uid|url> --name rover --height 3
+    python3 blender/sketchfab_fetch.py get <uid|url> --name <nome> --height 3
 
 `search` e `info` funcionam sem token (API pública) e já filtram por licença:
 CC0 e CC-BY, uma chamada para cada (a API devolve 400 se as duas licenças vierem
@@ -290,6 +290,6 @@ licença fora da regra a menos que se force com `--i-know-the-licence`.
 
 **Orçamento de triângulos**: `--max-tris` (padrão 20.000) decima por colapso de
 arestas no Blender antes de exportar. Testado de ponta a ponta em 19/08: o
-"Moon Rover" (141.458 faces, CC-BY) saiu em 14.000 tris e 246 KB, e o templo
+modelo de 141.458 faces (CC-BY) saiu em 14.000 tris e 246 KB, e o templo
 japonês (13,1 MB no Sketchfab) em 559 KB. Sem isso, metade do que há de bom lá
 não cabe na praça.

@@ -253,7 +253,7 @@ export const LICENCE_BTC_NOTE = "Paid in BTC: building licence and item pack onl
 // 23/10/2026 (fundador): a landing deixou o programa de Founders (fechado no bloco 972.336, 138 founders) e passou a
 // vender a LICENÇA DE CONSTRUÇÃO. Três degraus, o que cada um traz é o das docs (seção 8, "Three licences", a coluna
 // "What comes with it"): mudou lá, muda aqui. O que era por ter chegado antes (número, Monument, Club, sorteio, mint grátis,
-// luz do Founder) segue só dos 138 founders, nas docs seção 6. Rover lunar saiu.
+// luz do Founder) segue só dos 138 founders, nas docs seção 6.
 // 23/10 (fundador): veículos por degrau, ditos por inteiro em cada cartão ("Vehicles: ..."), sem conta de cabeça:
 // Personal = moto; Commercial = moto + Cyber $DOG laranja; Patron = moto + Cyber $DOG PRETA + helicóptero (a preta
 // substitui a laranja, o Patron não leva dois carros; o "special car, revealed soon" era esta Cyber preta).
@@ -286,7 +286,7 @@ export const TIERS = [
     color: "#FB923C",
     perks: [
       "Everything in Personal",
-      "The commercial licence: a commercial building instead of a residence, on any lot",
+      "The commercial licence: a commercial building, a mixed-use one (commercial ground floor, homes above, penthouse on top) or a residence, on the lot your wallet owns",
       "Extended item pack: leisure ground, garden, lighting",
       "Vehicles: the $DOG moto and an orange Cyber $DOG",
     ],
@@ -301,7 +301,7 @@ export const TIERS = [
     color: "#FFAD42",
     perks: [
       "Everything in Commercial",
-      "A custom building, designed outside the district catalogue",
+      "A custom building, designed outside the district catalogue, with whatever mix of uses you want",
       "Names a street, and the name stays on the city map",
       "Vehicles: the $DOG moto, a black Cyber $DOG (instead of the orange one) and the DOG helicopter",
     ],

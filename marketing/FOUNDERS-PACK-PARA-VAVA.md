@@ -54,7 +54,7 @@ jeito, e o número de ordem é a única coisa que não dá para conseguir depois
 ### COMMERCIAL, 50.000 $DOG, acrescenta
 
 - Extended item pack: leisure ground, garden, lighting
-- A lunar rover estacionado no lote
+- Uma Cyber $DOG laranja estacionada no lote
 
 ### PATRON, 500.000 $DOG, acrescenta
 
@@ -84,14 +84,14 @@ variante, o degrau de cima recebe a VERSÃO EXCLUSIVA do mesmo item**, não só 
 
 ```
                  PERSONAL            COMMERCIAL              PATRON
-vehicle          nao tem             lunar rover             rover preto tunado
+vehicle          nao tem             Cyber $DOG laranja      Cyber $DOG preta
 light            Founder's light     lighting do pack        assinatura propria, visivel
                                                              de cima a noite
 plaque           house number        igual                   material e acabamento proprios
 ground           yard                leisure ground, garden  pecas do catalogo fechado
 ```
 
-⚠️ **Toda variante exclusiva é SOULBOUND.** Se o rover preto puder ser vendido, a exclusividade
+⚠️ **Toda variante exclusiva é SOULBOUND.** Se a Cyber $DOG preta puder ser vendida, a exclusividade
 vira mercadoria e qualquer um compra o status do Patron no mercado secundário. O catálogo
 negociável continua negociável, porque é gosto. O que prova mérito não circula.
 
@@ -127,7 +127,7 @@ Um sorteio, entre todo Founder de qualquer degrau, em data anunciada que não mu
 | Uma Runestone | Uma das 112.384, do projeto, dada uma vez |
 | Um custom building | O privilégio do Patron, para um ganhador de qualquer degrau |
 | Um nome de rua | Escolhido pelo ganhador, impresso no mapa |
-| O 1 de 1 | O primeiro lunar rover mintado, único |
+| O 1 de 1 | A Cyber $DOG preta nº 1, a primeira já entregue a um jogador |
 
 ⚠️ **Nenhum lote é sorteado, nunca.** Onde a carteira mora vem do bloco 966.670 e de nada que
 se paga.
@@ -145,7 +145,7 @@ Ninguém compra a prova de ter chegado primeiro. Todo mundo compra decoração. 
 mercado de item de verdade sem transformar mérito em mercadoria.
 
 Famílias de item, todas vivendo no lote e não na casa: **ground** (quintal, piscina, deck,
-quadra, cerca, calçamento), **vehicle** (o lunar rover é o item herói), **light** (a marca do
+quadra, cerca, calçamento), **vehicle** (a Cyber $DOG é o item herói), **light** (a marca do
 Founder, lâmpadas), **plaque** (o número do Founder na fachada).
 
 ---
