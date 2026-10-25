@@ -510,9 +510,10 @@ export default function Section({ lb, parte = "topo" }: { lb: LeaderboardData | 
         <div>
           <p className="font-mono text-[11px] tracking-[0.3em] text-lava">WHAT A LICENCE BUILDS</p>
           <p className="text-sm text-mist mt-3 max-w-2xl leading-relaxed">
-            Eight districts, one architecture each. A Personal licence builds a residence from the
-            district catalogue, a Commercial licence a commercial building, a Patron licence a custom
-            one. Design studies drawn on real blocks of the registry.
+            Eight districts, one architecture each, and commercial use follows it. A Personal licence
+            builds a residence from the district catalogue, a Commercial licence a commercial or
+            mixed-use building, a Patron licence a custom one. A higher licence changes how a
+            building is used, never its size. Design studies drawn on real blocks of the registry.
           </p>
           <div className="mt-6 grid gap-4 sm:grid-cols-3">
             {[
