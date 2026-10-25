@@ -56,7 +56,7 @@ function semSaidaAntiga(req: NextRequest) {
 const HOST_SPACE = /^(www\.)?dogcity\.space$/
 const PLAY = 'https://play.dogcity.space'
 const CAMPANHA = /^(utm_[a-z_]+|ref|gclid|fbclid|twclid|mc_cid|mc_eid|s|src)$/
-const ROTAS_SPACE: Record<string, string> = { '/': '/dogcity', '/docs': '/dogcity/docs', '/founders': '/dogcity/founders', '/support': '/dogcity/support', '/atlas': '/dogcity/atlas' }
+const ROTAS_SPACE: Record<string, string> = { '/': '/dogcity', '/docs': '/dogcity/docs', '/founders': '/dogcity/founders', '/support': '/dogcity/support', '/atlas': '/dogcity/atlas', '/referrals': '/dogcity/referrals' }
 
 function noDominioDaCidade(req: NextRequest): NextResponse | null {
   const host = (req.headers.get('host') || '').split(':')[0].toLowerCase()

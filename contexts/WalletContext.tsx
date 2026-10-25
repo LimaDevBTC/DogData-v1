@@ -6,6 +6,7 @@ import type { ConnectedAccount, WalletId } from '@/lib/wallet/types'
 import { getConnector } from '@/lib/wallet'
 import { getUnisatProvider } from '@/lib/wallet/connectors/unisat'
 import { WalletConnectModal } from '@/components/wallet/wallet-connect-modal'
+import { captureRef, clearStoredRef, readStoredRef } from '@/lib/referral/client'
 
 const STORAGE_KEY = 'dogdata-wallet-account'
 
@@ -57,10 +58,16 @@ async function requestProof(account: ConnectedAccount): Promise<void> {
       // DOG, dizer de qual campanha aquele doador veio.
       visitor_id: visitorId(),
       session_id: sessionId(),
+      // Referral (fase 1: só contar): o @handle do link que trouxe esta pessoa, guardado por 30 dias.
+      // Vai no CORPO, nunca por cookie (o jogo e o mint usam esta mesma API). Só a PRIMEIRA verificação
+      // de uma carteira pode ser vinculada; o servidor decide e ignora em silêncio o que não vale.
+      ref: readStoredRef() ?? undefined,
     }),
   })
   const vdata = await vres.json()
   if (!vres.ok) throw new Error(vdata.error || 'Ownership verification failed.')
+  // verificou: o ref cumpriu o papel (vinculou ou não), não fica guardado para outra carteira
+  clearStoredRef()
 
   track('wallet_connected', { carteira: account.walletId })
 }
@@ -74,6 +81,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   // Restaura conta (localStorage, exibição) + sessão verificada (cookie httpOnly via API).
   useEffect(() => {
+    // Referral: o link ?ref=@handle que trouxe a pessoa fica guardado (30 dias) para o verify levar.
+    captureRef(window.location.search)
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
       if (raw) {
