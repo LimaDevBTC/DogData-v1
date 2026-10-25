@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.26.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "@noble/curves": "^2.2.0",
     "@noble/hashes": "^2.2.0",
     "@radix-ui/react-slot": "^1.2.3",
@@ -36,8 +36,8 @@
     "framer-motion": "^12.42.2",
     "lucide-react": "0.460.0",
     "mcp-handler": "^1.1.0",
-    "next": "^15.4.10",
-    "postcss": "8.4.40",
+    "next": "^15.5.28",
+    "postcss": "8.5.23",
     "qrcode-generator": "^2.0.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -58,5 +58,15 @@
     "eslint": "8.51.0",
     "eslint-config-next": "14.0.0",
     "tsx": "^4.21.0"
+  },
+  "overrides": {
+    "axios": "1.20.0",
+    "valibot": "1.4.2",
+    "next": {
+      "postcss": "$postcss"
+    },
+    "mcp-handler": {
+      "@modelcontextprotocol/sdk": "$@modelcontextprotocol/sdk"
+    }
   }
 }
