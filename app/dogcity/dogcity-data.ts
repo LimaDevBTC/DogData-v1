@@ -275,7 +275,7 @@ export const TIERS = [
       "Vehicles: the $DOG moto",
       "Early access to the game, to every test and every update",
     ],
-    vehicle: { src: "/landing/licences/moto.webp", w: 514, h: 520, label: "THE $DOG MOTO", alt: "The black $DOG motorbike with orange rims and the $DOG sticker on the fairing" },
+    vehicle: { src: "/landing/licences/moto.webp", w: 514, h: 520, label: "THE $DOG MOTO", alt: "The $DOG racing motorbike in black and orange MotoGP livery, with DOG·CITY, $DOG and partner logos on the fairing" },
     cta: "Choose Personal",
   },
   {
