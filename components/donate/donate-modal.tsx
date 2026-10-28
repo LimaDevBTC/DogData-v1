@@ -119,14 +119,14 @@ function cleanAmount(raw: string, decimals: number): string {
 
 /** A frase que traduz o número digitado em posição na escada. */
 function ladderHint(dog: number): string {
-  if (dog <= 0) return 'Any amount makes you a Founder. 10,000 DOG unlocks the Personal licence.'
+  if (dog <= 0) return '10,000 $DOG unlocks the Personal licence.'
   const reached = licenseFor(dog)
   const next = LADDER.find((l) => dog < l.amount)
   if (!next) return `${nAmt(dog)} DOG unlocks Patron, the top rung of the ladder.`
   const missing = nAmt(next.amount - dog)
   return reached
     ? `Unlocks ${reached}. ${missing} DOG more would reach ${next.name}.`
-    : `Founder, by arrival. ${missing} DOG more would unlock ${next.name}.`
+    : `${missing} DOG more would unlock ${next.name}.`
 }
 
 // ── como pagar sem a carteira conectada ────────────────────────────────────
