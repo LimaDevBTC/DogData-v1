@@ -38,9 +38,10 @@ import { useDonate } from "@/components/donate/donate-modal"
 import { WALLETS } from "@/lib/wallet"
 import { handleProblem, normalizeHandle } from "@/lib/identity/handle"
 import { refLink } from "@/lib/referral/ref"
-import { PISO_LOTE_M2, alvoDaCurva } from "@/app/dogcity/dogcity-data"
+import { PISO_LOTE_M2, FUND_CLOSE_BLOCK, alvoDaCurva } from "@/app/dogcity/dogcity-data"
 import {
-  casaDaLicenca, SUPORTE, SUPORTE_LEAD, type CasaDaLicenca, type LoteDaCasa,
+  casaDaLicenca, rotuloDoSetor, SUPORTE, SUPORTE_LEAD, NOTA_CORRETORA, TEXTO_LICENCA_ABERTA,
+  type CasaDaLicenca, type LoteDaCasa,
 } from "@/app/dogcity/casa-da-licenca"
 
 // ── tipos ──────────────────────────────────────────────────────────────────
@@ -77,6 +78,8 @@ interface ProfilePayload {
   city: CityDeed | null
   /** o degrau da licenca (null abaixo de Personal); o objeto null = banco sem resposta agora */
   licence?: { tier: string | null } | null
+  /** carteira de corretora ou de empresa: nunca mostra licenca nem casa (fundador, 28/10/2026) */
+  custody?: boolean
   chat_count: number
 }
 
@@ -279,7 +282,8 @@ function CityDeedCard({ city, address }: { city: CityDeed | null; address: strin
     ? [
         ["Area", `${n0(l.area_m2)} m2`],
         ["Curve target", alvo != null ? `${n0(alvo)} m2` : "n/a"],
-        ["Sector", l.district ? `${l.sector} · ${l.district}` : String(l.sector)],
+        // o nome do distrito nos nove setores (fundador, 28/10/2026)
+        ["Sector", rotuloDoSetor(l.sector, l.district)],
         ["Typology", l.typology ?? "n/a"],
       ]
     : []
@@ -1198,7 +1202,8 @@ export default function ProfilePage() {
                         Founder #{standing.founder_seq}
                       </span>
                     )}
-                    {standing.license && LICENSE_LABEL[standing.license] && (
+                    {/* corretora e empresa nunca mostram o degrau da licenca (fundador, 28/10/2026) */}
+                    {!profile?.custody && standing.license && LICENSE_LABEL[standing.license] && (
                       <span className="border border-white/15 px-2 py-1 font-mono text-[9px] uppercase tracking-[0.18em] text-mist">
                         {LICENSE_LABEL[standing.license]}
                       </span>
@@ -1221,16 +1226,24 @@ export default function ProfilePage() {
                 </div>
               ) : (
                 <div className="space-y-3">
+                  {/* o fundo fechou no bloco 972.336: nao ha mais numero de Founder; a oferta de hoje e a licenca */}
                   <p className="text-[12px] text-mist leading-relaxed">
-                    This address has not contributed to the build yet. Any amount before the goal makes
-                    you a Founder, and the register records the order of arrival.
+                    This address is not on the founders list, which closed at block{" "}
+                    {FUND_CLOSE_BLOCK.toLocaleString("en-US")}. {TEXTO_LICENCA_ABERTA}
                   </p>
+                  {!profile?.custody && (
+                    <p className="text-[12px] text-dusty leading-relaxed">
+                      <span className="text-mist">{NOTA_CORRETORA.pergunta}</span> {NOTA_CORRETORA.antes}{" "}
+                      <Link href={SUPORTE.href} className="text-lava hover:underline">{SUPORTE.rotulo}</Link>{" "}
+                      {NOTA_CORRETORA.depois}
+                    </p>
+                  )}
                   <div className="flex flex-wrap items-center gap-3">
                     <button
                       onClick={() => openDonate({ asset: "dog" })}
                       className="inline-flex items-center gap-1.5 border border-lava/50 bg-lava/[0.08] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-lava hover:bg-lava/[0.16] transition-colors"
                     >
-                      Fund the city
+                      Get a building licence
                     </button>
                     <Link
                       href="/dogcity#build"

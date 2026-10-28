@@ -5,9 +5,10 @@ import { resolveIdentity } from '@/lib/dog/identity'
 import { escrituras, buscarEscritura } from '@/lib/city/escrituras'
 import { lotInfo } from '@/lib/city/lot-info'
 import { licencaDaCarteira } from '@/lib/dog/licence-wallet'
+import { licencaVisivel } from '@/app/dogcity/casa-da-licenca'
 import {
   CORTE_CEMITERIO_DOG, CORTE_CEMITERIO_PUBLICADO, LAPIDES,
-  BAIRRO_DO_SETOR, TIPOLOGIA_DA_FORMA, CEMITERIO_NOME, linkDaCidade,
+  DISTRITO_DO_SETOR, TIPOLOGIA_DA_FORMA, CEMITERIO_NOME, linkDaCidade,
 } from '@/app/dogcity/dogcity-data'
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -240,10 +241,12 @@ export async function GET(req: NextRequest) {
       // landing v3 (18/10/2026): tier, distrito e rua do MESMO lote, lidos de
       // data/dogcity_lot_info.json (o dado da escritura, sem endereço). Sem o
       // arquivo a resposta só não traz esses campos; nada é deduzido aqui.
-      const [info, licence] = await Promise.all([
+      const [info, licenceBruta] = await Promise.all([
         l ? lotInfo(l.lotId).catch(() => null) : Promise.resolve(null),
         licencaPromise,
       ])
+      // carteira de empresa (setor 8 / tier "co"): nunca leva licença nem casa
+      const licence = licencaVisivel(licenceBruta, { setor: l?.setor ?? null, tierDoLote: info?.tier?.code ?? null })
       // a área é a do registro selado quando ele responde (ver o cabeçalho:
       // a tabela ainda serve a curva); a da tabela fica como alarme se divergir
       const areaTabela = Number(row.area_m2)
@@ -264,8 +267,8 @@ export async function GET(req: NextRequest) {
           lot: {
             lot_id: l.lotId,
             sector: l.setor,
-            // só três setores têm nome publicado; o tecido é só o número
-            district: BAIRRO_DO_SETOR[l.setor] ?? null,
+            // o nome do distrito nos nove setores (fundador, 28/10/2026): a linha SECTOR da escritura
+            district: DISTRITO_DO_SETOR[l.setor] ?? null,
             typology: TIPOLOGIA_DA_FORMA[l.forma] ?? null,
             form: l.forma,
             dsc: l.dsc,

@@ -41,8 +41,10 @@
 //                       lote, e a tela não anuncia metro quadrado para ela.
 //                       Sem este ramo a página dizia "YOUR LOT: 10 m2" a
 //                       15.802 carteiras (masterplan §17).
-//   3. not_in_snapshot: os anéis de expansão: o que fecha agora é a ORDEM,
-//                       não a terra. CTA para travar o Founder number.
+//   3. not_in_snapshot: os anéis de expansão: a terra vem com o Anel 2. O fundo
+//                       fechou no bloco 972.336 e o Founder number acabou
+//                       (28/10/2026), então o CTA é o da licença de construção,
+//                       o mesmo de quem tem lote e nenhuma licença.
 //   4. exchange:        a resposta mais valiosa das quatro: pega a pessoa no
 //                       momento exato do erro (moeda em corretora) e dá a
 //                       ação certa (sacar).
@@ -79,7 +81,11 @@
 import { useState, type FormEvent } from "react"
 import { HAIR, HAIR_SOFT } from "../motion"
 import { SNAPSHOT_PROOF, PISO_LOTE_M2, alvoDaCurva } from "../dogcity-data"
-import { casaDaLicenca, SUPORTE, SUPORTE_LEAD, type CasaDaLicenca } from "../casa-da-licenca"
+import {
+  casaDaLicenca, ehCarteiraDeCustodia, rotuloDoSetor, SUPORTE, SUPORTE_LEAD,
+  CTA_LICENCA, TEXTO_LICENCA_ABERTA, NOTA_CORRETORA,
+  type CasaDaLicenca,
+} from "../casa-da-licenca"
 
 // ── formatação exata, nunca arredondada para "K"/"M" ────────────────────────
 // formatDog() de ../dogcity-data.ts abrevia ("889.8K"), o que é exatamente o
@@ -99,8 +105,9 @@ function dataDoBloco(iso: string): string {
 
 // ── o contrato da rota ───────────────────────────────────────────────────────
 // `position` diz se a escritura achou o endereço no índice; `lot`/`headstone`
-// só existem quando ela achou. `district` é null no tecido (setores 1 a 6):
-// só o Spit, o Financial District e o Bay Shore têm nome publicado.
+// só existem quando ela achou. `district` é o nome do distrito nos nove setores
+// (28/10/2026); null só para resposta antiga em cache, e a linha SECTOR então
+// tira o nome do mesmo mapa (rotuloDoSetor).
 type Lote = { lot_id: string; sector: number; district: string | null; typology: string | null; map: string }
 type Lapide = { id: string; place: string; map: string }
 // o degrau da licença (null abaixo de Personal); o objeto inteiro null = indisponível agora
@@ -125,6 +132,35 @@ function linhaDoc(rotulo: string, valor: React.ReactNode) {
 // vez de sumir: um documento que ora tem linha de lote e ora não tem pareceria
 // dois documentos, e o holder não saberia se o lote dele existe.
 const SEM_POSICAO = <span className="text-dusty">not available right now</span>
+
+// o CTA da licença, para quem não tem licença: o MESMO botão cheio no cartão de
+// quem tem lote e no de quem chegou depois do snapshot (28/10/2026)
+function BotaoLicenca() {
+  return (
+    <a
+      href={CTA_LICENCA.href}
+      className="inline-flex items-center justify-center h-11 px-6 font-mono font-bold text-[12px] tracking-[0.1em]
+                 bg-lava text-void hover:bg-lava-light transition-colors duration-200"
+    >
+      {CTA_LICENCA.rotulo}
+    </a>
+  )
+}
+
+// quem pagou sacando de uma corretora: a licença ficou no endereço da corretora,
+// não no desta carteira. Nota neutra, só a saída (suporte). Vem logo abaixo do CTA
+// da licença, nos cartões de quem NÃO tem licença (decisão do fundador, 28/10/2026).
+function NotaCorretora() {
+  return (
+    <p className="text-[12px] md:text-[13px] text-dusty mt-3 leading-relaxed">
+      <span className="text-mist">{NOTA_CORRETORA.pergunta}</span> {NOTA_CORRETORA.antes}{" "}
+      <a href={SUPORTE.href} className="text-lava hover:text-lava-light underline underline-offset-2">
+        {SUPORTE.rotulo}
+      </a>{" "}
+      {NOTA_CORRETORA.depois}
+    </p>
+  )
+}
 
 // o botão secundário: contorno da marca, nunca chapado, para não disputar com
 // o CTA da licença (que é o único bloco cheio do cartão)
@@ -343,19 +379,18 @@ function Documento({ r }: { r: Resultado }) {
 
         <RingMark aceso={2} />
 
-        {semLote?.caso === "sem_lote" && <LicencaSemLote c={semLote} />}
-
-        <p className="text-[13px] md:text-sm text-mist mt-5 leading-relaxed">
-          What closes right now is not land, it is order. The Founder number goes by order of
-          arrival, does not depend on owning land yet, and the window shuts at 10,000,000 $DOG.
-        </p>
-        <a
-          href="/dogcity/founders"
-          className="mt-5 inline-flex items-center justify-center h-11 px-6 font-mono font-bold text-[12px] tracking-[0.1em]
-                     bg-lava text-void hover:bg-lava-light transition-colors duration-200"
-        >
-          LOCK YOUR FOUNDER NUMBER
-        </a>
+        {semLote?.caso === "sem_lote" ? (
+          <LicencaSemLote c={semLote} />
+        ) : (
+          // sem licença: a oferta de hoje é a licença de construção (o fundo fechou, o Founder number acabou)
+          <>
+            <p className="text-[13px] md:text-sm text-mist mt-5 leading-relaxed">{TEXTO_LICENCA_ABERTA}</p>
+            <div className="mt-5">
+              <BotaoLicenca />
+            </div>
+            <NotaCorretora />
+          </>
+        )}
       </div>
     )
   }
@@ -427,7 +462,7 @@ function Documento({ r }: { r: Resultado }) {
             celular "Lot S07-Q01-B001-L001, Sector 7, The Spit" não cabe na
             coluna da direita sem quebrar no meio do id */}
         {linhaDoc("LOT", r.lot ? r.lot.lot_id : SEM_POSICAO)}
-        {r.lot && linhaDoc("SECTOR", r.lot.district ? `${r.lot.sector} · ${r.lot.district}` : String(r.lot.sector))}
+        {r.lot && linhaDoc("SECTOR", rotuloDoSetor(r.lot.sector, r.lot.district))}
         {r.lot?.typology && linhaDoc("TYPOLOGY", r.lot.typology)}
         {linhaDoc("CURVE TARGET", `${areaExata(Math.round(alvo))} m2`)}
         {linhaDoc(`$DOG AT BLOCK ${r.block.toLocaleString("en-US")}`, dogExato(r.dog))}
@@ -461,18 +496,12 @@ function Documento({ r }: { r: Resultado }) {
           em duas linhas com o mesmo vão, nunca um sobre o outro colado */}
       {(!casa || r.lot) && (
         <div className="mt-4 flex flex-wrap gap-3">
-          {!casa && (
-            <a
-              href="/dogcity/founders"
-              className="inline-flex items-center justify-center h-11 px-6 font-mono font-bold text-[12px] tracking-[0.1em]
-                         bg-lava text-void hover:bg-lava-light transition-colors duration-200"
-            >
-              GET THE LICENCE TO BUILD ON IT
-            </a>
-          )}
+          {!casa && <BotaoLicenca />}
           {r.lot && <BotaoMapa href={r.lot.map} />}
         </div>
       )}
+      {/* carteira de empresa (setor 8) não ouve a nota de quem sacou de corretora */}
+      {!casa && !ehCarteiraDeCustodia({ setor: r.lot?.sector ?? null }) && <NotaCorretora />}
     </div>
   )
 }
