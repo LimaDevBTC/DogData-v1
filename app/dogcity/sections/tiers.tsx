@@ -37,12 +37,16 @@
 // 19/10: the card TEXT is the published contract's (/dogcity/docs, sections 6 and 8, "The
 // ladder"), word for word; see the note on TIERS in dogcity-data.ts.
 //
+// 28/10: each card also shows WHAT THE LICENCE GIVES, not only what it costs: the building (hero image) and every vehicle
+// of the rung (a row of cut-out tiles); see `Scene` and the note on TIERS in dogcity-data.ts. Between `sm` and `lg` the
+// three deeds are one wide column each (the trio needs 1024px for three vehicles to stay readable).
+//
 // Every string, threshold, perk, note, href and id below is verbatim from
 // dogcity-data.ts and the markup this replaces. The Founder note is a legal
 // distinction between recognition and mint licence — it is not copy.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { motion, useReducedMotion } from "framer-motion"
 import { useDonate } from "@/components/donate/donate-modal"
 import type { LicenceTier } from "@/lib/dog/licence-btc"
@@ -125,6 +129,8 @@ const LOT_REST_FILL: Record<string, number> = {
   patron: 100,
 }
 
+interface LicenceImage { src: string; w: number; h: number; alt: string }
+
 interface Tier {
   key: string
   name: string
@@ -138,8 +144,10 @@ interface Tier {
   featured?: boolean
   perks: string[]
   note?: string
-  /** the vehicle this rung adds, photographed in the studio; `credit` is a CC BY condition, shown on the card */
-  vehicle?: { src: string; w: number; h: number; label: string; alt: string; credit?: { text: string; href: string } }
+  /** the building this licence gives: the hero image, what it is (`kind`) and where its style comes from (`note`) */
+  building?: LicenceImage & { kind: string; note: string }
+  /** every vehicle the licence includes, in order (the moto first, each rung adds to the right); `credit` is a CC BY condition, shown on the card */
+  vehicles?: Array<LicenceImage & { label: string; credit?: { text: string; href: string } }>
   cta: string
 }
 
@@ -231,6 +239,95 @@ function pad2(n: number): string {
   return String(n).padStart(2, "0")
 }
 
+// ── a licence picture ──────────────────────────────────────────────────────
+// A transparent cut-out that fills the box its parent gives it. If the file is missing or fails to load the box stays
+// (the layout never jumps) and the browser's broken-image icon and alt text never show.
+function Pic({ img, className }: { img: LicenceImage; className: string }) {
+  const [failed, setFailed] = useState(false)
+  const ref = useRef<HTMLImageElement>(null)
+  // an image that failed before hydration never fires onError in React: look at it once on mount
+  useEffect(() => {
+    const el = ref.current
+    if (el && el.complete && el.naturalWidth === 0) setFailed(true)
+  }, [])
+  if (failed) return null
+  return (
+    <img
+      ref={ref}
+      src={img.src}
+      alt={img.alt}
+      width={img.w}
+      height={img.h}
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailed(true)}
+      className={className}
+    />
+  )
+}
+
+// ── what the licence gives: the building, then every vehicle ──────────────────
+// The building is the hero (16:10, sitting on a tinted ground line); the vehicles are a row of equal tiles under it,
+// three slots wide on every card so Personal / Commercial / Patron fill one, two and three of them: the ladder again.
+// The row never wraps and never scrolls. Stacked on phones and in the desktop trio; beside the text between `sm` and `lg`.
+function Scene({ t, className }: { t: Tier; className: string }) {
+  const { building, vehicles = [] } = t
+  if (!building && vehicles.length === 0) return null
+  const credits = vehicles.filter((v) => v.credit)
+  return (
+    <div className={className}>
+      {building && (
+        <figure>
+          <div
+            className="relative aspect-[16/10] w-full"
+            style={{ background: `radial-gradient(70% 55% at 50% 80%, ${t.color}1A, transparent 70%)` }}
+          >
+            <Pic img={building} className="absolute inset-0 h-full w-full object-contain object-bottom" />
+          </div>
+          <span
+            aria-hidden
+            className="block h-px"
+            style={{ background: `linear-gradient(to right, transparent, ${t.color}66 18%, ${t.color}66 82%, transparent)` }}
+          />
+          <figcaption className="mt-2 font-mono text-[10px] leading-relaxed">
+            <span className="block tracking-[0.18em] text-mist">{building.kind}</span>
+            <span className="block mt-0.5 text-dusty">{building.note}</span>
+          </figcaption>
+        </figure>
+      )}
+
+      {vehicles.length > 0 && (
+        <ul aria-label="Vehicles included" className="mt-4 grid grid-cols-3 gap-2">
+          {vehicles.map((v) => (
+            <li key={v.src} className={`flex flex-col border ${HAIR} bg-white/[0.02]`}>
+              <div className="p-1.5">
+                <div className="relative aspect-[4/3] w-full">
+                  <Pic img={v} className="absolute inset-0 h-full w-full object-contain" />
+                </div>
+              </div>
+              <span className="px-1 pb-1.5 text-center font-mono text-[9px] leading-tight tracking-[0.14em] text-mist">
+                {v.label}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {credits.map((v) => (
+        <a
+          key={v.src}
+          href={v.credit!.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block mt-2 font-mono text-[9px] leading-relaxed text-dusty/80 hover:text-mist"
+        >
+          {v.credit!.text}
+        </a>
+      ))}
+    </div>
+  )
+}
+
 // ── one deed ───────────────────────────────────────────────────────────────
 function Deed({ t, index, count, sats }: { t: Tier; index: number; count: number; sats: number | null }) {
   const { ref, onPointerMove } = useSpotlight<HTMLDivElement>()
@@ -292,111 +389,90 @@ function Deed({ t, index, count, sats }: { t: Tier; index: number; count: number
           </span>
         )}
 
-        {/* contents sit above the lot: a positioned wrapper, no z-index war */}
-        <div className="relative flex flex-col flex-1">
-          <div className="flex items-baseline justify-between gap-3 font-mono text-[9px] tracking-[0.25em] text-dusty">
-            <span>THE LADDER</span>
-            <span className="tabular-nums shrink-0">{pad2(index + 1)} / {pad2(count)}</span>
-          </div>
-
-          {/* colour-as-data: `bg-current` inherits the tier hue from the
-              wrapper's inline `color`, so DrawRule stays the shared primitive */}
-          <span aria-hidden className="block" style={{ color: t.color }}>
-            <DrawRule className="mt-3 w-10" color="bg-current" delay={0.9 + slot} duration={0.7} />
-          </span>
-
-          <div className="font-display font-bold text-xl mt-3" style={{ color: t.color }}>{t.name}</div>
-          <div className="font-mono text-sm text-snow mt-1 tabular-nums">
-            {t.threshold}{t.usd && <span className="text-dusty text-[11px]"> · {t.usd}</span>}
-          </div>
-          {t.btcLine && (
-            <div className="mt-1.5">
-              <p className="font-mono text-[11px] text-dusty">{t.btcLine}</p>
-              <p className="font-mono text-[12px] text-mist tabular-nums mt-0.5 min-h-[1.25em]" aria-live="polite">
-                {sats && Number.isSafeInteger(sats) && sats > 0 ? `${sats.toLocaleString("en-US")} sats now` : "\u00a0"}
-              </p>
-              <div role="group" aria-label="Pay with" className="mt-2.5 inline-flex border border-white/15">
-                {(["dog", "btc"] as const).map((a) => (
-                  <button
-                    key={a}
-                    type="button"
-                    aria-pressed={pay === a}
-                    onClick={() => setPay(a)}
-                    className={`px-4 py-2.5 min-h-[44px] font-mono text-[11px] tracking-[0.1em] transition-colors ${
-                      pay === a ? "bg-white/[0.1] text-snow" : "text-dusty hover:text-snow"
-                    }`}
-                  >
-                    {a === "dog" ? "$DOG" : "BTC"}
-                  </button>
-                ))}
-              </div>
-              {t.btcNote && (
-                <p className="font-mono text-[11px] text-dusty leading-relaxed mt-2.5">{t.btcNote}</p>
-              )}
+        {/* contents sit above the lot: a positioned wrapper, no z-index war.
+            Stacked (phones, and the desktop trio): head, then building + vehicles, then the perks. Between `sm` and
+            `lg` each card is one wide column, so the head and the scene sit side by side and the perks run underneath */}
+        <div className="relative flex flex-col flex-1 sm:max-lg:grid sm:max-lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] sm:max-lg:content-start sm:max-lg:gap-x-6">
+          <div className="sm:max-lg:col-start-1 sm:max-lg:row-start-1">
+            <div className="flex items-baseline justify-between gap-3 font-mono text-[9px] tracking-[0.25em] text-dusty">
+              <span>THE LADDER</span>
+              <span className="tabular-nums shrink-0">{pad2(index + 1)} / {pad2(count)}</span>
             </div>
-          )}
 
-          {t.vehicle && (
-            <figure className="mt-4">
-              <div className="relative aspect-[16/10] w-full max-w-full">
-                <img
-                  src={t.vehicle.src}
-                  alt={t.vehicle.alt}
-                  width={t.vehicle.w}
-                  height={t.vehicle.h}
-                  loading="lazy"
-                  decoding="async"
-                  className="absolute inset-0 h-full w-full object-contain"
-                />
-              </div>
-              <figcaption className="mt-1 font-mono text-[9px] tracking-[0.2em] text-dusty">
-                {t.vehicle.label}
-                {t.vehicle.credit && (
-                  <a
-                    href={t.vehicle.credit.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block mt-1 tracking-normal text-[9px] text-dusty/80 hover:text-mist"
-                  >
-                    {t.vehicle.credit.text}
-                  </a>
+            {/* colour-as-data: `bg-current` inherits the tier hue from the
+                wrapper's inline `color`, so DrawRule stays the shared primitive */}
+            <span aria-hidden className="block" style={{ color: t.color }}>
+              <DrawRule className="mt-3 w-10" color="bg-current" delay={0.9 + slot} duration={0.7} />
+            </span>
+
+            <div className="font-display font-bold text-xl mt-3" style={{ color: t.color }}>{t.name}</div>
+            <div className="font-mono text-sm text-snow mt-1 tabular-nums">
+              {t.threshold}{t.usd && <span className="text-dusty text-[11px]"> · {t.usd}</span>}
+            </div>
+            {t.btcLine && (
+              <div className="mt-1.5">
+                <p className="font-mono text-[11px] text-dusty">{t.btcLine}</p>
+                <p className="font-mono text-[12px] text-mist tabular-nums mt-0.5 min-h-[1.25em]" aria-live="polite">
+                  {sats && Number.isSafeInteger(sats) && sats > 0 ? `${sats.toLocaleString("en-US")} sats now` : "\u00a0"}
+                </p>
+                <div role="group" aria-label="Pay with" className="mt-2.5 inline-flex border border-white/15">
+                  {(["dog", "btc"] as const).map((a) => (
+                    <button
+                      key={a}
+                      type="button"
+                      aria-pressed={pay === a}
+                      onClick={() => setPay(a)}
+                      className={`px-4 py-2.5 min-h-[44px] font-mono text-[11px] tracking-[0.1em] transition-colors ${
+                        pay === a ? "bg-white/[0.1] text-snow" : "text-dusty hover:text-snow"
+                      }`}
+                    >
+                      {a === "dog" ? "$DOG" : "BTC"}
+                    </button>
+                  ))}
+                </div>
+                {t.btcNote && (
+                  <p className="font-mono text-[11px] text-dusty leading-relaxed mt-2.5">{t.btcNote}</p>
                 )}
-              </figcaption>
-            </figure>
-          )}
+              </div>
+            )}
+          </div>
 
-          <ul className="mt-4 space-y-2 flex-1">
-            {t.perks.map((p) => (
-              <li key={p} className="text-[12.5px] text-mist leading-relaxed flex gap-2">
-                <span className="text-lava shrink-0">▸</span>{p}
-              </li>
-            ))}
-          </ul>
+          <Scene t={t} className="mt-5 sm:max-lg:mt-0 sm:max-lg:col-start-2 sm:max-lg:row-start-1" />
 
-          {t.note && (
-            <p className={`mt-4 pt-3 border-t ${HAIR} font-mono text-[11px] sm:text-[10px] text-dusty leading-relaxed`}>
-              {t.note}
-            </p>
-          )}
+          <div className="flex flex-col flex-1 sm:max-lg:col-span-2 sm:max-lg:row-start-2">
+            <ul className="mt-4 space-y-2 flex-1">
+              {t.perks.map((p) => (
+                <li key={p} className="text-[12.5px] text-mist leading-relaxed flex gap-2">
+                  <span className="text-lava shrink-0">▸</span>{p}
+                </li>
+              ))}
+            </ul>
 
-          <button
-            type="button"
-            onClick={() =>
-              openWallet(
-                t.btcLine
-                  ? { asset: pay, amount, tier: t.key as LicenceTier }
-                  : { asset: "dog", amount },
-              )
-            }
-            // min-h-[44px]: these measured 192x40, under the 44px touch floor
-            className={`mt-5 inline-flex justify-center items-center gap-2 px-4 py-2.5 min-h-[44px] font-mono text-[12px] font-bold transition-colors ${
-              t.featured
-                ? "text-void bg-lava hover:bg-lava-light"
-                : "text-snow border border-white/20 hover:border-white/[0.45]"
-            }`}
-          >
-            {t.cta}
-          </button>
+            {t.note && (
+              <p className={`mt-4 pt-3 border-t ${HAIR} font-mono text-[11px] sm:text-[10px] text-dusty leading-relaxed`}>
+                {t.note}
+              </p>
+            )}
+
+            <button
+              type="button"
+              onClick={() =>
+                openWallet(
+                  t.btcLine
+                    ? { asset: pay, amount, tier: t.key as LicenceTier }
+                    : { asset: "dog", amount },
+                )
+              }
+              // min-h-[44px]: these measured 192x40, under the 44px touch floor
+              className={`mt-5 inline-flex justify-center items-center gap-2 px-4 py-2.5 min-h-[44px] font-mono text-[12px] font-bold transition-colors ${
+                t.featured
+                  ? "text-void bg-lava hover:bg-lava-light"
+                  : "text-snow border border-white/20 hover:border-white/[0.45]"
+              }`}
+            >
+              {t.cta}
+            </button>
+          </div>
         </div>
       </div>
     </StaggerItem>
@@ -420,7 +496,7 @@ export default function Section({}) {
 
         <LicenceStrip n={licenceCount} />
 
-        <Stagger className="mt-6 grid md:grid-cols-3 gap-4" delay={0.62} step={0.075}>
+        <Stagger className="mt-6 grid lg:grid-cols-3 gap-4" delay={0.62} step={0.075}>
           {tiers.map((t, i) => (
             <Deed key={t.key} t={t} index={i} count={tiers.length} sats={licenceSats?.[t.key] ?? null} />
           ))}
