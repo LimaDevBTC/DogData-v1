@@ -21,6 +21,11 @@ import {
 } from '@/lib/wallet/donate'
 import { DONATION_METHODS, DONATION_WALLET } from '@/app/dogcity/dogcity-data'
 import { LICENCE_DOG, type LicenceTier } from '@/lib/dog/licence-btc'
+import {
+  licenceOffers, licencePresets, parseLicencePreview, walletLicence,
+  type LicenceOffer, type LicencePreview, type WalletLicence,
+} from '@/lib/dog/licence-presets'
+import { bip21Uri } from '@/lib/wallet/bip21'
 
 // ── contexto ───────────────────────────────────────────────────────────────
 
@@ -85,8 +90,6 @@ const LADDER = [
   { amount: 500_000, name: 'Patron', note: 'patron title' },
 ]
 
-const SATS_PRESETS = [10_000, 50_000, 200_000]
-
 const BTC_METHOD = DONATION_METHODS.find((m) => m.key === 'bitcoin')
 
 const n0 = (n: number) => Math.round(n).toLocaleString('en-US')
@@ -123,27 +126,11 @@ function ladderHint(dog: number): string {
 
 // ── como pagar sem a carteira conectada ────────────────────────────────────
 
-const BIP21_LABEL = encodeURIComponent('DogCity construction fund')
+// ⚠️ A URI do BIP-21 (`bitcoin:<endereco>?amount=<btc>`) mora em lib/wallet/bip21.ts, com teste:
+// o amount é em BTC decimal, NUNCA em satoshi, e o campo desta janela é em satoshi.
 
 /** Margem exigida pelo padrão. Sem os 4 módulos de silêncio, leitor nenhum lê. */
 const QUIET = 4
-
-/**
- * `bitcoin:<endereco>?amount=<btc>&label=…`, o pedido de pagamento do BIP-21.
- * ⚠️ O amount é em BTC com ponto decimal, NUNCA em satoshi, e o campo daqui é
- * em satoshi. Sem valor digitado o parâmetro sai fora inteiro: `amount=0` é um
- * pedido de pagar zero, não "pergunte quanto".
- * Rune não tem equivalente disto, então o DOG não ganha URI inventada.
- */
-function bip21Uri(address: string, sats: number): string {
-  const params: string[] = []
-  if (sats > 0) {
-    const btc = (Math.round(sats) / 1e8).toFixed(8).replace(/\.?0+$/, '')
-    params.push(`amount=${btc}`)
-  }
-  params.push(`label=${BIP21_LABEL}`)
-  return `bitcoin:${address}?${params.join('&')}`
-}
 
 /**
  * O QR desenhado aqui, da MESMA string que o link usa. O que existia antes era
@@ -221,6 +208,80 @@ function QrCode({ text, label }: { text: string; label: string }) {
   )
 }
 
+// ── atalhos de licença na aba BTC ──────────────────────────────────────────
+
+/**
+ * Os três degraus como atalhos de valor em BTC. Cada um mostra o valor em $DOG e os sats de agora
+ * (a prévia do servidor, a mesma conta da cotação). Escolher um pede a cotação TRAVADA daquele degrau,
+ * e o degrau escolhido passa a mostrar os sats travados. Degrau que a carteira já tem não se compra.
+ */
+function LicencePicker({
+  offers, tier, lockedSats, priceTried, onPick, onOther,
+}: {
+  offers: LicenceOffer[]
+  tier: LicenceTier | null
+  /** os sats da cotação travada do degrau escolhido, quando já veio e ainda vale */
+  lockedSats: number | null
+  /** a prévia já respondeu (com ou sem preço) */
+  priceTried: boolean
+  onPick: (t: LicenceTier) => void
+  /** só na janela aberta sem degrau: volta ao campo livre (apoio geral) */
+  onOther: (() => void) | null
+}) {
+  const chip = 'min-h-[44px] px-2.5 py-2 text-left transition-colors disabled:cursor-not-allowed'
+  return (
+    <div className="space-y-2">
+      <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-dusty">Pick a licence</p>
+      <div
+        role="group"
+        aria-label="Licence to pay in bitcoin"
+        className={`grid ${onOther ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'} gap-px bg-white/10 border border-white/10`}
+      >
+        {offers.map((o) => {
+          const selected = tier === o.tier
+          const held = o.state === 'held'
+          const sats = selected && lockedSats !== null ? lockedSats : o.sats
+          return (
+            <button
+              key={o.tier}
+              type="button"
+              aria-pressed={selected}
+              disabled={held}
+              onClick={() => { if (!selected) onPick(o.tier) }}
+              className={`${chip} ${selected ? 'bg-lava/[0.12]' : held ? 'bg-void opacity-50' : 'bg-void hover:bg-white/[0.04]'}`}
+            >
+              <span className={`block font-mono text-[10px] uppercase tracking-[0.18em] ${selected ? 'text-lava' : 'text-snow'}`}>
+                {TIER_NAME[o.tier]}
+              </span>
+              <span className="block font-mono text-[10px] text-dusty tabular-nums mt-0.5">{n0(o.dogAmount)} $DOG</span>
+              <span className="block font-mono text-[11px] text-mist tabular-nums mt-0.5 min-h-[1.25em]">
+                {held ? 'You hold it' : sats ? `${n0(sats)} sats` : priceTried ? 'No price now' : '\u00a0'}
+              </span>
+            </button>
+          )
+        })}
+        {onOther && (
+          <button
+            type="button"
+            aria-pressed={tier === null}
+            onClick={onOther}
+            className={`${chip} ${tier === null ? 'bg-lava/[0.12]' : 'bg-void hover:bg-white/[0.04]'}`}
+          >
+            <span className={`block font-mono text-[10px] uppercase tracking-[0.18em] ${tier === null ? 'text-lava' : 'text-snow'}`}>
+              Other
+            </span>
+            <span className="block font-mono text-[10px] text-dusty mt-0.5">your amount</span>
+            <span className="block font-mono text-[11px] text-mist mt-0.5 min-h-[1.25em]">general support</span>
+          </button>
+        )}
+      </div>
+      <p className="font-mono text-[10px] text-dusty leading-relaxed">
+        Sats at live prices. A licence you pick is locked for 15 minutes.
+      </p>
+    </div>
+  )
+}
+
 // ── provedor ───────────────────────────────────────────────────────────────
 
 export function DonateProvider({ children }: { children: ReactNode }) {
@@ -228,11 +289,15 @@ export function DonateProvider({ children }: { children: ReactNode }) {
   const [asset, setAsset] = useState<Asset>('dog')
   const [preset, setPreset] = useState<number | null>(null)
   const [tier, setTier] = useState<LicenceTier | null>(null)
+  // true quando a janela abriu de um cartão de licença. Abrindo do "Support the build" (sem degrau)
+  // a pessoa ainda pode escolher uma licença na aba BTC, e essa escolha vai para `tier`.
+  const [fromLicence, setFromLicence] = useState(false)
 
   const open = useCallback((opts?: { asset?: Asset; amount?: number; tier?: LicenceTier }) => {
     setAsset(opts?.asset ?? 'dog')
     setPreset(opts?.amount ?? null)
     setTier(opts?.tier ?? null)
+    setFromLicence(opts?.tier != null)
     setOpen(true)
   }, [])
   const close = useCallback(() => setOpen(false), [])
@@ -242,7 +307,7 @@ export function DonateProvider({ children }: { children: ReactNode }) {
   return (
     <DonateContext.Provider value={value}>
       {children}
-      <DonateModal isOpen={isOpen} onClose={close} asset={asset} setAsset={setAsset} preset={preset} tier={tier} />
+      <DonateModal isOpen={isOpen} onClose={close} asset={asset} setAsset={setAsset} preset={preset} tier={tier} setTier={setTier} fromLicence={fromLicence} />
     </DonateContext.Provider>
   )
 }
@@ -250,7 +315,7 @@ export function DonateProvider({ children }: { children: ReactNode }) {
 // ── janela ─────────────────────────────────────────────────────────────────
 
 function DonateModal({
-  isOpen, onClose, asset, setAsset, preset, tier,
+  isOpen, onClose, asset, setAsset, preset, tier, setTier, fromLicence,
 }: {
   isOpen: boolean
   onClose: () => void
@@ -258,6 +323,8 @@ function DonateModal({
   setAsset: (a: Asset) => void
   preset: number | null
   tier: LicenceTier | null
+  setTier: (t: LicenceTier | null) => void
+  fromLicence: boolean
 }) {
   const { account, openModal } = useWallet()
   const walletId = account?.walletId ?? null
@@ -276,12 +343,22 @@ function DonateModal({
   // por 15 minutos (a mediana de corretoras). A cotação liga o endereço de pagamento ao endereço
   // ordinals desta carteira, e é assim que o BTC se soma ao DOG dela no degrau da licença.
   const licenceBtc = asset === 'btc' && tier !== null
-  const [quote, setQuote] = useState<LicenceQuote | null>(null)
+  const [quoteRaw, setQuoteRaw] = useState<LicenceQuote | null>(null)
   const [quoteError, setQuoteError] = useState<string | null>(null)
   const [quoteLoading, setQuoteLoading] = useState(false)
   const [quoteNonce, setQuoteNonce] = useState(0)
   const [clockOffset, setClockOffset] = useState(0)
   const [nowMs, setNowMs] = useState(() => Date.now())
+  // Os atalhos da aba BTC: os três degraus com os sats de agora (prévia, só leitura) e o que a
+  // carteira conectada já tem na escada. A prévia é INDICATIVA; o valor que se paga é o da cotação
+  // travada, pedida quando o degrau é escolhido.
+  const [preview, setPreview] = useState<LicencePreview | null>(null)
+  const [previewTried, setPreviewTried] = useState(false)
+  const [held, setHeld] = useState<WalletLicence | null>(null)
+
+  // Só vale a cotação do degrau que está na tela: na janela entre o clique em outro degrau e o
+  // efeito que apaga a cotação antiga, o botão de enviar não pode mandar o valor do degrau anterior.
+  const quote = quoteRaw && tier && quoteRaw.tier === tier ? quoteRaw : null
 
   const address = asset === 'dog' ? DONATION_WALLET : BTC_METHOD?.address ?? DONATION_WALLET
 
@@ -302,38 +379,72 @@ function DonateModal({
   const ordAddr = account?.ordinalsAddress ?? null
   const payAddr = account?.paymentAddress ?? null
   useEffect(() => {
-    setQuote(null)
+    setQuoteRaw(null)
     setQuoteError(null)
-    if (!isOpen || !licenceBtc || !tier || !ordAddr || !payAddr) return
+    if (!isOpen || !licenceBtc || !tier || !ordAddr || !payAddr) { setQuoteLoading(false); return }
     let alive = true
     setQuoteLoading(true)
-    fetch('/api/dogcity/licence-quote', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tier, ordinalsAddress: ordAddr, paymentAddress: payAddr }),
-    })
-      .then(async (r) => {
-        const j = await r.json().catch(() => null)
-        if (!r.ok) {
-          throw new Error(
-            r.status === 503 ? 'No reliable price right now. Try again in a minute.'
-              : r.status === 429 ? 'Too many quotes for this wallet. Try again later.'
-                : (j?.error as string) || 'Could not get a price.',
-          )
-        }
-        return j as LicenceQuote
+    // 300 ms de respiro: quem passa pelos três degraus com cliques seguidos pede UMA cotação (a do
+    // degrau onde parou), não três. Cada pedido grava uma linha e o limite é de 20 por hora.
+    const timer = setTimeout(() => {
+      fetch('/api/dogcity/licence-quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tier, ordinalsAddress: ordAddr, paymentAddress: payAddr }),
       })
-      .then((q) => {
-        if (!alive) return
-        if (!quoteIsUsable(q) || q.tier !== tier) throw new Error('The price came back malformed. Try again.')
-        setClockOffset(Date.parse(q.serverTime) - Date.now())
-        setNowMs(Date.now())
-        setQuote(q)
-      })
-      .catch((e) => { if (alive) setQuoteError(e?.message || 'Could not get a price.') })
-      .finally(() => { if (alive) setQuoteLoading(false) })
-    return () => { alive = false }
+        .then(async (r) => {
+          const j = await r.json().catch(() => null)
+          if (!r.ok) {
+            throw new Error(
+              r.status === 503 ? 'No reliable price right now. Try again in a minute.'
+                : r.status === 429 ? 'Too many quotes for this wallet. Try again later.'
+                  : (j?.error as string) || 'Could not get a price.',
+            )
+          }
+          return j as LicenceQuote
+        })
+        .then((q) => {
+          if (!alive) return
+          if (!quoteIsUsable(q) || q.tier !== tier) throw new Error('The price came back malformed. Try again.')
+          setClockOffset(Date.parse(q.serverTime) - Date.now())
+          setNowMs(Date.now())
+          setQuoteRaw(q)
+        })
+        .catch((e) => { if (alive) setQuoteError(e?.message || 'Could not get a price.') })
+        .finally(() => { if (alive) setQuoteLoading(false) })
+    }, 300)
+    return () => { alive = false; clearTimeout(timer) }
   }, [isOpen, licenceBtc, tier, ordAddr, payAddr, quoteNonce])
+
+  // Prévia dos sats por degrau (GET, não grava nada, cache de 30 s na CDN) enquanto a aba BTC está
+  // aberta. Sem preço confiável (503) ou com a conta divergente, fica sem número: nunca um chute.
+  useEffect(() => {
+    setPreview(null)
+    setPreviewTried(false)
+    if (!isOpen || asset !== 'btc') return
+    let alive = true
+    const load = () =>
+      fetch('/api/dogcity/licence-quote')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => { if (alive) { setPreview(parseLicencePreview(j)); setPreviewTried(true) } })
+        .catch(() => { if (alive) { setPreview(null); setPreviewTried(true) } })
+    load()
+    const id = setInterval(load, 60_000)
+    return () => { alive = false; clearInterval(id) }
+  }, [isOpen, asset])
+
+  // O que esta carteira já tem na escada (DOG no fundo + BTC creditado), do mesmo placar que o site
+  // inteiro lê. Serve para não oferecer de novo o degrau que ela já tem. Sem resposta: nada é afirmado.
+  useEffect(() => {
+    setHeld(null)
+    if (!isOpen || asset !== 'btc' || !ordAddr) return
+    let alive = true
+    fetch('/api/donate/leaderboard')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (alive) setHeld(walletLicence(j, ordAddr)) })
+      .catch(() => { if (alive) setHeld(null) })
+    return () => { alive = false }
+  }, [isOpen, asset, ordAddr])
 
   // O relógio do prazo corre pelo horário do SERVIDOR (deslocamento medido na resposta).
   useEffect(() => {
@@ -394,8 +505,14 @@ function DonateModal({
     return () => document.removeEventListener('keydown', onKey)
   }, [isOpen, onClose])
 
+  // Os três degraus com os sats de agora e o que a carteira já tem. `held` = a carteira já está neste
+  // degrau ou acima (a mesma comparação do servidor): não se compra duas licenças.
+  const offers = useMemo(() => licenceOffers(licencePresets(preview), held), [preview, held])
+  const tierOffer = tier ? offers.find((o) => o.tier === tier) ?? null : null
+  const tierHeld = licenceBtc && tierOffer?.state === 'held'
+
   const value = licenceBtc
-    ? (quoteLive && quote ? quote.sats : 0)
+    ? (quoteLive && quote && !tierHeld ? quote.sats : 0)
     : Number(amount.replace(/[^\d.]/g, '')) || 0
   const unlocked = asset === 'dog' ? licenseFor(value) : null
   const overBalance = asset === 'dog' && balance ? value > balance.spendable : false
@@ -424,6 +541,7 @@ function DonateModal({
         // O valor é o da cotação do servidor, o destino é a constante daqui (e tem de bater com a
         // que o servidor cotou), e a trava tem de estar viva no instante do clique.
         if (!enderecoOk) throw new Error('Address check failed. Do not send from this screen.')
+        if (tierHeld) throw new Error('This wallet already holds this licence. Pick a higher one.')
         if (!quote || !quoteIsUsable(quote) || quote.payTo !== address) throw new Error('This price does not match the fund address. Get a new quote.')
         if (Date.parse(quote.expiresAt) - (Date.now() + clockOffset) <= 0) throw new Error('The price expired. Get a new quote.')
       }
@@ -439,7 +557,7 @@ function DonateModal({
     } finally {
       setSending(false)
     }
-  }, [asset, walletId, address, value, balance, licenceBtc, quote, clockOffset, enderecoOk])
+  }, [asset, walletId, address, value, balance, licenceBtc, quote, clockOffset, enderecoOk, tierHeld])
 
   if (!isOpen || typeof document === 'undefined') return null
 
@@ -581,12 +699,17 @@ function DonateModal({
               {(['dog', 'btc'] as Asset[]).map((a) => (
                 <button
                   key={a}
-                  onClick={() => setAsset(a)}
+                  onClick={() => {
+                    setAsset(a)
+                    // Aberta do "Support the build", a aba DOG volta a ser o campo livre de sempre: a
+                    // licença escolhida na aba BTC não vira o degrau pré-preenchido do DOG.
+                    if (a === 'dog' && !fromLicence) setTier(null)
+                  }}
                   className={`flex-1 px-3 py-2.5 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors ${
                     asset === a ? 'bg-lava/[0.12] text-lava' : 'bg-void text-dusty hover:text-snow'
                   }`}
                 >
-                  {tier ? (a === 'dog' ? '$DOG' : 'BTC') : (a === 'dog' ? 'DOG' : 'Bitcoin')}
+                  {fromLicence ? (a === 'dog' ? '$DOG' : 'BTC') : (a === 'dog' ? 'DOG' : 'Bitcoin')}
                 </button>
               ))}
             </div>
@@ -597,8 +720,19 @@ function DonateModal({
                   : `The same value as ${n0(LICENCE_DOG[tier])} $DOG, at the median of live exchange prices, locked for 15 minutes. BTC counts toward your licence, not toward the 10,000,000 $DOG that opens the mint.`
                 : asset === 'dog'
                   ? 'DOG on Bitcoin L1. This is what counts toward your licence.'
-                  : 'Native SegWit. General support, it does not count toward a licence. To pay a licence in BTC, pick BTC on a licence card.'}
+                  : 'Native SegWit. Pick a licence below to pay its price in bitcoin, locked for 15 minutes. Any other amount is general support and does not count toward a licence.'}
             </p>
+
+            {asset === 'btc' && (
+              <LicencePicker
+                offers={offers}
+                tier={tier}
+                lockedSats={quote && quoteLive ? quote.sats : null}
+                priceTried={previewTried}
+                onPick={setTier}
+                onOther={fromLicence ? null : () => setTier(null)}
+              />
+            )}
 
             {licenceBtc ? (
               // ── licença em BTC: o preço vem do servidor, não se digita ──
@@ -607,7 +741,21 @@ function DonateModal({
                   Paid in BTC: building licence and item pack only. Founder benefits need $DOG in
                   the fund.
                 </p>
-                {!account ? (
+                {tier && tierOffer && held && held.totalDog > 0 && (
+                  tierHeld ? (
+                    <p className="font-mono text-[11px] text-[#F59E0B] leading-relaxed">
+                      This wallet already counts {n0(held.totalDog)} $DOG, enough for the {TIER_NAME[tier]} licence.
+                      Nobody buys two licences{tier === 'patron' ? '.' : ': pick a higher one to move up.'}
+                    </p>
+                  ) : (
+                    <p className="font-mono text-[10px] text-dusty leading-relaxed">
+                      This wallet already counts {n0(held.totalDog)} $DOG toward its licence. Paid in
+                      bitcoin, the quote is the full {n0(LICENCE_DOG[tier])} $DOG and all of it adds to your
+                      total. To pay only the {n0(tierOffer.missingDog)} $DOG difference, use $DOG.
+                    </p>
+                  )
+                )}
+                {tierHeld ? null : !account ? (
                   <p className="font-mono text-[10px] text-dusty leading-relaxed">
                     Connect a wallet to get a price. The quote ties your payment address to your
                     ordinals address, so the BTC adds to the $DOG of the same wallet.
@@ -701,37 +849,27 @@ function DonateModal({
                 </span>
               </div>
 
-              {/* atalhos da escada, com o nome do degrau: quem quer exatamente a
-                  licença clica, quem quer outro número digita. */}
-              <div className="flex flex-wrap gap-2">
-                {asset === 'dog'
-                  ? LADDER.map((l) => (
-                      <button
-                        key={l.amount}
-                        onClick={() => setAmount(String(l.amount))}
-                        className={`px-2.5 py-1.5 border font-mono text-[10px] tracking-[0.1em] transition-colors ${
-                          value === l.amount
-                            ? 'border-lava/60 bg-lava/[0.1] text-lava'
-                            : 'border-white/10 text-dusty hover:text-snow hover:border-white/25'
-                        }`}
-                      >
-                        {n0(l.amount)} <span className="uppercase tracking-[0.16em]">· {l.name}</span>
-                      </button>
-                    ))
-                  : SATS_PRESETS.map((p) => (
-                      <button
-                        key={p}
-                        onClick={() => setAmount(String(p))}
-                        className={`px-2.5 py-1.5 border font-mono text-[10px] uppercase tracking-[0.14em] transition-colors ${
-                          value === p
-                            ? 'border-lava/60 bg-lava/[0.1] text-lava'
-                            : 'border-white/10 text-dusty hover:text-snow hover:border-white/25'
-                        }`}
-                      >
-                        {n0(p)} sats
-                      </button>
-                    ))}
-              </div>
+              {/* atalhos da escada em DOG, com o nome do degrau: quem quer exatamente a
+                  licença clica, quem quer outro número digita. Em BTC os atalhos são os
+                  três degraus lá em cima (LicencePicker), com a cotação travada; aqui embaixo
+                  fica só o campo livre, que é apoio geral e não conta para licença. */}
+              {asset === 'dog' && (
+                <div className="flex flex-wrap gap-2">
+                  {LADDER.map((l) => (
+                    <button
+                      key={l.amount}
+                      onClick={() => setAmount(String(l.amount))}
+                      className={`px-2.5 py-1.5 border font-mono text-[10px] tracking-[0.1em] transition-colors ${
+                        value === l.amount
+                          ? 'border-lava/60 bg-lava/[0.1] text-lava'
+                          : 'border-white/10 text-dusty hover:text-snow hover:border-white/25'
+                      }`}
+                    >
+                      {n0(l.amount)} <span className="uppercase tracking-[0.16em]">· {l.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {asset === 'dog' && (
                 <p className="font-mono text-[10px] text-dusty leading-relaxed">{ladderHint(value)}</p>
@@ -752,7 +890,7 @@ function DonateModal({
               <div className="space-y-2">
                 <button
                   onClick={licenceBtc && quote && !quoteLive ? () => setQuoteNonce((n) => n + 1) : send}
-                  disabled={sending || (licenceBtc ? (quoteLoading || !quote) : (value <= 0 || overBalance))}
+                  disabled={sending || (licenceBtc ? (quoteLoading || !quote || tierHeld) : (value <= 0 || overBalance))}
                   className="w-full flex items-center justify-center gap-2 bg-lava px-4 py-4 font-mono text-[12px] font-bold uppercase tracking-[0.2em] text-void hover:bg-lava-light transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {sending && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -783,7 +921,7 @@ function DonateModal({
             {/* ⚠️ PORTÃO DE SEGURANÇA. Se a segunda declaração do endereço discordar da
                 constante, NADA de endereço, QR ou link vai para a tela. Melhor a pessoa não
                 conseguir pagar do que pagar no endereço errado. */}
-            {(licenceBtc && !quoteLive) ? null : !enderecoOk ? (
+            {(licenceBtc && (!quoteLive || tierHeld)) ? null : !enderecoOk ? (
               <div className="border border-lava/60 bg-lava/[0.08] px-3 py-3">
                 <p className="font-mono text-[11px] text-lava">
                   Address check failed. This screen will not show a payment address.
