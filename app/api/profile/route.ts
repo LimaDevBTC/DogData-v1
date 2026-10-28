@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { validateHandle } from '@/lib/identity/handle'
 import { comPrazo, falhaPrivada } from '@/lib/api/prazo'
 import { escrituras, buscarEscritura } from '@/lib/city/escrituras'
+import { licencaDaCarteira } from '@/lib/dog/licence-wallet'
 import {
   CORTE_CEMITERIO_DOG, CORTE_CEMITERIO_PUBLICADO, SNAPSHOT_PROOF,
   BAIRRO_DO_SETOR, TIPOLOGIA_DA_FORMA, CEMITERIO_NOME, linkDaCidade,
@@ -57,6 +58,13 @@ const PRAZO_MS = 5000
 // teto so da posicao, mesmo da rota de lookup: o indice carrega em paralelo e,
 // se nao chegar ate aqui, a resposta sai sem posicao
 const POSICAO_MS = 1500
+// 🔒 A LICENCA (28/10/2026, decisao do fundador: casa padrao no lote de quem
+// pagou a licenca). `licence` e `{ tier }` (null abaixo de Personal) ou `null`
+// quando o banco nao respondeu a tempo. A conta e a do placar do fundo para UMA
+// carteira (lib/dog/licence-wallet.ts), a mesma de /api/dogcity/lookup: a
+// landing e o /profile nunca dizem coisas diferentes do mesmo endereco. Teto
+// proprio, menor que PRAZO_MS: estourou, a pagina abre sem o status da casa.
+const LICENCA_MS = 2500
 
 type CidadePerfil = {
   block: number
@@ -140,7 +148,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       address: null, verified: false, handle: null, claimed_at: null,
       avatar_inscription_id: null, avatar_number: null,
-      city: null, chat_count: 0, wallet_id: null,
+      city: null, licence: null, chat_count: 0, wallet_id: null,
     })
   }
 
@@ -153,7 +161,7 @@ export async function GET(req: NextRequest) {
   const indicePromise = escrituras(origin)
 
   return comPrazo(async (signal) => {
-    const [profileRes, city, chatRes] = await Promise.all([
+    const [profileRes, city, chatRes, licence] = await Promise.all([
       supabase
         .from('dogcity_profiles')
         .select('handle, created_at, avatar_inscription_id, avatar_content_type, avatar_number')
@@ -162,6 +170,8 @@ export async function GET(req: NextRequest) {
         .maybeSingle(),
       cidadeDe(enderecoCidade, indicePromise, signal),
       supabase.from('dogcity_chat').select('id', { count: 'exact', head: true }).eq('address', address).abortSignal(signal),
+      // o endereco como o registro e a tabela de BTC gravam (bech32 minusculo, base58 intacto)
+      licencaDaCarteira(supabase, enderecoCidade, { ms: LICENCA_MS, signal }),
     ])
 
     if (profileRes.error) {
@@ -180,6 +190,7 @@ export async function GET(req: NextRequest) {
       avatar_inscription_id: profileRes.data?.avatar_inscription_id ?? null,
       avatar_number: profileRes.data?.avatar_number ?? null,
       city,
+      licence,
       chat_count: chatRes.count ?? 0,
       wallet_id: sessionAddress === address ? session?.walletId ?? null : null,
     })

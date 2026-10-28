@@ -489,6 +489,27 @@ export const BAIRRO_DO_SETOR: Readonly<Record<number, string>> = {
   9: "Bay Shore",
 }
 
+// 🔒 28/10/2026 (fundador): O DISTRITO DA ARQUITETURA, POR SETOR, PARA A CASA DA LICENÇA.
+// Os nove setores com o nome do distrito das docs §8 ("Eight districts, one architecture each").
+// O mapa setor -> distrito é o mesmo do jogo (dogcity-mundo scripts/casas/lote_casa.py, DISTRITO;
+// FASES_DA_CIDADE.md de 21/10). Os setores 7 a 9 vêm de BAIRRO_DO_SETOR para o nome nunca divergir.
+// ⚠️ SÓ A CASA DA LICENÇA USA ISTO (casa-da-licenca.ts). A linha SECTOR da escritura (lookup,
+// /profile, /api/dogcity/lot) segue em BAIRRO_DO_SETOR até o fundador decidir publicar os nomes
+// do tecido também ali.
+export const DISTRITO_DO_SETOR: Readonly<Record<number, string>> = {
+  1: "Harbor Canals",
+  2: "Liberty Row",
+  3: "Brownstone Heights",
+  4: "Arroyo",
+  5: "Timberline",
+  6: "Atomic Heights",
+  ...BAIRRO_DO_SETOR,
+}
+
+// o Financial District não tem catálogo de casas: é das empresas (docs §5 e §8, "separate from the
+// licences"). Lote de licença ali não ganha "from the Financial District catalogue".
+export const SETORES_SEM_CATALOGO: ReadonlySet<number> = new Set([8])
+
 // ⚠️ A TIPOLOGIA É SAÍDA DE `forma_de(utxo_count)` (a mesma conta de scripts/city/merkle.py, que recusa o registro se divergir)
 // (masterplan §9, regra 3), e o índice aqui é o código gravado no registro:
 //   0 massa única (casa no centro, fazenda na borda)   1 pátio, geminada
