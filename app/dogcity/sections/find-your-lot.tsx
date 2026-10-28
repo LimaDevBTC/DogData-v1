@@ -24,6 +24,7 @@ import { DataRow, Frame, Plate, SectionHead, TextLink, areaDeed, dogExact, useRe
 import { EXAMPLE_DEED, MAP, T8, deedForTier, metersToMap, type Deed } from "../landing/media"
 import { CITY_URL, MINT_URL, type CountdownState } from "../landing/mint-state"
 import { SNAPSHOT_PROOF, PISO_LOTE_M2, alvoDaCurva } from "../dogcity-data"
+import { rotuloDoDistritoDaBusca } from "../casa-da-licenca"
 
 // ── o contrato das rotas ─────────────────────────────────────────────────────
 interface TierOut { code: string; rung: number | null; name: string }
@@ -278,9 +279,10 @@ function streetRows(l: LotFields) {
   )
 }
 
+// o distrito com o nome nos nove setores, como a escritura imprime ("S05 · TIMBERLINE"); o `deed_district`
+// do dado do lote só traz o nome nos setores 7 a 9 ("S05" sozinho nos outros), então o nome vem do mapa dos nove
 function districtText(l: LotFields): string {
-  if (l.deed_district) return l.deed_district
-  return l.district ? `S${String(l.sector).padStart(2, "0")} · ${l.district.toUpperCase()}` : `S${String(l.sector).padStart(2, "0")}`
+  return rotuloDoDistritoDaBusca(l.sector, l.deed_district)
 }
 
 function PlateHead({ label, tag }: { label: string; tag?: string }) {

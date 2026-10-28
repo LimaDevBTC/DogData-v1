@@ -118,6 +118,20 @@ export function rotuloDoSetor(setor: number, distrito?: string | null): string {
   return nome ? `${setor} · ${nome}` : String(setor)
 }
 
+// ── A LINHA DISTRICT DA BUSCA DA LANDING (28/10/2026) ───────────────────────
+// A busca da landing (find-your-lot.tsx) imprime o distrito como a escritura:
+// "S09 · BAY SHORE". O dado do lote (`deed_district`) só traz o nome nos setores
+// 7 a 9 ("S07 · THE SPIT"); nos setores 1 a 6 vinha "S05", sem nome. Agora os nove
+// levam o nome, do MESMO mapa (DISTRITO_DO_SETOR) que a linha SECTOR usa, então os
+// dois nunca divergem. Os setores 7 a 9 saem idênticos ao que a escritura já dizia.
+// Setor fora de 1 a 9: o texto da escritura, ou só "Sxx".
+export function rotuloDoDistritoDaBusca(setor: number, distritoDaEscritura?: string | null): string {
+  const codigo = `S${String(setor).padStart(2, "0")}`
+  const nome = DISTRITO_DO_SETOR[setor]
+  if (nome) return `${codigo} · ${nome.toUpperCase()}`
+  return distritoDaEscritura || codigo
+}
+
 // ── CARTEIRA DE CUSTÓDIA: NUNCA LEVA LICENÇA NEM CASA (28/10/2026) ──────────
 // A carteira de custódia da Kraken (bc1plzs2l…dhspn, lote S08-Q00-B0002-L004) foi
 // creditada com uma licença Commercial (87.777 $DOG em 2 transações de 14/09)

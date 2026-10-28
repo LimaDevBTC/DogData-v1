@@ -452,6 +452,12 @@ function Documento({ r }: { r: Resultado }) {
   // licença sai (quem já pagou não precisa ouvir "get the licence"). Sem
   // posição agora, a carteira AINDA tem lote: "sem_posicao", nunca "sem_lote".
   const casa = casaDaLicenca(r.licence?.tier, r.lot ? { lot_id: r.lot.lot_id, sector: r.lot.sector } : "sem_posicao")
+  // lote no setor 8 (Financial District, só empresas): a carteira é de custódia,
+  // mesmo sem rótulo de identidade. Não ouve "GET THE LICENCE" nem a nota de
+  // quem sacou de corretora (fundador, 28/10/2026). O mesmo ehCarteiraDeCustodia
+  // que a rota usa para cortar a licença.
+  const empresa = ehCarteiraDeCustodia({ setor: r.lot?.sector ?? null })
+  const ofertaDaLicenca = !casa && !empresa
   return (
     <div className={`border ${HAIR} bg-[#08080A] px-5 py-6 md:px-7 md:py-7`}>
       {/* o rótulo do anel saiu daqui e foi para o selo, no fim do documento */}
@@ -494,14 +500,14 @@ function Documento({ r }: { r: Resultado }) {
       </p>
       {/* os dois botões na mesma linha, cheio e contorno; no celular quebram
           em duas linhas com o mesmo vão, nunca um sobre o outro colado */}
-      {(!casa || r.lot) && (
+      {(ofertaDaLicenca || r.lot) && (
         <div className="mt-4 flex flex-wrap gap-3">
-          {!casa && <BotaoLicenca />}
+          {ofertaDaLicenca && <BotaoLicenca />}
           {r.lot && <BotaoMapa href={r.lot.map} />}
         </div>
       )}
       {/* carteira de empresa (setor 8) não ouve a nota de quem sacou de corretora */}
-      {!casa && !ehCarteiraDeCustodia({ setor: r.lot?.sector ?? null }) && <NotaCorretora />}
+      {ofertaDaLicenca && <NotaCorretora />}
     </div>
   )
 }

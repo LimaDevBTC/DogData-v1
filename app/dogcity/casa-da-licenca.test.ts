@@ -14,7 +14,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
   casaDaLicenca, oQueConstroi, tipoPelaFrente, veiculosDe, nomeDaLicenca,
-  ehCarteiraDeCustodia, licencaVisivel, rotuloDoSetor, notaCorretoraTexto,
+  ehCarteiraDeCustodia, licencaVisivel, rotuloDoSetor, rotuloDoDistritoDaBusca, notaCorretoraTexto,
   AVISO_SEM_LOTE, SUPORTE, SUPORTE_LEAD, CTA_LICENCA, TEXTO_LICENCA_ABERTA, NOTA_CORRETORA,
   type CasaDaLicenca,
 } from './casa-da-licenca'
@@ -262,6 +262,38 @@ test('resposta antiga em cache (district null) ou com nome da rota: a linha é a
   assert.equal(rotuloDoSetor(12, null), '12')
 })
 
+test('a linha DISTRICT da busca da landing: "Sxx · NOME" nos nove setores, os setores 7 a 9 como a escritura já dizia', () => {
+  assert.deepEqual(
+    [1, 2, 3, 4, 5, 6, 7, 8, 9].map((s) => rotuloDoDistritoDaBusca(s)),
+    [
+      'S01 · HARBOR CANALS', 'S02 · LIBERTY ROW', 'S03 · BROWNSTONE HEIGHTS', 'S04 · ARROYO', 'S05 · TIMBERLINE',
+      'S06 · ATOMIC HEIGHTS', 'S07 · THE SPIT', 'S08 · FINANCIAL DISTRICT', 'S09 · BAY SHORE',
+    ],
+  )
+  // o `deed_district` do dado do lote: "S01" a "S06" sem nome, "S07 · THE SPIT" a "S09 · BAY SHORE" com nome
+  for (let s = 1; s <= 9; s++) {
+    const daEscritura = s >= 7 ? rotuloDoDistritoDaBusca(s) : `S0${s}`
+    assert.equal(rotuloDoDistritoDaBusca(s, daEscritura), rotuloDoDistritoDaBusca(s))
+    if (s >= 7) assert.equal(rotuloDoDistritoDaBusca(s), daEscritura)
+  }
+  // setor fora de 1 a 9: o texto da escritura, ou só o código, sem inventar nome
+  assert.equal(rotuloDoDistritoDaBusca(12, 'S12'), 'S12')
+  assert.equal(rotuloDoDistritoDaBusca(12), 'S12')
+})
+
+test('a busca da landing usa a linha DISTRICT com nome, e o dado do lote bate com o mapa dos nove setores', () => {
+  const busca = lerRepo('app/dogcity/sections/find-your-lot.tsx')
+  assert.match(busca, /rotuloDoDistritoDaBusca\(l\.sector, l\.deed_district\)/)
+  assert.doesNotMatch(busca, /if \(l\.deed_district\) return l\.deed_district/)
+  // data/dogcity_lot_info.json: nos setores 7 a 9 o texto da escritura é igual ao desta linha
+  const info = JSON.parse(lerRepo('data/dogcity_lot_info.json')) as { lote: Record<string, [string, string]> }
+  for (const [id, linha] of Object.entries(info.lote)) {
+    const setor = Number(id.slice(1, 3))
+    if (setor >= 7) assert.equal(linha[1], rotuloDoDistritoDaBusca(setor), id)
+    else assert.equal(linha[1], `S0${setor}`, id)
+  }
+})
+
 test('as três rotas devolvem o nome do distrito nos nove setores (DISTRITO_DO_SETOR), não o mapa dos setores 7 a 9', () => {
   for (const rota of ['app/api/dogcity/lookup/route.ts', 'app/api/profile/route.ts', 'app/api/dogcity/lot/route.ts']) {
     const src = lerRepo(rota)
@@ -289,6 +321,12 @@ test('lookup e /profile: sem "LOCK YOUR FOUNDER NUMBER" nem "before the goal", c
   // o mesmo botão nos dois cartões sem licença (lote sem licença e chegou depois)
   assert.equal((lookup.match(/<BotaoLicenca \/>/g) ?? []).length, 2)
   assert.doesNotMatch(lookup, /href="\/dogcity\/founders"/)
+  // lote no setor 8 (só empresas), mesmo sem rótulo de identidade: nem o CTA da licença nem a nota da corretora
+  assert.match(lookup, /const empresa = ehCarteiraDeCustodia\(\{ setor: r\.lot\?\.sector \?\? null \}\)/)
+  assert.match(lookup, /const ofertaDaLicenca = !casa && !empresa/)
+  assert.match(lookup, /\{ofertaDaLicenca && <BotaoLicenca \/>\}/)
+  assert.match(lookup, /\{ofertaDaLicenca && <NotaCorretora \/>\}/)
+  assert.doesNotMatch(lookup, /\{!casa && <BotaoLicenca \/>\}/)
   const perfil = lerRepo('app/profile/page.tsx')
   assert.doesNotMatch(perfil, /Any amount before the goal makes/)
   assert.doesNotMatch(perfil, /Fund the city/)
