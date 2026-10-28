@@ -9,13 +9,13 @@
 // preço: a prévia que não bate com a conta é descartada (falha fechada) e o degrau fica sem
 // número, nunca com um número errado.
 //
-// O VALOR EM SATS DE UM DEGRAU É SEMPRE O PREÇO CHEIO. O degrau pago em BTC credita quando
-// `sats >= q.sats` da cotação (matchQuote em licence-btc.ts); pagar só a diferença de uma
-// subida cairia em `pending_review / underpaid_for_quote`. Por isso este módulo calcula a
-// diferença em $DOG (`missingDog`) só como informação, e NÃO a converte em sats a pagar.
+// SUBIR PAGA SÓ A DIFERENÇA (fundador, 25/10; no BTC desde 28/10): para a carteira que já conta
+// DOG, o preço de um degrau é `degrau - o que ela já conta` (`dogStillNeeded` de licence-btc.ts),
+// em sats pela MESMA função da cotação (`licenceSats`), que é a que o servidor trava e a que o
+// código de crédito cobra. O degrau que a carteira já tem não se oferece (`held`).
 // ═══════════════════════════════════════════════════════════════════════════
 import {
-  LICENCE_DOG, LICENCE_TIERS, combineWallet, licenceFor, satsForDog,
+  LICENCE_DOG, LICENCE_TIERS, dogStillNeeded, licenceFor, licenceSats, satsForDog, toAtomos,
   type LicenceKey, type LicenceTier,
 } from './licence-btc'
 
@@ -59,53 +59,50 @@ export function licencePresets(preview: LicencePreview | null): LicencePreset[] 
   return LICENCE_TIERS.map((tier) => ({
     tier,
     dogAmount: LICENCE_DOG[tier],
-    sats: preview ? preview.tiers[tier] : null,
+    sats: preview ? licenceSats(LICENCE_DOG[tier], preview.dogUsd, preview.btcUsd) : null,
   }))
 }
 
-export interface WalletLicence {
+export interface WalletStanding {
   /** DOG no fundo + BTC creditado (em DOG), o mesmo total que a escada do servidor lê */
   totalDog: number
   rung: LicenceKey
 }
 
 /**
- * O que a carteira já tem na escada, lido do placar (/api/donate/leaderboard, sem ?slim).
- * Procura o endereço ordinals em `leaderboard`, `founders` e `btc_licences` e soma como o
- * servidor soma (`combineWallet`: DOG + BTC com o teto por carteira). Carteira que não está em
- * nenhuma lista vale 0. Placar ilegível: null (não se sabe, a tela não afirma nada).
+ * Lê GET /api/dogcity/licence-standing. Total ausente, negativo ou não finito: null (a tela não
+ * afirma nada e mostra o preço cheio; quem manda no valor cobrado é a cotação, no servidor).
  */
-export function walletLicence(board: unknown, address: string | null | undefined): WalletLicence | null {
-  const b = (board && typeof board === 'object' ? board : null) as Record<string, unknown> | null
-  if (!b || !Array.isArray(b.leaderboard) || typeof address !== 'string' || !address) return null
-  const want = address.toLowerCase()
-  let best = 0
-  for (const key of ['leaderboard', 'founders', 'btc_licences'] as const) {
-    const list = Array.isArray(b[key]) ? (b[key] as Array<Record<string, unknown>>) : []
-    for (const e of list) {
-      if (typeof e?.address !== 'string' || e.address.toLowerCase() !== want) continue
-      best = Math.max(best, combineWallet(Number(e.total), Number(e.btc_dog)))
-    }
-  }
-  return { totalDog: best, rung: licenceFor(best) }
+export function parseWalletStanding(json: unknown): WalletStanding | null {
+  const j = (json && typeof json === 'object' ? json : null) as Record<string, unknown> | null
+  const t = j ? j.totalDog : undefined
+  if (typeof t !== 'number' || !Number.isFinite(t) || t < 0) return null
+  return { totalDog: t, rung: licenceFor(t) }
 }
 
 export interface LicenceOffer extends LicencePreset {
   /** 'held': a carteira já está neste degrau ou acima; ninguém compra duas licenças */
   state: 'available' | 'held'
-  /** quanto falta em $DOG para a carteira chegar a este degrau (0 se já chegou); só informação */
-  missingDog: number
+  /** o que a carteira AINDA FALTA em $DOG para este degrau (0 se já tem): o que a cotação cobra */
+  neededDog: number
 }
 
 /**
- * Cruza os atalhos com o que a carteira já tem. `held` usa a MESMA comparação de `licenceFor`
- * (total >= degrau), então a tela e o crédito do servidor não discordam do degrau.
+ * Os três degraus para a carteira: o que falta em $DOG e os sats disso pela conta da cotação
+ * (`licenceSats`). `held` usa a MESMA comparação de `licenceFor` (em átomos), então a tela e o
+ * crédito do servidor não discordam do degrau. Sem dados da carteira: preço cheio, tudo disponível.
  */
-export function licenceOffers(presets: LicencePreset[], wallet: WalletLicence | null): LicenceOffer[] {
-  const total = wallet ? wallet.totalDog : 0
-  return presets.map((p) => ({
-    ...p,
-    state: wallet && total >= p.dogAmount ? 'held' : 'available',
-    missingDog: Math.max(0, p.dogAmount - total),
-  }))
+export function licenceOffers(preview: LicencePreview | null, wallet: WalletStanding | null): LicenceOffer[] {
+  const held = wallet ? wallet.totalDog : 0
+  return LICENCE_TIERS.map((tier) => {
+    const neededDog = dogStillNeeded(tier, held)
+    const isHeld = wallet !== null && toAtomos(held) >= toAtomos(LICENCE_DOG[tier])
+    return {
+      tier,
+      dogAmount: LICENCE_DOG[tier],
+      neededDog,
+      state: isHeld ? 'held' : 'available',
+      sats: preview && !isHeld ? licenceSats(neededDog, preview.dogUsd, preview.btcUsd) : null,
+    }
+  })
 }

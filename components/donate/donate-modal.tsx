@@ -22,8 +22,8 @@ import {
 import { DONATION_METHODS, DONATION_WALLET } from '@/app/dogcity/dogcity-data'
 import { LICENCE_DOG, type LicenceTier } from '@/lib/dog/licence-btc'
 import {
-  licenceOffers, licencePresets, parseLicencePreview, walletLicence,
-  type LicenceOffer, type LicencePreview, type WalletLicence,
+  licenceOffers, parseLicencePreview, parseWalletStanding,
+  type LicenceOffer, type LicencePreview, type WalletStanding,
 } from '@/lib/dog/licence-presets'
 import { bip21Uri } from '@/lib/wallet/bip21'
 
@@ -52,7 +52,12 @@ type Asset = 'dog' | 'btc'
 interface LicenceQuote {
   id: string
   tier: LicenceTier
+  /** o que a carteira ainda falta em $DOG para o degrau: o que esta cotação cobre */
   dogAmount: number
+  /** o valor cheio do degrau em $DOG */
+  licenceDog?: number
+  /** o que a carteira já contava ao cotar (DOG do livro + BTC creditado) */
+  heldDog?: number
   sats: number
   dogUsd: number
   btcUsd: number
@@ -253,7 +258,9 @@ function LicencePicker({
               <span className={`block font-mono text-[10px] uppercase tracking-[0.18em] ${selected ? 'text-lava' : 'text-snow'}`}>
                 {TIER_NAME[o.tier]}
               </span>
-              <span className="block font-mono text-[10px] text-dusty tabular-nums mt-0.5">{n0(o.dogAmount)} $DOG</span>
+              <span className="block font-mono text-[10px] text-dusty tabular-nums mt-0.5">
+                {held ? `${n0(o.dogAmount)} $DOG` : o.neededDog < o.dogAmount ? `${n0(o.neededDog)} $DOG more` : `${n0(o.dogAmount)} $DOG`}
+              </span>
               <span className="block font-mono text-[11px] text-mist tabular-nums mt-0.5 min-h-[1.25em]">
                 {held ? 'You hold it' : sats ? `${n0(sats)} sats` : priceTried ? 'No price now' : '\u00a0'}
               </span>
@@ -354,7 +361,7 @@ function DonateModal({
   // travada, pedida quando o degrau é escolhido.
   const [preview, setPreview] = useState<LicencePreview | null>(null)
   const [previewTried, setPreviewTried] = useState(false)
-  const [held, setHeld] = useState<WalletLicence | null>(null)
+  const [standing, setStanding] = useState<WalletStanding | null>(null)
 
   // Só vale a cotação do degrau que está na tela: na janela entre o clique em outro degrau e o
   // efeito que apaga a cotação antiga, o botão de enviar não pode mandar o valor do degrau anterior.
@@ -398,7 +405,8 @@ function DonateModal({
             throw new Error(
               r.status === 503 ? 'No reliable price right now. Try again in a minute.'
                 : r.status === 429 ? 'Too many quotes for this wallet. Try again later.'
-                  : (j?.error as string) || 'Could not get a price.',
+                  : r.status === 409 ? 'This wallet already holds this licence. Pick a higher one.'
+                    : (j?.error as string) || 'Could not get a price.',
             )
           }
           return j as LicenceQuote
@@ -433,16 +441,18 @@ function DonateModal({
     return () => { alive = false; clearInterval(id) }
   }, [isOpen, asset])
 
-  // O que esta carteira já tem na escada (DOG no fundo + BTC creditado), do mesmo placar que o site
-  // inteiro lê. Serve para não oferecer de novo o degrau que ela já tem. Sem resposta: nada é afirmado.
+  // O que esta carteira já conta na escada (DOG no fundo + BTC creditado), por uma leitura leve DESTA
+  // carteira (não o placar inteiro). Serve para mostrar só a diferença até os degraus de cima e para não
+  // oferecer de novo o degrau que ela já tem. É só exibição: quem manda no valor cobrado é a cotação,
+  // que o servidor refaz a cada pedido. Sem resposta: nada é afirmado e o preço cheio aparece.
   useEffect(() => {
-    setHeld(null)
+    setStanding(null)
     if (!isOpen || asset !== 'btc' || !ordAddr) return
     let alive = true
-    fetch('/api/donate/leaderboard')
+    fetch(`/api/dogcity/licence-standing?address=${encodeURIComponent(ordAddr)}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (alive) setHeld(walletLicence(j, ordAddr)) })
-      .catch(() => { if (alive) setHeld(null) })
+      .then((j) => { if (alive) setStanding(parseWalletStanding(j)) })
+      .catch(() => { if (alive) setStanding(null) })
     return () => { alive = false }
   }, [isOpen, asset, ordAddr])
 
@@ -507,7 +517,7 @@ function DonateModal({
 
   // Os três degraus com os sats de agora e o que a carteira já tem. `held` = a carteira já está neste
   // degrau ou acima (a mesma comparação do servidor): não se compra duas licenças.
-  const offers = useMemo(() => licenceOffers(licencePresets(preview), held), [preview, held])
+  const offers = useMemo(() => licenceOffers(preview, standing), [preview, standing])
   const tierOffer = tier ? offers.find((o) => o.tier === tier) ?? null : null
   const tierHeld = licenceBtc && tierOffer?.state === 'held'
 
@@ -717,7 +727,7 @@ function DonateModal({
               {tier
                 ? asset === 'dog'
                   ? `The ${TIER_NAME[tier]} licence is ${n0(LICENCE_DOG[tier])} $DOG. Pick BTC to pay the same value in bitcoin.`
-                  : `The same value as ${n0(LICENCE_DOG[tier])} $DOG, at the median of live exchange prices, locked for 15 minutes. BTC counts toward your licence, not toward the 10,000,000 $DOG that opens the mint.`
+                  : `The same value as ${n0(tierOffer?.neededDog ?? LICENCE_DOG[tier])} $DOG, at the median of live exchange prices, locked for 15 minutes. BTC counts toward your licence, not toward the 10,000,000 $DOG that opens the mint.`
                 : asset === 'dog'
                   ? 'DOG on Bitcoin L1. This is what counts toward your licence.'
                   : 'Native SegWit. Pick a licence below to pay its price in bitcoin, locked for 15 minutes. Any other amount is general support and does not count toward a licence.'}
@@ -741,17 +751,16 @@ function DonateModal({
                   Paid in BTC: building licence and item pack only. Founder benefits need $DOG in
                   the fund.
                 </p>
-                {tier && tierOffer && held && held.totalDog > 0 && (
+                {tier && tierOffer && standing && standing.totalDog > 0 && (
                   tierHeld ? (
                     <p className="font-mono text-[11px] text-[#F59E0B] leading-relaxed">
-                      This wallet already counts {n0(held.totalDog)} $DOG, enough for the {TIER_NAME[tier]} licence.
+                      This wallet already counts {n0(standing.totalDog)} $DOG, enough for the {TIER_NAME[tier]} licence.
                       Nobody buys two licences{tier === 'patron' ? '.' : ': pick a higher one to move up.'}
                     </p>
                   ) : (
                     <p className="font-mono text-[10px] text-dusty leading-relaxed">
-                      This wallet already counts {n0(held.totalDog)} $DOG toward its licence. Paid in
-                      bitcoin, the quote is the full {n0(LICENCE_DOG[tier])} $DOG and all of it adds to your
-                      total. To pay only the {n0(tierOffer.missingDog)} $DOG difference, use $DOG.
+                      This wallet already counts {n0(standing.totalDog)} $DOG toward its licence, so you pay only
+                      the difference to reach {TIER_NAME[tier]}: {n0(tierOffer.neededDog)} $DOG of the {n0(LICENCE_DOG[tier])}.
                     </p>
                   )
                 )}
@@ -780,6 +789,7 @@ function DonateModal({
                     <div className="border border-white/15 bg-white/[0.02] px-4 py-3">
                       <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-dusty">
                         {TIER_NAME[quote.tier]} licence · {n0(quote.dogAmount)} $DOG
+                        {quote.heldDog && quote.heldDog > 0 && quote.licenceDog ? ` of ${n0(quote.licenceDog)}` : ''}
                       </p>
                       <p className="font-display font-bold text-[26px] leading-none text-snow tabular-nums mt-2">
                         {n0(quote.sats)} <span className="font-mono text-[12px] font-normal text-mist">sats</span>

@@ -4,7 +4,9 @@
  *
  * A licença continua valendo em $DOG (Personal 10.000, Commercial 50.000, Patron 500.000).
  * Em BTC paga-se o equivalente pela MEDIANA de corretoras (lib/dog/price-sources.ts), travada
- * por 15 minutos. Sem pelo menos 2 fontes independentes para DOG/USD e para BTC/USD que
+ * por 15 minutos. SUBIR PAGA SÓ A DIFERENÇA (28/10): `dogAmount` e `sats` cobrem o que a carteira
+ * ainda falta (o degrau menos o que ela já conta: DOG do livro + BTC creditado, lib/dog/licence-wallet.ts);
+ * carteira que já tem o degrau recebe 409 e nada é gravado. Sem pelo menos 2 fontes independentes para DOG/USD e para BTC/USD que
  * concordem entre si, a rota responde 503 e NÃO grava nada: não existe cotação "no chute".
  *
  * A cotação liga o endereço de PAGAMENTO ao endereço ORDINALS da mesma carteira
@@ -20,6 +22,7 @@ import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'node:crypto'
 import { LICENCE_DOG, LICENCE_TIERS, satsForDog, type Quote } from '@/lib/dog/licence-btc'
 import { createQuote, type QuoteStore } from '@/lib/dog/licence-quote'
+import { posicaoDaCarteira } from '@/lib/dog/licence-wallet'
 import { spotMedians, type FetchLike, type Medians } from '@/lib/dog/price-sources'
 
 export const dynamic = 'force-dynamic'
@@ -75,11 +78,17 @@ const store: QuoteStore = {
 
 const NO_STORE = { 'Cache-Control': 'no-store' }
 
+// O que a carteira já conta (DOG do livro + BTC creditado), pela MESMA conta do placar. `strict`: sem
+// ler o BTC já creditado não se calcula a diferença, então não há cotação (null vira 503 em createQuote).
+const HELD_MS = 5000
+const heldDog = async (ordinalsAddress: string): Promise<number | null> =>
+  (await posicaoDaCarteira(supabase, ordinalsAddress, { ms: HELD_MS, strict: true }))?.totalDog ?? null
+
 export async function POST(req: NextRequest) {
   let body: unknown = null
   try { body = await req.json() } catch { /* corpo inválido: createQuote devolve 400 */ }
   try {
-    const r = await createQuote({ store, medians, nowMs: Date.now(), newId: () => randomUUID() }, body)
+    const r = await createQuote({ store, medians, heldDog, nowMs: Date.now(), newId: () => randomUUID() }, body)
     if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status, headers: NO_STORE })
     return NextResponse.json(r.quote, { headers: NO_STORE })
   } catch (err) {

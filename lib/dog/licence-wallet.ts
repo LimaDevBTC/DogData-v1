@@ -32,10 +32,19 @@ export interface WalletLicence {
 }
 
 /**
- * Pura: o degrau de UMA carteira a partir das linhas que a ligam ao fundo e dos
+ * O degrau E o total que o sustenta (28/10, seletor de BTC): `totalDog` é o `licence_total` do
+ * placar, DOG do livro + BTC creditado com o teto por carteira. É com ele que a cotação em BTC
+ * cobra só a diferença para o degrau seguinte.
+ */
+export interface WalletStanding extends WalletLicence {
+  totalDog: number
+}
+
+/**
+ * Pura: o degrau e o total de UMA carteira a partir das linhas que a ligam ao fundo e dos
  * créditos em BTC. Linhas e créditos de outras carteiras são ignorados.
  */
-export function licenceOfWallet(rows: TxRow[], address: string, credits: Credit[]): WalletLicence {
+export function standingOfWallet(rows: TxRow[], address: string, credits: Credit[]): WalletStanding {
   const me = address.toLowerCase()
   // as posições no bloco só ordenam os founders; o total e o degrau não dependem delas
   const ledger = buildLedger(rows, FUND_DOG_ADDRESS, { licenseFor: licenceFor, posicoes: {} })
@@ -43,7 +52,12 @@ export function licenceOfWallet(rows: TxRow[], address: string, credits: Credit[
   const entry = { address: me, total: mine?.total ?? 0, license: mine?.license ?? 'citizen' }
   const own = credits.filter((c) => typeof c?.ordinalsAddress === 'string' && c.ordinalsAddress.toLowerCase() === me)
   const [e] = applyBtcCredits([entry], own).entries
-  return { tier: isTier(e.license) ? e.license : null }
+  return { tier: isTier(e.license) ? e.license : null, totalDog: e.licence_total }
+}
+
+/** Pura: só o degrau (o que o lookup e o /profile devolvem). Mesma conta de `standingOfWallet`. */
+export function licenceOfWallet(rows: TxRow[], address: string, credits: Credit[]): WalletLicence {
+  return { tier: standingOfWallet(rows, address, credits).tier }
 }
 
 const PAGE = 1000
@@ -68,7 +82,7 @@ async function rowsOf(db: SupabaseClient, address: string, signal: AbortSignal):
   throw new Error('too many fund transactions for one wallet')
 }
 
-async function creditsOf(db: SupabaseClient, address: string, signal: AbortSignal): Promise<Credit[]> {
+async function creditsOf(db: SupabaseClient, address: string, signal: AbortSignal, strict = false): Promise<Credit[]> {
   try {
     const { data, error } = await db
       .from('dogcity_btc_payments')
@@ -79,7 +93,9 @@ async function creditsOf(db: SupabaseClient, address: string, signal: AbortSigna
     if (error) throw new Error(error.message)
     return (data ?? []).map((r) => ({ ordinalsAddress: String(r.ordinals_address ?? ''), creditDog: Number(r.credit_dog) }))
   } catch (e) {
-    // o mesmo tratamento do placar: sem BTC, a licença sai só do $DOG
+    // o mesmo tratamento do placar: sem BTC, a licença sai só do $DOG. Quem COBRA (a cotação em BTC)
+    // pede `strict`: sem saber o BTC já creditado não se calcula a diferença, então falha
+    if (strict) throw e
     if (!signal.aborted) console.error('[licence-wallet] btc credits unavailable:', (e as Error)?.message)
     return []
   }
@@ -95,6 +111,20 @@ export async function licencaDaCarteira(
   address: string,
   opts: { ms?: number; signal?: AbortSignal } = {},
 ): Promise<WalletLicence | null> {
+  const s = await posicaoDaCarteira(db, address, opts)
+  return s ? { tier: s.tier } : null
+}
+
+/**
+ * Como `licencaDaCarteira`, com o total em $DOG que sustenta o degrau. Mesmas consultas, mesmos prazos.
+ * `strict`: o BTC creditado que não puder ser lido torna a resposta null em vez de contar só o $DOG
+ * (para a tela basta o $DOG; para COBRAR a diferença não).
+ */
+export async function posicaoDaCarteira(
+  db: SupabaseClient,
+  address: string,
+  opts: { ms?: number; signal?: AbortSignal; strict?: boolean } = {},
+): Promise<WalletStanding | null> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), opts.ms ?? 2500)
   const fora = () => ctrl.abort()
@@ -103,9 +133,9 @@ export async function licencaDaCarteira(
     else opts.signal.addEventListener('abort', fora, { once: true })
   }
   try {
-    const [rows, credits] = await Promise.all([rowsOf(db, address, ctrl.signal), creditsOf(db, address, ctrl.signal)])
+    const [rows, credits] = await Promise.all([rowsOf(db, address, ctrl.signal), creditsOf(db, address, ctrl.signal, opts.strict === true)])
     if (ctrl.signal.aborted) return null
-    return licenceOfWallet(rows, address, credits)
+    return standingOfWallet(rows, address, credits)
   } catch (e) {
     if (!ctrl.signal.aborted) console.error('[licence-wallet] unavailable:', (e as Error)?.message)
     return null

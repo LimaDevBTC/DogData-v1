@@ -6,10 +6,10 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
-  LICENCE_DOG, LICENCE_TIERS, applyBtcCredits, buildQuote, combineWallet, licenceFor, matchQuote,
+  LICENCE_DOG, LICENCE_TIERS, buildQuote, combineWallet, licenceFor, licenceSats, matchQuote,
   resolvePayment, satsForDog, type BtcPayment, type LicenceTier, type Quote,
 } from './licence-btc'
-import { licenceOffers, licencePresets, parseLicencePreview, walletLicence } from './licence-presets'
+import { licenceOffers, licencePresets, parseLicencePreview, parseWalletStanding } from './licence-presets'
 import { bip21Uri } from '../wallet/bip21'
 
 const T0 = Date.UTC(2026, 9, 28, 12, 0, 0)
@@ -29,7 +29,7 @@ function previewJson(dogUsd = DOG_USD, btcUsd = BTC_USD) {
 }
 
 function quoteFor(tier: LicenceTier, over: Partial<Quote> = {}, dogUsd = DOG_USD, btcUsd = BTC_USD, nowMs = T0): Quote {
-  const b = buildQuote({ id: `q-${tier}`, tier, ordinalsAddress: ORD, paymentAddress: PAY, dog: ok(dogUsd), btc: ok(btcUsd), nowMs })
+  const b = buildQuote({ id: `q-${tier}`, tier, ordinalsAddress: ORD, paymentAddress: PAY, dog: ok(dogUsd), btc: ok(btcUsd), nowMs, heldDog: 0 })
   assert.equal(b.ok, true)
   return { ...(b as { quote: Quote }).quote, ...over }
 }
@@ -117,46 +117,51 @@ test('without a reliable preview the presets still list the three licences but i
   assert.ok(p.every((x) => x.sats === null))
 })
 
-// ── o que a carteira já tem na escada ────────────────────────────────────────
+// ── o que a carteira já conta na escada (rota leve por carteira) ──────────────
 
-const entry = (address: string, total: number) => ({ address, total, license: licenceFor(total) })
-
-test('walletLicence reads DOG + credited BTC exactly as the leaderboard computes the rung', () => {
-  const ledger = [entry(ORD, 6_000), entry(OTHER, 60_000)]
-  const board = applyBtcCredits(ledger, [{ ordinalsAddress: ORD, creditDog: 4_000 }, { ordinalsAddress: 'bc1p' + 'd'.repeat(58), creditDog: 55_000 }])
-  const json = { leaderboard: board.entries, founders: board.entries, btc_licences: board.btcOnly }
-  const mine = walletLicence(json, ORD)
-  assert.equal(mine?.totalDog, 10_000)
-  assert.equal(mine?.rung, 'personal')
-  assert.equal(mine?.rung, board.entries.find((e) => e.address === ORD)!.license)
-  assert.equal(walletLicence(json, OTHER)?.rung, 'commercial')
-  // carteira só com BTC aparece em btc_licences
-  const btcOnly = walletLicence(json, 'bc1p' + 'D'.repeat(58)) // caixa diferente: o servidor chaveia em minúsculas
-  assert.equal(btcOnly?.rung, 'commercial')
-  assert.equal(btcOnly?.totalDog, 55_000)
+test('parseWalletStanding reads the light route answer and rejects junk', () => {
+  assert.deepEqual(parseWalletStanding({ address: ORD, tier: 'personal', totalDog: 10_000 }), { totalDog: 10_000, rung: 'personal' })
+  assert.deepEqual(parseWalletStanding({ tier: null, totalDog: 0 }), { totalDog: 0, rung: 'citizen' })
+  assert.deepEqual(parseWalletStanding({ tier: 'commercial', totalDog: 49_999.99999 }), { totalDog: 49_999.99999, rung: 'personal' })
+  for (const bad of [null, undefined, 'x', 7, {}, { totalDog: -1 }, { totalDog: NaN }, { totalDog: Infinity }, { totalDog: '5' }, { error: 'busy' }]) {
+    assert.equal(parseWalletStanding(bad), null, JSON.stringify(bad))
+  }
 })
 
-test('walletLicence: unknown wallet holds nothing, unreadable board says nothing', () => {
-  const json = { leaderboard: [entry(ORD, 6_000)], founders: [], btc_licences: [] }
-  assert.deepEqual(walletLicence(json, OTHER), { totalDog: 0, rung: 'citizen' })
-  assert.equal(walletLicence(null, ORD), null)
-  assert.equal(walletLicence({ error: 'busy' }, ORD), null)
-  assert.equal(walletLicence({ leaderboard: 'x' }, ORD), null)
-  assert.equal(walletLicence(json, null), null)
-  assert.equal(walletLicence(json, ''), null)
+// ── o que cada degrau pede de uma carteira que já conta DOG ──────────────────
+
+test('licenceOffers: a wallet with nothing pays the full price of every rung', () => {
+  const preview = parseLicencePreview(previewJson())
+  for (const offers of [licenceOffers(preview, null), licenceOffers(preview, { totalDog: 0, rung: 'citizen' })]) {
+    assert.deepEqual(offers.map((o) => o.neededDog), [10_000, 50_000, 500_000])
+    assert.deepEqual(offers.map((o) => o.state), ['available', 'available', 'available'])
+    assert.deepEqual(offers.map((o) => o.sats), licencePresets(preview).map((p) => p.sats))
+  }
 })
 
-test('walletLicence caps the BTC part per wallet like combineWallet and ignores junk numbers', () => {
-  const json = { leaderboard: [{ address: ORD, total: 1_000, btc_dog: 9_999_999_999 }, { address: OTHER, total: NaN, btc_dog: -5 }], founders: [] }
-  assert.equal(walletLicence(json, ORD)?.totalDog, combineWallet(1_000, 9_999_999_999))
-  assert.deepEqual(walletLicence(json, OTHER), { totalDog: 0, rung: 'citizen' })
+test('licenceOffers: Personal wallet pays the DIFFERENCE to Commercial and Patron, sats from the quote maths', () => {
+  const preview = parseLicencePreview(previewJson())!
+  const offers = licenceOffers(preview, { totalDog: 10_000, rung: 'personal' })
+  assert.deepEqual(offers.map((o) => o.state), ['held', 'available', 'available'])
+  assert.deepEqual(offers.map((o) => o.neededDog), [0, 40_000, 490_000])
+  assert.equal(offers[0].sats, null) // o degrau que a carteira já tem não tem preço
+  assert.equal(offers[1].sats, licenceSats(40_000, DOG_USD, BTC_USD))
+  assert.equal(offers[2].sats, licenceSats(490_000, DOG_USD, BTC_USD))
+  // a diferença custa menos que o preço cheio
+  assert.ok(offers[1].sats! < licencePresets(preview)[1].sats!)
 })
 
-// ── degrau que a carteira já tem não se oferece de novo ──────────────────────
+test('licenceOffers: Commercial wallet pays the difference to Patron; Patron wallet holds everything', () => {
+  const preview = parseLicencePreview(previewJson())
+  const c = licenceOffers(preview, { totalDog: 50_000, rung: 'commercial' })
+  assert.deepEqual(c.map((o) => [o.state, o.neededDog]), [['held', 0], ['held', 0], ['available', 450_000]])
+  const p = licenceOffers(preview, { totalDog: 500_000, rung: 'patron' })
+  assert.ok(p.every((o) => o.state === 'held' && o.neededDog === 0 && o.sats === null))
+})
 
 test('licenceOffers marks held rungs with the same comparison licenceFor uses (boundaries and a sweep)', () => {
-  const presets = licencePresets(parseLicencePreview(previewJson()))
-  const held = (total: number) => licenceOffers(presets, { totalDog: total, rung: licenceFor(total) }).filter((o) => o.state === 'held').map((o) => o.tier)
+  const preview = parseLicencePreview(previewJson())
+  const held = (total: number) => licenceOffers(preview, { totalDog: total, rung: licenceFor(total) }).filter((o) => o.state === 'held').map((o) => o.tier)
   assert.deepEqual(held(0), [])
   assert.deepEqual(held(9_999.99999), [])
   assert.deepEqual(held(10_000), ['personal'])
@@ -164,37 +169,32 @@ test('licenceOffers marks held rungs with the same comparison licenceFor uses (b
   assert.deepEqual(held(50_000), ['personal', 'commercial'])
   assert.deepEqual(held(499_999.99999), ['personal', 'commercial'])
   assert.deepEqual(held(500_000), ['personal', 'commercial', 'patron'])
-  for (const total of [0, 1, 9_999, 10_000, 12_345, 50_000, 77_777, 499_999, 500_000, 1_000_000]) {
+  for (const total of [0, 1, 9_999, 10_000, 12_345, 50_000, 77_777, 499_999, 500_000, 1_000_000, 646.48596 + 16576.31718 + 32777.19686]) {
     const rung = licenceFor(total)
     const reached = LICENCE_TIERS.filter((t) => rung !== 'citizen' && LICENCE_TIERS.indexOf(t) <= LICENCE_TIERS.indexOf(rung as LicenceTier))
     assert.deepEqual(held(total), reached, `total ${total}`)
   }
 })
 
-test('licenceOffers without wallet data offers everything and reports the full price as missing', () => {
-  const offers = licenceOffers(licencePresets(parseLicencePreview(previewJson())), null)
-  assert.ok(offers.every((o) => o.state === 'available'))
-  assert.deepEqual(offers.map((o) => o.missingDog), [10_000, 50_000, 500_000])
+test('licenceOffers without a preview prices nothing, but still says what is still needed', () => {
+  const offers = licenceOffers(null, { totalDog: 10_000, rung: 'personal' })
+  assert.ok(offers.every((o) => o.sats === null))
+  assert.deepEqual(offers.map((o) => o.neededDog), [0, 40_000, 490_000])
 })
 
-test('licenceOffers reports the DOG difference to each higher rung (information only)', () => {
-  const offers = licenceOffers(licencePresets(parseLicencePreview(previewJson())), { totalDog: 10_000, rung: 'personal' })
-  assert.deepEqual(offers.map((o) => o.missingDog), [0, 40_000, 490_000])
-  assert.deepEqual(offers.map((o) => o.state), ['held', 'available', 'available'])
-})
-
-test('GAP (documented, not changed): paying only the difference in BTC does not auto-credit, so the selector never offers it', async () => {
-  // a carteira tem Personal (10.000 $DOG) e quer Commercial: a diferença é 40.000 $DOG, mas a
-  // cotação do degrau é a de 50.000 $DOG e matchQuote exige sats >= q.sats
-  const q = quoteFor('commercial')
-  const differenceSats = satsForDog(LICENCE_DOG.commercial - 10_000, DOG_USD, BTC_USD)!
-  assert.ok(differenceSats < q.sats)
-  const r = await resolvePayment(pay(differenceSats), [q], noPrice)
-  assert.deepEqual(r, { status: 'pending_review', reason: 'underpaid_for_quote', retry: false })
-  // pagar o preço cheio credita e o total combinado fica acima do degrau (paga-se a mais, nunca a menos)
-  const full = await resolvePayment(pay(q.sats), [q], noPrice)
-  assert.equal(full.status, 'credited')
-  if (full.status === 'credited') assert.equal(licenceFor(combineWallet(10_000, full.creditDog)), 'commercial')
+test('the sats a difference offer shows are exactly what the server quote locks and the cron then counts', async () => {
+  const preview = parseLicencePreview(previewJson())!
+  const offers = licenceOffers(preview, { totalDog: 10_000, rung: 'personal' })
+  const commercial = offers.find((o) => o.tier === 'commercial')!
+  // a cotação de um Commercial para quem conta 10.000: a MESMA conta que a tela mostrou
+  const b = buildQuote({ id: 'qd', tier: 'commercial', ordinalsAddress: ORD, paymentAddress: PAY, dog: ok(DOG_USD), btc: ok(BTC_USD), nowMs: T0, heldDog: 10_000 })
+  assert.equal(b.ok, true)
+  const q = (b as { quote: Quote }).quote
+  assert.equal(q.sats, commercial.sats)
+  assert.equal(q.dogAmount, commercial.neededDog)
+  const r = await resolvePayment(pay(commercial.sats!), [q], noPrice)
+  assert.equal(r.status, 'credited')
+  if (r.status === 'credited') assert.equal(licenceFor(combineWallet(10_000, r.creditDog)), 'commercial')
 })
 
 // ── BIP-21: o amount é BTC decimal, nunca satoshi ────────────────────────────
@@ -231,7 +231,10 @@ test('the donate modal has no generic sats presets left and takes BTC amounts on
   const src = readFileSync(new URL('../../components/donate/donate-modal.tsx', import.meta.url), 'utf8')
   assert.ok(!/SATS_PRESETS/.test(src), 'generic SATS_PRESETS must be gone')
   assert.ok(!/200_000/.test(src), 'the old 200,000 sats chip must be gone')
-  assert.ok(/licencePresets\(/.test(src) && /parseLicencePreview\(/.test(src), 'presets come from lib/dog/licence-presets')
+  assert.ok(/licenceOffers\(/.test(src) && /parseLicencePreview\(/.test(src), 'presets come from lib/dog/licence-presets')
+  assert.ok(!/donate\/leaderboard/.test(src), 'the modal must not download the whole leaderboard')
+  assert.ok(/licence-standing\?address=/.test(src), 'the modal reads one wallet from the light route')
+  assert.ok(!/use \$DOG\./.test(src), 'the old use-$DOG-for-the-difference warning is gone')
   assert.ok(/from '@\/lib\/wallet\/bip21'/.test(src), 'BIP-21 comes from the tested module')
   assert.ok(!/function bip21Uri/.test(src), 'no second copy of bip21Uri')
 })
