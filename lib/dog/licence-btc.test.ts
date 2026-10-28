@@ -33,7 +33,7 @@ const ok = (price: number) => ({ ok: true as const, price, sources: [{ name: 'A'
 const sample = (...prices: number[]) => prices.map((price, i) => ({ name: `S${i}`, price }))
 
 function quote(over: Partial<Quote> = {}): Quote {
-  const built = buildQuote({ id: 'q1', tier: 'personal', ordinalsAddress: ORD, paymentAddress: PAY, dog: ok(DOG_USD), btc: ok(BTC_USD), nowMs: T0 })
+  const built = buildQuote({ id: 'q1', tier: 'personal', ordinalsAddress: ORD, paymentAddress: PAY, dog: ok(DOG_USD), btc: ok(BTC_USD), nowMs: T0, heldDog: 0 })
   assert.equal(built.ok, true)
   return { ...(built as { quote: Quote }).quote, ...over }
 }
@@ -170,7 +170,7 @@ test('the quote holds for exactly 15 minutes', () => {
 
 test('no quote when a median was refused, or the input is bad', () => {
   const refused = { ok: false as const, reason: 'not_enough_sources' as const }
-  const base = { id: 'x', ordinalsAddress: ORD, paymentAddress: PAY, nowMs: T0 }
+  const base = { id: 'x', ordinalsAddress: ORD, paymentAddress: PAY, nowMs: T0, heldDog: 0 }
   assert.deepEqual(buildQuote({ ...base, tier: 'personal', dog: refused, btc: ok(BTC_USD) }), { ok: false, reason: 'not_enough_sources' })
   assert.deepEqual(buildQuote({ ...base, tier: 'personal', dog: ok(DOG_USD), btc: refused }), { ok: false, reason: 'not_enough_sources' })
   assert.deepEqual(buildQuote({ ...base, tier: 'gold', dog: ok(DOG_USD), btc: ok(BTC_USD) }), { ok: false, reason: 'bad_input' })
@@ -188,10 +188,11 @@ function memStore(count = 0) {
   return { store, inserted }
 }
 const good = async () => ({ dog: ok(DOG_USD), btc: ok(BTC_USD) })
+const noHeld = async () => 0
 
 test('createQuote: saves the link payment address -> ordinals address and answers sats and expiry', async () => {
   const { store, inserted } = memStore()
-  const r = await createQuote({ store, medians: good, nowMs: T0, newId: () => 'id-1' }, { tier: 'personal', ordinalsAddress: ORD.toUpperCase(), paymentAddress: PAY })
+  const r = await createQuote({ store, medians: good, heldDog: noHeld, nowMs: T0, newId: () => 'id-1' }, { tier: 'personal', ordinalsAddress: ORD.toUpperCase(), paymentAddress: PAY })
   assert.equal(r.ok, true)
   assert.equal(inserted.length, 1)
   assert.equal(inserted[0].ordinalsAddress, ORD)
@@ -207,16 +208,16 @@ test('createQuote: saves the link payment address -> ordinals address and answer
 test('createQuote: no reliable sources means 503 and nothing is saved', async () => {
   const { store, inserted } = memStore()
   const none = async () => ({ dog: { ok: false as const, reason: 'not_enough_sources' as const }, btc: ok(BTC_USD) })
-  const r = await createQuote({ store, medians: none, nowMs: T0, newId: () => 'x' }, { tier: 'personal', ordinalsAddress: ORD, paymentAddress: PAY })
+  const r = await createQuote({ store, medians: none, heldDog: noHeld, nowMs: T0, newId: () => 'x' }, { tier: 'personal', ordinalsAddress: ORD, paymentAddress: PAY })
   assert.deepEqual([r.ok, r.status], [false, 503])
   const boom = async () => { throw new Error('network') }
-  const r2 = await createQuote({ store, medians: boom, nowMs: T0, newId: () => 'x' }, { tier: 'personal', ordinalsAddress: ORD, paymentAddress: PAY })
+  const r2 = await createQuote({ store, medians: boom, heldDog: noHeld, nowMs: T0, newId: () => 'x' }, { tier: 'personal', ordinalsAddress: ORD, paymentAddress: PAY })
   assert.deepEqual([r2.ok, r2.status], [false, 503])
   assert.equal(inserted.length, 0)
 })
 
 test('createQuote: bad input, fund address as wallet, flood, and a failed write all refuse', async () => {
-  const run = (body: unknown, store = memStore().store) => createQuote({ store, medians: good, nowMs: T0, newId: () => 'x' }, body)
+  const run = (body: unknown, store = memStore().store) => createQuote({ store, medians: good, heldDog: noHeld, nowMs: T0, newId: () => 'x' }, body)
   for (const body of [null, {}, { tier: 'gold', ordinalsAddress: ORD, paymentAddress: PAY }, { tier: 'personal', ordinalsAddress: 'nope', paymentAddress: PAY },
     { tier: 'personal', ordinalsAddress: ORD, paymentAddress: 42 }, { tier: 'personal', ordinalsAddress: FUND_BTC_ADDRESS, paymentAddress: PAY },
     { tier: 'personal', ordinalsAddress: ORD, paymentAddress: FUND_DOG_ADDRESS }]) {
