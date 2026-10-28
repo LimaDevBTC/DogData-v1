@@ -293,7 +293,7 @@ export const TIERS = [
       "Early access to the game, to every test and every update",
     ],
     building: {
-      src: "/landing/licences/building-personal.webp", w: 1000, h: 632,
+      src: "/landing/licences/building-personal.webp", w: 1000, h: 591,
       kind: "A RESIDENCE", note: "Example from the district catalogue. The style depends on your district.",
       alt: "Example of a residence from the DogCity district catalogue: a house with a yard on its own lot",
     },
@@ -313,9 +313,9 @@ export const TIERS = [
       "Vehicles: the $DOG moto and an orange Cyber $DOG",
     ],
     building: {
-      src: "/landing/licences/building-commercial.webp", w: 1000, h: 689,
+      src: "/landing/licences/building-commercial.webp", w: 1000, h: 698,
       kind: "MIXED USE: SHOP BELOW, HOME ABOVE", note: "Example from the district catalogue. The style depends on your district.",
-      alt: "Example of a mixed-use building from the DogCity district catalogue: a house with a shop on the ground floor, a glass shop front, a striped awning and a shop sign, with the home above",
+      alt: "Example of a mixed-use building from the DogCity district catalogue: a cream house with a red brick shop on the ground floor, glass shop windows under green striped awnings, a cafe terrace with tables and parasols, and a home above",
     },
     vehicles: [
       VEHICLE_MOTO,
