@@ -258,9 +258,23 @@ export const LICENCE_BTC_NOTE = "Paid in BTC: building licence and item pack onl
 // Personal = moto; Commercial = moto + Cyber $DOG laranja; Patron = moto + Cyber $DOG PRETA + helicóptero (a preta
 // substitui a laranja, o Patron não leva dois carros; o "special car, revealed soon" era esta Cyber preta).
 // `key` alimenta o CSS da escada (--lot-rest etc. em tiers.tsx) e a cotação em sats (/api/dogcity/licence-quote).
-// 23/10: `vehicle` é o veículo que o degrau ACRESCENTA, fotografado no estúdio do Blender (dogcity-mundo,
-// plano/the_build/filme/estudio_veiculos.py, modo cartão). O helicóptero é o "Bell 429 Helicopter" de agreene (Sketchfab,
-// CC BY 4.0): o crédito sai no próprio cartão (`credit`), é condição da licença.
+// 28/10 (fundador): cada cartão mostra a CONSTRUÇÃO que a licença dá (`building`, imagem de destaque) e TODOS os
+// veículos do degrau (`vehicles`, em ordem: a moto sempre primeiro, cada degrau acrescenta à direita). Personal = residência
+// do catálogo do distrito + moto; Commercial = prédio de uso misto (loja embaixo, casa em cima) do catálogo + moto + Cyber
+// $DOG laranja; Patron = residência sob medida (mansão) + moto + Cyber $DOG PRETA + helicóptero. O estilo da casa depende do
+// distrito do dono, então a legenda do catálogo diz "exemplo"; só o Patron é "feito para você".
+// Imagens: WebP com transparência em /public/landing/licences/. `w`/`h` dos três prédios e da Cyber preta são o tamanho
+// PREVISTO do encaixe até a arte final entrar (o cartão tem proporção fixa e `object-contain`, então o número não muda o layout).
+// Os veículos foram fotografados no estúdio do Blender (dogcity-mundo, plano/the_build/filme/estudio_veiculos.py, modo cartão).
+// O helicóptero é o "Bell 429 Helicopter" de agreene (Sketchfab, CC BY 4.0): o crédito (`credit`) sai no próprio cartão,
+// é condição da licença.
+
+// a moto é o veículo de TODOS os degraus: uma definição só, as três listas apontam para ela
+const VEHICLE_MOTO = {
+  src: "/landing/licences/moto.webp", w: 514, h: 520, label: "$DOG MOTO",
+  alt: "The $DOG racing motorbike in black and orange MotoGP livery, with DOG·CITY, $DOG and partner logos on the fairing",
+}
+
 export const TIERS = [
   {
     key: "personal",
@@ -275,7 +289,12 @@ export const TIERS = [
       "Vehicles: the $DOG moto",
       "Early access to the game, to every test and every update",
     ],
-    vehicle: { src: "/landing/licences/moto.webp", w: 514, h: 520, label: "THE $DOG MOTO", alt: "The $DOG racing motorbike in black and orange MotoGP livery, with DOG·CITY, $DOG and partner logos on the fairing" },
+    building: {
+      src: "/landing/licences/building-personal.webp", w: 1200, h: 750,
+      kind: "A RESIDENCE", note: "Example from the district catalogue. The style depends on your district.",
+      alt: "Example of a residence from the DogCity district catalogue: a house with a yard on its own lot",
+    },
+    vehicles: [VEHICLE_MOTO],
     cta: "Choose Personal",
   },
   {
@@ -290,7 +309,15 @@ export const TIERS = [
       "Extended item pack: leisure ground, garden, lighting",
       "Vehicles: the $DOG moto and an orange Cyber $DOG",
     ],
-    vehicle: { src: "/landing/licences/cyber.webp", w: 844, h: 520, label: "THE ORANGE CYBER $DOG", alt: "The orange Cyber $DOG pickup with the $DOG sticker on the hood" },
+    building: {
+      src: "/landing/licences/building-commercial.webp", w: 1200, h: 750,
+      kind: "MIXED USE: SHOP BELOW, HOME ABOVE", note: "Example from the district catalogue. The style depends on your district.",
+      alt: "Example of a mixed-use building from the DogCity district catalogue: a shop on the ground floor with homes above",
+    },
+    vehicles: [
+      VEHICLE_MOTO,
+      { src: "/landing/licences/cyber.webp", w: 844, h: 520, label: "ORANGE CYBER", alt: "The orange Cyber $DOG pickup with the $DOG sticker on the hood" },
+    ],
     cta: "Choose Commercial",
   },
   {
@@ -305,11 +332,20 @@ export const TIERS = [
       "Names a street, and the name stays on the city map",
       "Vehicles: the $DOG moto, a black Cyber $DOG (instead of the orange one) and the DOG helicopter",
     ],
-    vehicle: {
-      src: "/landing/licences/helicopter.webp", w: 780, h: 520, label: "THE DOG HELICOPTER",
-      alt: "The DOG helicopter in Bitcoin orange and white with the $DOG sticker on the side",
-      credit: { text: "3D model: Bell 429 Helicopter by agreene, CC BY 4.0", href: "https://sketchfab.com/3d-models/bell-429-helicopter-8dda855f3ab343b7b69ca7adcbf24f03" },
+    building: {
+      src: "/landing/licences/building-patron.webp", w: 1200, h: 750,
+      kind: "A CUSTOM MANSION", note: "Designed for you, outside the district catalogue.",
+      alt: "A custom mansion designed for the owner of a Patron licence, outside the district catalogue",
     },
+    vehicles: [
+      VEHICLE_MOTO,
+      { src: "/landing/licences/cyber-black.webp", w: 844, h: 520, label: "BLACK CYBER", alt: "The black Cyber $DOG pickup with the $DOG sticker on the hood" },
+      {
+        src: "/landing/licences/helicopter.webp", w: 780, h: 520, label: "DOG HELICOPTER",
+        alt: "The DOG helicopter in Bitcoin orange and white with the $DOG sticker on the side",
+        credit: { text: "3D model: Bell 429 Helicopter by agreene, CC BY 4.0", href: "https://sketchfab.com/3d-models/bell-429-helicopter-8dda855f3ab343b7b69ca7adcbf24f03" },
+      },
+    ],
     cta: "Become a Patron",
   },
 ]
