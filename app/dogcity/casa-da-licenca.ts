@@ -20,9 +20,13 @@
 //     dogcity-data.ts). Mudou lá, muda aqui; o teste tranca as frases;
 //   * o distrito: DISTRITO_DO_SETOR (o mesmo mapa do jogo).
 //
+// 🔒 CUSTÓDIA (fundador, 28/10/2026): carteira de corretora ou de empresa (a
+// Kraken recebeu uma licença Commercial porque clientes sacaram $DOG direto para
+// o fundo) NUNCA mostra licença nem casa. Ver ehCarteiraDeCustodia() abaixo.
+//
 // Pura, sem rede: testada em casa-da-licenca.test.ts.
 // ═══════════════════════════════════════════════════════════════════════════
-import { TIERS, DISTRITO_DO_SETOR, SETORES_SEM_CATALOGO } from "./dogcity-data"
+import { TIERS, DISTRITO_DO_SETOR, SETORES_SEM_CATALOGO, SETOR_DAS_EMPRESAS } from "./dogcity-data"
 
 export type Degrau = "personal" | "commercial" | "patron"
 
@@ -78,6 +82,88 @@ export const STATUS_EM_PROJETO = "In design"
 
 export const AVISO_SEM_LOTE =
   "No lot is linked to this wallet. The building goes on the lot of the wallet that holds the deed."
+
+// ── O CTA DA LICENÇA, PARA QUEM NÃO TEM LICENÇA (28/10/2026) ────────────────
+// O fundo fechou no bloco 972.336 e o número de Founder acabou, então "LOCK YOUR
+// FOUNDER NUMBER" saiu. Quem chegou depois do snapshot (e quem tem lote e nenhuma
+// licença) ouve a MESMA oferta: a licença de construção, aberta a qualquer um
+// (frase das docs e da página /dogcity/founders). O link vai para os cartões das
+// licenças na landing (#tiers), o mesmo destino do "Get a building licence" da
+// página dos founders, não para a página de honra dos 138.
+export const CTA_LICENCA = { href: "/dogcity#tiers", rotulo: "GET THE LICENCE TO BUILD ON IT" } as const
+export const TEXTO_LICENCA_ABERTA = "A building licence is open to anyone, in $DOG or Bitcoin, and it is counted per wallet."
+
+// ── QUEM PAGOU SACANDO DE UMA CORRETORA (28/10/2026, decisão do fundador) ───
+// Um saque de corretora chega ao fundo vindo da carteira da corretora, não da do
+// cliente: a licença fica no endereço da corretora, e a carteira do cliente não
+// aparece como pagadora. Nota neutra, só a saída (suporte), sem prometer crédito.
+// Aparece onde a carteira consultada NÃO tem licença. A frase inteira, com o link
+// no lugar de "DogCity support": pergunta + antes + SUPORTE.rotulo + depois.
+export const NOTA_CORRETORA = {
+  pergunta: "Paid from an exchange?",
+  antes: "A withdrawal from an exchange arrives from the exchange's wallet, not yours. Contact",
+  depois: "with the transaction and your own wallet address.",
+} as const
+export const notaCorretoraTexto = () =>
+  `${NOTA_CORRETORA.pergunta} ${NOTA_CORRETORA.antes} ${SUPORTE.rotulo} ${NOTA_CORRETORA.depois}`
+
+// ── A LINHA SECTOR DA ESCRITURA (28/10/2026) ────────────────────────────────
+// Antes só os setores 7 a 9 levavam o nome; os setores 1 a 6 saíam só com o
+// número. Agora os nove levam o nome do distrito: "1 · Harbor Canals". Se a rota
+// (ou uma resposta em cache de antes da mudança) mandar sem nome, o nome sai do
+// mesmo mapa aqui, então a tela nunca volta ao número solto. Setor sem nome
+// conhecido (fora de 1 a 9) fica só com o número.
+export function rotuloDoSetor(setor: number, distrito?: string | null): string {
+  const nome = distrito || DISTRITO_DO_SETOR[setor] || null
+  return nome ? `${setor} · ${nome}` : String(setor)
+}
+
+// ── A LINHA DISTRICT DA BUSCA DA LANDING (28/10/2026) ───────────────────────
+// A busca da landing (find-your-lot.tsx) imprime o distrito como a escritura:
+// "S09 · BAY SHORE". O dado do lote (`deed_district`) só traz o nome nos setores
+// 7 a 9 ("S07 · THE SPIT"); nos setores 1 a 6 vinha "S05", sem nome. Agora os nove
+// levam o nome, do MESMO mapa (DISTRITO_DO_SETOR) que a linha SECTOR usa, então os
+// dois nunca divergem. Os setores 7 a 9 saem idênticos ao que a escritura já dizia.
+// Setor fora de 1 a 9: o texto da escritura, ou só "Sxx".
+export function rotuloDoDistritoDaBusca(setor: number, distritoDaEscritura?: string | null): string {
+  const codigo = `S${String(setor).padStart(2, "0")}`
+  const nome = DISTRITO_DO_SETOR[setor]
+  if (nome) return `${codigo} · ${nome.toUpperCase()}`
+  return distritoDaEscritura || codigo
+}
+
+// ── CARTEIRA DE CUSTÓDIA: NUNCA LEVA LICENÇA NEM CASA (28/10/2026) ──────────
+// A carteira de custódia da Kraken (bc1plzs2l…dhspn, lote S08-Q00-B0002-L004) foi
+// creditada com uma licença Commercial (87.777 $DOG em 2 transações de 14/09)
+// porque clientes sacaram $DOG direto para o endereço do fundo. A Kraken não
+// comprou licença. Regra do fundador: corretora e empresa NUNCA mostram status de
+// licença ou de casa, em nenhuma tela. Três sinais, qualquer um basta:
+//   * identidade: o endereço bate com `dog_labels` ou `verified_addresses.json`
+//     (corretora, ponte, mercado, tesouraria...), a mesma identidade que manda o
+//     /api/dogcity/lookup responder `exchange`;
+//   * setor: o lote está no setor 8 (Financial District, só empresas: 32 lotes);
+//   * tier: o tier do lote em dogcity_lot_info.json é "co" (Company).
+// Decidida NO SERVIDOR (rotas de lookup e /api/profile): a licença nem sai na
+// resposta. Não é crédito, não mexe no placar: é só o que a tela deste endereço diz.
+export interface SinaisDeCustodia {
+  /** a identidade que a casa conhece para o endereço (qualquer valor verdadeiro) */
+  identidade?: unknown
+  /** o setor do lote no registro selado */
+  setor?: number | null
+  /** o código do tier do lote ("co" = empresa) */
+  tierDoLote?: string | null
+}
+
+export function ehCarteiraDeCustodia(s: SinaisDeCustodia): boolean {
+  if (s.identidade) return true
+  if (s.setor === SETOR_DAS_EMPRESAS) return true
+  return s.tierDoLote === "co"
+}
+
+/** a licença que a tela pode mostrar: a que veio, ou null se a carteira é de custódia */
+export function licencaVisivel<T>(licence: T | null | undefined, sinais: SinaisDeCustodia): T | null {
+  return ehCarteiraDeCustodia(sinais) ? null : licence ?? null
+}
 
 const tierDe = (d: Degrau) => TIERS.find((t) => t.key === d)
 
@@ -138,7 +224,10 @@ export function tipoPelaFrente(frenteM: number | null | undefined): string | nul
 
 /**
  * As frases da casa de UMA carteira com licença. Sem licença (degrau null ou
- * inválido) devolve null, e a tela segue como sempre foi.
+ * inválido) devolve null, e a tela segue como sempre foi. Lote no setor 8
+ * (Financial District, só empresas) também devolve null: a rota já corta a
+ * licença da carteira de custódia (ehCarteiraDeCustodia), e esta é a segunda
+ * trava, para uma resposta antiga nunca desenhar casa numa empresa.
  */
 export function casaDaLicenca(
   degrau: unknown,
@@ -146,6 +235,7 @@ export function casaDaLicenca(
   frenteM: number | null = null,
 ): CasaDaLicenca | null {
   if (!isDegrau(degrau)) return null
+  if (typeof lote === "object" && lote !== null && lote.sector === SETOR_DAS_EMPRESAS) return null
   const licenca = nomeDaLicenca(degrau)
   if (lote === "sem_lote") {
     return {

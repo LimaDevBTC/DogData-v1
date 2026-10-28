@@ -481,8 +481,9 @@ export const ENTREGA = {
 // ⚠️ SÓ TRÊS SETORES TÊM NOME PRÓPRIO, e os nomes são os PUBLICADOS na §3 dos
 // docs (feedback_contrato_publico_manda): o setor 7 é "the Spit" para o holder
 // (Orla Nobre é o nome interno, em português, e não vai para a tela), o 9 é
-// "Bay Shore" e o 8 é "Financial District". Os setores 1 a 6 são tecido e se
-// identificam só pelo número. O distrito é o prefixo S do lot_id.
+// "Bay Shore" e o 8 é "Financial District". (Até 28/10/2026 os setores 1 a 6 se
+// identificavam só pelo número; agora têm nome também, em DISTRITO_DO_SETOR logo
+// abaixo, e as telas usam aquele mapa.) O distrito é o prefixo S do lot_id.
 export const BAIRRO_DO_SETOR: Readonly<Record<number, string>> = {
   7: "The Spit",
   8: "Financial District",
@@ -493,9 +494,10 @@ export const BAIRRO_DO_SETOR: Readonly<Record<number, string>> = {
 // Os nove setores com o nome do distrito das docs §8 ("Eight districts, one architecture each").
 // O mapa setor -> distrito é o mesmo do jogo (dogcity-mundo scripts/casas/lote_casa.py, DISTRITO;
 // FASES_DA_CIDADE.md de 21/10). Os setores 7 a 9 vêm de BAIRRO_DO_SETOR para o nome nunca divergir.
-// ⚠️ SÓ A CASA DA LICENÇA USA ISTO (casa-da-licenca.ts). A linha SECTOR da escritura (lookup,
-// /profile, /api/dogcity/lot) segue em BAIRRO_DO_SETOR até o fundador decidir publicar os nomes
-// do tecido também ali.
+// 🔒 DECIDIDO PELO FUNDADOR EM 28/10/2026 (mesmo dia): a linha SECTOR da escritura (lookup da landing,
+// /profile, e `district` de /api/dogcity/lookup, /api/profile e /api/dogcity/lot) também escreve o
+// nome do distrito nos nove setores, não só nos setores 7 a 9. Quem escreve a linha é
+// rotuloDoSetor() em casa-da-licenca.ts. BAIRRO_DO_SETOR fica só como a origem dos nomes 7 a 9.
 export const DISTRITO_DO_SETOR: Readonly<Record<number, string>> = {
   1: "Harbor Canals",
   2: "Liberty Row",
@@ -509,6 +511,13 @@ export const DISTRITO_DO_SETOR: Readonly<Record<number, string>> = {
 // o Financial District não tem catálogo de casas: é das empresas (docs §5 e §8, "separate from the
 // licences"). Lote de licença ali não ganha "from the Financial District catalogue".
 export const SETORES_SEM_CATALOGO: ReadonlySet<number> = new Set([8])
+
+// 🔒 28/10/2026 (fundador): o setor 8 (Financial District, Satoshi Plaza) é SÓ de empresa. Medido em
+// data/dogcity_lotes.csv e data/dogcity_lot_info.json: os 32 lotes do setor 8 são `ordem` -1 e tier
+// "co" (Company), e nenhum lote de carteira comum está nele. É o sinal de "empresa" que o DogData tem
+// (o `empresa: 1` do jogo não vem no CSV). Carteira de custódia nunca leva licença nem casa:
+// ehCarteiraDeCustodia() em casa-da-licenca.ts. O teste tranca essa igualdade contra os dois arquivos.
+export const SETOR_DAS_EMPRESAS = 8
 
 // ⚠️ A TIPOLOGIA É SAÍDA DE `forma_de(utxo_count)` (a mesma conta de scripts/city/merkle.py, que recusa o registro se divergir)
 // (masterplan §9, regra 3), e o índice aqui é o código gravado no registro:
