@@ -292,7 +292,7 @@ export const TIERS = [
       "Early access to the game, to every test and every update",
     ],
     building: {
-      src: "/landing/licences/building-personal.webp", w: 1000, h: 662,
+      src: "/landing/licences/building-personal.webp", w: 1000, h: 660,
       kind: "A RESIDENCE", note: "Example from the district catalogue. The style depends on your district.",
       alt: "Example of a residence from the DogCity district catalogue: a house with a yard on its own lot",
     },
