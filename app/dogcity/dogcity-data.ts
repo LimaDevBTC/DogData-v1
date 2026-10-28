@@ -263,8 +263,10 @@ export const LICENCE_BTC_NOTE = "Paid in BTC: building licence and item pack onl
 // do catálogo do distrito + moto; Commercial = prédio de uso misto (loja embaixo, casa em cima) do catálogo + moto + Cyber
 // $DOG laranja; Patron = residência sob medida (mansão) + moto + Cyber $DOG PRETA + helicóptero. O estilo da casa depende do
 // distrito do dono, então a legenda do catálogo diz "exemplo"; só o Patron é "feito para você".
-// Imagens: WebP com transparência em /public/landing/licences/. `w`/`h` dos três prédios e da Cyber preta são o tamanho
-// PREVISTO do encaixe até a arte final entrar (o cartão tem proporção fixa e `object-contain`, então o número não muda o layout).
+// Imagens: WebP com transparência em /public/landing/licences/, os prédios recortados ao conteúdo e com 1000 px de largura
+// (o cartão tem proporção fixa 16:10 e `object-contain`, então `w`/`h` não mudam o layout). O prédio do Personal é a v1 e
+// vai ser trocado por uma v2 com o mesmo nome; o do Commercial é um café comercial provisório (por isso a legenda diz
+// "COMMERCIAL OR MIXED USE"); o do Patron é a mansão de The Spit.
 // Os veículos foram fotografados no estúdio do Blender (dogcity-mundo, plano/the_build/filme/estudio_veiculos.py, modo cartão).
 // O helicóptero é o "Bell 429 Helicopter" de agreene (Sketchfab, CC BY 4.0): o crédito (`credit`) sai no próprio cartão,
 // é condição da licença.
@@ -290,7 +292,7 @@ export const TIERS = [
       "Early access to the game, to every test and every update",
     ],
     building: {
-      src: "/landing/licences/building-personal.webp", w: 1200, h: 750,
+      src: "/landing/licences/building-personal.webp", w: 1000, h: 662,
       kind: "A RESIDENCE", note: "Example from the district catalogue. The style depends on your district.",
       alt: "Example of a residence from the DogCity district catalogue: a house with a yard on its own lot",
     },
@@ -310,9 +312,9 @@ export const TIERS = [
       "Vehicles: the $DOG moto and an orange Cyber $DOG",
     ],
     building: {
-      src: "/landing/licences/building-commercial.webp", w: 1200, h: 750,
-      kind: "MIXED USE: SHOP BELOW, HOME ABOVE", note: "Example from the district catalogue. The style depends on your district.",
-      alt: "Example of a mixed-use building from the DogCity district catalogue: a shop on the ground floor with homes above",
+      src: "/landing/licences/building-commercial.webp", w: 1000, h: 666,
+      kind: "COMMERCIAL OR MIXED USE", note: "Example from the district catalogue. The style depends on your district.",
+      alt: "Example of a commercial building from the DogCity district catalogue: a mid-century café with a glass front and a roadside sign",
     },
     vehicles: [
       VEHICLE_MOTO,
@@ -333,9 +335,9 @@ export const TIERS = [
       "Vehicles: the $DOG moto, a black Cyber $DOG (instead of the orange one) and the DOG helicopter",
     ],
     building: {
-      src: "/landing/licences/building-patron.webp", w: 1200, h: 750,
+      src: "/landing/licences/building-patron.webp", w: 1000, h: 471,
       kind: "A CUSTOM MANSION", note: "Designed for you, outside the district catalogue.",
-      alt: "A custom mansion designed for the owner of a Patron licence, outside the district catalogue",
+      alt: "A custom mansion designed for the owner of a Patron licence: a modern estate with flat roofs, glass walls, a pool deck and a guest house",
     },
     vehicles: [
       VEHICLE_MOTO,
