@@ -59,6 +59,15 @@
 // `position` vem "unavailable" a tela diz isso em vez de inventar um lote.
 // Coordenada crua não entra aqui (a rota só a dá com ?full=1, para o mapa).
 //
+// A CASA DA LICENÇA ENTROU EM 28/10/2026 (decisão do fundador: toda carteira que
+// pagou a licença ganha a casa padrão no lote). A rota manda `licence` (o degrau,
+// calculado no servidor para UMA carteira; nunca o placar inteiro no cliente) e
+// este componente monta as frases com ../casa-da-licenca.ts, as MESMAS do
+// /profile. Três casos: licença com lote (o que constrói, veículos, status sem
+// data), licença sem lote (onde a casa vai, e o suporte), e lote sem licença (o
+// cartão de sempre, com o CTA da licença). `licence: null` = o banco não
+// respondeu a tempo, e a tela segue como se não houvesse licença.
+//
 // DOIS USOS DO MESMO MOTOR: `variant="hero"` é a dobra 1 inteira (mapa de
 // fundo escurecido, campo grande). `variant="repeat"` é a dobra 7 (o mesmo
 // campo, sem o mapa, para quem chegou até o fim sem digitar nada). A lógica
@@ -70,6 +79,7 @@
 import { useState, type FormEvent } from "react"
 import { HAIR, HAIR_SOFT } from "../motion"
 import { SNAPSHOT_PROOF, PISO_LOTE_M2, alvoDaCurva } from "../dogcity-data"
+import { casaDaLicenca, SUPORTE, SUPORTE_LEAD, type CasaDaLicenca } from "../casa-da-licenca"
 
 // ── formatação exata, nunca arredondada para "K"/"M" ────────────────────────
 // formatDog() de ../dogcity-data.ts abrevia ("889.8K"), o que é exatamente o
@@ -93,10 +103,12 @@ function dataDoBloco(iso: string): string {
 // só o Spit, o Financial District e o Bay Shore têm nome publicado.
 type Lote = { lot_id: string; sector: number; district: string | null; typology: string | null; map: string }
 type Lapide = { id: string; place: string; map: string }
+// o degrau da licença (null abaixo de Personal); o objeto inteiro null = indisponível agora
+type Licenca = { tier: string | null } | null
 type Resultado =
-  | { status: "in_snapshot"; address: string; dog: number; area_m2: number; area_m2_table?: number; genesis: boolean; runestones: number; utxo_count: number; block: number; position?: "ok" | "unavailable"; lot?: Lote }
-  | { status: "memorial"; address: string; dog: number; corte_dog: number; lapides: number; genesis: boolean; runestones: number; utxo_count: number; block: number; position?: "ok" | "unavailable"; headstone?: Lapide }
-  | { status: "not_in_snapshot"; address: string }
+  | { status: "in_snapshot"; address: string; dog: number; area_m2: number; area_m2_table?: number; genesis: boolean; runestones: number; utxo_count: number; block: number; position?: "ok" | "unavailable"; lot?: Lote; licence?: Licenca }
+  | { status: "memorial"; address: string; dog: number; corte_dog: number; lapides: number; genesis: boolean; runestones: number; utxo_count: number; block: number; position?: "ok" | "unavailable"; headstone?: Lapide; licence?: Licenca }
+  | { status: "not_in_snapshot"; address: string; licence?: Licenca }
   | { status: "exchange"; address: string; identity_name: string; identity_kind: string | null }
 
 function linhaDoc(rotulo: string, valor: React.ReactNode) {
@@ -125,6 +137,58 @@ function BotaoMapa({ href }: { href: string }) {
     >
       SEE IT ON THE MAP
     </a>
+  )
+}
+
+// ── A CASA DA LICENÇA (28/10/2026) ──────────────────────────────────────────
+// As frases vêm prontas de ../casa-da-licenca.ts; aqui só a moldura, no mesmo
+// papel do documento. ⚠️ STATUS SEM DATA, de propósito (decisão do fundador):
+// "In production" ou, no Patron, "In design". Nunca prazo, nunca preço.
+function StatusDaCasa({ status }: { status: string }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-lava animate-pulse-dot shrink-0" />
+      {status}
+    </span>
+  )
+}
+
+// licença com lote: o que a licença constrói nele, os veículos e o status.
+// O contorno da marca separa este bloco da escritura sem virar um segundo CTA.
+function CasaNoLote({ c }: { c: Extract<CasaDaLicenca, { caso: "com_lote" }> }) {
+  return (
+    <div className="mt-5 border border-lava/30 bg-lava/[0.04] px-4 py-4 md:px-5 md:py-5">
+      <p className="font-mono text-[10px] tracking-[0.2em] text-lava">{c.rotulo}</p>
+      <p className="font-display font-bold text-snow text-base md:text-lg mt-2 leading-snug">{c.constroi}</p>
+      {c.veiculos && <p className="text-[13px] md:text-sm text-mist mt-1.5 leading-relaxed">{c.veiculos}</p>}
+      <div className="mt-3">
+        {linhaDoc("LICENCE", c.licenca)}
+        {/* sem posição agora, a linha fica e diz isso (a mesma regra do LOT da escritura) */}
+        {linhaDoc("LOT", c.loteId ?? SEM_POSICAO)}
+        {c.distrito && linhaDoc("DISTRICT", c.distrito)}
+        {/* o gancho da tipologia pela frente: `tipo` sai null hoje (casa-da-licenca.ts) */}
+        {c.tipo && linhaDoc("LOT TYPE", c.tipo)}
+        {linhaDoc("STATUS", <StatusDaCasa status={c.status} />)}
+      </div>
+    </div>
+  )
+}
+
+// licença sem lote: neutro, sem promessa. A casa vai no lote da carteira que
+// guarda a escritura; dúvida vai para o canal oficial de suporte.
+function LicencaSemLote({ c }: { c: Extract<CasaDaLicenca, { caso: "sem_lote" }> }) {
+  return (
+    <div className={`mt-5 border ${HAIR} bg-white/[0.02] px-4 py-4 md:px-5 md:py-5`}>
+      <p className="font-mono text-[10px] tracking-[0.2em] text-lava">{c.rotulo}</p>
+      <p className="font-display font-bold text-snow text-base md:text-lg mt-2 leading-snug">{c.titulo}</p>
+      <p className="text-[13px] md:text-sm text-mist mt-2 leading-relaxed">{c.aviso}</p>
+      <p className="text-[12px] md:text-[13px] text-dusty mt-2 leading-relaxed">
+        {SUPORTE_LEAD}{" "}
+        <a href={SUPORTE.href} className="text-lava hover:text-lava-light underline underline-offset-2">
+          {SUPORTE.rotulo}
+        </a>.
+      </p>
+    </div>
   )
 }
 
@@ -262,6 +326,8 @@ function Documento({ r }: { r: Resultado }) {
   }
 
   if (r.status === "not_in_snapshot") {
+    // comprou a licença depois do bloco: tem licença e nenhum lote no Anel 1
+    const semLote = casaDaLicenca(r.licence?.tier, "sem_lote")
     return (
       <div className={`border ${HAIR} bg-[#08080A] px-5 py-6 md:px-7 md:py-7`}>
         {/* o rótulo do anel saiu daqui e foi para o selo: repetir "RING 2" duas
@@ -276,6 +342,8 @@ function Documento({ r }: { r: Resultado }) {
         </p>
 
         <RingMark aceso={2} />
+
+        {semLote?.caso === "sem_lote" && <LicencaSemLote c={semLote} />}
 
         <p className="text-[13px] md:text-sm text-mist mt-5 leading-relaxed">
           What closes right now is not land, it is order. The Founder number goes by order of
@@ -299,6 +367,8 @@ function Documento({ r }: { r: Resultado }) {
   // do projeto, e o caminho de volta e dito sem promessa de data, porque o
   // anel de expansao abre num bloco que ainda nao foi anunciado.
   if (r.status === "memorial") {
+    // lápide com licença: a licença existe, o lote não
+    const semLote = casaDaLicenca(r.licence?.tier, "sem_lote")
     return (
       <div className={`border ${HAIR} bg-[#08080A] px-5 py-6 md:px-7 md:py-7`}>
         <p className="font-mono text-[10px] tracking-[0.2em] text-dusty">DECIDED AT THE FOUNDING</p>
@@ -325,6 +395,7 @@ function Documento({ r }: { r: Resultado }) {
           receives land in Ring 2, at a future block that has not been announced yet. Ring 1 froze at
           the snapshot and nobody moves into it afterward.
         </p>
+        {semLote?.caso === "sem_lote" && <LicencaSemLote c={semLote} />}
         {r.headstone && (
           <div className="mt-5">
             <BotaoMapa href={r.headstone.map} />
@@ -342,6 +413,10 @@ function Documento({ r }: { r: Resultado }) {
   // própria área entregue para saber qual teto vale (o do Distrito Financeiro
   // é 150.000 e não 40.000), então nenhuma posição precisa sair da rota.
   const alvo = alvoDaCurva(r.dog, r.area_m2)
+  // com licença, o bloco da casa entra logo abaixo da escritura e o CTA da
+  // licença sai (quem já pagou não precisa ouvir "get the licence"). Sem
+  // posição agora, a carteira AINDA tem lote: "sem_posicao", nunca "sem_lote".
+  const casa = casaDaLicenca(r.licence?.tier, r.lot ? { lot_id: r.lot.lot_id, sector: r.lot.sector } : "sem_posicao")
   return (
     <div className={`border ${HAIR} bg-[#08080A] px-5 py-6 md:px-7 md:py-7`}>
       {/* o rótulo do anel saiu daqui e foi para o selo, no fim do documento */}
@@ -361,6 +436,8 @@ function Documento({ r }: { r: Resultado }) {
         {linhaDoc("DECIDED AT", `block ${r.block.toLocaleString("en-US")}, ${dataDoBloco(SNAPSHOT_PROOF.timeUtc)}`)}
         {linhaDoc("BLOCK HASH", <span className="break-all">{hashCurto(SNAPSHOT_PROOF.hash)}</span>)}
       </div>
+
+      {casa?.caso === "com_lote" && <CasaNoLote c={casa} />}
 
       <RingMark aceso={1} />
 
@@ -382,16 +459,20 @@ function Documento({ r }: { r: Resultado }) {
       </p>
       {/* os dois botões na mesma linha, cheio e contorno; no celular quebram
           em duas linhas com o mesmo vão, nunca um sobre o outro colado */}
-      <div className="mt-4 flex flex-wrap gap-3">
-        <a
-          href="/dogcity/founders"
-          className="inline-flex items-center justify-center h-11 px-6 font-mono font-bold text-[12px] tracking-[0.1em]
-                     bg-lava text-void hover:bg-lava-light transition-colors duration-200"
-        >
-          GET THE LICENCE TO BUILD ON IT
-        </a>
-        {r.lot && <BotaoMapa href={r.lot.map} />}
-      </div>
+      {(!casa || r.lot) && (
+        <div className="mt-4 flex flex-wrap gap-3">
+          {!casa && (
+            <a
+              href="/dogcity/founders"
+              className="inline-flex items-center justify-center h-11 px-6 font-mono font-bold text-[12px] tracking-[0.1em]
+                         bg-lava text-void hover:bg-lava-light transition-colors duration-200"
+            >
+              GET THE LICENCE TO BUILD ON IT
+            </a>
+          )}
+          {r.lot && <BotaoMapa href={r.lot.map} />}
+        </div>
+      )}
     </div>
   )
 }

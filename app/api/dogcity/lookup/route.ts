@@ -4,6 +4,7 @@ import { isValidAddress } from '@/app/api/holders/tree/_shared'
 import { resolveIdentity } from '@/lib/dog/identity'
 import { escrituras, buscarEscritura } from '@/lib/city/escrituras'
 import { lotInfo } from '@/lib/city/lot-info'
+import { licencaDaCarteira } from '@/lib/dog/licence-wallet'
 import {
   CORTE_CEMITERIO_DOG, CORTE_CEMITERIO_PUBLICADO, LAPIDES,
   BAIRRO_DO_SETOR, TIPOLOGIA_DA_FORMA, CEMITERIO_NOME, linkDaCidade,
@@ -75,6 +76,15 @@ import {
 //                Ganha `lot` (lot_id, setor, bairro, tipologia, link /city?addr=).
 //   4. not_in_snapshot: nenhuma das anteriores.
 //
+// 🔒 A LICENÇA ENTROU EM 28/10/2026 (decisão do fundador: casa padrão no lote de
+// quem pagou a licença). `licence` vai nos ramos 2, 3 e 4: `{ tier }` com o
+// degrau (null abaixo de Personal) ou `null` quando o banco não respondeu a
+// tempo. A conta é a do placar do fundo, só que para UMA carteira
+// (lib/dog/licence-wallet.ts): nada de baixar /api/donate/leaderboard inteiro.
+// Corre em paralelo desde o começo, com prazo próprio (LICENCA_MS); estourou,
+// sai `null` e a tela segue como antes. Corretora (ramo 1) não leva licença:
+// a tela ali só diz para sacar.
+//
 // ⚠️ QUEM DECIDE O RAMO É A TABELA, NÃO O ÍNDICE. Se um dia os dois divergirem
 // (a tabela diz lápide e o índice diz lote, ou vice-versa), a posição sai como
 // indisponível em vez de a rota escolher um lado: os dois nascem do mesmo CSV
@@ -101,6 +111,10 @@ const BUDGET_MS = 5000
 // fallback pela rede (cold start na Vercel sem o arquivo rastreado) é que
 // pode passar de 1 s, e é para ele que este teto existe.
 const POSICAO_MS = 1500
+
+// teto só da licença (duas consultas por índice: GIN de dog_transactions e o
+// parcial de dogcity_btc_payments). Conta a partir do começo da requisição.
+const LICENCA_MS = 2500
 
 interface LookupRow {
   address: string
@@ -132,6 +146,8 @@ export async function GET(req: NextRequest) {
   // quando o fs não o alcança); VERCEL_URL cobre o caso de nextUrl vir sem host
   const origin = req.nextUrl.origin || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
   const indicePromise = escrituras(origin)
+  // a licença corre junto com tudo; null = indisponível agora, nunca erro
+  const licencaPromise = licencaDaCarteira(supabase, address, { ms: LICENCA_MS }).catch(() => null)
 
   const timeout = new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), BUDGET_MS))
 
@@ -194,6 +210,7 @@ export async function GET(req: NextRequest) {
       || (row.destino == null && Number(row.dog) < CORTE_CEMITERIO_DOG))
     if (row && lapide) {
       const h = escritura?.kind === 'lapide' ? escritura : null
+      const licence = await licencaPromise
       return NextResponse.json({
         status: 'memorial',
         address,
@@ -213,6 +230,7 @@ export async function GET(req: NextRequest) {
             ...(full && { x_m: h.x_m, z_m: h.z_m }),
           },
         }),
+        licence,
       })
     }
 
@@ -222,7 +240,10 @@ export async function GET(req: NextRequest) {
       // landing v3 (18/10/2026): tier, distrito e rua do MESMO lote, lidos de
       // data/dogcity_lot_info.json (o dado da escritura, sem endereço). Sem o
       // arquivo a resposta só não traz esses campos; nada é deduzido aqui.
-      const info = l ? await lotInfo(l.lotId).catch(() => null) : null
+      const [info, licence] = await Promise.all([
+        l ? lotInfo(l.lotId).catch(() => null) : Promise.resolve(null),
+        licencaPromise,
+      ])
       // a área é a do registro selado quando ele responde (ver o cabeçalho:
       // a tabela ainda serve a curva); a da tabela fica como alarme se divergir
       const areaTabela = Number(row.area_m2)
@@ -263,11 +284,12 @@ export async function GET(req: NextRequest) {
             ...(full && { x_m: l.x_m, z_m: l.z_m, elevation_m: l.cota_m }),
           },
         }),
+        licence,
       })
     }
 
-    // checagem 4: chegou depois do bloco 966.670
-    return NextResponse.json({ status: 'not_in_snapshot', address })
+    // checagem 4: chegou depois do bloco 966.670 (pode ter comprado licença depois)
+    return NextResponse.json({ status: 'not_in_snapshot', address, licence: await licencaPromise })
   } catch {
     return NextResponse.json({ error: 'data backend busy, retry shortly' }, { status: 503 })
   }
