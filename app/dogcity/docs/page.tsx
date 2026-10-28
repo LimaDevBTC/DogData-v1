@@ -1250,7 +1250,7 @@ export default function DogCityDocsPage() {
                 items={[
                   {
                     lead: "The price stays in $DOG.",
-                    text: "A licence is worth 10,000, 50,000 or 500,000 $DOG. In Bitcoin you pay the same value, quoted live from the median of exchange prices: Kraken, Coinbase and Bitstamp for BTC/USD, and Kraken, Gate.io and MEXC for DOG/USD (Gate.io and MEXC price DOG in USDT, counted here as dollars). The quote needs at least two independent exchanges for each pair, and exchanges more than 5% away from the median are left out. If that cannot be met, there is no quote and nothing can be paid in Bitcoin until it can. A quote holds for 15 minutes.",
+                    text: "A licence is worth 10,000, 50,000 or 500,000 $DOG. In Bitcoin you pay the same value, quoted live from the median of exchange prices: Kraken, Coinbase and Bitstamp for BTC/USD, and Kraken, Gate.io and MEXC for DOG/USD (Gate.io and MEXC price DOG in USDT, counted here as dollars). The quote needs at least two independent exchanges for each pair, and exchanges more than 5% away from the median are left out. If that cannot be met, there is no quote and nothing can be paid in Bitcoin until it can. A quote holds for 15 minutes. A wallet that already counts $DOG or Bitcoin toward a licence is quoted only the difference to the rung it is moving to, and a wallet that already holds a rung is not quoted for it.",
                   },
                   {
                     lead: "Bitcoin does not count toward the 10,000,000 $DOG.",

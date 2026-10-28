@@ -13,6 +13,12 @@
 //   /api/address/bitcoin/<address>   saldo, posicao, rotulos, historico
 //   /api/donate/leaderboard          licenca e numero de fundador
 //
+// A CASA DA LICENCA (28/10/2026, decisao do fundador): `licence` vem de
+// /api/profile, calculada no servidor so para esta carteira (a mesma conta do
+// placar do fundo, lib/dog/licence-wallet.ts), e as frases saem de
+// app/dogcity/casa-da-licenca.ts, as MESMAS do lookup da landing. A chapa do
+// registro de fundadores continua lendo o placar, como antes.
+//
 // Nada aqui depende de posse provada para LER: o endereco e publico. A prova
 // so destranca escrever (handle) e falar na praca.
 
@@ -21,7 +27,7 @@ import Image from "next/image"
 import Link from "next/link"
 import {
   ArrowDownLeft, ArrowLeftRight, ArrowUpRight, AtSign, Building2, Check, Copy,
-  ExternalLink, Fingerprint, Gauge, Image as ImageIcon, Link2, Loader2, LogOut, MessageSquare,
+  ExternalLink, Fingerprint, Gauge, Hammer, Image as ImageIcon, Link2, Loader2, LogOut, MessageSquare,
   ShieldAlert, ShieldCheck, Trophy, Wallet,
 } from "lucide-react"
 import { Layout } from "@/components/layout"
@@ -32,7 +38,11 @@ import { useDonate } from "@/components/donate/donate-modal"
 import { WALLETS } from "@/lib/wallet"
 import { handleProblem, normalizeHandle } from "@/lib/identity/handle"
 import { refLink } from "@/lib/referral/ref"
-import { PISO_LOTE_M2, alvoDaCurva } from "@/app/dogcity/dogcity-data"
+import { PISO_LOTE_M2, FUND_CLOSE_BLOCK, alvoDaCurva } from "@/app/dogcity/dogcity-data"
+import {
+  casaDaLicenca, rotuloDoSetor, SUPORTE, SUPORTE_LEAD, NOTA_CORRETORA, TEXTO_LICENCA_ABERTA,
+  type CasaDaLicenca, type LoteDaCasa,
+} from "@/app/dogcity/casa-da-licenca"
 
 // ── tipos ──────────────────────────────────────────────────────────────────
 
@@ -66,6 +76,10 @@ interface ProfilePayload {
   avatar_inscription_id: string | null
   avatar_number: number | null
   city: CityDeed | null
+  /** o degrau da licenca (null abaixo de Personal); o objeto null = banco sem resposta agora */
+  licence?: { tier: string | null } | null
+  /** carteira de corretora ou de empresa: nunca mostra licenca nem casa (fundador, 28/10/2026) */
+  custody?: boolean
   chat_count: number
 }
 
@@ -268,7 +282,8 @@ function CityDeedCard({ city, address }: { city: CityDeed | null; address: strin
     ? [
         ["Area", `${n0(l.area_m2)} m2`],
         ["Curve target", alvo != null ? `${n0(alvo)} m2` : "n/a"],
-        ["Sector", l.district ? `${l.sector} · ${l.district}` : String(l.sector)],
+        // o nome do distrito nos nove setores (fundador, 28/10/2026)
+        ["Sector", rotuloDoSetor(l.sector, l.district)],
         ["Typology", l.typology ?? "n/a"],
       ]
     : []
@@ -302,6 +317,63 @@ function CityDeedCard({ city, address }: { city: CityDeed | null; address: strin
       )}
       {selo}
       {botoes}
+    </div>
+  )
+}
+
+// ── a casa da licenca ─────────────────────────────────────────────────────
+// ⚠️ O TEXTO E CONTRATO: as frases vem de casaDaLicenca(), as mesmas do lookup
+// da landing. Status sem data, de proposito (decisao do fundador, 28/10/2026).
+
+/** o lote para a casa, pelo que o registro respondeu; null = registro fora do ar (nao se sabe) */
+function loteDaCasa(city: CityDeed | null): LoteDaCasa | null {
+  if (!city) return null
+  if (city.status === "lot") return city.lot ? { lot_id: city.lot.lot_id, sector: city.lot.sector } : "sem_posicao"
+  if (city.status === "headstone" || city.status === "not_in_snapshot") return "sem_lote"
+  return null
+}
+
+function BuildingCard({ casa }: { casa: CasaDaLicenca }) {
+  if (casa.caso === "sem_lote") {
+    return (
+      <div className="space-y-3">
+        <p className="font-mono text-[10px] tracking-[0.2em] text-lava">{casa.rotulo}</p>
+        <p className="font-display font-bold text-xl text-snow">{casa.titulo}</p>
+        <p className="text-[12px] text-mist leading-relaxed max-w-2xl">{casa.aviso}</p>
+        <p className="text-[12px] text-dusty leading-relaxed">
+          {SUPORTE_LEAD}{" "}
+          <Link href={SUPORTE.href} className="text-lava hover:underline">{SUPORTE.rotulo}</Link>.
+        </p>
+      </div>
+    )
+  }
+  const linhas: [string, React.ReactNode][] = [
+    ["Licence", casa.licenca],
+    ["Lot", casa.loteId ?? "not available right now"],
+    ["District", casa.distrito ?? (casa.loteId ? "n/a" : "not available right now")],
+    [
+      "Status",
+      <span key="status" className="inline-flex items-center gap-2">
+        <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-lava animate-pulse-dot shrink-0" />
+        {casa.status}
+      </span>,
+    ],
+  ]
+  return (
+    <div className="space-y-3">
+      <p className="font-mono text-[10px] tracking-[0.2em] text-lava">{casa.rotulo}</p>
+      <p className="font-display font-bold text-lg md:text-xl text-snow">{casa.constroi}</p>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/10 border border-white/10">
+        {linhas.map(([k, v]) => (
+          <div key={k} className="bg-void p-3">
+            <Eyebrow>{k}</Eyebrow>
+            <p className="font-mono text-[12px] text-snow mt-1.5 break-words">{v}</p>
+          </div>
+        ))}
+      </div>
+      {/* o gancho da tipologia pela frente: `tipo` sai null hoje (casa-da-licenca.ts) */}
+      {casa.tipo && <p className="font-mono text-[11px] text-mist">Lot type: {casa.tipo}</p>}
+      {casa.veiculos && <p className="text-[12px] text-mist leading-relaxed">{casa.veiculos}</p>}
     </div>
   )
 }
@@ -613,6 +685,12 @@ export default function ProfilePage() {
       .catch(() => { if (vivo) setRefMe(null) })
     return () => { vivo = false }
   }, [verified, profile?.handle])
+
+  // a casa da licenca: so com licenca E com o registro respondendo (lote, lapide ou fora do snapshot)
+  const casa = useMemo(() => {
+    const lote = loteDaCasa(profile?.city ?? null)
+    return lote ? casaDaLicenca(profile?.licence?.tier, lote) : null
+  }, [profile])
 
   const myRefLink = profile?.handle ? refLink(profile.handle) : null
   const copyRefLink = useCallback(() => {
@@ -1124,7 +1202,8 @@ export default function ProfilePage() {
                         Founder #{standing.founder_seq}
                       </span>
                     )}
-                    {standing.license && LICENSE_LABEL[standing.license] && (
+                    {/* corretora e empresa nunca mostram o degrau da licenca (fundador, 28/10/2026) */}
+                    {!profile?.custody && standing.license && LICENSE_LABEL[standing.license] && (
                       <span className="border border-white/15 px-2 py-1 font-mono text-[9px] uppercase tracking-[0.18em] text-mist">
                         {LICENSE_LABEL[standing.license]}
                       </span>
@@ -1147,16 +1226,24 @@ export default function ProfilePage() {
                 </div>
               ) : (
                 <div className="space-y-3">
+                  {/* o fundo fechou no bloco 972.336: nao ha mais numero de Founder; a oferta de hoje e a licenca */}
                   <p className="text-[12px] text-mist leading-relaxed">
-                    This address has not contributed to the build yet. Any amount before the goal makes
-                    you a Founder, and the register records the order of arrival.
+                    This address is not on the founders list, which closed at block{" "}
+                    {FUND_CLOSE_BLOCK.toLocaleString("en-US")}. {TEXTO_LICENCA_ABERTA}
                   </p>
+                  {!profile?.custody && (
+                    <p className="text-[12px] text-dusty leading-relaxed">
+                      <span className="text-mist">{NOTA_CORRETORA.pergunta}</span> {NOTA_CORRETORA.antes}{" "}
+                      <Link href={SUPORTE.href} className="text-lava hover:underline">{SUPORTE.rotulo}</Link>{" "}
+                      {NOTA_CORRETORA.depois}
+                    </p>
+                  )}
                   <div className="flex flex-wrap items-center gap-3">
                     <button
                       onClick={() => openDonate({ asset: "dog" })}
                       className="inline-flex items-center gap-1.5 border border-lava/50 bg-lava/[0.08] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-lava hover:bg-lava/[0.16] transition-colors"
                     >
-                      Fund the city
+                      Get a building licence
                     </button>
                     <Link
                       href="/dogcity#build"
@@ -1168,6 +1255,14 @@ export default function ProfilePage() {
                 </div>
               )}
             </div>
+
+            {/* a casa da licenca, na largura das duas chapas; sem licenca nao aparece */}
+            {casa && (
+              <div className="bg-void p-5 md:p-6 md:col-span-2">
+                <PlateHead icon={Hammer}>building</PlateHead>
+                <BuildingCard casa={casa} />
+              </div>
+            )}
           </div>
         </section>
 

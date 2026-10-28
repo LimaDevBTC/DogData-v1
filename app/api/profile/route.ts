@@ -4,9 +4,12 @@ import { supabase } from '@/lib/supabase'
 import { validateHandle } from '@/lib/identity/handle'
 import { comPrazo, falhaPrivada } from '@/lib/api/prazo'
 import { escrituras, buscarEscritura } from '@/lib/city/escrituras'
+import { licencaDaCarteira } from '@/lib/dog/licence-wallet'
+import { resolveIdentity } from '@/lib/dog/identity'
+import { ehCarteiraDeCustodia, licencaVisivel } from '@/app/dogcity/casa-da-licenca'
 import {
   CORTE_CEMITERIO_DOG, CORTE_CEMITERIO_PUBLICADO, SNAPSHOT_PROOF,
-  BAIRRO_DO_SETOR, TIPOLOGIA_DA_FORMA, CEMITERIO_NOME, linkDaCidade,
+  DISTRITO_DO_SETOR, TIPOLOGIA_DA_FORMA, CEMITERIO_NOME, linkDaCidade,
 } from '@/app/dogcity/dogcity-data'
 
 export const runtime = 'nodejs'
@@ -57,6 +60,21 @@ const PRAZO_MS = 5000
 // teto so da posicao, mesmo da rota de lookup: o indice carrega em paralelo e,
 // se nao chegar ate aqui, a resposta sai sem posicao
 const POSICAO_MS = 1500
+// 🔒 A LICENCA (28/10/2026, decisao do fundador: casa padrao no lote de quem
+// pagou a licenca). `licence` e `{ tier }` (null abaixo de Personal) ou `null`
+// quando o banco nao respondeu a tempo. A conta e a do placar do fundo para UMA
+// carteira (lib/dog/licence-wallet.ts), a mesma de /api/dogcity/lookup: a
+// landing e o /profile nunca dizem coisas diferentes do mesmo endereco. Teto
+// proprio, menor que PRAZO_MS: estourou, a pagina abre sem o status da casa.
+//
+// 🔒 CUSTODIA (fundador, 28/10/2026): corretora e empresa NUNCA levam licenca nem
+// casa. A Kraken recebeu uma licenca Commercial no placar porque clientes sacaram
+// $DOG direto para o fundo. Aqui a mesma regra de /api/dogcity/lookup: identidade
+// conhecida (dog_labels / verified_addresses.json, a que faz o lookup responder
+// `exchange`), ou lote no setor 8 (Financial District, so empresas): `licence` sai
+// null e `custody` sai true (a chapa do registro de fundadores tambem omite o degrau).
+const LICENCA_MS = 2500
+const IDENTIDADE_MS = 2000
 
 type CidadePerfil = {
   block: number
@@ -120,7 +138,8 @@ async function cidadeDe(
       ? {
           lot_id: l.lotId,
           sector: l.setor,
-          district: BAIRRO_DO_SETOR[l.setor] ?? null,
+          // o nome do distrito nos nove setores (fundador, 28/10/2026): a linha Sector da escritura
+          district: DISTRITO_DO_SETOR[l.setor] ?? null,
           typology: TIPOLOGIA_DA_FORMA[l.forma] ?? null,
           dsc: l.dsc,
           area_m2: l.area_m2,
@@ -140,7 +159,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       address: null, verified: false, handle: null, claimed_at: null,
       avatar_inscription_id: null, avatar_number: null,
-      city: null, chat_count: 0, wallet_id: null,
+      city: null, licence: null, custody: false, chat_count: 0, wallet_id: null,
     })
   }
 
@@ -153,7 +172,7 @@ export async function GET(req: NextRequest) {
   const indicePromise = escrituras(origin)
 
   return comPrazo(async (signal) => {
-    const [profileRes, city, chatRes] = await Promise.all([
+    const [profileRes, city, chatRes, licenceBruta, identity] = await Promise.all([
       supabase
         .from('dogcity_profiles')
         .select('handle, created_at, avatar_inscription_id, avatar_content_type, avatar_number')
@@ -162,6 +181,14 @@ export async function GET(req: NextRequest) {
         .maybeSingle(),
       cidadeDe(enderecoCidade, indicePromise, signal),
       supabase.from('dogcity_chat').select('id', { count: 'exact', head: true }).eq('address', address).abortSignal(signal),
+      // o endereco como o registro e a tabela de BTC gravam (bech32 minusculo, base58 intacto)
+      licencaDaCarteira(supabase, enderecoCidade, { ms: LICENCA_MS, signal }),
+      // a identidade conhecida (a mesma do lookup), com teto proprio: lenta ou fora, sai null e
+      // vale so o sinal do setor 8; nunca derruba o perfil
+      Promise.race([
+        resolveIdentity(enderecoCidade).catch(() => null),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), IDENTIDADE_MS)),
+      ]),
     ])
 
     if (profileRes.error) {
@@ -172,6 +199,9 @@ export async function GET(req: NextRequest) {
     // pagina ainda tem que abrir com a identidade (city.status 'unavailable').
     if (chatRes.error) console.error('[api/profile GET chat]', chatRes.error.message)
 
+    const sinais = { identidade: identity, setor: city.lot?.sector ?? null }
+    const licence = licencaVisivel(licenceBruta, sinais)
+
     return NextResponse.json({
       address,
       verified: !!sessionAddress && sessionAddress === address,
@@ -180,6 +210,8 @@ export async function GET(req: NextRequest) {
       avatar_inscription_id: profileRes.data?.avatar_inscription_id ?? null,
       avatar_number: profileRes.data?.avatar_number ?? null,
       city,
+      licence,
+      custody: ehCarteiraDeCustodia(sinais),
       chat_count: chatRes.count ?? 0,
       wallet_id: sessionAddress === address ? session?.walletId ?? null : null,
     })

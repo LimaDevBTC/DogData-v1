@@ -12,6 +12,11 @@
 //  3. Por carteira soma-se DOG e BTC (o BTC pelo valor em DOG da cotação travada; se foi
 //     pago depois de vencida a trava, pela cotação do bloco em que confirmou) para chegar
 //     ao degrau da licença.
+//  4. (fundador, 25/10, em vigor no BTC desde 28/10) SUBIR PAGA SÓ A DIFERENÇA: a cotação de
+//     um degrau cobre o que a carteira AINDA FALTA (`degrau - DOG que a carteira já conta`,
+//     DOG do livro + BTC creditado, a conta do placar), nunca menos que 0; o degrau que a
+//     carteira já tem não recebe cotação. O pagamento que cobre a cotação credita os sats
+//     pagos à taxa travada, e a soma da carteira alcança o degrau.
 //
 // FALHA FECHADA: tudo aqui devolve "não" diante de dúvida. NaN, negativo, zero, Infinity,
 // inteiro inseguro e preço fora de faixa são recusados, nunca arredondados para dentro.
@@ -127,6 +132,16 @@ export function satsForDog(dog: number, dogUsd: number, btcUsd: number): number 
   return sats
 }
 
+/**
+ * Os sats de uma COTAÇÃO de `dog` DOG: `satsForDog`, mas nunca abaixo de MIN_PAYMENT_SATS. Abaixo
+ * disso o pagamento é poeira (`unmatched / dust`) e jamais credita; uma diferença pequena (a
+ * carteira a 49.999 de 50.000) pede então o mínimo, e o crédito segue o que os sats valem.
+ */
+export function licenceSats(dog: number, dogUsd: number, btcUsd: number): number | null {
+  const s = satsForDog(dog, dogUsd, btcUsd)
+  return s === null ? null : Math.max(s, MIN_PAYMENT_SATS)
+}
+
 /** o valor em DOG de `sats` a uma taxa; null em qualquer entrada inválida ou acima do teto */
 export function dogForSats(sats: number, dogUsd: number, btcUsd: number): number | null {
   const s = positive(sats), du = positive(dogUsd), bu = positive(btcUsd)
@@ -136,9 +151,14 @@ export function dogForSats(sats: number, dogUsd: number, btcUsd: number): number
   return dog
 }
 
-export type QuoteRefusal = 'not_enough_sources' | 'sources_disagree' | 'bad_input' | 'bad_price'
+export type QuoteRefusal = 'not_enough_sources' | 'sources_disagree' | 'bad_input' | 'bad_price' | 'already_held'
 
-/** Monta a cotação a partir das duas medianas. Qualquer dúvida: recusa. */
+/**
+ * Monta a cotação a partir das duas medianas. Qualquer dúvida: recusa.
+ * `heldDog` é o que a carteira JÁ CONTA (DOG do livro + BTC creditado, a conta do placar): a
+ * cotação cobre só o que falta para o degrau (`dogAmount`), guardado na coluna `dog_amount` que
+ * já existe. Sem `heldDog` válido (>= 0) não há cotação; carteira que já tem o degrau: `already_held`.
+ */
 export function buildQuote(input: {
   id: string
   tier: unknown
@@ -147,12 +167,15 @@ export function buildQuote(input: {
   dog: MedianResult
   btc: MedianResult
   nowMs: number
+  heldDog: number
 }): { ok: true; quote: Quote } | { ok: false; reason: QuoteRefusal } {
   if (!isTier(input.tier) || !Number.isFinite(input.nowMs)) return { ok: false, reason: 'bad_input' }
   if (!input.dog.ok) return { ok: false, reason: input.dog.reason }
   if (!input.btc.ok) return { ok: false, reason: input.btc.reason }
-  const dogAmount = LICENCE_DOG[input.tier]
-  const sats = satsForDog(dogAmount, input.dog.price, input.btc.price)
+  const dogAmount = dogStillNeeded(input.tier, input.heldDog)
+  if (Number.isNaN(dogAmount)) return { ok: false, reason: 'bad_input' }
+  if (dogAmount <= 0) return { ok: false, reason: 'already_held' }
+  const sats = licenceSats(dogAmount, input.dog.price, input.btc.price)
   if (sats === null) return { ok: false, reason: 'bad_price' }
   return {
     ok: true,
@@ -239,7 +262,15 @@ export function matchQuote(p: BtcPayment, quotes: Quote[]):
   const latest = (qs: Quote[]) => qs.reduce((a, b) => (b.createdAtMs > a.createdAtMs ? b : a))
   const inLock = linked.filter((q) => lockMs <= q.expiresAtMs)
   const covering = inLock.filter((q) => p.sats >= q.sats)
-  if (covering.length > 0) return { kind: 'quote', quote: latest(covering) }
+  // ⚠️ COM VÁRIAS COTAÇÕES VIVAS DO MESMO PAGADOR (degraus diferentes, ou a mesma recotada), a
+  // mais NOVA não é a que o pagamento paga: quem cotou Commercial e depois olhou Personal paga o
+  // Commercial, e creditar pela taxa do Personal podia deixar a carteira abaixo do degrau pago
+  // (a taxa anda um pouco entre as duas cotações). O pagamento corresponde à cotação que cobre
+  // o MAIOR valor em DOG; empatada em DOG (mesmo degrau recotado), a mais nova.
+  if (covering.length > 0) {
+    const biggest = covering.reduce((a, b) => (b.dogAmount > a.dogAmount ? b : a)).dogAmount
+    return { kind: 'quote', quote: latest(covering.filter((q) => q.dogAmount === biggest)) }
+  }
   if (inLock.length > 0) return review('underpaid_for_quote')
   return { kind: 'block', quote: latest(linked) }
 }
@@ -287,14 +318,32 @@ export async function resolvePayment(
 
 export type LicenceKey = 'patron' | 'commercial' | 'personal' | 'citizen'
 
-/** o degrau da licença por total em DOG (as mesmas faixas de /api/donate/leaderboard) */
+/** um DOG em átomos inteiros (a unidade do livro): tira o ruído de ponto flutuante das somas */
+export const toAtomos = (dog: number) => Math.round(dog * ATOMOS)
+
+/**
+ * o degrau da licença por total em DOG (as mesmas faixas de /api/donate/leaderboard).
+ * ⚠️ A comparação é em ÁTOMOS: 6.000,1 + 43.999,9 dá 49.999,99999999999 em ponto flutuante, e a
+ * carteira que pagou exatamente a diferença ficaria um centésimo de átomo abaixo do degrau.
+ */
 export function licenceFor(totalDog: number): LicenceKey {
   const t = positive(totalDog)
   if (!Number.isFinite(t)) return 'citizen'
-  if (t >= LICENCE_DOG.patron) return 'patron'
-  if (t >= LICENCE_DOG.commercial) return 'commercial'
-  if (t >= LICENCE_DOG.personal) return 'personal'
+  const a = toAtomos(t)
+  if (a >= toAtomos(LICENCE_DOG.patron)) return 'patron'
+  if (a >= toAtomos(LICENCE_DOG.commercial)) return 'commercial'
+  if (a >= toAtomos(LICENCE_DOG.personal)) return 'personal'
   return 'citizen'
+}
+
+/**
+ * Quanto DOG ainda falta a uma carteira que já conta `heldDog` para chegar ao `tier`: a conta é
+ * em átomos inteiros, nunca negativa, e 0 significa "já tem o degrau" (a mesma comparação de
+ * `licenceFor`). Entrada inválida: NaN, que ninguém confunde com um valor a pagar.
+ */
+export function dogStillNeeded(tier: LicenceTier, heldDog: number): number {
+  if (!isTier(tier) || typeof heldDog !== 'number' || !Number.isFinite(heldDog) || heldDog < 0) return NaN
+  return Math.max(0, toAtomos(LICENCE_DOG[tier]) - toAtomos(heldDog)) / ATOMOS
 }
 
 /** DOG + BTC (em DOG) de uma carteira. Entrada inválida vale 0; o BTC tem teto por carteira. */
