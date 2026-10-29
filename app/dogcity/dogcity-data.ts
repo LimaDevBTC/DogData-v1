@@ -293,9 +293,9 @@ export const TIERS = [
       "Early access to the game, to every test and every update",
     ],
     building: {
-      src: "/landing/licences/building-personal.webp", w: 1000, h: 591,
+      src: "/landing/licences/building-personal.webp", w: 1000, h: 622,
       kind: "A RESIDENCE", note: "Example from the district catalogue. The style depends on your district.",
-      alt: "Example of a residence from the DogCity district catalogue: a house with a yard on its own lot",
+      alt: "Example of a residence from the DogCity district catalogue: a large green craftsman house with an attached two-car garage, a front porch and a fenced garden, with the $DOG moto parked on the driveway",
     },
     vehicles: [VEHICLE_MOTO],
     cta: "Choose Personal",
@@ -313,9 +313,9 @@ export const TIERS = [
       "Vehicles: the $DOG moto and an orange Cyber $DOG",
     ],
     building: {
-      src: "/landing/licences/building-commercial.webp", w: 1000, h: 698,
-      kind: "MIXED USE: SHOP BELOW, HOME ABOVE", note: "Example from the district catalogue. The style depends on your district.",
-      alt: "Example of a mixed-use building from the DogCity district catalogue: a cream house with a red brick shop on the ground floor, glass shop windows under green striped awnings, a cafe terrace with tables and parasols, and a home above",
+      src: "/landing/licences/building-commercial.webp", w: 1000, h: 692,
+      kind: "COMMERCIAL OR MIXED USE", note: "Example from the district catalogue. The style depends on your district.",
+      alt: "Example of a commercial building from the DogCity district catalogue: a three-storey brick main-street building with shop, office and studio fronts under blue awnings, offices and homes above, a rooftop water tower, and the orange Cyber $DOG and the $DOG moto parked in front",
     },
     vehicles: [
       VEHICLE_MOTO,
@@ -336,9 +336,9 @@ export const TIERS = [
       "Vehicles: the $DOG moto, a black Cyber $DOG (instead of the orange one) and the DOG helicopter",
     ],
     building: {
-      src: "/landing/licences/building-patron.webp", w: 1000, h: 471,
+      src: "/landing/licences/building-patron.webp", w: 1000, h: 619,
       kind: "A CUSTOM MANSION", note: "Designed for you, outside the district catalogue.",
-      alt: "A custom mansion designed for the owner of a Patron licence: a modern estate with flat roofs, glass walls, a pool deck and a guest house",
+      alt: "A custom mansion designed for the owner of a Patron licence: a modern estate with a rooftop helipad and the DOG helicopter on it, glass walls, a pool deck with palms, and the black Cyber $DOG and the $DOG moto at the garage",
     },
     vehicles: [
       VEHICLE_MOTO,
