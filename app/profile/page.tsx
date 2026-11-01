@@ -1245,8 +1245,9 @@ export default function ProfilePage() {
                     >
                       Get a building licence
                     </button>
+                    {/* 01/11: a escada das licencas mora em #tiers (#build e o hero) */}
                     <Link
-                      href="/dogcity#build"
+                      href="/dogcity#tiers"
                       className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-dusty hover:text-lava transition-colors"
                     >
                       Read the ladder <ArrowUpRight className="w-3 h-3" />
