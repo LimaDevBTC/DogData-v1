@@ -491,7 +491,7 @@ export default function Section({}) {
         <SectionHead
           eyebrow="THE LICENCES"
           title="Three licences to build on your deed."
-          sub="A licence is paid once, in $DOG or the same value in Bitcoin, to the construction fund, and it builds on the lot your wallet owns. Every licence includes everything in the one below it. Moving up costs only the difference: your payments add up, and nobody buys two licences. A higher licence changes how a building is used, not how big it is."
+          sub="A licence is paid once, in $DOG or the same value in Bitcoin, to the construction fund, and it builds on the lot your wallet owns. Every licence includes everything in the one below it. Moving up costs only the difference: your payments add up, and nobody buys two licences. A higher licence changes how a building is used, not how big it is. Mint your lot, take a licence, and your house stands in the city."
         />
 
         <LicenceStrip n={licenceCount} />
