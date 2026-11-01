@@ -24,10 +24,18 @@ import { DataRow, Frame, Plate, SectionHead, TextLink, areaDeed, dogExact, useRe
 import { EXAMPLE_DEED, MAP, T8, deedForTier, metersToMap, type Deed } from "../landing/media"
 import { CITY_URL, MINT_URL, type CountdownState } from "../landing/mint-state"
 import { SNAPSHOT_PROOF, PISO_LOTE_M2, alvoDaCurva } from "../dogcity-data"
-import { rotuloDoDistritoDaBusca } from "../casa-da-licenca"
+import { isDegrau, nomeDaLicenca, rotuloDoDistritoDaBusca } from "../casa-da-licenca"
+import { useDonate } from "@/components/donate/donate-modal"
+import { track } from "@/lib/analytics/client"
+import {
+  CASAS_URL, NOTA_CONSTRUIR, blocoDe, blocoExiste, estadoNoBloco, fraseDaCasa, fraseDeSubir, rotuloDeConstruir,
+  tamanhoDoBloco, type EstadoDaCasa,
+} from "../landing/licenca-no-lote"
 
 // ── o contrato das rotas ─────────────────────────────────────────────────────
 interface TierOut { code: string; rung: number | null; name: string }
+/** a licença da carteira (28/10): `{ tier }` com o degrau (null abaixo de Personal); o objeto null = DogData sem resposta agora */
+type Licenca = { tier: string | null } | null
 interface LotFields {
   lot_id: string; sector: number; district: string | null; typology: string | null; map: string
   x_m?: number; z_m?: number
@@ -35,7 +43,7 @@ interface LotFields {
   front_road?: string | null; access?: { road: string; side: string } | null; faces?: string | null
 }
 type Result =
-  | { status: "in_snapshot"; address: string; dog: number; area_m2: number; genesis: boolean; runestones: number; utxo_count: number; block: number; position?: "ok" | "unavailable"; lot?: LotFields }
+  | { status: "in_snapshot"; address: string; dog: number; area_m2: number; genesis: boolean; runestones: number; utxo_count: number; block: number; position?: "ok" | "unavailable"; lot?: LotFields; licence?: Licenca }
   | { status: "memorial"; address: string; dog: number; corte_dog: number; lapides: number; genesis: boolean; runestones: number; utxo_count: number; block: number; position?: "ok" | "unavailable"; headstone?: { id: string; place: string; map: string; x_m?: number; z_m?: number } }
   | { status: "not_in_snapshot"; address: string }
   | { status: "exchange"; address: string; identity_name: string; identity_kind: string | null }
@@ -325,8 +333,98 @@ function DeedThumb({ deed, example, tierName }: { deed: Deed | null; example?: b
   )
 }
 
+// ═══ A LICENÇA AO LADO DO LOTE (01/11/2026) ════════════════════════════════
+// Contrato FUNIL_LOTE_LICENCA_CASA.md §4: quem acha o próprio lote vê o passo
+// seguinte. Sem licença, o botão que a compra (abre a janela de pagamento, já
+// que estamos na landing); com licença, o estado da casa, e nunca um botão de
+// compra. As frases e a leitura do índice moram em ../landing/licenca-no-lote.ts.
+
+/** o que o índice público das casas do jogo sabe do lote; "desconhecido" até responder */
+function useEstadoDaCasa(lot: LotFields | undefined): EstadoDaCasa {
+  const [estado, setEstado] = useState<EstadoDaCasa>("desconhecido")
+  const lotId = lot?.lot_id ?? null
+  const x = lot?.x_m, z = lot?.z_m
+  useEffect(() => {
+    setEstado("desconhecido")
+    if (!lotId) return
+    let vivo = true
+    ;(async () => {
+      try {
+        const ri = await fetch(`${CASAS_URL}/indice.json`, { signal: AbortSignal.timeout(6000) })
+        if (!ri.ok) return
+        const indice: unknown = await ri.json()
+        const bloco = blocoDe(x, z, tamanhoDoBloco(indice))
+        if (!bloco) return
+        if (!blocoExiste(indice, bloco)) { if (vivo) setEstado("ausente"); return }
+        const rb = await fetch(`${CASAS_URL}/${encodeURIComponent(bloco)}.json`, { signal: AbortSignal.timeout(6000) })
+        if (!rb.ok) return
+        const b: unknown = await rb.json()
+        if (vivo) setEstado(estadoNoBloco(b, lotId))
+      } catch { /* sem resposta = não se sabe, nunca "não tem" */ }
+    })()
+    return () => { vivo = false }
+  }, [lotId, x, z])
+  return estado
+}
+
+/** quem TEM licença: o estado da casa, acima da linha de botões; nunca um botão de compra */
+function CasaDoLote({ tier, estado, lotId, open }: {
+  tier: string; estado: EstadoDaCasa; lotId: string | null
+  open: ReturnType<typeof useDonate>["open"]
+}) {
+  if (!isDegrau(tier)) return null
+  const f = fraseDaCasa(tier, estado)
+  const subir = fraseDeSubir(tier)
+  return (
+    <div className="mt-5 border border-dc-lava/30 bg-dc-lava/[0.04] px-4 py-4 dk:px-5 dk:py-5">
+      <p className="dc-label text-dc-lava">{`YOUR BUILDING · ${nomeDaLicenca(tier).toUpperCase()} LICENCE`}</p>
+      <p className="dc-body mt-2 text-dc-snow">{f.titulo}</p>
+      {f.nota && <p className="dc-body mt-1 text-dc-mist">{f.nota}</p>}
+      {f.verCasa && lotId && (
+        <div className="mt-4">
+          <a href={`${CITY_URL}/?lot=${encodeURIComponent(lotId)}`} className="dc-btn dc-btn-line">See your house</a>
+        </div>
+      )}
+      {/* subir de degrau é link discreto, nunca botão cheio (contrato §4) */}
+      {subir && (
+        <p className="mt-3">
+          <button
+            type="button"
+            onClick={() => { track("licence_cta_click", { onde: "lookup", nivel: subir.proximo }); open({ asset: "dog", tier: subir.proximo }) }}
+            className="dc-link font-mono text-[11px] tracking-[0.16em] uppercase text-dc-mist hover:text-dc-snow"
+          >
+            {subir.rotulo}
+          </button>
+        </p>
+      )}
+    </div>
+  )
+}
+
+/** quem NÃO tem licença: a oferta, abaixo da linha de botões, como o passo seguinte à escritura */
+function ConstruirNoLote({ estado, open }: { estado: EstadoDaCasa; open: ReturnType<typeof useDonate>["open"] }) {
+  return (
+    <div className="mt-6 border-t border-dc-snow/[0.08] pt-5">
+      <p className="dc-label text-dc-lava">THE HOUSE</p>
+      <p className="dc-body mt-2 text-dc-mist">{NOTA_CONSTRUIR}</p>
+      <div className="mt-4">
+        <button
+          type="button"
+          onClick={() => { track("licence_cta_click", { onde: "lookup" }); open({ asset: "dog" }) }}
+          className="dc-btn dc-btn-fill"
+        >
+          {rotuloDeConstruir(estado)}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function ResultPlate({ r, cd }: { r: Result; cd: CountdownState }) {
   const mintOpen = cd.kind === "C" || cd.kind === "D" || cd.kind === "E" || cd.kind === "F"
+  // os ganchos antes de qualquer saída: a casa só interessa a quem tem lote
+  const { open: openWallet } = useDonate()
+  const estadoDaCasa = useEstadoDaCasa(r.status === "in_snapshot" ? r.lot : undefined)
 
   if (r.status === "exchange") {
     return (
@@ -440,12 +538,19 @@ function ResultPlate({ r, cd }: { r: Result; cd: CountdownState }) {
           Reserved for this wallet through the Founder and Whitelist phases, about 24 days from the day the mint opens.
           Founders mint it free until the Whitelist ends; every other wallet pays half its public price in the Whitelist, from US$1.
         </p>
+        {/* a licença ao lado do lote (01/11): com licença, o estado da casa acima dos botões; a rota sem resposta
+            (licence null) não desenha nada de licença, melhor nenhum que um errado */}
+        {r.licence?.tier != null && (
+          <CasaDoLote tier={r.licence.tier} estado={estadoDaCasa} lotId={l?.lot_id ?? null} open={openWallet} />
+        )}
         <div className="mt-6 flex flex-col dk:flex-row gap-3">
           {mintOpen
             ? <a href={MINT_URL} className="dc-btn dc-btn-fill">Mint this lot</a>
             : <a href={`${CITY_URL}/?addr=${encodeURIComponent(r.address)}`} className="dc-btn dc-btn-fill">See it in the city</a>}
           <a href="/dogcity/docs#the-mint" className="dc-btn dc-btn-line">How the mint works</a>
         </div>
+        {/* sem licença (tier null, com a rota respondendo): a oferta, como o passo seguinte à escritura */}
+        {r.licence != null && r.licence.tier == null && <ConstruirNoLote estado={estadoDaCasa} open={openWallet} />}
         <p className="mt-5 border-t border-dc-snow/[0.08] pt-4">
           <TextLink href="/dogcity/docs#how-land-follows-the-coins" className="font-mono text-[11px] tracking-[0.16em] uppercase text-dc-mist hover:text-dc-snow">
             Why this size

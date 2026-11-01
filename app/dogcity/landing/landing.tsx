@@ -23,8 +23,11 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import "./landing.css"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { ResumePill } from "@/components/resume-pill"
+import { useDonate } from "@/components/donate/donate-modal"
+import { track } from "@/lib/analytics/client"
+import { lerParametrosLicenca, limparParametrosLicenca } from "./link-licenca"
 import { MotionScope } from "./ui"
 import { Footer, Nav } from "./chrome"
 import { useCountdown, type FundData, type MinterRead } from "./use-countdown"
@@ -72,6 +75,28 @@ export default function DogCityLanding({ initialFund = null, initialMintB = null
     const h = window.location.hash
     if (!h || h === "#snapshot" || h === "#build") window.scrollTo(0, 0)
     return () => { try { history.scrollRestoration = prev } catch { /* nada */ } }
+  }, [])
+
+  // ── o link profundo da licença (FUNIL_LOTE_LICENCA_CASA.md §3, 01/11/2026) ──
+  // O jogo, o mint e o /profile chegam com ?licence=<degrau>&from=<origem>#tiers. O
+  // hash já rolou até os cartões (funciona sem JS); aqui, com JS, a janela de
+  // pagamento abre no degrau pedido depois que a rolagem assenta, para não brigar
+  // com ela. `from` vira `origem` na medida e nunca vai para a tela. Fora da lista
+  // (./link-licenca.ts), nada acontece. Depois de abrir, a URL perde os dois
+  // parâmetros (o hash fica), para um F5 não reabrir a janela.
+  const { open: openWallet } = useDonate()
+  const openRef = useRef(openWallet)
+  openRef.current = openWallet
+  useEffect(() => {
+    const { tier, from } = lerParametrosLicenca(window.location.search)
+    if (!tier && !from) return
+    track("licence_deeplink", { origem: from ?? undefined, nivel: tier ?? undefined, janela: tier !== null })
+    if (!tier) return
+    const t = window.setTimeout(() => {
+      openRef.current({ tier, asset: "dog" })
+      try { history.replaceState(history.state, "", limparParametrosLicenca(window.location.href)) } catch { /* nada */ }
+    }, 600)
+    return () => window.clearTimeout(t)
   }, [])
 
   return (
