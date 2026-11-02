@@ -42,6 +42,19 @@ const OG = OG_URL
 export const metadata: Metadata = {
   // o endereco canonico da landing e' o dominio da cidade (22/10/2026); /dogcity aqui continua servindo a mesma pagina
   alternates: { canonical: 'https://dogcity.space/' },
+  // O ICONE DA ABA E' O D· DA DOGCITY (02/11/2026). Sem isto o dogcity.space herdava o da raiz (app/layout.tsx, a
+  // cabeca do DOG da DOG DATA, congelado por skip-worktree), e a aba da cidade nao era a da cidade: o jogo
+  // (play.dogcity.space) e o mint ja' mostram o D·. Os arquivos sao os mesmos do jogo, gerados do SVG-mestre
+  // (dogcity-mundo: public/modelos/marca/dogcity-favicon.svg, scripts/marca/icones.mjs). Vale para todas as paginas
+  // de /dogcity (atlas, docs, founders, partners, referrals, support): o `icons` daqui substitui o da raiz.
+  icons: {
+    icon: [
+      { url: '/landing/v3/brand/dogcity-favicon.svg', type: 'image/svg+xml' },
+      { url: '/landing/v3/brand/dogcity-favicon.ico', sizes: '16x16 32x32 48x48' },
+    ],
+    shortcut: '/landing/v3/brand/dogcity-favicon.ico',
+    apple: [{ url: '/landing/v3/brand/dogcity-apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+  },
   title: 'DogCity: a virtual city for DOG holders, on real lunar terrain | dogdata.xyz',
   description:
     // ⚠️ DUAS FRASES FALSAS SAIRAM DAQUI EM 22/09. "every self-custody DOG
