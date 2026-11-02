@@ -134,7 +134,7 @@ export const CTA_CONSTRUIR = {
   desconhecido: "Get the licence that builds on it",
 } as const
 // a mesma frase do mint (01/11 à noite, fundador): a pessoa compra a casa e os veículos, não uma "licença"
-export const NOTA_CONSTRUIR = "The deed is the land. The licence is your house, and it comes with its vehicles. Pay in $DOG or the same value in Bitcoin."
+export const NOTA_CONSTRUIR = "The deed is the land. The licence is your house, and it comes with its vehicles."
 
 export function rotuloDeConstruir(estado: EstadoDaCasa): string {
   return estado === "construida" || estado === "mintado_sem_casa" ? CTA_CONSTRUIR.mintado : CTA_CONSTRUIR.desconhecido
