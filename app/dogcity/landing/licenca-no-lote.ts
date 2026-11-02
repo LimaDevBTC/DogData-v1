@@ -133,7 +133,8 @@ export const CTA_CONSTRUIR = {
   mintado: "Build your house",
   desconhecido: "Get the licence that builds on it",
 } as const
-export const NOTA_CONSTRUIR = "A building licence puts your house on this lot in the city."
+// a mesma frase do mint (01/11 à noite, fundador): a pessoa compra a casa e os veículos, não uma "licença"
+export const NOTA_CONSTRUIR = "The deed is the land. The licence is your house, and it comes with its vehicles. Pay in $DOG or the same value in Bitcoin."
 
 export function rotuloDeConstruir(estado: EstadoDaCasa): string {
   return estado === "construida" || estado === "mintado_sem_casa" ? CTA_CONSTRUIR.mintado : CTA_CONSTRUIR.desconhecido
