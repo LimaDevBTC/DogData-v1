@@ -34,7 +34,7 @@ export interface Checkin {
 export const DAILY_REWARD = {
   points: 10,
   items: [
-    { id: 'racao', qtd: 2 },
+    { id: 'carne', qtd: 1 },
     { id: 'garrafa_agua', qtd: 2 },
   ],
 }

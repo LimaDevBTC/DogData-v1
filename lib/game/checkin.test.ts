@@ -66,7 +66,7 @@ test('duplicatas e dias futuros sao ignorados; POST duplo nao paga duas vezes', 
   const days = [T, T, addDays(T, 1)]
   const first = computeCheckin(days, T, true)
   assert.equal(first.streak, 1)
-  assert.deepEqual(first.reward?.items, [{ id: 'racao', qtd: 2 }, { id: 'garrafa_agua', qtd: 2 }])
+  assert.deepEqual(first.reward?.items, [{ id: 'carne', qtd: 1 }, { id: 'garrafa_agua', qtd: 2 }])
   assert.equal(first.reward?.points, 10)
   const second = computeCheckin(days, T, false)
   assert.equal(second.justClaimed, false)
