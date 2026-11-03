@@ -29,3 +29,8 @@ create table if not exists public.dogcity_game_checkins (
 );
 
 alter table public.dogcity_game_checkins enable row level security;
+
+-- Belt and braces: RLS with zero policies already hides the rows; also take the table grants away from the
+-- client roles, so only the service role (server routes) touches them.
+revoke all on table public.dogcity_game_saves from anon, authenticated;
+revoke all on table public.dogcity_game_checkins from anon, authenticated;
