@@ -36,6 +36,10 @@ export async function PUT(req: NextRequest) {
     const wallet = await sessionWallet(req)
     if (!wallet) return json({ error: 'unauthenticated' }, 401)
 
+    // recusa cedo pelo Content-Length declarado (o corpo nem e' lido); o teto exato vem depois, sobre o texto
+    const declared = Number(req.headers.get('content-length') ?? 0)
+    if (Number.isFinite(declared) && declared > MAX_BYTES * 2) return json({ error: 'too_large' }, 413)
+
     const raw = await req.text()
     if (raw.length > MAX_BYTES * 2) return json({ error: 'too_large' }, 400)
     let body: { save?: unknown }

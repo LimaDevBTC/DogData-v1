@@ -1,4 +1,4 @@
--- Migration 036: DogCity game save + daily check-in. WRITTEN, NOT APPLIED (the coordinator applies it).
+-- Migration 036: DogCity game save + daily check-in. APPLIED to the production Supabase project (03/11).
 --
 -- Two small tables behind /api/game/save and /api/game/checkin (see lib/game/checkin.ts):
 --   dogcity_game_saves     one row per verified wallet: the whole `dogcity.jogo.v1` envelope as jsonb
