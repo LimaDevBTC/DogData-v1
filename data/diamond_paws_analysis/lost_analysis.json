@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-04T11:39:51.872582+00:00",
+  "generated_at": "2026-11-04T12:39:41.123420+00:00",
   "data_source": {
     "forensic_behavioral_analysis": "data/forensic_behavioral_analysis.json",
     "chain_stats_jsonl": "data/diamond_paws_analysis/chain_stats.jsonl",
@@ -22,11 +22,11 @@
     "pct_of_supply": 19.576621806
   },
   "lost_relaxed": {
-    "count": 5862,
-    "pct_of_diamond_paws": 30.734546217165626,
-    "dog_locked": 5565736530.0,
-    "pct_of_diamond_paws_dog": 28.430525885187034,
-    "pct_of_supply": 5.56573653
+    "count": 5861,
+    "pct_of_diamond_paws": 30.72930320348136,
+    "dog_locked": 5555948664.0,
+    "pct_of_diamond_paws_dog": 28.380528157811007,
+    "pct_of_supply": 5.555948664000001
   },
   "lost_strict": {
     "count": 2,
@@ -36,21 +36,21 @@
     "pct_of_supply": 0.0017796119999999999
   },
   "active_after_airdrop": {
-    "count": 13211,
-    "pct_of_diamond_paws": 69.26545378283437,
-    "dog_held": 14010885276.0,
+    "count": 13212,
+    "pct_of_diamond_paws": 69.27069679651864,
+    "dog_held": 14020673142.0,
     "spent_txo_buckets": {
       "100+": 1814,
       "21-100": 3575,
       "6-20": 3239,
       "2-5": 2666,
-      "1": 1917
+      "1": 1918
     },
     "note": "These wallets sent something (BTC, other runes\u2026) but their DOG balance equals the airdrop amount \u2014 they're alive HODLers, not lost."
   },
   "funded_after_airdrop_but_unspent": {
-    "count": 5862,
-    "dog_in_these_wallets": 5565736530.0,
+    "count": 5861,
+    "dog_in_these_wallets": 5555948664.0,
     "interpretation": "Received passive deposits (dust attacks, later airdrops, etc.) but never spent. Still 'lost relaxed' \u2014 incoming proves nothing about key control.",
     "extra_deposits_distribution": {
       "1_to_2": {
@@ -66,8 +66,8 @@
         "dog": 3779006082.0
       },
       "21_to_100": {
-        "wallets": 1112,
-        "dog": 1102469634.0
+        "wallets": 1111,
+        "dog": 1092681768.0
       },
       "100_plus": {
         "wallets": 113,
@@ -77,13 +77,13 @@
   },
   "address_type_breakdown": {
     "lost_relaxed": {
-      "p2tr": 5490,
+      "p2tr": 5489,
       "p2pkh": 65,
       "p2sh": 50,
       "p2wpkh/p2wsh": 257
     },
     "active": {
-      "p2tr": 10841,
+      "p2tr": 10842,
       "p2sh": 329,
       "p2wpkh/p2wsh": 1884,
       "p2pkh": 157
@@ -95,12 +95,6 @@
       "dog": 10677672.0,
       "funded_txos": 108,
       "tx_count": 100
-    },
-    {
-      "address": "bc1ppxm2y58nh22ykjlelvwmvewakr2j47nq9qk5hja4z3g2063d6d3q77xkcu",
-      "dog": 9787866.0,
-      "funded_txos": 94,
-      "tx_count": 70
     },
     {
       "address": "bc1phjx6m8qdrmyx5gpjzhhgntgfd92t89pxuhl3uqwvu36zf7xygrrsnswpp0",
@@ -209,6 +203,12 @@
       "dog": 3559224.0,
       "funded_txos": 18,
       "tx_count": 18
+    },
+    {
+      "address": "bc1p9l22gjlzqzluszke99xs0ayzkzz33zjxgvfalkgalw6a4vyerr8sc4yjvl",
+      "dog": 3559224.0,
+      "funded_txos": 23,
+      "tx_count": 23
     }
   ],
   "top_20_strictly_lost_wallets_by_dog": [
