@@ -46,7 +46,7 @@ Frontend (dados em tempo real)
 2. Vá em **Settings** → **Environment Variables**
 3. Adicione nova variável:
    - **Key:** `UPDATE_SECRET`
-   - **Value:** `dog-update-secret-2025-production-key-secure` (ou crie um token forte)
+   - **Value:** `<SEGREDO>-2025-production-key-secure` (ou crie um token forte)
    - **Environments:** Production, Preview, Development
 4. Clique em **Save**
 
@@ -62,7 +62,7 @@ KV_REST_API_TOKEN=xxxxx
 KV_REST_API_READ_ONLY_TOKEN=xxxxx
 
 # Secret para proteger API
-UPDATE_SECRET=dog-update-secret-2025-production-key-secure
+UPDATE_SECRET=<SEGREDO>-2025-production-key-secure
 ```
 
 **Onde encontrar as credenciais:**

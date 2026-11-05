@@ -78,7 +78,7 @@ git push origin main
 1. Settings → Environment Variables
 2. Adicione:
    - **Key:** `UPDATE_SECRET`
-   - **Value:** `dog-update-secret-2025-production-key-secure`
+   - **Value:** `<SEGREDO>-2025-production-key-secure`
    - **Environments:** Todos
 
 ### 6. **Popular o cache (primeira vez)**
