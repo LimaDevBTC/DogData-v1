@@ -37,7 +37,7 @@ Crie o arquivo `.env.local` na raiz do projeto:
 
 ```bash
 # Copie as credenciais do dashboard da Vercel após criar o KV
-UPDATE_SECRET=dog-update-secret-2025-production-key-secure
+UPDATE_SECRET=<SEGREDO>
 ```
 
 ### 2. **Testar localmente**
@@ -78,7 +78,7 @@ git push origin main
 1. Settings → Environment Variables
 2. Adicione:
    - **Key:** `UPDATE_SECRET`
-   - **Value:** `dog-update-secret-2025-production-key-secure`
+   - **Value:** `<SEGREDO>-2025-production-key-secure`
    - **Environments:** Todos
 
 ### 6. **Popular o cache (primeira vez)**
@@ -86,13 +86,13 @@ git push origin main
 Após o deploy, execute:
 
 ```bash
-curl "https://seu-dominio.vercel.app/api/update-transactions?secret=dog-update-secret-2025-production-key-secure"
+curl "https://seu-dominio.vercel.app/api/update-transactions?secret=<SEGREDO>"
 ```
 
 ### 7. **Configurar Cron Job (cron-job.org)**
 
 1. https://console.cron-job.org → Create cronjob
-2. **URL:** `https://seu-dominio.vercel.app/api/update-transactions?secret=XXX`
+2. **URL:** `https://seu-dominio.vercel.app/api/update-transactions?secret=<SEGREDO>`
 3. **Intervalo:** Every 3 minutes
 4. Save
 
@@ -106,7 +106,7 @@ curl "https://seu-dominio.vercel.app/api/update-transactions?secret=dog-update-s
 │              (cron-job.org - a cada 3 minutos)              │
 └─────────────────────┬───────────────────────────────────────┘
                       │
-                      ↓ GET /api/update-transactions?secret=XXX
+                      ↓ GET /api/update-transactions?secret=<SEGREDO>
 ┌─────────────────────────────────────────────────────────────┐
 │                  Vercel Serverless Function                 │
 │                                                             │
@@ -161,14 +161,14 @@ python3 scripts/update_transactions_cache.py
 curl http://localhost:3000/api/dog-rune/transactions-kv | jq '.total_transactions'
 
 # 4. Testar update API
-curl "http://localhost:3000/api/update-transactions?secret=dog-update-secret-2025-production-key-secure"
+curl "http://localhost:3000/api/update-transactions?secret=<SEGREDO>"
 ```
 
 ### Produção (Vercel)
 
 ```bash
 # 1. Atualizar cache
-curl "https://seu-dominio.vercel.app/api/update-transactions?secret=XXX"
+curl "https://seu-dominio.vercel.app/api/update-transactions?secret=<SEGREDO>"
 
 # 2. Verificar dados
 curl https://seu-dominio.vercel.app/api/dog-rune/transactions-kv | jq '.last_block'

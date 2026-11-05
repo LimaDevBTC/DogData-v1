@@ -16,6 +16,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { TwitterApi } from 'twitter-api-v2'
 import { redisClient } from '@/lib/upstash'
+import { cronAutorizado } from '@/lib/seguranca/cron'
+import { eventoSeguranca } from '@/lib/seguranca/evento'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -74,17 +76,10 @@ async function markAsPosted(txid: string): Promise<void> {
 // ─── Main handler ─────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
-  // Auth — Vercel protects cron routes natively in production.
-  // For manual testing, accept CRON_SECRET as query param.
-  const { searchParams } = new URL(request.url)
-  const providedSecret = searchParams.get('secret')
-  const cronSecret = process.env.CRON_SECRET
-
-  // Only enforce secret check on manual calls (not Vercel cron — Vercel uses its own internal auth)
-  const isVercelCron = request.headers.get('x-vercel-cron') === '1'
-    || request.headers.get('user-agent')?.includes('vercel-cron')
-
-  if (!isVercelCron && cronSecret && providedSecret !== cronSecret) {
+  // A Vercel manda Authorization: Bearer $CRON_SECRET. User-Agent e x-vercel-cron qualquer um escreve no curl, e esta rota
+  // publica no X em nome da casa. Para testar a mao: curl -H "Authorization: Bearer $CRON_SECRET".
+  if (!cronAutorizado(request)) {
+    eventoSeguranca('cron_negado', request)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

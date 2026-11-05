@@ -24,6 +24,9 @@ import { LICENCE_DOG, LICENCE_TIERS, satsForDog, type Quote } from '@/lib/dog/li
 import { createQuote, type QuoteStore } from '@/lib/dog/licence-quote'
 import { posicaoDaCarteira } from '@/lib/dog/licence-wallet'
 import { spotMedians, type FetchLike, type Medians } from '@/lib/dog/price-sources'
+import { passouDoTeto, respostaFreio } from '@/lib/seguranca/freio'
+
+const TETO_IP_HORA = 120
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -85,6 +88,8 @@ const heldDog = async (ordinalsAddress: string): Promise<number | null> =>
   (await posicaoDaCarteira(supabase, ordinalsAddress, { ms: HELD_MS, strict: true }))?.totalDog ?? null
 
 export async function POST(req: NextRequest) {
+  // O teto por endereço de pagamento (lib/dog/licence-quote.ts) não segura quem troca de endereço a cada pedido: cada cotação é uma linha no banco
+  if (await passouDoTeto(req, 'licencequote', TETO_IP_HORA, 3600)) return respostaFreio(3600)
   let body: unknown = null
   try { body = await req.json() } catch { /* corpo inválido: createQuote devolve 400 */ }
   try {

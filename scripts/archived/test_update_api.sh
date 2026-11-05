@@ -8,8 +8,7 @@ echo ""
 
 # Configurações
 BASE_URL="http://localhost:3000"
-SECRET="dog-update-secret-2025-production-key-secure"
-
+SECRET="<SEGREDO>"
 # Cores
 GREEN='\033[0;32m'
 RED='\033[0;31m'

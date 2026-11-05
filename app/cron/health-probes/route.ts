@@ -9,9 +9,11 @@
  * to `system_health_log`. The status page reads from there.
  */
 
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { probedFetch } from '@/lib/health-logger'
+import { cronAutorizado } from '@/lib/seguranca/cron'
+import { eventoSeguranca } from '@/lib/seguranca/evento'
 import { DOG_TOKENS } from '@/lib/multichain/types'
 
 export const dynamic = 'force-dynamic'
@@ -38,7 +40,12 @@ const PROBES: Array<{ component: string; url: string }> = [
   },
 ]
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // sem o portao, qualquer um disparava as sondas externas e a limpeza do banco (health_maintain) em loop
+  if (!cronAutorizado(request)) {
+    eventoSeguranca('cron_negado', request)
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
   const results = await Promise.allSettled(
     PROBES.map(async (p) => {
       try {

@@ -25,6 +25,16 @@ const RESERVED_HANDLES = new Set([
   'system',
   'null',
   'root',
+  // papeis que um estranho usaria para se passar pela casa (quem ja tem um destes continua com ele: a regra so vale para reivindicar)
+  'administrator',
+  'official',
+  'staff',
+  'team',
+  'security',
+  'founder',
+  'dogcity_team',
+  'dogdata_team',
+  'help',
 ])
 
 export function normalizeHandle(raw: string): string {

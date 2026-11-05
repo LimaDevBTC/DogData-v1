@@ -20,6 +20,9 @@ import { cookies } from 'next/headers'
 import { redisClient } from '@/lib/upstash'
 import type { WalletSession } from '@/lib/identity/session'
 
+/** A idade máxima da assinatura de quem entra na sala. */
+export const ADMIN_PROVA_MAX_MS = 24 * 60 * 60 * 1000
+
 /**
  * Endereços que abrem a sala, de `ADMIN_ADDRESSES` (separados por vírgula).
  *
@@ -77,6 +80,9 @@ async function porSid(sid: string | undefined): Promise<Admin | null> {
   }
 
   if (!sessao?.address || !lista.has(chave(sessao.address))) return null
+  // Sessão de jogador vale 30 dias; a sala pede assinatura recente. Prova velha ou sem data não abre (assina de novo e entra).
+  const provadaEm = Date.parse(sessao.verifiedAt)
+  if (!Number.isFinite(provadaEm) || Date.now() - provadaEm > ADMIN_PROVA_MAX_MS) return null
   return { address: sessao.address, walletId: sessao.walletId ?? null, verifiedAt: sessao.verifiedAt }
 }
 

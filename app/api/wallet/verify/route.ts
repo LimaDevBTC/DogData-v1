@@ -2,13 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { redisClient } from '@/lib/upstash'
 import { supabase } from '@/lib/supabase'
 import { verifyOwnership } from '@/lib/wallet/verify'
-import type { SignatureProtocol, WalletId } from '@/lib/wallet/types'
+import { chaveDesafio, COOKIE_DESAFIO, lerPedidoVerify, TETO_CORPO_VERIFY, vinculoValido } from '@/lib/wallet/desafio'
 import { linkOnVerify } from '@/lib/referral/link'
 import { supabaseReferralStore } from '@/lib/referral/store'
+import { lerJsonComTeto, passouDoTeto, respostaFreio } from '@/lib/seguranca/freio'
+import { enderecoCurto, eventoSeguranca } from '@/lib/seguranca/evento'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+const TETO_IP_MINUTO = 30
+const SEM_CACHE = { 'Cache-Control': 'no-store' }
 const SESSION_TTL = 60 * 60 * 24 * 30 // 30 dias
 // teto do passo do referral dentro do verify: banco lento não pode segurar o login (incidente de IO de 26/08)
 const REFERRAL_BUDGET_MS = 3000
@@ -32,24 +36,23 @@ interface StoredNonce {
 // Falha do referral NUNCA derruba o verify (lib/referral/link.ts nunca lança; há prazo aqui também).
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { address, signature, protocol, publicKey, walletId, visitor_id, session_id, ref } = body as {
-      address: string
-      signature: string
-      protocol: SignatureProtocol
-      publicKey?: string
-      walletId?: WalletId
-      visitor_id?: string
-      session_id?: string
-      ref?: unknown
+    if (await passouDoTeto(req, 'wverify', TETO_IP_MINUTO)) return respostaFreio()
+    const corpo = await lerJsonComTeto(req, TETO_CORPO_VERIFY)
+    if (!corpo.ok) return NextResponse.json({ error: 'Invalid request.' }, { status: corpo.status, headers: SEM_CACHE })
+    const pedido = lerPedidoVerify(corpo.valor)
+    if (!pedido) {
+      eventoSeguranca('pedido_invalido', req)
+      return NextResponse.json({ error: 'Missing or invalid fields.' }, { status: 400, headers: SEM_CACHE })
     }
-    if (!address || !signature || !protocol) {
-      return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 })
-    }
+    const { address, signature, protocol, publicKey, walletId, visitorId: visitor_id, sessionId: session_id, ref } = pedido
 
-    const stored = (await redisClient.get(`wnonce:${address}`)) as StoredNonce | null
-    if (!stored?.message) {
-      return NextResponse.json({ error: 'This challenge expired. Start the signature again.' }, { status: 400 })
+    // O desafio é deste navegador (cookie dg_wchal, lib/wallet/desafio.ts). Sem o cookie não há o que conferir.
+    const vinculo = req.cookies.get(COOKIE_DESAFIO)?.value
+    const chave = vinculoValido(vinculo) ? chaveDesafio(address, vinculo) : null
+    const stored = chave ? ((await redisClient.get(chave)) as StoredNonce | null) : null
+    if (!chave || !stored?.message) {
+      eventoSeguranca('auth_desafio_ausente', req, { carteira: enderecoCurto(address) })
+      return NextResponse.json({ error: 'This challenge expired. Start the signature again.' }, { status: 400, headers: SEM_CACHE })
     }
 
     const result = verifyOwnership({
@@ -60,11 +63,16 @@ export async function POST(req: NextRequest) {
       publicKey,
     })
     if (!result.ok) {
-      return NextResponse.json({ error: result.reason || 'Invalid signature.' }, { status: 401 })
+      eventoSeguranca('auth_assinatura_invalida', req, { carteira: enderecoCurto(address), protocolo: protocol })
+      return NextResponse.json({ error: result.reason || 'Invalid signature.' }, { status: 401, headers: SEM_CACHE })
     }
 
-    // Nonce é de uso único → queima.
-    await redisClient.del(`wnonce:${address}`)
+    // Nonce é de uso único → queima, e o DEL é quem decide: de duas chamadas iguais ao mesmo tempo, só a
+    // que apagou a chave segue. Conferir antes e apagar depois deixava as duas abrirem sessão.
+    if ((await redisClient.del(chave)) !== 1) {
+      eventoSeguranca('auth_desafio_repetido', req, { carteira: enderecoCurto(address) })
+      return NextResponse.json({ error: 'This challenge expired. Start the signature again.' }, { status: 400, headers: SEM_CACHE })
+    }
 
     const sid = crypto.randomUUID()
     const verifiedAt = new Date().toISOString()
@@ -113,9 +121,9 @@ export async function POST(req: NextRequest) {
       try {
         await supabase.from('analytics_identity').upsert(
           {
-            visitor_id: visitor_id.slice(0, 64),
+            visitor_id,
             address,
-            session_id: session_id?.slice(0, 64) ?? null,
+            session_id,
             wallet_id: walletId ?? null,
             last_linked_at: new Date().toISOString(),
           },
@@ -126,7 +134,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const resp = NextResponse.json({ ok: true, address, verifiedAt, ...(referral ? { referral } : {}) })
+    // A sessão anterior deste navegador acaba aqui: logar de novo não deixa uma sessão velha viva por 30 dias.
+    const sidAnterior = req.cookies.get('dg_wallet')?.value
+    if (sidAnterior && sidAnterior.length <= 100) {
+      await redisClient.del(`wsess:${sidAnterior}`).catch(() => undefined)
+    }
+
+    const resp = NextResponse.json({ ok: true, address, verifiedAt, ...(referral ? { referral } : {}) }, { headers: SEM_CACHE })
     resp.cookies.set('dg_wallet', sid, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -134,8 +148,11 @@ export async function POST(req: NextRequest) {
       path: '/',
       maxAge: SESSION_TTL,
     })
+    resp.cookies.set(COOKIE_DESAFIO, '', { httpOnly: true, path: '/', maxAge: 0 })
     return resp
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || 'Ownership verification failed.' }, { status: 500 })
+  } catch (e) {
+    // a mensagem crua pode trazer detalhe de infraestrutura: ela fica no log, não na resposta
+    console.error('[wallet/verify]', (e as Error)?.message)
+    return NextResponse.json({ error: 'Ownership verification failed.' }, { status: 500, headers: SEM_CACHE })
   }
 }
