@@ -12,7 +12,7 @@
   ],
   "crons": [
     {
-      "path": "/api/update-transactions?secret=dog-update-secret",
+      "path": "/api/update-transactions",
       "schedule": "*/3 * * * *"
     },
     {

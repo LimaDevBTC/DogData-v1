@@ -5,7 +5,7 @@
 ```
 External Cron (cron-job.org - 3 min)
     ↓
-/api/update-transactions?secret=XXX
+/api/update-transactions?secret=<SEGREDO>
     ↓
 Busca Unisat API → Processa → Salva no Vercel KV
     ↓
@@ -90,7 +90,7 @@ git push origin main
 Após o deploy, execute manualmente a primeira atualização:
 
 ```bash
-curl "https://seu-dominio.vercel.app/api/update-transactions?secret=dog-update-secret-2025-production-key-secure"
+curl "https://seu-dominio.vercel.app/api/update-transactions?secret=<SEGREDO>"
 ```
 
 Resposta esperada:
@@ -120,7 +120,7 @@ Resposta esperada:
 1. Dashboard → **Create cronjob**
 2. Preencha:
    - **Title:** `DOG Transactions Update`
-   - **Address:** `https://seu-dominio.vercel.app/api/update-transactions?secret=dog-update-secret-2025-production-key-secure`
+   - **Address:** `https://seu-dominio.vercel.app/api/update-transactions?secret=<SEGREDO>`
    - **Schedule:** 
      - **Every:** `3 minutes`
      - **Execution:** `Every day`
