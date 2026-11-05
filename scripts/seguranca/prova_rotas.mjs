@@ -25,10 +25,9 @@ for (const f of ['.env', '.env.local', '.env.production', '.env.development']) {
   }
 }
 
-// ⚠️ A PORTA TEM DE SER NOSSA (incidente de 05/11/2026). A primeira rodada usou uma porta fixa que ja' tinha um Vite de outro worktree em
-// 127.0.0.1; o Vite leva /api a producao, e os ataques foram parar la'. Por isso: o sistema escolhe tres portas livres, o Next sobe preso
-// em 127.0.0.1 (porta ocupada derruba em vez de dividir) e, antes de qualquer pedido que escreva, o canario mais abaixo prova que quem
-// responde e' o Next que le o NOSSO Redis falso.
+// ⚠️ A PORTA TEM DE SER NOSSA. Um servidor de dev em outra pasta pode estar na mesma porta, e o proxy dele leva /api a producao. Por isso: o
+// sistema escolhe tres portas livres, o Next sobe preso em 127.0.0.1 (porta ocupada derruba em vez de dividir) e, antes de qualquer pedido
+// que escreva, o canario mais abaixo prova que quem responde e' o Next que le o NOSSO Redis falso.
 const portaLivre = () => new Promise((ok, falha) => {
   const s = createNetServer()
   s.on('error', falha)
