@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { redisClient } from '@/lib/upstash'
 import { supabase } from '@/lib/supabase'
 import { validateHandle } from '@/lib/identity/handle'
+import { tooFast } from '@/lib/identity/throttle'
 import { comPrazo, falhaPrivada } from '@/lib/api/prazo'
 import { escrituras, buscarEscritura } from '@/lib/city/escrituras'
 import { licencaDaCarteira } from '@/lib/dog/licence-wallet'
@@ -226,20 +227,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Ownership not verified.' }, { status: 401 })
   }
 
-  let body: { handle?: string }
+  let body: { handle?: unknown } | null
   try {
     body = await req.json()
   } catch {
     return NextResponse.json({ error: 'Invalid body.' }, { status: 422 })
   }
 
-  const validation = validateHandle(body.handle ?? '')
+  const validation = validateHandle(typeof body?.handle === 'string' ? body.handle : '')
   if (!validation.ok || !validation.handle) {
     return NextResponse.json({ error: validation.reason ?? 'invalid_handle' }, { status: 422 })
   }
 
   const address = session.address.toLowerCase()
   const handle = validation.handle
+
+  // depois da validacao: errar o formato e tentar de novo na hora nao custa nada ao banco, e nao deve custar a vez
+  if (await tooFast(`handle:${address}`, 2)) {
+    return NextResponse.json({ error: 'Slow down, try again in a moment.' }, { status: 429 })
+  }
 
   // Confere duplicata antes do upsert pra devolver 409 legivel. O unique
   // constraint da tabela e o guarda de verdade (corrida entre duas
