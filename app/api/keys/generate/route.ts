@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { lerJsonComTeto, passouDoTeto, respostaFreio } from '@/lib/seguranca/freio';
 import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
+
+const TETO_IP_HORA = 5;
 
 function generateApiKey(type: 'live' | 'test' = 'live'): string {
   const randomBytes = crypto.randomBytes(24).toString('hex');
@@ -15,10 +18,18 @@ function sha256(input: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { name, email } = body;
+    // Sem verificacao de e-mail, o teto por e-mail nao segura ninguem: o freio real e' este, por IP
+    if (await passouDoTeto(request, 'apikeys', TETO_IP_HORA, 3600)) return respostaFreio(3600);
+    const corpo = await lerJsonComTeto(request, 2048);
+    if (!corpo.ok) {
+      return NextResponse.json(
+        { error: { code: 'VALIDATION_ERROR', message: 'Invalid request body', status: corpo.status } },
+        { status: corpo.status }
+      );
+    }
+    const { name, email } = (corpo.valor ?? {}) as { name?: unknown; email?: unknown };
 
-    if (!name || !email) {
+    if (typeof name !== 'string' || typeof email !== 'string' || !name.trim() || name.length > 80 || email.length > 254) {
       return NextResponse.json(
         { error: { code: 'VALIDATION_ERROR', message: 'name and email are required', status: 400 } },
         { status: 400 }
@@ -95,10 +106,10 @@ export async function POST(request: NextRequest) {
       }
     }, { status: 201 });
 
-  } catch (error: any) {
-    console.error('Error generating API key:', error);
+  } catch (error) {
+    console.error('Error generating API key:', (error as Error)?.message);
     return NextResponse.json(
-      { error: { code: 'INTERNAL_ERROR', message: error.message || 'Internal server error', status: 500 } },
+      { error: { code: 'INTERNAL_ERROR', message: 'Internal server error', status: 500 } },
       { status: 500 }
     );
   }
