@@ -22,11 +22,13 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { SplitLine } from "../landing/reveal"
 import { DataRow, Frame, Plate, SectionHead, TextLink, areaDeed, dogExact, useReduced } from "../landing/ui"
 import { EXAMPLE_DEED, MAP, T8, deedForTier, metersToMap, type Deed } from "../landing/media"
-import { CITY_URL, MINT_URL, type CountdownState } from "../landing/mint-state"
+import { CITY_URL, fmtInt, type CountdownState } from "../landing/mint-state"
+import { addressFromSearch, blocksLeftText, mintLotHref, unclaimedText, type LotMintState, type WhitelistClock } from "../landing/unclaimed"
+import { useMintClock } from "../landing/use-mint-clock"
 import { SNAPSHOT_PROOF, PISO_LOTE_M2, alvoDaCurva } from "../dogcity-data"
 import { isDegrau, nomeDaLicenca, rotuloDoDistritoDaBusca } from "../casa-da-licenca"
 import { useDonate } from "@/components/donate/donate-modal"
-import { track } from "@/lib/analytics/client"
+import { lerUtm, track } from "@/lib/analytics/client"
 import {
   CASAS_URL, NOTA_CONSTRUIR, blocoDe, blocoExiste, estadoNoBloco, fraseDaCasa, fraseDeSubir, rotuloDeConstruir,
   tamanhoDoBloco, type EstadoDaCasa,
@@ -420,11 +422,68 @@ function ConstruirNoLote({ estado, open }: { estado: EstadoDaCasa; open: ReturnT
   )
 }
 
+// ── O ESTADO DO LOTE NO MINT (06/11/2026) ───────────────────────────────────
+// Lote sem dono = a pessoa ainda pode cunhar o dela com a Whitelist; depois, outras carteiras podem. A leitura vem da rota do
+// servidor (/api/dogcity/lot-state, cache de borda); falhou = sem estado, e a prancha segue como era (nunca "unclaimed" por engano).
+function useLotState(lotId: string | undefined): LotMintState | null {
+  const [state, setState] = useState<LotMintState | null>(null)
+  useEffect(() => {
+    setState(null)
+    if (!lotId) return
+    let alive = true
+    fetch(`/api/dogcity/lot-state?id=${encodeURIComponent(lotId)}`, { signal: AbortSignal.timeout(8000) })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (alive && j && typeof j.state === "string") setState(j.state as LotMintState) })
+      .catch(() => { /* sem estado */ })
+    return () => { alive = false }
+  }, [lotId])
+  return state
+}
+
+function ClaimState({ state, clock, claimed }: { state: LotMintState; clock: WhitelistClock | null; claimed: number | null }) {
+  const open = clock?.active ? clock : null
+  const proof = claimed != null && claimed > 0 ? <p className="dc-small mt-2 text-dc-dusty">{fmtInt(claimed)} lots claimed so far.</p> : null
+  if (state === "minted") {
+    return (
+      <div className="mt-5 border-t border-dc-snow/[0.08] pt-4" data-claim-state="claimed">
+        <PlateHead label="CLAIMED" />
+        <p className="dc-body mt-2 !text-[15px] !leading-[24px] text-dc-mist">This lot has been minted. Its deed is on Bitcoin.</p>
+        {proof}
+      </div>
+    )
+  }
+  if (state === "reserved") {
+    return (
+      <div className="mt-5 border-t border-dc-snow/[0.08] pt-4" data-claim-state="reserved">
+        <PlateHead label="CLAIM IN PROGRESS" />
+        <p className="dc-body mt-2 !text-[15px] !leading-[24px] text-dc-mist">An order for this lot is being processed.</p>
+        {proof}
+      </div>
+    )
+  }
+  return (
+    <div className="mt-5 border-t border-dc-snow/[0.08] pt-4" data-claim-state="unclaimed">
+      <PlateHead label="UNCLAIMED" />
+      {open ? (
+        <>
+          <p className="dc-body mt-2 !text-[15px] !leading-[24px] text-dc-snow">{unclaimedText(open)}</p>
+          <p className="dc-small mt-2 text-dc-mist tabular-nums">{blocksLeftText(open)} Public from block {fmtInt(open.publicBlock)}.</p>
+        </>
+      ) : (
+        <p className="dc-body mt-2 !text-[15px] !leading-[24px] text-dc-mist">Nobody has minted this lot yet.</p>
+      )}
+      {proof}
+    </div>
+  )
+}
+
 function ResultPlate({ r, cd }: { r: Result; cd: CountdownState }) {
   const mintOpen = cd.kind === "C" || cd.kind === "D" || cd.kind === "E" || cd.kind === "F"
   // os ganchos antes de qualquer saída: a casa só interessa a quem tem lote
   const { open: openWallet } = useDonate()
   const estadoDaCasa = useEstadoDaCasa(r.status === "in_snapshot" ? r.lot : undefined)
+  const lotState = useLotState(r.status === "in_snapshot" ? r.lot?.lot_id : undefined)
+  const { clock, claimed } = useMintClock()
 
   if (r.status === "exchange") {
     return (
@@ -515,6 +574,8 @@ function ResultPlate({ r, cd }: { r: Result; cd: CountdownState }) {
   // a área da escritura (uma casa) quando o dado do lote respondeu; senão a do
   // registro selado, que é inteira e não ganha ".0" inventado
   const area = l?.deed_area_m2 != null ? areaDeed(l.deed_area_m2) : `${r.area_m2.toLocaleString("en-US")} m²`
+  // o link do lote no mint leva os UTM de quem chegou (o post que trouxe a pessoa), ou marca a origem como este verificador
+  const mintHref = l ? mintLotHref(l.lot_id, lerUtm()) : null
   return (
     <>
       <Plate className="px-5 py-6 dk:px-8 dk:py-8">
@@ -534,19 +595,25 @@ function ResultPlate({ r, cd }: { r: Result; cd: CountdownState }) {
           <DataRow label="ORIGINAL AIRDROP RECEIVER">{r.genesis ? "yes" : "no"}</DataRow>
           <DataRow label="RUNESTONES">{r.runestones.toLocaleString("en-US")}</DataRow>
         </dl>
-        <p className="dc-body mt-5 !text-[15px] !leading-[24px] text-dc-mist">
+{lotState && l && (clock || lotState === "minted") ? (
+          <ClaimState state={lotState} clock={clock} claimed={claimed} />
+        ) : (
+          <p className="dc-body mt-5 !text-[15px] !leading-[24px] text-dc-mist">
           Reserved for this wallet through the Founder and Whitelist phases, about 24 days from the day the mint opens.
           Founders mint it free until the Whitelist ends; every other wallet pays half its public price in the Whitelist, from US$1.
         </p>
+        )}
         {/* a licença ao lado do lote (01/11): com licença, o estado da casa acima dos botões; a rota sem resposta
             (licence null) não desenha nada de licença, melhor nenhum que um errado */}
         {r.licence?.tier != null && (
           <CasaDoLote tier={r.licence.tier} estado={estadoDaCasa} lotId={l?.lot_id ?? null} open={openWallet} />
         )}
         <div className="mt-6 flex flex-col dk:flex-row gap-3">
-          {mintOpen
-            ? <a href={MINT_URL} className="dc-btn dc-btn-fill">Mint this lot</a>
-            : <a href={`${CITY_URL}/?addr=${encodeURIComponent(r.address)}`} className="dc-btn dc-btn-fill">See it in the city</a>}
+          {l && lotState === "minted"
+            ? <a href={mintHref!} onClick={() => track("checker_deed_click", { state: "minted" })} className="dc-btn dc-btn-fill">View the deed</a>
+            : l && (mintOpen || clock?.active)
+              ? <a href={mintHref!} onClick={() => track("checker_mint_click", { state: lotState ?? "unknown" })} className="dc-btn dc-btn-fill">Mint this lot</a>
+              : <a href={`${CITY_URL}/?addr=${encodeURIComponent(r.address)}`} className="dc-btn dc-btn-fill">See it in the city</a>}
           <a href="/dogcity/docs#the-mint" className="dc-btn dc-btn-line">How the mint works</a>
         </div>
         {/* sem licença (tier null, com a rota respondendo): a oferta, como o passo seguinte à escritura */}
@@ -596,9 +663,7 @@ export function LookupContent({
     }))
   }, [reduced, onPin])
 
-  const search = async (e: FormEvent) => {
-    e.preventDefault()
-    const address = value.trim()
+  const runSearch = async (address: string) => {
     if (!address) return
     setLoading(true); setError(null); setResult(null); onPin(null)
     try {
@@ -615,6 +680,23 @@ export function LookupContent({
       setLoading(false)
     }
   }
+  const search = (e: FormEvent) => {
+    e.preventDefault()
+    void runSearch(value.trim())
+  }
+
+  // /dogcity?address=<addr>: o link de um post preenche o campo e roda a busca sozinho (uma vez)
+  const prefilled = useRef(false)
+  useEffect(() => {
+    if (prefilled.current) return
+    prefilled.current = true
+    const a = addressFromSearch(window.location.search)
+    if (!a) return
+    setValue(a)
+    track("checker_prefill")
+    void runSearch(a)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const openExample = async () => {
     if (!EXAMPLE_DEED) return
