@@ -4,6 +4,7 @@ import { useRouter, usePathname } from "next/navigation"
 import Header from "./header"
 import Footer from "./footer"
 import { BitflowBanner } from "./bitflow-banner"
+import { UnclaimedBanner } from "@/app/dogcity/landing/unclaimed-banner"
 
 type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain' | 'explorer' | 'status' | 'city' | 'profile'
 
@@ -50,6 +51,8 @@ export function Layout({ children, currentPage, fullBleed }: LayoutProps) {
           e o banner da BitFlow, e ele existia em TODA página do site.
           O que sobrou aqui é respiro de propósito, não compensação. */}
       <main className="relative pt-3 md:pt-4 flex-1">
+        {/* 06/11/2026: aviso de lotes sem dono, so na home e so durante a Whitelist; rola com a pagina */}
+        {currentPage === 'overview' && <div className="container-fluid"><UnclaimedBanner variant="site" /></div>}
         {fullBleed ? (
           <div className="transition-opacity duration-200 ease-out opacity-100">
             <div className="max-w-[1400px] mx-auto px-4 md:px-8">

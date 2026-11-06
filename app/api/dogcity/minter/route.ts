@@ -23,7 +23,14 @@ export async function GET() {
     const height = typeof j.height === 'number' && Number.isSafeInteger(j.height) ? j.height : null
     // o contador do mint (22/10/2026): pedidos pagos e escrituras na cadeia; ausente no minter antigo = null
     const n = (v: unknown) => (typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 ? v : null)
-    return NextResponse.json({ accepting: j.accepting, healthy: j.healthy, phase: j.phase, height, claimed: n(j.claimed), inscribed: n(j.inscribed) }, { headers: { 'Cache-Control': OK_CACHE } })
+    // 06/11/2026: o calendario (4 alturas, lido do mint e nunca escrito aqui) e a contagem cunhada, para o aviso e o
+    // verificador de lote contarem blocos ate o fim da Whitelist. Calendario com forma estranha vira null.
+    const cal = j.calendar as Record<string, unknown> | null | undefined
+    const calendar = cal && typeof cal === 'object'
+      && n(cal.founderStart) != null && n(cal.whitelistStart) != null && n(cal.partnerStart) != null && n(cal.publicStart) != null
+      ? { founderStart: cal.founderStart, whitelistStart: cal.whitelistStart, partnerStart: cal.partnerStart, publicStart: cal.publicStart }
+      : null
+    return NextResponse.json({ accepting: j.accepting, healthy: j.healthy, phase: j.phase, height, claimed: n(j.claimed), inscribed: n(j.inscribed), minted: n(j.minted), calendar }, { headers: { 'Cache-Control': OK_CACHE } })
   } catch {
     return erro('minter unreachable')
   }

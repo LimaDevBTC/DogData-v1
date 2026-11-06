@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { Barlow_Condensed } from 'next/font/google'
+import { UnclaimedBanner } from './landing/unclaimed-banner'
 import { OG_URL, OG_ALT, OG_IMAGE } from '@/lib/og'
 
 // A CONDENSADA DA LANDING v3 (brief §7.2): títulos e o número grande do contador.
@@ -142,7 +143,8 @@ export default async function DogCityLayout({ children }: { children: React.Reac
   // em script inline nosso não: sem isto a CSP bloqueia este bloco e a página não hidrata.
   const nonce = (await headers()).get('x-nonce') ?? undefined
   return (
-    <div className={barlowCondensed.variable}>
+    <div className={`${barlowCondensed.variable} relative`}>
+      <UnclaimedBanner variant="landing" />
       <script nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: TOPO_ANTES_DA_HIDRATACAO }} />
       {children}
     </div>
