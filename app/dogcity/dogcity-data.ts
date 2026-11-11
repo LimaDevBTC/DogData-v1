@@ -271,6 +271,13 @@ export const LICENCE_BTC_NOTE = "Paid in BTC: building licence and item pack onl
 // Os veículos foram fotografados no estúdio do Blender (dogcity-mundo, plano/the_build/filme/estudio_veiculos.py, modo cartão).
 // O helicóptero é o "Bell 429 Helicopter" de agreene (Sketchfab, CC BY 4.0): o crédito (`credit`) sai no próprio cartão,
 // é condição da licença.
+// 10/11 (fundador): cada licença dá um RIFLE DE CAÇA, intransferível, preso à licença (sobe junto, nunca vira item à venda nem
+// Ordinal). Personal = Field Rifle (madeira, sem luneta), Commercial = Field Rifle Pro (Tikka T3, com luneta), Patron = Field
+// Rifle Elite (Rigby, gravação dourada com o @ do dono). A linha do cartão diz SÓ o rifle: sem data, sem "coming soon" e sem
+// sugerir que só quem tem licença caça (sem licença, caça-se por armadilha e pesca-se com vara). Mesma frase nas docs
+// (seção 8, "What comes with it"). Imagem: o render de vitrine (Blender, mesma câmera, luz e escala nas três; preparo em
+// bitcoin-fullstack/assets_armas_rascunho/pronto/PREPARO.md), 1000 x 299 com transparência. Os três modelos são CC BY 4.0
+// do Sketchfab: o crédito (`credit`) sai no cartão, como o do helicóptero.
 
 // a moto é o veículo de TODOS os degraus: uma definição só, as três listas apontam para ela
 const VEHICLE_MOTO = {
@@ -290,6 +297,7 @@ export const TIERS = [
       "A one time, permanent building licence: a residence from the district catalogue",
       "Base item pack: yard and house number plaque",
       "Vehicles: the $DOG moto",
+      "Hunting rifle: the Field Rifle",
       "Early access to the game, to every test and every update",
     ],
     building: {
@@ -298,6 +306,11 @@ export const TIERS = [
       alt: "Example of a residence from the DogCity district catalogue: a large green craftsman house with an attached two-car garage, a front porch and a fenced garden, with the $DOG moto parked on the driveway",
     },
     vehicles: [VEHICLE_MOTO],
+    rifle: {
+      src: "/landing/licences/rifle-personal.webp", w: 1000, h: 299, label: "FIELD RIFLE",
+      alt: "The Field Rifle: a bolt action hunting rifle with a walnut stock and open sights",
+      credit: { text: "3D model: Game-Ready Bolt Action Rifle (Wooden Stock) by soft render, CC BY 4.0", href: "https://sketchfab.com/3d-models/game-ready-bolt-action-rifle-wooden-stock-ebcf616e22014454accb832dba285281" },
+    },
     cta: "Choose Personal",
   },
   {
@@ -311,6 +324,7 @@ export const TIERS = [
       "The commercial licence: a commercial building, a mixed-use one (commercial ground floor, homes above, penthouse on top) or a residence, on the lot your wallet owns",
       "Extended item pack: leisure ground, garden, lighting",
       "Vehicles: the $DOG moto and an orange Cyber $DOG",
+      "Hunting rifle: the Field Rifle Pro, with scope",
     ],
     building: {
       src: "/landing/licences/building-commercial.webp", w: 1000, h: 692,
@@ -321,6 +335,11 @@ export const TIERS = [
       VEHICLE_MOTO,
       { src: "/landing/licences/cyber.webp", w: 844, h: 520, label: "ORANGE CYBER", alt: "The orange Cyber $DOG pickup with the $DOG sticker on the hood" },
     ],
+    rifle: {
+      src: "/landing/licences/rifle-commercial.webp", w: 1000, h: 299, label: "FIELD RIFLE PRO",
+      alt: "The Field Rifle Pro: a bolt action hunting rifle with a walnut stock, a blued barrel, a scope and a leather sling",
+      credit: { text: "3D model: Tikka T3 Hunting Rifle by Mark Rose, CC BY 4.0", href: "https://sketchfab.com/3d-models/tikka-t3-hunting-rifle-8ad0ca2a7aeb42debdaada3e6c38f9ef" },
+    },
     cta: "Choose Commercial",
   },
   {
@@ -334,6 +353,7 @@ export const TIERS = [
       "A custom building, designed outside the district catalogue, with whatever mix of uses you want",
       "Names a street, and the name stays on the city map",
       "Vehicles: the $DOG moto, a black Cyber $DOG (instead of the orange one) and the DOG helicopter",
+      "Hunting rifle: the Field Rifle Elite, engraved with your @",
     ],
     building: {
       src: "/landing/licences/building-patron.webp", w: 1000, h: 619,
@@ -349,6 +369,11 @@ export const TIERS = [
         credit: { text: "3D model: Bell 429 Helicopter by agreene, CC BY 4.0", href: "https://sketchfab.com/3d-models/bell-429-helicopter-8dda855f3ab343b7b69ca7adcbf24f03" },
       },
     ],
+    rifle: {
+      src: "/landing/licences/rifle-patron.webp", w: 1000, h: 299, label: "FIELD RIFLE ELITE",
+      alt: "The Field Rifle Elite: a bolt action hunting rifle with a figured walnut stock, gold engraved fittings, a scope, a folding bipod and a gold plate engraved with the owner's @",
+      credit: { text: "3D model: DAE - Rigby Hunting Rifle - Game Ready Asset by Martijn Vaes, CC BY 4.0", href: "https://sketchfab.com/3d-models/dae-rigby-hunting-rifle-game-ready-asset-e77855f0c3ea4340a4d67a4ece4b87ac" },
+    },
     cta: "Become a Patron",
   },
 ]

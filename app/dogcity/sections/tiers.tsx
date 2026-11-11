@@ -148,6 +148,8 @@ interface Tier {
   building?: LicenceImage & { kind: string; note: string }
   /** every vehicle the licence includes, in order (the moto first, each rung adds to the right); `credit` is a CC BY condition, shown on the card */
   vehicles?: Array<LicenceImage & { label: string; credit?: { text: string; href: string } }>
+  /** the hunting rifle of this licence (10/11): one per rung, bound to the licence; `credit` is a CC BY condition, shown on the card */
+  rifle?: LicenceImage & { label: string; credit?: { text: string; href: string } }
   cta: string
 }
 
@@ -270,10 +272,11 @@ function Pic({ img, className }: { img: LicenceImage; className: string }) {
 // The building is the hero (16:10, sitting on a tinted ground line); the vehicles are a row of equal tiles under it,
 // three slots wide on every card so Personal / Commercial / Patron fill one, two and three of them: the ladder again.
 // The row never wraps and never scrolls. Stacked on phones and in the desktop trio; beside the text between `sm` and `lg`.
+// Under the vehicles, the hunting rifle of the rung (10/11): one wide tile, the same render scale on the three cards.
 function Scene({ t, className }: { t: Tier; className: string }) {
-  const { building, vehicles = [] } = t
-  if (!building && vehicles.length === 0) return null
-  const credits = vehicles.filter((v) => v.credit)
+  const { building, vehicles = [], rifle } = t
+  if (!building && vehicles.length === 0 && !rifle) return null
+  const credits = [...vehicles, ...(rifle ? [rifle] : [])].filter((v) => v.credit)
   return (
     <div className={className}>
       {building && (
@@ -311,6 +314,19 @@ function Scene({ t, className }: { t: Tier; className: string }) {
             </li>
           ))}
         </ul>
+      )}
+
+      {rifle && (
+        <figure aria-label="Hunting rifle included" className={`mt-2 flex flex-col border ${HAIR} bg-white/[0.02]`}>
+          <div className="px-3 pt-1.5">
+            <div className="relative aspect-[1000/299] w-full">
+              <Pic img={rifle} className="absolute inset-0 h-full w-full object-contain" />
+            </div>
+          </div>
+          <figcaption className="px-1 pb-1.5 text-center font-mono text-[9px] leading-tight tracking-[0.14em] text-mist">
+            {rifle.label}
+          </figcaption>
+        </figure>
       )}
 
       {credits.map((v) => (
