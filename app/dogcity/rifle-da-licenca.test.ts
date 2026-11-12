@@ -48,7 +48,7 @@ test('imagem, rótulo e crédito CC BY do rifle em cada cartão', () => {
 
 test('as docs (seção 8) dizem o mesmo rifle de cada nível', () => {
   const docs = readFileSync(raiz('app/dogcity/docs/page.tsx'), 'utf8')
-  assert.match(docs, /the \$DOG moto, the Field Rifle \(a hunting rifle\), and early access/)
-  assert.match(docs, /Hunting rifle: the Field Rifle Pro, with scope"\]/)
-  assert.match(docs, /Hunting rifle: the Field Rifle Elite, engraved with its owner's @"\]/)
+  assert.match(docs, /the \$DOG moto, the Field Rifle \(a hunting rifle\), the DOG Runabout/)
+  assert.match(docs, /Hunting rifle: the Field Rifle Pro, with scope\. Boat: /)
+  assert.match(docs, /Hunting rifle: the Field Rifle Elite, engraved with its owner's @\. Yacht: /)
 })

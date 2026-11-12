@@ -1518,11 +1518,16 @@ export default function DogCityDocsPage() {
               <Table
                 head={["Licence", "$DOG", "What it builds", "What comes with it"]}
                 rows={[
-                  ["Personal", "10,000", "A residence from the district catalogue", "The base item pack (yard and house number plaque), the $DOG moto, the Field Rifle (a hunting rifle), and early access to the game, to every test and every update"],
-                  ["Commercial", "50,000", "A commercial building for a business of its own, a mixed-use one (a commercial ground floor, homes above, a penthouse on top) or a residence, within the storeys the district code gives the lot", "Everything in Personal and the extended item pack (leisure ground, garden, lighting). Vehicles: the $DOG moto and an orange Cyber $DOG. Hunting rifle: the Field Rifle Pro, with scope"],
-                  ["Patron", "500,000", "A custom building designed outside the catalogue, with whatever mix of uses its owner wants", "Everything in Commercial and a street named on the city map. Vehicles: the $DOG moto, a black Cyber $DOG (instead of the orange one) and the DOG helicopter. Hunting rifle: the Field Rifle Elite, engraved with its owner's @"],
+                  ["Personal", "10,000", "A residence from the district catalogue", "The base item pack (yard and house number plaque), the $DOG moto, the Field Rifle (a hunting rifle), the DOG Runabout (a classic wooden speedboat, kept in the dry-stack boathouse at the public marina), and early access to the game, to every test and every update"],
+                  ["Commercial", "50,000", "A commercial building for a business of its own, a mixed-use one (a commercial ground floor, homes above, a penthouse on top) or a residence, within the storeys the district code gives the lot", "Everything in Personal and the extended item pack (leisure ground, garden, lighting). Vehicles: the $DOG moto and an orange Cyber $DOG. Hunting rifle: the Field Rifle Pro, with scope. Boat: the DOG Cruiser, a sport cruiser with a cabin, with a berth at the public marina"],
+                  ["Patron", "500,000", "A custom building designed outside the catalogue, with whatever mix of uses its owner wants", "Everything in Commercial and a street named on the city map. Vehicles: the $DOG moto, a black Cyber $DOG (instead of the orange one) and the DOG helicopter. Hunting rifle: the Field Rifle Elite, engraved with its owner's @. Yacht: the DOG Yacht, a flybridge yacht, with a berth at the DOG Key marina"],
                 ]}
               />
+              <P>
+                One boat per wallet: the one that comes with the highest licence the wallet holds. A lot
+                on a canal or a lake gets its own pier, and the boat waits there. A lot on the beach
+                gets a mooring buoy in front of the house.
+              </P>
               <P>
                 The construction fund reached 10,000,000 $DOG at block 972,336, and that block started
                 the mint (section 7). From there the fund pays for building, and a licence is how a
