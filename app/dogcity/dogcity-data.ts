@@ -271,6 +271,11 @@ export const LICENCE_BTC_NOTE = "Paid in BTC: building licence and item pack onl
 // Os veículos foram fotografados no estúdio do Blender (dogcity-mundo, plano/the_build/filme/estudio_veiculos.py, modo cartão).
 // O helicóptero é o "Bell 429 Helicopter" de agreene (Sketchfab, CC BY 4.0): o crédito (`credit`) sai no próprio cartão,
 // é condição da licença.
+// 12/11 (rodada 2 dos cards): a sombra de chão das fotos da moto, das duas Cyber e do helicóptero tinha sido cortada pela borda
+// do arquivo (alfa 83 a 88 na borda, um retângulo escuro atrás do veículo no bloco). A sombra agora some antes da borda (perde
+// alfa com a distância até o veículo e zera a 18 px do contorno, sem degrau) e cada arquivo foi recortado no veículo; o
+// veículo em si não mudou nem um pixel. Por isso os `w`/`h` abaixo são os do recorte (moto 386 x 429, Cyber 760 x 454 e
+// 749 x 461, helicóptero 686 x 435).
 // 10/11 (fundador): cada licença dá um RIFLE DE CAÇA, preso à licença do lote e que vai com a escritura (sobe junto, nunca vira item à venda nem
 // Ordinal). Personal = Field Rifle (madeira, sem luneta), Commercial = Field Rifle Pro (Tikka T3, com luneta), Patron = Field
 // Rifle Elite (Rigby, gravação dourada com o @ do dono). A linha do cartão diz SÓ o rifle: sem data, sem "coming soon" e sem
@@ -292,7 +297,7 @@ export const LICENCE_BTC_NOTE = "Paid in BTC: building licence and item pack onl
 
 // a moto é o veículo de TODOS os degraus: uma definição só, as três listas apontam para ela
 const VEHICLE_MOTO = {
-  src: "/landing/licences/moto.webp", w: 514, h: 520, label: "$DOG MOTO",
+  src: "/landing/licences/moto.webp", w: 386, h: 429, label: "$DOG MOTO",
   alt: "The $DOG racing motorbike in black and orange MotoGP livery, with DOG·CITY, $DOG and partner logos on the fairing",
 }
 
@@ -351,7 +356,7 @@ export const TIERS = [
     },
     vehicles: [
       VEHICLE_MOTO,
-      { src: "/landing/licences/cyber.webp", w: 844, h: 520, label: "ORANGE CYBER", alt: "The orange Cyber $DOG pickup with the $DOG sticker on the hood" },
+      { src: "/landing/licences/cyber.webp", w: 760, h: 454, label: "ORANGE CYBER", alt: "The orange Cyber $DOG pickup with the $DOG sticker on the hood" },
     ],
     rifle: {
       src: "/landing/licences/rifle-commercial.webp", w: 1000, h: 299, label: "FIELD RIFLE PRO",
@@ -386,9 +391,9 @@ export const TIERS = [
     },
     vehicles: [
       VEHICLE_MOTO,
-      { src: "/landing/licences/cyber-black.webp", w: 844, h: 520, label: "BLACK CYBER", alt: "The black Cyber $DOG pickup with the $DOG sticker on the hood" },
+      { src: "/landing/licences/cyber-black.webp", w: 749, h: 461, label: "BLACK CYBER", alt: "The black Cyber $DOG pickup with the $DOG sticker on the hood" },
       {
-        src: "/landing/licences/helicopter.webp", w: 780, h: 520, label: "DOG HELICOPTER",
+        src: "/landing/licences/helicopter.webp", w: 686, h: 435, label: "DOG HELICOPTER",
         alt: "The DOG helicopter in Bitcoin orange and white with the $DOG sticker on the side",
         credit: { text: "3D model: Bell 429 Helicopter by agreene, CC BY 4.0", href: "https://sketchfab.com/3d-models/bell-429-helicopter-8dda855f3ab343b7b69ca7adcbf24f03" },
       },
