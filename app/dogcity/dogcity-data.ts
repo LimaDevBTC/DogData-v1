@@ -288,7 +288,7 @@ export const LICENCE_BTC_NOTE = "Paid in BTC: building licence and item pack onl
 // depois da do rifle, diz SÓ o barco (sem comprimento, sem data, sem "coming soon") e é a mesma frase das docs (seção 8). Um
 // barco por carteira: o da licença mais alta entre os lotes que ela guarda agora. Lote em canal ganha píer próprio; lote de
 // praia ou de margem de lago, boia de amarração em frente à casa (parágrafo abaixo da tabela das docs). Imagem em /landing/licences/boat-<nível>.webp (foto de estúdio,
-// mesma câmera nas três), crédito CC BY 4.0 no cartão como o do rifle.
+// mesma câmera nas três; 1000 de largura, alturas 567 / 464 / 820 e o cartão usa o w/h de cada uma), crédito CC BY 4.0 no cartão como o do rifle.
 
 // a moto é o veículo de TODOS os degraus: uma definição só, as três listas apontam para ela
 const VEHICLE_MOTO = {
@@ -324,8 +324,8 @@ export const TIERS = [
       credit: { text: "3D model: Game-Ready Bolt Action Rifle (Wooden Stock) by soft render, CC BY 4.0", href: "https://sketchfab.com/3d-models/game-ready-bolt-action-rifle-wooden-stock-ebcf616e22014454accb832dba285281" },
     },
     boat: {
-      src: "/landing/licences/boat-personal.webp", w: 1000, h: 600, label: "DOG RUNABOUT",
-      alt: "The DOG Runabout: a classic wooden speedboat with a varnished mahogany hull, a chrome windscreen and white leather seats",
+      src: "/landing/licences/boat-personal.webp", w: 1000, h: 567, label: "DOG RUNABOUT",
+      alt: "The DOG Runabout: a classic wooden speedboat with a varnished mahogany hull, a dark windscreen, cream leather seats and an orange pennant",
       credit: { text: "3D model: classic runabout by AntonKovalev, CC BY 4.0", href: "https://sketchfab.com/3d-models/riva-aquarama-lamborghini-9d5716a2ab6645b9a1452f1d6b0372ef" },
     },
     cta: "Choose Personal",
@@ -359,8 +359,8 @@ export const TIERS = [
       credit: { text: "3D model: Tikka T3 Hunting Rifle by Mark Rose, CC BY 4.0", href: "https://sketchfab.com/3d-models/tikka-t3-hunting-rifle-8ad0ca2a7aeb42debdaada3e6c38f9ef" },
     },
     boat: {
-      src: "/landing/licences/boat-commercial.webp", w: 1000, h: 600, label: "DOG CRUISER",
-      alt: "The DOG Cruiser: a white sport cruiser with a cabin, a windscreen and a swim platform",
+      src: "/landing/licences/boat-commercial.webp", w: 1000, h: 464, label: "DOG CRUISER",
+      alt: "The DOG Cruiser: a white sport cruiser with a cabin, a dark blue stripe along the hull and a radar arch",
       credit: { text: "3D model: Small Yacht by miguelangelo2k, CC BY 4.0", href: "https://sketchfab.com/3d-models/small-yacht-09a9fc4a0061464fba1bc3ba76848869" },
     },
     cta: "Choose Commercial",
@@ -399,8 +399,8 @@ export const TIERS = [
       credit: { text: "3D model: DAE - Rigby Hunting Rifle - Game Ready Asset by Martijn Vaes, CC BY 4.0", href: "https://sketchfab.com/3d-models/dae-rigby-hunting-rifle-game-ready-asset-e77855f0c3ea4340a4d67a4ece4b87ac" },
     },
     boat: {
-      src: "/landing/licences/boat-patron.webp", w: 1000, h: 600, label: "DOG YACHT",
-      alt: "The DOG Yacht: a sleek flybridge yacht with a raised upper deck and wide glass windows",
+      src: "/landing/licences/boat-patron.webp", w: 1000, h: 820, label: "DOG YACHT",
+      alt: "The DOG Yacht: a white and black flybridge yacht with a raised upper deck, wide glass windows and the DOG logo on the hull",
       credit: { text: "3D model: A Speed Luxury Yacht by Mixmamo.studio, CC BY 4.0", href: "https://sketchfab.com/3d-models/a-speed-luxury-yacht-full-interior-db2a164c523c4512b25063c9f9ca7b15" },
     },
     cta: "Become a Patron",

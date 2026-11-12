@@ -334,7 +334,7 @@ function Scene({ t, className }: { t: Tier; className: string }) {
       {boat && (
         <figure aria-label="Boat included" className={`mt-2 flex flex-col border ${HAIR} bg-white/[0.02]`}>
           <div className="px-3 pt-1.5">
-            <div className="relative aspect-[1000/600] w-full">
+            <div className="relative w-full" style={{ aspectRatio: `${boat.w} / ${boat.h}` }}>
               <Pic img={boat} className="absolute inset-0 h-full w-full object-contain" />
             </div>
           </div>
