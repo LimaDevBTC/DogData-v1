@@ -304,7 +304,7 @@ function Scene({ t, className }: { t: Tier; className: string }) {
       {vehicles.length > 0 && (
         <ul aria-label="Vehicles included" className="mt-4 grid grid-cols-3 gap-2">
           {vehicles.map((v) => (
-            <li key={v.src} className={`flex flex-col border ${HAIR} bg-white/[0.02]`}>
+            <li key={v.src} className={`flex flex-col border ${HAIR} bg-dc-plate`}>
               <div className="p-1.5">
                 <div className="relative aspect-[4/3] w-full">
                   <Pic img={v} className="absolute inset-0 h-full w-full object-contain" />
@@ -319,7 +319,7 @@ function Scene({ t, className }: { t: Tier; className: string }) {
       )}
 
       {rifle && (
-        <figure aria-label="Hunting rifle included" className={`mt-2 flex flex-col border ${HAIR} bg-white/[0.02]`}>
+        <figure aria-label="Hunting rifle included" className={`mt-2 flex flex-col border ${HAIR} bg-dc-plate`}>
           <div className="px-3 pt-1.5">
             <div className="relative aspect-[1000/299] w-full">
               <Pic img={rifle} className="absolute inset-0 h-full w-full object-contain" />
@@ -332,7 +332,7 @@ function Scene({ t, className }: { t: Tier; className: string }) {
       )}
 
       {boat && (
-        <figure aria-label="Boat included" className={`mt-2 flex flex-col border ${HAIR} bg-white/[0.02]`}>
+        <figure aria-label="Boat included" className={`mt-2 flex flex-col border ${HAIR} bg-dc-plate`}>
           <div className="px-3 pt-1.5">
             <div className="relative w-full" style={{ aspectRatio: `${boat.w} / ${boat.h}` }}>
               <Pic img={boat} className="absolute inset-0 h-full w-full object-contain" />
