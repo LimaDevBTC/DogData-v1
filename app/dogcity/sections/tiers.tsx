@@ -40,7 +40,7 @@
 // 28/10: each card also shows WHAT THE LICENCE GIVES, not only what it costs: the building (hero image) and every item
 // of the rung; see the note on TIERS in dogcity-data.ts.
 // 12/11: the card was laid out again for what it holds today (building, vehicles, rifle, boat): six fixed bands and a
-// two-shelf garage of equal tiles, three deeds side by side from `md` with the bands aligned; see the note above `Tile`.
+// two-shelf garage of equal tiles, three deeds side by side from `lg` with the bands aligned; see the note above `Tile`.
 //
 // Every string, threshold, perk, note, href and id below is verbatim from
 // dogcity-data.ts and the markup this replaces. The Founder note is a legal
@@ -280,30 +280,38 @@ function Pic({ img, className }: { img: LicenceImage; className: string }) {
 }
 
 // ── what the licence gives ─────────────────────────────────────────────────
-// 12/11 (fundador, visto no celular): o card tinha crescido item a item (veículos em blocos de 1/3, rifle e barco em largura
-// total, o iate mais alto que a casa) e passava de uma tela e meia no iPhone. Agora o card tem SEIS FAIXAS FIXAS, na mesma
-// ordem em todo tamanho de tela: cabeçalho, prédio, garagem, CTA, "What's included" (o texto do contrato, intacto) e os
-// créditos CC BY numa linha agrupada. No celular as faixas empilham; do `md` em diante os três cards ficam lado a lado e
-// as faixas são linhas de um `subgrid` comum, então prédio, garagem, CTA e perks começam na mesma altura nos três.
+// 12/11 (the founder, on a phone): the card had grown one item at a time (vehicles in 1/3 tiles, the rifle and the boat full
+// width, the yacht taller than the house) and ran past a screen and a half on an iPhone. The card is now SIX FIXED BANDS, in
+// the same order on every screen: head, building, garage, CTA, "What's included" (the contract's own lines, untouched) and
+// the CC BY credits on one grouped line. On a phone the bands stack. From `sm` to `lg` each card is one wide deed: the head
+// across the top, the building and the garage side by side, then the CTA, the perks and the credits. From `lg` the three
+// deeds stand side by side and the bands are rows of one shared `subgrid`, so building, garage, CTA and perks line up.
 //
-// A GARAGEM é uma grade de inventário em duas prateleiras de MESMA altura: na de cima os veículos do nível (1, 2, 3: a
-// escada, a moto sempre primeiro), na de baixo o equipamento, rifle e barco (sempre 2). Cada prateleira fecha a largura
-// inteira (6 colunas: o veículo ocupa 6/n, o equipamento 3 cada), nada fica órfão e nada sobra. Todo bloco tem a mesma
-// altura de imagem (24% da largura da grade, no máximo 84 px), o mesmo respiro e a mesma legenda (duas linhas reservadas),
-// com a imagem `object-contain` no centro: a moto e o iate pesam o mesmo, como num inventário de jogo.
+// THE GARAGE is an inventory grid of two shelves of the SAME height on a 6-column grid. The top shelf holds the vehicles of
+// the rung, each in a 1/3 tile, centred: Personal 1, Commercial 2, Patron 3, the ladder read across the deck. The bottom
+// shelf is always the rifle and the boat, half the width each. Every vehicle has the same tile on every card, so the same
+// Cyber is the same size in Commercial and Patron, and no vehicle sits alone in a wide, empty tile. Every tile has the same
+// image height (24% of the grid width, 84 px at most), the same inset and the same caption (two lines kept), with the
+// picture `object-contain` in the middle: the moto and the yacht weigh the same, as in a game inventory.
 
 type Item = LicenceImage & { label: string; credit?: { text: string; href: string } }
 
-// a prateleira fecha as 6 colunas: 1 item ocupa tudo, 2 dividem ao meio, 3 em terços
-const SPAN: Record<number, string> = { 1: "col-span-6", 2: "col-span-3", 3: "col-span-2" }
+// the top shelf: n vehicles in 1/3 tiles, centred on the 6 columns (1: columns 3-4; 2: columns 2-3 and 4-5; 3: all six)
+function vehicleSpan(i: number, n: number): string {
+  if (n === 1) return "col-span-2 col-start-3"
+  if (n === 2 && i === 0) return "col-span-2 col-start-2"
+  return "col-span-2"
+}
+// the bottom shelf: the rifle and the boat share the width
+const GEAR_SPAN: Record<number, string> = { 1: "col-span-6", 2: "col-span-3", 3: "col-span-2" }
 
 function Tile({ it, span }: { it: Item; span: string }) {
   return (
     <li className={`${span} flex flex-col border border-dc-snow/[0.12] bg-dc-plate`}>
-      <div className="relative mx-1.5 mt-1.5 h-[min(24cqi,84px)]">
+      <div className="relative mx-0.5 mt-1 h-[min(24cqi,84px)]">
         <Pic img={it} className="absolute inset-0 h-full w-full object-contain" />
       </div>
-      <span className="flex min-h-[2.6em] items-center justify-center px-0.5 pb-0.5 text-center font-mono text-[9px] leading-[1.2] tracking-[0.12em] text-dc-mist md:max-lg:text-[8px] md:max-lg:tracking-[0.04em]">
+      <span className="flex min-h-[2.6em] items-center justify-center px-0.5 pb-0.5 text-center font-mono text-[9px] leading-[1.2] tracking-[0.12em] text-dc-mist">
         {it.label}
       </span>
     </li>
@@ -316,7 +324,8 @@ function Building({ t }: { t: Tier }) {
   return (
     <figure className="mt-4">
       <div
-        className="relative aspect-[16/9] max-h-[240px] w-full"
+        // 2:1 on short screens (an iPhone SE, a phone held sideways), so the CTA still closes the first screen
+        className="relative aspect-[16/9] [@media(max-height:700px)]:aspect-[2/1] max-h-[240px] w-full"
         style={{ background: `radial-gradient(70% 55% at 50% 80%, ${t.color}1A, transparent 70%)` }}
       >
         <Pic img={b} className="absolute inset-0 h-full w-full object-contain object-bottom" />
@@ -339,23 +348,23 @@ function Garage({ t }: { t: Tier }) {
   const gear = [t.rifle, t.boat].filter(Boolean) as Item[]
   if (vehicles.length === 0 && gear.length === 0) return <div aria-hidden />
   return (
-    <ul aria-label="Items included" className="mt-4 grid grid-cols-6 gap-1.5 [container-type:inline-size]">
-      {vehicles.map((v) => <Tile key={v.src} it={v} span={SPAN[vehicles.length] ?? "col-span-2"} />)}
-      {gear.map((g) => <Tile key={g.src} it={g} span={SPAN[gear.length] ?? "col-span-2"} />)}
+    <ul aria-label="Items included" className="mt-4 grid grid-cols-6 gap-1 [container-type:inline-size]">
+      {vehicles.map((v, i) => <Tile key={v.src} it={v} span={vehicleSpan(i, vehicles.length)} />)}
+      {gear.map((g) => <Tile key={g.src} it={g} span={GEAR_SPAN[gear.length] ?? "col-span-2"} />)}
     </ul>
   )
 }
 
-// "3D model: <title> by <author>, CC BY 4.0" (a forma que os testes trancam em dogcity-data.ts) vira um pedaço da linha única
+// "3D model: <title> by <author>, CC BY 4.0" (the form the tests lock in dogcity-data.ts) becomes one piece of the single line
 const CREDIT = /^3D model: (.+) by (.+), CC BY 4\.0$/
 
-// Os créditos CC BY são condição da licença dos modelos: ficam no card, mas numa linha só, agrupados, como letra miúda.
-// Cada "título by autor" é o link da fonte; "CC BY 4.0" leva ao texto da licença.
+// The CC BY credits are a condition of the models' licence: they stay on the card, but grouped on one line of fine print.
+// Each "title by author" links to its source; "CC BY 4.0" links to the licence text.
 function Credits({ t }: { t: Tier }) {
   const items = [...(t.vehicles ?? []), t.rifle, t.boat].filter((v): v is Item => !!v?.credit)
   if (items.length === 0) return <div aria-hidden />
   return (
-    <p className="mt-4 pt-3 border-t border-dc-snow/[0.12] font-mono text-[9px] leading-relaxed text-dc-dusty">
+    <p className="mt-4 pt-3 border-t border-dc-snow/[0.12] font-mono text-[9px] leading-relaxed text-dc-dusty sm:max-lg:col-span-2">
       3D models:{" "}
       {items.map((v, i) => {
         const m = CREDIT.exec(v.credit!.text)
@@ -373,20 +382,25 @@ function Credits({ t }: { t: Tier }) {
           </span>
         )
       })}{" "}
-      (<a
-        href="https://creativecommons.org/licenses/by/4.0/"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="underline decoration-dc-snow/20 underline-offset-2 hover:text-dc-mist"
-      >CC BY 4.0</a>)
+      <span className="whitespace-nowrap">
+        (<a
+          href="https://creativecommons.org/licenses/by/4.0/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline decoration-dc-snow/20 underline-offset-2 hover:text-dc-mist"
+        >CC BY 4.0</a>)
+      </span>
     </p>
   )
 }
 
 // ── one deed ───────────────────────────────────────────────────────────────
-// md+: StaggerItem, o card e o miolo são `subgrid` de 6 linhas (as seis faixas acima); a grade de fora decide a altura
-// de cada faixa pelo maior dos três cards. Sem `gap` de linha: o respiro é a margem de cada faixa.
-const SUBGRID = "md:row-span-6 md:grid md:grid-rows-subgrid"
+// lg+: the StaggerItem, the card and its contents are a 6-row `subgrid` (the six bands above); the outer grid sizes each
+// band to the tallest of the three cards. No row gap: each band carries its own top margin.
+const SUBGRID = "lg:row-span-6 lg:grid lg:grid-rows-subgrid"
+// sm to lg: one wide deed per row, two columns: the head across, the building beside the garage, the rest across
+const WIDE = "sm:max-lg:grid sm:max-lg:grid-cols-2 sm:max-lg:gap-x-6 sm:max-lg:content-start"
+const ACROSS = "sm:max-lg:col-span-2"
 
 function Deed({ t, index, count, sats }: { t: Tier; index: number; count: number; sats: number | null }) {
   const { ref, onPointerMove } = useSpotlight<HTMLDivElement>()
@@ -404,7 +418,7 @@ function Deed({ t, index, count, sats }: { t: Tier; index: number; count: number
       <div
         ref={ref}
         onPointerMove={onPointerMove}
-        className={`dc-deed spotlight-card relative h-full border p-5 md:p-4 lg:p-6 flex flex-col ${SUBGRID} transition-colors duration-500 ${
+        className={`dc-deed spotlight-card relative h-full border px-3.5 pt-6 pb-4 sm:p-6 lg:px-5 lg:pb-5 flex flex-col ${SUBGRID} transition-colors duration-500 ${
           t.featured
             ? "border-lava/50 bg-lava/[0.04] hover:border-lava/75"
             : `${HAIR} hover:border-white/25`
@@ -451,9 +465,9 @@ function Deed({ t, index, count, sats }: { t: Tier; index: number; count: number
         {/* contents sit above the lot: a positioned wrapper, no z-index war. The six bands, in order: head, building,
             garage, CTA, what's included, credits (see the note above `Tile`). The CTA comes right after the garage so
             that, on a phone, the name, the price, the building, every item and the button fit in the first screen */}
-        <div className={`relative flex flex-col flex-1 ${SUBGRID}`}>
+        <div className={`relative flex flex-col flex-1 ${WIDE} ${SUBGRID}`}>
           {/* 1 · head */}
-          <div>
+          <div className={ACROSS}>
             <div className="flex items-baseline justify-between gap-3 font-mono text-[9px] tracking-[0.25em] text-dc-dusty">
               <span>THE LADDER</span>
               <span className="tabular-nums shrink-0">{pad2(index + 1)} / {pad2(count)}</span>
@@ -467,7 +481,7 @@ function Deed({ t, index, count, sats }: { t: Tier; index: number; count: number
 
             {/* the name and the price on the left, the $DOG / BTC choice on the right; it wraps under them when the
                 card is too narrow (the three-up tablet) */}
-            <div className="mt-3 flex flex-wrap items-end justify-between gap-x-3 gap-y-2.5">
+            <div className="mt-3 flex flex-wrap items-end justify-between gap-x-2 gap-y-2.5 sm:gap-x-3">
               <div className="min-w-0">
                 <div className="font-display font-bold text-xl" style={{ color: t.color }}>{t.name}</div>
                 <div className="font-mono text-sm text-dc-snow mt-0.5 tabular-nums">
@@ -490,7 +504,7 @@ function Deed({ t, index, count, sats }: { t: Tier; index: number; count: number
                       type="button"
                       aria-pressed={pay === a}
                       onClick={() => setPay(a)}
-                      className={`px-4 py-2.5 min-h-[44px] min-w-[52px] font-mono text-[11px] tracking-[0.1em] transition-colors ${
+                      className={`px-3 sm:px-4 py-2.5 min-h-[44px] min-w-[52px] font-mono text-[11px] tracking-[0.1em] transition-colors ${
                         pay === a ? "bg-dc-snow/[0.1] text-dc-snow" : "text-dc-dusty hover:text-dc-snow"
                       }`}
                     >
@@ -512,7 +526,7 @@ function Deed({ t, index, count, sats }: { t: Tier; index: number; count: number
           <Garage t={t} />
 
           {/* 4 · the call to action */}
-          <div className="mt-4">
+          <div className={`mt-4 ${ACROSS}`}>
             <button
               type="button"
               onClick={() =>
@@ -534,11 +548,12 @@ function Deed({ t, index, count, sats }: { t: Tier; index: number; count: number
           </div>
 
           {/* 5 · what's included: the contract's own lines, word for word (the tests lock them in dogcity-data.ts) */}
-          <div className="mt-5">
+          <div className={`mt-5 ${ACROSS}`}>
             <p className="font-mono text-[9px] tracking-[0.25em] text-dc-dusty">WHAT&apos;S INCLUDED</p>
-            <ul className="mt-2 space-y-1.5">
+            {/* two columns on the wide deed, so a line never runs the whole card */}
+            <ul className="mt-2 sm:max-lg:columns-2 sm:max-lg:gap-x-6">
               {t.perks.map((p) => (
-                <li key={p} className="text-[12px] text-dc-mist leading-[1.5] flex gap-2 [text-wrap:pretty]">
+                <li key={p} className="mb-1.5 last:mb-0 break-inside-avoid text-[12px] text-dc-mist leading-[1.5] flex gap-2 [text-wrap:pretty]">
                   <span aria-hidden className="text-lava shrink-0">▸</span>{p}
                 </li>
               ))}
@@ -575,8 +590,8 @@ export default function Section({}) {
 
         <LicenceStrip n={licenceCount} />
 
-        {/* md+: three deeds side by side; each spans the six band rows (`subgrid`), so the bands line up across them */}
-        <Stagger className="mt-6 grid gap-4 md:grid-cols-3 md:gap-x-3 md:gap-y-0 lg:gap-x-4" delay={0.62} step={0.075}>
+        {/* lg+: three deeds side by side; each spans the six band rows (`subgrid`), so the bands line up across them */}
+        <Stagger className="mt-6 grid gap-4 lg:grid-cols-3 lg:gap-x-4 lg:gap-y-0" delay={0.62} step={0.075}>
           {tiers.map((t, i) => (
             <Deed key={t.key} t={t} index={i} count={tiers.length} sats={licenceSats?.[t.key] ?? null} />
           ))}
