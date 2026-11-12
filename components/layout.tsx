@@ -52,7 +52,13 @@ export function Layout({ children, currentPage, fullBleed }: LayoutProps) {
           O que sobrou aqui é respiro de propósito, não compensação. */}
       <main className="relative pt-3 md:pt-4 flex-1">
         {/* 06/11/2026: aviso de lotes sem dono, so na home e so durante a Whitelist; rola com a pagina */}
-        {currentPage === 'overview' && <div className="container-fluid"><UnclaimedBanner variant="site" /></div>}
+        {/* ⚠️ 12/11/2026: NUNCA `container-fluid` aqui. app/globals.css:709 da a essa classe
+            `min-height: calc(100vh - 64px)` (e :737 soma 72 px de padding-bottom no celular),
+            entao a faixa fina virava um bloco do tamanho da tela e abria um vao preto de
+            500 a 800 px ate o banner da BitFlow (o "buraco" que o fundador fotografou no
+            iPhone). Este embrulho repete so a geometria horizontal da classe: 1400 px no
+            maximo, 0,75rem de lado no celular e 2rem a partir de 768 px. */}
+        {currentPage === 'overview' && <div className="mx-auto max-w-[1400px] px-3 md:px-8"><UnclaimedBanner variant="site" /></div>}
         {fullBleed ? (
           <div className="transition-opacity duration-200 ease-out opacity-100">
             <div className="max-w-[1400px] mx-auto px-4 md:px-8">
