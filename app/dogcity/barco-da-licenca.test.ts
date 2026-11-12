@@ -3,6 +3,8 @@
 // O barco de cada licença (decisão do fundador, 12/11/2026): a linha do cartão vem logo depois da do rifle e diz SÓ o barco,
 // sem data, sem "coming soon", sem travessão, sem comprimento e sem preço. A imagem existe, o crédito CC BY sai no cartão
 // e as docs (seção 8) dizem o mesmo barco de cada nível, com o parágrafo do píer e da boia.
+// 12/11 ("licença no lote"): o parágrafo do barco é a frase EXATA de LICENCA_NO_LOTE_CONTRATO.md (o píer é só para lote de canal;
+// lote de praia ou de margem de lago ganha boia), e o rifle e o barco vêm da licença mais alta entre os lotes que a carteira guarda.
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
@@ -52,5 +54,23 @@ test('as docs (seção 8) dizem o mesmo barco de cada nível e o parágrafo do p
   assert.match(docs, /Boat: the DOG Cruiser, a sport cruiser with a cabin, with a berth at the public marina"\]/)
   assert.match(docs, /Yacht: the DOG Yacht, a flybridge yacht, with a berth at the DOG Key marina"\]/)
   const plano = docs.replace(/\s+/g, ' ')
-  assert.ok(plano.includes('One boat per wallet: the one that comes with the highest licence the wallet holds. A lot on a canal or a lake gets its own pier, and the boat waits there. A lot on the beach gets a mooring buoy in front of the house.'))
+  assert.ok(plano.includes('One boat per wallet: the one that comes with the highest licence among the lots the wallet holds. A lot on a canal gets its own pier, and the boat waits there. A lot on a beach or a lake shore gets a mooring buoy in front of the house.'))
+  assert.ok(plano.includes('The hunting rifle and the boat come from the highest licence among the lots a wallet holds. Sell that lot and they go with it.'))
+  assert.doesNotMatch(plano, /canal or a lake gets its own pier/)
+})
+
+test('as docs dizem que a licença pertence ao lote e vai com a escritura (seção 7, 6 e 8)', () => {
+  const plano = readFileSync(raiz('app/dogcity/docs/page.tsx'), 'utf8').replace(/\s+/g, ' ').replace(/&apos;/g, "'")
+  const frases = [
+    'The building licence belongs to the lot. It is never sold on its own: when the deed changes hands, the licence, the house and the items that come with it (vehicles, hunting rifle, boat) go with it.',
+    'A licence payment is credited to the wallet that pays and applied to the lot that wallet holds. A wallet that holds more than one lot chooses the lot. A credit with no lot waits for one.',
+    'Moving up.</strong> The payments applied to a lot add up, so a lot with Personal pays only the difference to Commercial or Patron. Nobody buys two licences for the same lot.',
+    "Founder status and the Original Airdrop Receiver badge belong to the wallet and never move. The Founder's light shines on the building of the lot the Founder holds.",
+    'Licence items (the house, its vehicles, the hunting rifle, the boat) belong to the lot and move with the deed.',
+  ]
+  for (const f of frases) assert.ok(plano.includes(f), `as docs perderam: ${f}`)
+  // a regra velha saiu
+  for (const velha of ['stay with the wallet that earned them', 'The payments of the wallet that owns the lot', 'on the lot the wallet owns', 'lot whose owner holds the commercial licence']) {
+    assert.ok(!plano.includes(velha), `as docs ainda dizem: ${velha}`)
+  }
 })

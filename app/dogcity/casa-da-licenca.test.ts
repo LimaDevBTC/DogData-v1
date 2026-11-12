@@ -100,15 +100,15 @@ test('lote sem posição agora: a casa continua, sem id nem distrito, com a fras
   assert.equal(c.status, 'In production')
 })
 
-test('licença sem lote: diz a licença, que não há lote ligado e onde a casa vai', () => {
+test('licença sem lote: diz o crédito, que não há lote ligado e que o crédito espera um lote', () => {
   const c = casaDaLicenca('commercial', 'sem_lote')
   assert.deepEqual(c, {
     caso: 'sem_lote',
     degrau: 'commercial',
     licenca: 'Commercial',
     rotulo: 'BUILDING LICENCE · COMMERCIAL',
-    titulo: 'This wallet holds a Commercial licence.',
-    aviso: 'No lot is linked to this wallet. The building goes on the lot of the wallet that holds the deed.',
+    titulo: 'This wallet has a Commercial licence credit.',
+    aviso: 'No lot is linked to this wallet. A credit with no lot waits for one.',
   })
   assert.equal(SUPORTE.href, '/dogcity/support')
 })

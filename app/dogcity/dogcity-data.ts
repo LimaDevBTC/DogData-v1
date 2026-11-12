@@ -271,20 +271,23 @@ export const LICENCE_BTC_NOTE = "Paid in BTC: building licence and item pack onl
 // Os veículos foram fotografados no estúdio do Blender (dogcity-mundo, plano/the_build/filme/estudio_veiculos.py, modo cartão).
 // O helicóptero é o "Bell 429 Helicopter" de agreene (Sketchfab, CC BY 4.0): o crédito (`credit`) sai no próprio cartão,
 // é condição da licença.
-// 10/11 (fundador): cada licença dá um RIFLE DE CAÇA, intransferível, preso à licença (sobe junto, nunca vira item à venda nem
+// 10/11 (fundador): cada licença dá um RIFLE DE CAÇA, preso à licença do lote e que vai com a escritura (sobe junto, nunca vira item à venda nem
 // Ordinal). Personal = Field Rifle (madeira, sem luneta), Commercial = Field Rifle Pro (Tikka T3, com luneta), Patron = Field
 // Rifle Elite (Rigby, gravação dourada com o @ do dono). A linha do cartão diz SÓ o rifle: sem data, sem "coming soon" e sem
 // sugerir que só quem tem licença caça (sem licença, caça-se por armadilha e pesca-se com vara). Mesma frase nas docs
 // (seção 8, "What comes with it"). Imagem: o render de vitrine (Blender, mesma câmera, luz e escala nas três; preparo em
 // bitcoin-fullstack/assets_armas_rascunho/pronto/PREPARO.md), 1000 x 299 com transparência. Os três modelos são CC BY 4.0
 // do Sketchfab: o crédito (`credit`) sai no cartão, como o do helicóptero.
+// 12/11 (fundador, "licença no lote"): a licença pertence ao LOTE e vai com a escritura; os itens dela (a casa, os veículos, o rifle e o
+// barco) vão juntos e nunca se vendem à parte. Rifle e barco vêm da licença MAIS ALTA entre os lotes que a carteira guarda agora:
+// vendeu esse lote, perdeu os dois na hora. Fonte: LICENCA_NO_LOTE_CONTRATO.md.
 
 // 12/11 (fundador): cada licença traz um BARCO, preso à licença como o rifle (sobe junto, nunca item à venda). Personal = DOG
 // Runabout (lancha clássica de madeira, no galpão de dry-stack da marina pública), Commercial = DOG Cruiser (sport cruiser com
 // cabine, com vaga na marina pública), Patron = DOG Yacht (iate flybridge, com vaga na marina DOG Key). A linha do cartão vem logo
 // depois da do rifle, diz SÓ o barco (sem comprimento, sem data, sem "coming soon") e é a mesma frase das docs (seção 8). Um
-// barco por carteira: o da maior licença que ela tem. Lote em canal ou lago ganha píer próprio; lote na praia, boia de
-// amarração em frente à casa (parágrafo abaixo da tabela das docs). Imagem em /landing/licences/boat-<nível>.webp (foto de estúdio,
+// barco por carteira: o da licença mais alta entre os lotes que ela guarda agora. Lote em canal ganha píer próprio; lote de
+// praia ou de margem de lago, boia de amarração em frente à casa (parágrafo abaixo da tabela das docs). Imagem em /landing/licences/boat-<nível>.webp (foto de estúdio,
 // mesma câmera nas três), crédito CC BY 4.0 no cartão como o do rifle.
 
 // a moto é o veículo de TODOS os degraus: uma definição só, as três listas apontam para ela
@@ -335,7 +338,7 @@ export const TIERS = [
     color: "#FB923C",
     perks: [
       "Everything in Personal",
-      "The commercial licence: a commercial building, a mixed-use one (commercial ground floor, homes above, penthouse on top) or a residence, on the lot your wallet owns",
+      "The commercial licence: a commercial building, a mixed-use one (commercial ground floor, homes above, penthouse on top) or a residence, on the lot that holds the licence",
       "Extended item pack: leisure ground, garden, lighting",
       "Vehicles: the $DOG moto and an orange Cyber $DOG",
       "Hunting rifle: the Field Rifle Pro, with scope",
