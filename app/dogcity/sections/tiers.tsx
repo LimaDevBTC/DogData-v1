@@ -155,8 +155,10 @@ interface Tier {
 
 type LicenceCount = { personal: number; commercial: number; patron: number }
 
-// How many licences exist, from the fund ledger the construction fund section already reads (one wallet, one rung:
-// its $DOG plus any credited Bitcoin). A wallet under 10,000 $DOG is a founder without a licence and is not counted.
+// How many licences exist. Since 12/11 the licence belongs to the lot: the leaderboard sends `lot_licences` (one lot,
+// one rung, migration 037) and that is the count. Before the migration, from the fund ledger the construction fund
+// section already reads (one wallet, one rung: its $DOG plus any credited Bitcoin); a wallet under 10,000 $DOG is a
+// founder without a licence and is not counted.
 // No answer, no strip: the section never shows a number it did not read.
 function useLicenceCount(): LicenceCount | null {
   const [n, setN] = useState<LicenceCount | null>(null)
@@ -166,6 +168,12 @@ function useLicenceCount(): LicenceCount | null {
       fetch("/api/donate/leaderboard")
         .then((r) => (r.ok ? r.json() : null))
         .then((j) => {
+          // the licence belongs to the lot (12/11): count lots when the API has them, wallets otherwise
+          const byLot = j?.lot_licences
+          if (alive && byLot && ["personal", "commercial", "patron"].every((k) => Number.isSafeInteger(byLot[k]) && byLot[k] >= 0)) {
+            setN({ personal: byLot.personal, commercial: byLot.commercial, patron: byLot.patron })
+            return
+          }
           const rows: Array<{ license?: string }> = Array.isArray(j?.leaderboard) ? j.leaderboard : []
           if (!alive || rows.length === 0) return
           const c: LicenceCount = { personal: 0, commercial: 0, patron: 0 }
