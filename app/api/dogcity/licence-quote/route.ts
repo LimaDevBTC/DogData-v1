@@ -1,6 +1,12 @@
 /**
- * POST /api/dogcity/licence-quote   { tier, ordinalsAddress, paymentAddress }
- *   -> { id, tier, dogAmount, sats, dogUsd, btcUsd, sources, expiresAt, payTo }
+ * POST /api/dogcity/licence-quote   { tier, ordinalsAddress, paymentAddress, lotId? }
+ *   -> { id, tier, dogAmount, sats, dogUsd, btcUsd, sources, expiresAt, payTo, lotId? }
+ *
+ * LICENÇA NO LOTE (12/11, LICENCA_NO_LOTE_CONTRATO.md): com `lotId` a cotação paga AQUELE lote. A carteira
+ * tem de guardá-lo pelo mint (403 se não), a diferença é a do LOTE (o que ele já soma, de quem quer que
+ * tenha pago), o 409 "já tem" é do lote, e o crédito do pagamento cai direto nele (coluna `lot_id`,
+ * migração 037; a varredura aplica). Sem `lotId` (pedido antigo) o lote é o único que a carteira guarda.
+ * Sem as tabelas da 037 a rota segue como antes, por carteira, e recusa `lotId` com 503.
  *
  * A licença continua valendo em $DOG (Personal 10.000, Commercial 50.000, Patron 500.000).
  * Em BTC paga-se o equivalente pela MEDIANA de corretoras (lib/dog/price-sources.ts), travada
@@ -22,7 +28,9 @@ import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'node:crypto'
 import { LICENCE_DOG, LICENCE_TIERS, satsForDog, type Quote } from '@/lib/dog/licence-btc'
 import { createQuote, type QuoteStore } from '@/lib/dog/licence-quote'
-import { posicaoDaCarteira } from '@/lib/dog/licence-wallet'
+import { heldParaCotacao } from '@/lib/dog/licence-lot-service'
+import { holderDoMint, lotLicenceStore } from '@/lib/dog/licence-lot-supabase'
+import { snapshotDoRegistro } from '@/lib/dog/licence-lot-registro'
 import { spotMedians, type FetchLike, type Medians } from '@/lib/dog/price-sources'
 import { passouDoTeto, respostaFreio } from '@/lib/seguranca/freio'
 
@@ -74,6 +82,8 @@ const store: QuoteStore = {
       sources: q.sources,
       created_at: new Date(q.createdAtMs).toISOString(),
       expires_at: new Date(q.expiresAtMs).toISOString(),
+      // só com lote: a coluna é da 037, e o pedido antigo continua gravando sem ela
+      ...(q.lotId ? { lot_id: q.lotId } : {}),
     })
     if (error) throw new Error(error.message)
   },
@@ -81,11 +91,14 @@ const store: QuoteStore = {
 
 const NO_STORE = { 'Cache-Control': 'no-store' }
 
-// O que a carteira já conta (DOG do livro + BTC creditado), pela MESMA conta do placar. `strict`: sem
-// ler o BTC já creditado não se calcula a diferença, então não há cotação (null vira 503 em createQuote).
+// O que já conta para o degrau, pela MESMA conta do placar, agora por LOTE (lib/dog/licence-lot-service.ts):
+// com lote, o que o lote soma; sem lote, o `totalDog` compatível do standing. Lê o BTC já creditado sempre
+// (sem ele não se calcula a diferença: null vira 503 em createQuote). 'not_holder' vira 403.
+// O registro selado (a reserva do lote quando o mint não responde) é lido do disco, ou da URL pública do app.
 const HELD_MS = 5000
-const heldDog = async (ordinalsAddress: string): Promise<number | null> =>
-  (await posicaoDaCarteira(supabase, ordinalsAddress, { ms: HELD_MS, strict: true }))?.totalDog ?? null
+const lotStore = lotLicenceStore(supabase)
+const heldDogDe = (origin: string | null) => (ordinalsAddress: string, lotId: string | null) =>
+  heldParaCotacao({ store: lotStore, holder: (a) => holderDoMint(a), snapshotLot: snapshotDoRegistro(origin) }, ordinalsAddress, lotId, { ms: HELD_MS })
 
 export async function POST(req: NextRequest) {
   // O teto por endereço de pagamento (lib/dog/licence-quote.ts) não segura quem troca de endereço a cada pedido: cada cotação é uma linha no banco
@@ -93,6 +106,8 @@ export async function POST(req: NextRequest) {
   let body: unknown = null
   try { body = await req.json() } catch { /* corpo inválido: createQuote devolve 400 */ }
   try {
+    const origin = req.nextUrl.origin || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
+    const heldDog = heldDogDe(origin)
     const r = await createQuote({ store, medians, heldDog, nowMs: Date.now(), newId: () => randomUUID() }, body)
     if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status, headers: NO_STORE })
     return NextResponse.json(r.quote, { headers: NO_STORE })

@@ -360,16 +360,19 @@ test('posicaoDaCarteira: strict (the quote path) refuses to guess when the BTC c
 
 // ── a fiação: as rotas usam a conta, e a tela não baixa o placar ─────────────
 
-test('the quote route reads the wallet strictly; the light standing route is uncached and validates the address', async () => {
+test('the quote route reads the lot (strictly); the light standing route is uncached and validates the address', async () => {
   const { readFileSync } = await import('node:fs')
   const read = (p: string) => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8')
+  // licença no lote (12/11): a cotação e o standing passam pela conta por lote (licence-lot-service.ts), que
+  // lê o BTC creditado sempre na cotação (estadoDe(..., strict = true)) e cai no modo antigo sem a 037
   const quoteRoute = read('app/api/dogcity/licence-quote/route.ts')
-  assert.match(quoteRoute, /posicaoDaCarteira\(supabase, ordinalsAddress, \{ ms: HELD_MS, strict: true \}\)/)
+  assert.match(quoteRoute, /heldParaCotacao\(\{ store: lotStore, holder: \(a\) => holderDoMint\(a\), snapshotLot: snapshotDoRegistro\(origin\) \}, ordinalsAddress, lotId, \{ ms: HELD_MS \}\)/)
   assert.match(quoteRoute, /createQuote\(\{ store, medians, heldDog,/)
+  assert.match(read('lib/dog/licence-lot-service.ts'), /estadoDe\(deps\.store, address, true, signal\)/)
   const standing = read('app/api/dogcity/licence-standing/route.ts')
   assert.match(standing, /'Cache-Control': 'no-store'/)
   assert.match(standing, /normalizeAddress\(/)
-  assert.match(standing, /posicaoDaCarteira\(supabase, address/)
+  assert.match(standing, /standingDaCarteira\(/)
   // a cron e a tabela de cotações seguem como estavam: a diferença mora em `dog_amount`
   const cron = read('app/api/cron/licence-btc/route.ts')
   assert.match(cron, /dogAmount: Number\(r\.dog_amount\)/)
