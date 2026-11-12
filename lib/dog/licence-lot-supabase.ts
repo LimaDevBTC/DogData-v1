@@ -1,16 +1,16 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// A LICENÇA NO LOTE: os fios de verdade (banco, mint, registro selado) por trás das interfaces de
-// licence-lot-service.ts. Só servidor (node:fs pelo leitor do registro, chave de service role).
+// A LICENÇA NO LOTE: os fios de verdade (banco e mint) por trás das interfaces de licence-lot-service.ts.
+// Só servidor (chave de service role).
 //
 //   lotLicenceStore(db)   dogcity_licence_assignment, dogcity_lot_licence, dogcity_licence_apply (037),
 //                         dog_transactions e dogcity_btc_payments (as mesmas consultas do placar)
 //   holderDoMint(addr)    GET https://mint.dogcity.space/api/mint/holder/<address>, prazo curto
-//   snapshotDoRegistro()  o lote do snapshot 966.670 pelo public/city/escrituras.bin (a reserva)
+//   (a reserva do lote pelo registro selado mora em licence-lot-registro.ts, para o escrituras.bin de 3 MB
+//    só entrar nas funções que o leem: standing e cotação, não o placar nem a varredura)
 //
 // SEM AS TABELAS DA 037 o store lança SemTabela, e o serviço cai no modo antigo (licença por carteira).
 // ═══════════════════════════════════════════════════════════════════════════
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { buscarEscritura, escrituras } from '@/lib/city/escrituras'
 import type { TxRow } from './founders-ledger'
 import { FUND_DOG_ADDRESS, isTier, normalizeAddress, type LicenceTier } from './licence-btc'
 import {
@@ -182,18 +182,5 @@ export async function holderDoMint(address: string, opts: { fetch?: typeof fetch
     return readMintHolder(await r.json(), address)
   } catch {
     return null
-  }
-}
-
-/**
- * O lote do snapshot pelo registro selado (a reserva quando o mint não responde). null = o endereço não
- * tem lote no registro (ou tem lápide); undefined = o registro não está ao alcance agora.
- */
-export function snapshotDoRegistro(origin: string | null): (address: string) => Promise<string | null | undefined> {
-  return async (address) => {
-    const ix = await escrituras(origin).catch(() => null)
-    if (!ix) return undefined
-    const e = buscarEscritura(ix, address)
-    return e?.kind === 'lote' ? normalizeLotId(e.lotId) : null
   }
 }

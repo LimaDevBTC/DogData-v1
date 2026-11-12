@@ -82,6 +82,9 @@ type EstadoOuAntigo = (Estado & { antigo: false }) | { antigo: true; totalDog: n
  * contado num lado e não no outro). `strict`: sem ler o BTC não há resposta (quem COBRA precisa dele).
  */
 async function estadoDe(store: LotLicenceStore, address: string, strict: boolean, signal?: AbortSignal): Promise<EstadoOuAntigo> {
+  // as aplicações não dependem do resto: saem junto com o livro (o mint chama o standing com 2,5 s de prazo)
+  const aplicacoes = store.assignmentsOf(address, signal)
+  aplicacoes.catch(() => {}) // o erro é tratado abaixo; sem isto, uma falha do livro deixaria esta rejeição solta
   const [rows, credited] = await Promise.all([
     store.fundRowsOf(address, signal),
     store.creditedOf(address, signal).catch((e) => {
@@ -94,7 +97,7 @@ async function estadoDe(store: LotLicenceStore, address: string, strict: boolean
   const quoteIds = [...new Set(credited.map((c) => c.quoteId).filter((q): q is string => !!q))]
   try {
     const [assignments, quoteLots] = await Promise.all([
-      store.assignmentsOf(address, signal),
+      aplicacoes,
       quoteIds.length ? store.quoteLots(quoteIds, signal) : Promise.resolve(new Map<string, string>()),
     ])
     return { antigo: false, totalDog: s.totalDog, walletTier: s.tier, assignments, directBtc: directBtcOf(credited, quoteLots) }
