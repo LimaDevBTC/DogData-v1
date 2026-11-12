@@ -271,13 +271,24 @@ export const LICENCE_BTC_NOTE = "Paid in BTC: building licence and item pack onl
 // Os veículos foram fotografados no estúdio do Blender (dogcity-mundo, plano/the_build/filme/estudio_veiculos.py, modo cartão).
 // O helicóptero é o "Bell 429 Helicopter" de agreene (Sketchfab, CC BY 4.0): o crédito (`credit`) sai no próprio cartão,
 // é condição da licença.
-// 10/11 (fundador): cada licença dá um RIFLE DE CAÇA, intransferível, preso à licença (sobe junto, nunca vira item à venda nem
+// 10/11 (fundador): cada licença dá um RIFLE DE CAÇA, preso à licença do lote e que vai com a escritura (sobe junto, nunca vira item à venda nem
 // Ordinal). Personal = Field Rifle (madeira, sem luneta), Commercial = Field Rifle Pro (Tikka T3, com luneta), Patron = Field
 // Rifle Elite (Rigby, gravação dourada com o @ do dono). A linha do cartão diz SÓ o rifle: sem data, sem "coming soon" e sem
 // sugerir que só quem tem licença caça (sem licença, caça-se por armadilha e pesca-se com vara). Mesma frase nas docs
 // (seção 8, "What comes with it"). Imagem: o render de vitrine (Blender, mesma câmera, luz e escala nas três; preparo em
 // bitcoin-fullstack/assets_armas_rascunho/pronto/PREPARO.md), 1000 x 299 com transparência. Os três modelos são CC BY 4.0
 // do Sketchfab: o crédito (`credit`) sai no cartão, como o do helicóptero.
+// 12/11 (fundador, "licença no lote"): a licença pertence ao LOTE e vai com a escritura; os itens dela (a casa, os veículos, o rifle e o
+// barco) vão juntos e nunca se vendem à parte. Rifle e barco vêm da licença MAIS ALTA entre os lotes que a carteira guarda agora:
+// vendeu esse lote, perdeu os dois na hora. Fonte: LICENCA_NO_LOTE_CONTRATO.md.
+
+// 12/11 (fundador): cada licença traz um BARCO, preso à licença como o rifle (sobe junto, nunca item à venda). Personal = DOG
+// Runabout (lancha clássica de madeira, no galpão de dry-stack da marina pública), Commercial = DOG Cruiser (sport cruiser com
+// cabine, com vaga na marina pública), Patron = DOG Yacht (iate flybridge, com vaga na marina DOG Key). A linha do cartão vem logo
+// depois da do rifle, diz SÓ o barco (sem comprimento, sem data, sem "coming soon") e é a mesma frase das docs (seção 8). Um
+// barco por carteira: o da licença mais alta entre os lotes que ela guarda agora. Lote em canal ganha píer próprio; lote de
+// praia ou de margem de lago, boia de amarração em frente à casa (parágrafo abaixo da tabela das docs). Imagem em /landing/licences/boat-<nível>.webp (foto de estúdio,
+// mesma câmera nas três; 1000 de largura, alturas 567 / 464 / 820 e o cartão usa o w/h de cada uma), crédito CC BY 4.0 no cartão como o do rifle.
 
 // a moto é o veículo de TODOS os degraus: uma definição só, as três listas apontam para ela
 const VEHICLE_MOTO = {
@@ -298,6 +309,7 @@ export const TIERS = [
       "Base item pack: yard and house number plaque",
       "Vehicles: the $DOG moto",
       "Hunting rifle: the Field Rifle",
+      "Boat: the DOG Runabout, a classic wooden speedboat, kept in the dry-stack boathouse at the public marina",
       "Early access to the game, to every test and every update",
     ],
     building: {
@@ -311,6 +323,11 @@ export const TIERS = [
       alt: "The Field Rifle: a bolt action hunting rifle with a walnut stock and open sights",
       credit: { text: "3D model: Game-Ready Bolt Action Rifle (Wooden Stock) by soft render, CC BY 4.0", href: "https://sketchfab.com/3d-models/game-ready-bolt-action-rifle-wooden-stock-ebcf616e22014454accb832dba285281" },
     },
+    boat: {
+      src: "/landing/licences/boat-personal.webp", w: 1000, h: 567, label: "DOG RUNABOUT",
+      alt: "The DOG Runabout: a classic wooden speedboat with a varnished mahogany hull, a dark windscreen, cream leather seats and an orange pennant",
+      credit: { text: "3D model: classic runabout by AntonKovalev, CC BY 4.0", href: "https://sketchfab.com/3d-models/riva-aquarama-lamborghini-9d5716a2ab6645b9a1452f1d6b0372ef" },
+    },
     cta: "Choose Personal",
   },
   {
@@ -321,10 +338,11 @@ export const TIERS = [
     color: "#FB923C",
     perks: [
       "Everything in Personal",
-      "The commercial licence: a commercial building, a mixed-use one (commercial ground floor, homes above, penthouse on top) or a residence, on the lot your wallet owns",
+      "The commercial licence: a commercial building, a mixed-use one (commercial ground floor, homes above, penthouse on top) or a residence, on the lot that holds the licence",
       "Extended item pack: leisure ground, garden, lighting",
       "Vehicles: the $DOG moto and an orange Cyber $DOG",
       "Hunting rifle: the Field Rifle Pro, with scope",
+      "Boat: the DOG Cruiser, a sport cruiser with a cabin, with a berth at the public marina",
     ],
     building: {
       src: "/landing/licences/building-commercial.webp", w: 1000, h: 692,
@@ -340,6 +358,11 @@ export const TIERS = [
       alt: "The Field Rifle Pro: a bolt action hunting rifle with a walnut stock, a blued barrel, a scope and a leather sling",
       credit: { text: "3D model: Tikka T3 Hunting Rifle by Mark Rose, CC BY 4.0", href: "https://sketchfab.com/3d-models/tikka-t3-hunting-rifle-8ad0ca2a7aeb42debdaada3e6c38f9ef" },
     },
+    boat: {
+      src: "/landing/licences/boat-commercial.webp", w: 1000, h: 464, label: "DOG CRUISER",
+      alt: "The DOG Cruiser: a white sport cruiser with a cabin, a dark blue stripe along the hull and a radar arch",
+      credit: { text: "3D model: Small Yacht by miguelangelo2k, CC BY 4.0", href: "https://sketchfab.com/3d-models/small-yacht-09a9fc4a0061464fba1bc3ba76848869" },
+    },
     cta: "Choose Commercial",
   },
   {
@@ -354,6 +377,7 @@ export const TIERS = [
       "Names a street, and the name stays on the city map",
       "Vehicles: the $DOG moto, a black Cyber $DOG (instead of the orange one) and the DOG helicopter",
       "Hunting rifle: the Field Rifle Elite, engraved with your @",
+      "Yacht: the DOG Yacht, a flybridge yacht, with a berth at the DOG Key marina",
     ],
     building: {
       src: "/landing/licences/building-patron.webp", w: 1000, h: 619,
@@ -373,6 +397,11 @@ export const TIERS = [
       src: "/landing/licences/rifle-patron.webp", w: 1000, h: 299, label: "FIELD RIFLE ELITE",
       alt: "The Field Rifle Elite: a bolt action hunting rifle with a figured walnut stock, gold engraved fittings, a scope, a folding bipod and a gold plate engraved with the owner's @",
       credit: { text: "3D model: DAE - Rigby Hunting Rifle - Game Ready Asset by Martijn Vaes, CC BY 4.0", href: "https://sketchfab.com/3d-models/dae-rigby-hunting-rifle-game-ready-asset-e77855f0c3ea4340a4d67a4ece4b87ac" },
+    },
+    boat: {
+      src: "/landing/licences/boat-patron.webp", w: 1000, h: 820, label: "DOG YACHT",
+      alt: "The DOG Yacht: a white and black flybridge yacht with a raised upper deck, wide glass windows and the DOG logo on the hull",
+      credit: { text: "3D model: A Speed Luxury Yacht by Mixmamo.studio, CC BY 4.0", href: "https://sketchfab.com/3d-models/a-speed-luxury-yacht-full-interior-db2a164c523c4512b25063c9f9ca7b15" },
     },
     cta: "Become a Patron",
   },

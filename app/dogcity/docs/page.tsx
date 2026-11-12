@@ -1211,12 +1211,12 @@ export default function DogCityDocsPage() {
                   {
                     name: "Personal",
                     threshold: "10,000 $DOG",
-                    text: "Adds a one time, permanent building licence, for a residence from the district catalogue; minting first, free, in the Founder phase, so the building stands on day one; early access to the game, to every test and every update; the Founder's light on the building, visible from above at night; and a base item pack (yard and house number plaque).",
+                    text: "Adds a one time, permanent building licence, for a residence from the district catalogue; minting first, free, in the Founder phase, so the building stands on day one; early access to the game, to every test and every update; the Founder's light on the building of the lot the Founder holds, visible from above at night; and a base item pack (yard and house number plaque).",
                   },
                   {
                     name: "Commercial",
                     threshold: "50,000 $DOG",
-                    text: "Adds the commercial licence: a commercial building, a mixed-use one (a commercial ground floor, homes on the floors above, a penthouse on the top floor) or a residence, on the lot the wallet owns, within the storeys the building code of its district gives that lot (section 8); an extended item pack (leisure ground, garden, lighting); and an orange Cyber $DOG parked on the lot.",
+                    text: "Adds the commercial licence: a commercial building, a mixed-use one (a commercial ground floor, homes on the floors above, a penthouse on the top floor) or a residence, on the lot that holds the licence, within the storeys the building code of its district gives that lot (section 8); an extended item pack (leisure ground, garden, lighting); and an orange Cyber $DOG parked on the lot.",
                   },
                   {
                     name: "Patron",
@@ -1234,11 +1234,11 @@ export default function DogCityDocsPage() {
                 ))}
               </div>
               <P>
-                <strong className="text-snow">Moving up.</strong> The payments of the wallet that
-                owns the lot add up, so a wallet with Personal pays only the difference to reach
-                Commercial or Patron. Nobody buys two licences. Moving up changes what a building
-                is used for, never how big it is: its size comes from the lot and the building code
-                of its district (section 8).
+                <strong className="text-snow">Moving up.</strong> The payments applied to a lot add
+                up, so a lot with Personal pays only the difference to Commercial or Patron. Nobody
+                buys two licences for the same lot. Moving up changes what a building is used for,
+                never how big it is: its size comes from the lot and the building code of its
+                district (section 8).
               </P>
 
               <Sub>Paying a rung in $DOG or in Bitcoin</Sub>
@@ -1250,7 +1250,7 @@ export default function DogCityDocsPage() {
                 items={[
                   {
                     lead: "The price stays in $DOG.",
-                    text: "A licence is worth 10,000, 50,000 or 500,000 $DOG. In Bitcoin you pay the same value, quoted live from the median of exchange prices: Kraken, Coinbase and Bitstamp for BTC/USD, and Kraken, Gate.io and MEXC for DOG/USD (Gate.io and MEXC price DOG in USDT, counted here as dollars). The quote needs at least two independent exchanges for each pair, and exchanges more than 5% away from the median are left out. If that cannot be met, there is no quote and nothing can be paid in Bitcoin until it can. A quote holds for 15 minutes. A wallet that already counts $DOG or Bitcoin toward a licence is quoted only the difference to the rung it is moving to, and a wallet that already holds a rung is not quoted for it.",
+                    text: "A licence is worth 10,000, 50,000 or 500,000 $DOG. In Bitcoin you pay the same value, quoted live from the median of exchange prices: Kraken, Coinbase and Bitstamp for BTC/USD, and Kraken, Gate.io and MEXC for DOG/USD (Gate.io and MEXC price DOG in USDT, counted here as dollars). The quote needs at least two independent exchanges for each pair, and exchanges more than 5% away from the median are left out. If that cannot be met, there is no quote and nothing can be paid in Bitcoin until it can. A quote holds for 15 minutes. A lot that already counts $DOG or Bitcoin toward a licence is quoted only the difference to the rung it is moving to, and a lot that already holds a rung is not quoted for it.",
                   },
                   {
                     lead: "Bitcoin does not count toward the 10,000,000 $DOG.",
@@ -1262,7 +1262,7 @@ export default function DogCityDocsPage() {
                   },
                   {
                     lead: "One wallet, both coins.",
-                    text: "For the licence rung of a wallet, its $DOG and its Bitcoin add up. The Founder benefits do not: they depend on the $DOG in the fund alone, so a wallet with $DOG in the fund and Bitcoin on top is a Founder and takes its licence at the combined rung. The quote ties the address that pays to the ordinals address of the same wallet, so the Bitcoin is credited to the wallet that asked for it. It is counted at its $DOG value from the locked quote when the network saw the payment before the 15 minutes ended and it covers the quoted amount; a payment seen after that is counted at the median price at the block that confirmed it. Credit comes after 6 confirmations. A payment that cannot be tied to a quote, or priced from enough exchanges, is held for a manual check and never becomes a licence on its own. Pay from the wallet you asked the quote with.",
+                    text: "A licence payment is credited to the wallet that pays and applied to the lot that wallet holds. A wallet that holds more than one lot chooses the lot. A credit with no lot waits for one. For the licence rung of a lot, the $DOG and the Bitcoin applied to it add up. The Founder benefits do not: they depend on the $DOG in the fund alone, so a wallet with $DOG in the fund and Bitcoin on top is a Founder and takes its licence at the combined rung. The quote ties the address that pays to the ordinals address of the same wallet, so the Bitcoin is credited to the wallet that asked for it. It is counted at its $DOG value from the locked quote when the network saw the payment before the 15 minutes ended and it covers the quoted amount; a payment seen after that is counted at the median price at the block that confirmed it. Credit comes after 6 confirmations. A payment that cannot be tied to a quote, or priced from enough exchanges, is held for a manual check and never becomes a licence on its own. Pay from the wallet you asked the quote with.",
                   },
                 ]}
               />
@@ -1285,6 +1285,12 @@ export default function DogCityDocsPage() {
                 transferable: they are taste, so they can trade. The split gives the city a real
                 item market without turning merit into merchandise. The lot deed is transferable
                 too: it is land, and once minted it can change hands (section 7).
+              </P>
+              <P>
+                Licence items (the house, its vehicles, the hunting rifle, the boat) belong to the
+                lot and move with the deed. Founder status and the Original Airdrop Receiver badge
+                belong to the wallet and never move. The Founder&apos;s light shines on the building
+                of the lot the Founder holds.
               </P>
 
               <Sub>What a Founder is not</Sub>
@@ -1392,9 +1398,10 @@ export default function DogCityDocsPage() {
               </P>
               <P>
                 A minted deed is transferable: whoever holds the inscription holds the lot, and it can
-                be sold. The building licence and the items stay with the wallet that earned them.
-                For each lot, the first valid deed is the only one that counts, and the project never
-                inscribes a second one.
+                be sold. The building licence belongs to the lot. It is never sold on its own: when the
+                deed changes hands, the licence, the house and the items that come with it (vehicles,
+                hunting rifle, boat) go with it. For each lot, the first valid deed is the only one
+                that counts, and the project never inscribes a second one.
               </P>
               <P>
                 Three kinds of lot never go on sale. Lots of exchanges and custodians in the Financial
@@ -1518,24 +1525,35 @@ export default function DogCityDocsPage() {
               <Table
                 head={["Licence", "$DOG", "What it builds", "What comes with it"]}
                 rows={[
-                  ["Personal", "10,000", "A residence from the district catalogue", "The base item pack (yard and house number plaque), the $DOG moto, the Field Rifle (a hunting rifle), and early access to the game, to every test and every update"],
-                  ["Commercial", "50,000", "A commercial building for a business of its own, a mixed-use one (a commercial ground floor, homes above, a penthouse on top) or a residence, within the storeys the district code gives the lot", "Everything in Personal and the extended item pack (leisure ground, garden, lighting). Vehicles: the $DOG moto and an orange Cyber $DOG. Hunting rifle: the Field Rifle Pro, with scope"],
-                  ["Patron", "500,000", "A custom building designed outside the catalogue, with whatever mix of uses its owner wants", "Everything in Commercial and a street named on the city map. Vehicles: the $DOG moto, a black Cyber $DOG (instead of the orange one) and the DOG helicopter. Hunting rifle: the Field Rifle Elite, engraved with its owner's @"],
+                  ["Personal", "10,000", "A residence from the district catalogue", "The base item pack (yard and house number plaque), the $DOG moto, the Field Rifle (a hunting rifle), the DOG Runabout (a classic wooden speedboat, kept in the dry-stack boathouse at the public marina), and early access to the game, to every test and every update"],
+                  ["Commercial", "50,000", "A commercial building for a business of its own, a mixed-use one (a commercial ground floor, homes above, a penthouse on top) or a residence, within the storeys the district code gives the lot", "Everything in Personal and the extended item pack (leisure ground, garden, lighting). Vehicles: the $DOG moto and an orange Cyber $DOG. Hunting rifle: the Field Rifle Pro, with scope. Boat: the DOG Cruiser, a sport cruiser with a cabin, with a berth at the public marina"],
+                  ["Patron", "500,000", "A custom building designed outside the catalogue, with whatever mix of uses its owner wants", "Everything in Commercial and a street named on the city map. Vehicles: the $DOG moto, a black Cyber $DOG (instead of the orange one) and the DOG helicopter. Hunting rifle: the Field Rifle Elite, engraved with its owner's @. Yacht: the DOG Yacht, a flybridge yacht, with a berth at the DOG Key marina"],
                 ]}
               />
               <P>
-                The construction fund reached 10,000,000 $DOG at block 972,336, and that block started
-                the mint (section 7). From there the fund pays for building, and a licence is how a
-                wallet takes part. A Founder at one of these rungs already holds that licence (section
-                6). Any other wallet takes it the same way as before: $DOG sent to the construction
-                fund wallet, or the same value in Bitcoin under the four rules of section 6, priced in
-                $DOG. The licence gives the item pack of its rung and no Founder benefits, and it is
-                added to the wallet&apos;s $DOG for its rung. The $DOG of every licence goes to the
-                city&apos;s construction fund, which pays for phases 2 and 3.
+                The hunting rifle and the boat come from the highest licence among the lots a wallet
+                holds. Sell that lot and they go with it.
               </P>
               <P>
-                The payments of the wallet that owns the lot add up, so a wallet with Personal pays
-                only the difference to reach Commercial or Patron, and nobody buys two licences.
+                One boat per wallet: the one that comes with the highest licence among the lots the
+                wallet holds. A lot on a canal gets its own pier, and the boat waits there. A lot on
+                a beach or a lake shore gets a mooring buoy in front of the house.
+              </P>
+              <P>
+                The construction fund reached 10,000,000 $DOG at block 972,336, and that block started
+                the mint (section 7). From there the fund pays for building, and a licence is how a
+                wallet takes part. A Founder at one of these rungs already holds that licence, applied to
+                the lot the Founder holds (section 6). Any other wallet takes it the same way as before: $DOG sent to the construction
+                fund wallet, or the same value in Bitcoin under the four rules of section 6, priced in
+                $DOG. A licence payment is credited to the wallet that pays and applied to the lot
+                that wallet holds. A wallet that holds more than one lot chooses the lot. A credit
+                with no lot waits for one. The licence gives the item pack of its rung and no Founder
+                benefits, and it is added to what the lot already counts for its rung. The $DOG of
+                every licence goes to the city&apos;s construction fund, which pays for phases 2 and 3.
+              </P>
+              <P>
+                The payments applied to a lot add up, so a lot with Personal pays only the
+                difference to Commercial or Patron. Nobody buys two licences for the same lot.
                 Moving up a licence changes the use of the building, not its size. From Personal to
                 Commercial the ground floor can turn into a shopfront, and the building does not
                 grow: its size comes from the lot and the building code of its district, as in
@@ -1600,7 +1618,7 @@ export default function DogCityDocsPage() {
                   { lead: "Fences.", text: "Low at the front, hedges on the estates. Tall walls only at the back." },
                   { lead: "Palette.", text: "Each district has five approved colour combinations for walls, trim, roof and door. The owner picks one, and nothing outside them." },
                   { lead: "Variety without noise.", text: "Every model comes in facade variations and in the district palette, so a street does not repeat itself." },
-                  { lead: "Commerce.", text: "An active ground floor with a shopfront, and signs in the format of the district, on any lot whose owner holds the commercial licence, on a ring road or on a lane. Commercial use follows the district's architecture: in a district of estates, such as The Spit, it does not look like a street shop." },
+                  { lead: "Commerce.", text: "An active ground floor with a shopfront, and signs in the format of the district, on any lot that holds the commercial licence, on a ring road or on a lane. Commercial use follows the district's architecture: in a district of estates, such as The Spit, it does not look like a street shop." },
                 ]}
               />
 
