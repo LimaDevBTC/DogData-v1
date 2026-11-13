@@ -19,6 +19,8 @@ import { join } from 'node:path'
 
 const require = createRequire(import.meta.url)
 const pw = require(process.env.PLAYWRIGHT_CORE ?? '/home/bitmax/Projects/bitcoin-fullstack/OrdCards/node_modules/playwright-core')
+// SO_WEBKIT=1 pula o Chromium; SO_CHROMIUM=1 pula a WebKit (para refazer só uma metade)
+const ONLY_WK = process.env.SO_WEBKIT === '1', ONLY_CR = process.env.SO_CHROMIUM === '1'
 const BASE = process.argv[2] ?? 'http://localhost:3917'
 const OUT = process.argv[3] ?? 'chapas/dog_motors_site'
 mkdirSync(OUT, { recursive: true })
@@ -76,6 +78,21 @@ async function mockOpen(page) {
   }, [ADDR, PAYER])
 }
 
+/**
+ * A CSP das rotas /dogcity tem `upgrade-insecure-requests`. Em produção (https) isso não muda nada; aqui (http://localhost)
+ * a WebKit sobe todo pedido da página para https e a página fica sem CSS e sem imagem (o Chromium isenta localhost).
+ * Só nesta chapa, e só no documento: a CSP segue inteira, menos essa palavra.
+ */
+async function semUpgradeLocal(ctx) {
+  await ctx.route('**/*', async (route) => {
+    if (route.request().resourceType() !== 'document') return route.fallback()
+    const r = await route.fetch()
+    const headers = { ...r.headers() }
+    if (headers['content-security-policy']) headers['content-security-policy'] = headers['content-security-policy'].replace(/;\s*upgrade-insecure-requests/, '')
+    return route.fulfill({ response: r, headers })
+  })
+}
+
 async function settle(page, ms = 1200) {
   await page.waitForLoadState('networkidle', { timeout: 60_000 }).catch(() => {})
   await page.waitForTimeout(ms)
@@ -86,7 +103,7 @@ async function scrollTo(page, sel, offset = 0) {
     const el = document.querySelector(s)
     if (el) window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - o)
   }, [sel, offset])
-  await page.waitForTimeout(900)
+  await page.waitForTimeout(1800)
 }
 
 async function audit(page, tag) {
@@ -107,13 +124,38 @@ async function audit(page, tag) {
 
 const results = []
 
+/** LCP, primeira pintura e o peso do que a primeira tela baixou (imagens e JS), pelo Resource Timing */
+async function perf(page) {
+  return page.evaluate(() => new Promise((res) => {
+    let lcp = null
+    try {
+      new PerformanceObserver((l) => {
+        const e = l.getEntries().at(-1)
+        lcp = { ms: Math.round(e.startTime), el: e.element ? e.element.tagName : null, url: (e.url || '').split('/').pop() }
+      }).observe({ type: 'largest-contentful-paint', buffered: true })
+    } catch { /* WebKit não tem LCP */ }
+    setTimeout(() => {
+      const rs = performance.getEntriesByType('resource')
+      const kb = (f) => Math.round(rs.filter(f).reduce((a, r) => a + (r.transferSize || r.encodedBodySize || 0), 0) / 1024)
+      const fcp = performance.getEntriesByName('first-contentful-paint')[0]
+      res({
+        lcp, fcpMs: fcp ? Math.round(fcp.startTime) : null,
+        imgKB: kb((r) => /\.(avif|webp|jpe?g|png|svg)(\?|$)/.test(r.name)),
+        imgs: rs.filter((r) => /\.(avif|webp|jpe?g|png)(\?|$)/.test(r.name)).map((r) => r.name.split('/').pop()),
+        jsKB: kb((r) => r.initiatorType === 'script' || /\.js(\?|$)/.test(r.name)),
+      })
+    }, 600)
+  }))
+}
+
 // ── Chromium, desktop ──
-{
+if (!ONLY_WK) {
   const browser = await pw.chromium.launch()
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 })
   const page = await ctx.newPage()
   await page.goto(`${BASE}/dogcity/motors`, { waitUntil: 'domcontentloaded', timeout: 180_000 })
   await settle(page, 2000)
+  results.push({ tag: 'chromium 1440 carga', ...(await perf(page)) })
   await page.screenshot({ path: join(OUT, 'd01_heroi.jpg'), type: 'jpeg', quality: 82 })
   await scrollTo(page, '#place', 0)
   await page.screenshot({ path: join(OUT, 'd02_lugar.jpg'), type: 'jpeg', quality: 82 })
@@ -145,13 +187,34 @@ const results = []
   await p2.getByRole('button', { name: /Lock the BTC price/ }).click()
   await p2.waitForTimeout(1500)
   await p2.screenshot({ path: join(OUT, 'd09_pedido_portao_destino.jpg'), type: 'jpeg', quality: 82 })
+
+  // a chamada na landing
+  const p3 = await ctx.newPage()
+  await p3.goto(`${BASE}/dogcity#motors`, { waitUntil: 'domcontentloaded', timeout: 180_000 })
+  await settle(p3, 2500)
+  await scrollTo(p3, '#motors', 40)
+  await p3.waitForTimeout(1200)
+  await p3.screenshot({ path: join(OUT, 'd10_landing_chamada.jpg'), type: 'jpeg', quality: 82 })
+  await p3.close()
+
+  // a carga no celular (Chromium em 390x844, DPR 3), para o peso da primeira tela
+  const mctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true })
+  const mp = await mctx.newPage()
+  await mp.goto(`${BASE}/dogcity/motors`, { waitUntil: 'domcontentloaded', timeout: 180_000 })
+  await settle(mp, 2000)
+  results.push({ tag: 'chromium 390 dpr3 carga', ...(await perf(mp)) })
+  await mctx.close()
   await browser.close()
 }
 
 // ── WebKit, iPhone 13 ──
-{
-  const browser = await pw.webkit.launch()
+// (a WebKit do Playwright pede libavif16, libjxl0.8, libbacktrace0, libgav1 e libyuv: nesta máquina ficam extraídas
+// em /tmp/motors/wklibs e entram por um lançador próprio em WEBKIT_EXE, que repete o do Playwright com elas no
+// LD_LIBRARY_PATH; o lançador do Playwright sobrescreve essa variável. Ver PROGRESSO_dog_motors_site.md)
+if (!ONLY_CR) {
+  const browser = await pw.webkit.launch(process.env.WEBKIT_EXE ? { executablePath: process.env.WEBKIT_EXE } : {})
   const ctx = await browser.newContext({ ...pw.devices['iPhone 13'] })
+  await semUpgradeLocal(ctx)
   const page = await ctx.newPage()
   await page.goto(`${BASE}/dogcity/motors`, { waitUntil: 'domcontentloaded', timeout: 180_000 })
   await settle(page, 2000)
@@ -177,6 +240,13 @@ const results = []
   await p2.getByRole('button', { name: /Get my exact amount/ }).click()
   await p2.waitForTimeout(1500)
   await p2.screenshot({ path: join(OUT, 'm07_pedido_dog_iphone.jpg'), type: 'jpeg', quality: 80 })
+
+  const p3 = await ctx.newPage()
+  await p3.goto(`${BASE}/dogcity#motors`, { waitUntil: 'domcontentloaded', timeout: 180_000 })
+  await settle(p3, 2500)
+  await scrollTo(p3, '#motors', 60)
+  await p3.waitForTimeout(1200)
+  await p3.screenshot({ path: join(OUT, 'm08_landing_chamada_iphone.jpg'), type: 'jpeg', quality: 80 })
   await browser.close()
 }
 
