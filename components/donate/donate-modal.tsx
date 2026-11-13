@@ -10,7 +10,7 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
-import qrcode from 'qrcode-generator'
+import dynamic from 'next/dynamic'
 import {
   ArrowUpRight, Check, Copy, ExternalLink, Loader2, ShieldAlert, ShieldCheck, Wallet, X,
 } from 'lucide-react'
@@ -26,6 +26,12 @@ import {
   type LicenceOffer, type LicencePreview, type WalletStanding,
 } from '@/lib/dog/licence-presets'
 import { bip21Uri } from '@/lib/wallet/bip21'
+import { QrCode } from './qr-code'
+import type { CarPick } from './car-checkout'
+
+// O modo carro carrega só quando abre (este provedor mora na raiz do site: toda página o tem). A vitrine da DOG MOTORS
+// importa o mesmo módulo, então lá o pedaço já está pronto quando o botão é tocado.
+const CarCheckout = dynamic(() => import('./car-checkout').then((m) => m.CarCheckout), { ssr: false })
 
 // ── contexto ───────────────────────────────────────────────────────────────
 
@@ -33,8 +39,10 @@ interface DonateContextValue {
   /**
    * `tier` abre a janela no modo LICENÇA: DOG ou BTC pelo mesmo valor em DOG do degrau. Em BTC o
    * valor sai de uma cotação travada por 15 minutos (POST /api/dogcity/licence-quote).
+   * `car` abre a janela no modo CARRO (DOG MOTORS, ./car-checkout.tsx): o pedido, o valor exato e o estado vêm do
+   * servidor (POST /api/dogcity/car-quote, GET /api/dogcity/car-order); `asset`, `amount` e `tier` são ignorados.
    */
-  open: (opts?: { asset?: Asset; amount?: number; tier?: LicenceTier }) => void
+  open: (opts?: { asset?: Asset; amount?: number; tier?: LicenceTier; car?: CarPick }) => void
   close: () => void
 }
 
@@ -134,16 +142,8 @@ function ladderHint(dog: number): string {
 // ⚠️ A URI do BIP-21 (`bitcoin:<endereco>?amount=<btc>`) mora em lib/wallet/bip21.ts, com teste:
 // o amount é em BTC decimal, NUNCA em satoshi, e o campo desta janela é em satoshi.
 
-/** Margem exigida pelo padrão. Sem os 4 módulos de silêncio, leitor nenhum lê. */
-const QUIET = 4
+// O QR (./qr-code.tsx) é desenhado da MESMA string que o link usa; saiu daqui para o modo "car" usar o mesmo.
 
-/**
- * O QR desenhado aqui, da MESMA string que o link usa. O que existia antes era
- * um JPEG na pasta public: derivado que não acompanhava o endereço (se a
- * constante mudasse, o código mandava dinheiro para o lugar errado e nada
- * acusava), e compressão com perda suja justamente a borda dos módulos, que é
- * o que a câmera precisa ler.
- */
 /**
  * ⚠️ SEGUNDA DECLARAÇÃO DOS ENDEREÇOS, DE PROPÓSITO.
  *
@@ -170,47 +170,6 @@ function enderecoConfere(asset: string, addr: string): boolean {
   const e = PONTAS_ESPERADAS[asset === 'dog' ? 'dog' : 'btc']
   if (!e) return false
   return addr.length === e.tam && addr.startsWith(e.ini) && addr.endsWith(e.fim)
-}
-
-function QrCode({ text, label }: { text: string; label: string }) {
-  const { d, size } = useMemo(() => {
-    const q = qrcode(0, 'M')
-    q.addData(text)
-    q.make()
-    const n = q.getModuleCount()
-    // Um path só, acumulando corridas horizontais de módulos escuros: fica bem
-    // mais leve no DOM que um <rect> por módulo.
-    let path = ''
-    for (let row = 0; row < n; row += 1) {
-      let col = 0
-      while (col < n) {
-        if (!q.isDark(row, col)) { col += 1; continue }
-        let run = 1
-        while (col + run < n && q.isDark(row, col + run)) run += 1
-        path += `M${col + QUIET} ${row + QUIET}h${run}v1h-${run}z`
-        col += run
-      }
-    }
-    return { d: path, size: n + QUIET * 2 }
-  }, [text])
-
-  return (
-    <svg
-      viewBox={`0 0 ${size} ${size}`}
-      role="img"
-      aria-label={label}
-      // O que está codificado, legível de fora: o endereço fica auditável sem
-      // precisar decodificar a imagem.
-      data-qr-text={text}
-      shapeRendering="crispEdges"
-      className="w-36 h-36 shrink-0"
-    >
-      {/* ⚠️ Contraste aqui é requisito de leitura, não estilo: branco e preto,
-          nunca a paleta escura da casa. */}
-      <rect width={size} height={size} fill="#FFFFFF" />
-      <path d={d} fill="#000000" />
-    </svg>
-  )
 }
 
 // ── atalhos de licença na aba BTC ──────────────────────────────────────────
@@ -299,8 +258,11 @@ export function DonateProvider({ children }: { children: ReactNode }) {
   // true quando a janela abriu de um cartão de licença. Abrindo do "Support the build" (sem degrau)
   // a pessoa ainda pode escolher uma licença na aba BTC, e essa escolha vai para `tier`.
   const [fromLicence, setFromLicence] = useState(false)
+  // o modo carro (DOG MOTORS): com `car`, a janela da licença nem monta
+  const [car, setCar] = useState<CarPick | null>(null)
 
-  const open = useCallback((opts?: { asset?: Asset; amount?: number; tier?: LicenceTier }) => {
+  const open = useCallback((opts?: { asset?: Asset; amount?: number; tier?: LicenceTier; car?: CarPick }) => {
+    setCar(opts?.car ?? null)
     setAsset(opts?.asset ?? 'dog')
     setPreset(opts?.amount ?? null)
     setTier(opts?.tier ?? null)
@@ -314,7 +276,9 @@ export function DonateProvider({ children }: { children: ReactNode }) {
   return (
     <DonateContext.Provider value={value}>
       {children}
-      <DonateModal isOpen={isOpen} onClose={close} asset={asset} setAsset={setAsset} preset={preset} tier={tier} setTier={setTier} fromLicence={fromLicence} />
+      {car
+        ? <CarCheckout car={car} isOpen={isOpen} onClose={close} />
+        : <DonateModal isOpen={isOpen} onClose={close} asset={asset} setAsset={setAsset} preset={preset} tier={tier} setTier={setTier} fromLicence={fromLicence} />}
     </DonateContext.Provider>
   )
 }

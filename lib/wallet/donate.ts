@@ -145,6 +145,42 @@ export async function sendDogDonation(
   return { txid: res.result.txid }
 }
 
+/**
+ * DOG MOTORS: envia um valor EXATO de $DOG, já em unidades atômicas (1 $DOG = 100.000), sem passar por número
+ * decimal nenhum. O pedido do carro casa pelo valor exato (preço + um sufixo único de átomos): um arredondamento aqui
+ * seria um pagamento que não casa com o pedido. Por isso:
+ *   - os átomos chegam inteiros do servidor e vão como texto para a carteira, sem `* 10 ** div`;
+ *   - quando a carteira diz a divisibilidade da runa (runes_getBalance) e ela não é 5, recusa antes de pedir nada;
+ *   - a UniSat recebe os mesmos átomos (`sendRunes` é em unidades atômicas: ver o comentário do topo).
+ * A confirmação final continua sendo a da carteira, que mostra o valor e o destino.
+ */
+export async function sendDogExactAtoms(
+  walletId: WalletId | null,
+  address: string,
+  atoms: number,
+): Promise<DonationResult> {
+  if (!Number.isSafeInteger(atoms) || atoms <= 0) throw new Error('The order amount is not valid. Nothing was sent.')
+  const amount = String(atoms)
+  if (walletId === 'unisat') {
+    return unisatSend((p) => p.sendRunes(address, DOG_RUNE_ID, amount))
+  }
+  const balance = await readDogBalance(walletId)
+  if (balance && balance.divisibility !== DOG_DIVISIBILITY_FALLBACK) {
+    throw new Error('This wallet reports $DOG with an unexpected number of decimals. Nothing was sent.')
+  }
+  const res: any = await request(
+    'runes_transfer',
+    { recipients: [{ runeName: DOG_RUNE_NAME, amount, address }] } as never,
+    providerFor(walletId),
+  )
+  if (res?.status !== 'success') {
+    throw new Error(toDonationError(res, 'The wallet did not complete the transfer.'))
+  }
+  const txid = res?.result?.txid
+  if (typeof txid !== 'string' || !/^[0-9a-f]{64}$/i.test(txid)) throw new Error('The wallet did not return a transaction id.')
+  return { txid: txid.toLowerCase() }
+}
+
 export async function sendBtcDonation(
   walletId: WalletId | null,
   address: string,
