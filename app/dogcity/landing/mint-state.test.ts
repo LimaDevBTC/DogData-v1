@@ -118,8 +118,25 @@ test('E: Partners de B+3.744 até B+4.032', () => {
   assert.equal(s.label, 'PARTNERS · OPEN')
   assert.equal(s.number, '180')
   assert.equal(s.unit, 'BLOCKS TO THE PUBLIC MINT')
-  assert.equal(s.h1, 'Holders of partner collections mint unclaimed lots at a quarter off the public price, from US$1.50.')
+  assert.equal(s.h1, 'Hold one of 36 Ordinals collections? Mint a lot in DogCity: one per wallet, held at block 975,467, from US$1.50.')
   assert.equal(s.nav.desktop, 'PARTNERS PHASE OPEN · MINT')
+  assert.equal(s.partners, 'open')
+  assert.equal(s.secondary.href, '#partners')
+})
+
+test('Partners na landing: véspera nos últimos 144 blocos da whitelist, nada antes nem no Public', () => {
+  const antes = countdownState({ raised: null, B, tip: B + 3744 - 145 })
+  assert.equal(antes.kind, 'D')
+  assert.equal(antes.partners, null)
+  assert.equal(antes.secondary.href, '#lookup')
+  const vespera = countdownState({ raised: null, B, tip: B + 3744 - 144 })
+  assert.equal(vespera.kind, 'D')
+  assert.equal(vespera.partners, 'tease')
+  assert.equal(vespera.primary.label, 'Mint your lot')
+  assert.equal(vespera.secondary.href, '#partners')
+  assert.equal(countdownState({ raised: null, B, tip: B + 4032 }).partners, null)
+  // minter sem leitura: o botão some, a seção fica
+  assert.equal(countdownState({ raised: null, B, tip: B + 3800, minterAccepting: null }).partners, 'open')
 })
 
 test('F: Public a partir de B+4.032; preço sem contagem, contagem quando houver', () => {
