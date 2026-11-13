@@ -48,26 +48,26 @@ create table if not exists public.car_models (
 
 alter table public.car_models enable row level security;
 
--- ⚠️ PREÇOS PROVISÓRIOS (marcadores, iguais aos do código). O fundador troca pelos reais aqui E no código.
+-- Preços do fundador (13/11/2026), iguais aos de lib/game/cars/catalog.ts. Mudar preço = mudar nos dois lugares.
 insert into public.car_models (id, name, price_dog) values
-  ('c02', 'DOG Centurion', 500000),
-  ('c05', 'DOG Revolt', 500000),
-  ('c15', 'DOG Bison', 150000),
-  ('c39', 'DOG Horizon R', 120000),
-  ('c40', 'DOG Apex 90', 120000),
-  ('c41', 'DOG Surge IV', 120000),
-  ('c10', 'DOG Sovereign', 200000),
-  ('c25', 'DOG Turbo 75', 80000),
-  ('c26', 'DOG Gullwing 54', 80000),
-  ('c28', 'DOG Monarch GT', 80000),
-  ('c62', 'DOG Breeze', 60000),
-  ('c30', 'DOG Cutter 71', 70000),
-  ('c32', 'DOG Stallion', 70000),
-  ('c61', 'DOG Stallion 65 Convertible', 70000),
-  ('c42', 'DOG Field 41', 50000),
-  ('c43', 'DOG Outpost 110', 50000),
-  ('c52', 'DOG Bug', 20000),
-  ('c56', 'DOG Bug Classic', 20000)
+  ('c02', 'DOG Centurion', 250000),
+  ('c05', 'DOG Revolt', 250000),
+  ('c15', 'DOG Bison', 75000),
+  ('c39', 'DOG Horizon R', 60000),
+  ('c40', 'DOG Apex 90', 60000),
+  ('c41', 'DOG Surge IV', 60000),
+  ('c10', 'DOG Sovereign', 100000),
+  ('c25', 'DOG Turbo 75', 40000),
+  ('c26', 'DOG Gullwing 54', 40000),
+  ('c28', 'DOG Monarch GT', 40000),
+  ('c62', 'DOG Breeze', 30000),
+  ('c30', 'DOG Cutter 71', 35000),
+  ('c32', 'DOG Stallion', 35000),
+  ('c61', 'DOG Stallion 65 Convertible', 35000),
+  ('c42', 'DOG Field 41', 25000),
+  ('c43', 'DOG Outpost 110', 25000),
+  ('c52', 'DOG Bug', 10000),
+  ('c56', 'DOG Bug Classic', 10000)
 on conflict (id) do nothing;
 
 -- ── os pedidos ─────────────────────────────────────────────────────────────────────────────────────────────────

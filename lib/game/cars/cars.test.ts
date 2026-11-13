@@ -76,15 +76,15 @@ async function orderOf(body: Record<string, unknown>, store = new MemOrders(), w
 
 function btcOrder(over: Partial<CarOrder> = {}): CarOrder {
   return {
-    id: 'ob', model: 'c52', wallet: W, currency: 'btc', payerAddress: PAY, payTo: CAR_BTC, priceDog: 20_000,
-    sats: carSats(20_000, DOG_USD, BTC_USD), dogExactAtoms: null, dogUsd: DOG_USD, btcUsd: BTC_USD, sources: [],
+    id: 'ob', model: 'c52', wallet: W, currency: 'btc', payerAddress: PAY, payTo: CAR_BTC, priceDog: 10_000,
+    sats: carSats(10_000, DOG_USD, BTC_USD), dogExactAtoms: null, dogUsd: DOG_USD, btcUsd: BTC_USD, sources: [],
     createdAtMs: T0, expiresAtMs: T0 + BTC_ORDER_LOCK_MS, ...over,
   }
 }
 function dogOrder(over: Partial<CarOrder> = {}): CarOrder {
   return {
-    id: 'od', model: 'c52', wallet: W, currency: 'dog', payerAddress: W, payTo: CAR_DOG, priceDog: 20_000,
-    sats: null, dogExactAtoms: dogExactAtoms(20_000, 4217), dogUsd: null, btcUsd: null, sources: [],
+    id: 'od', model: 'c52', wallet: W, currency: 'dog', payerAddress: W, payTo: CAR_DOG, priceDog: 10_000,
+    sats: null, dogExactAtoms: dogExactAtoms(10_000, 4217), dogUsd: null, btcUsd: null, sources: [],
     createdAtMs: T0, expiresAtMs: T0 + DOG_ORDER_LOCK_MS, ...over,
   }
 }
@@ -132,9 +132,9 @@ test('loja FECHADA sem as variáveis, com endereço inválido, com endereço do 
   assert.deepEqual(carSales(env, { provisional: true }), { open: false, reason: 'provisional_prices' })
   assert.deepEqual(carSales(env, { provisional: false, catalogOk: false }), { open: false, reason: 'bad_catalog' })
   assert.deepEqual(carSales(env, { provisional: false }), { open: true, btcAddress: CAR_BTC, dogAddress: CAR_DOG })
-  // hoje os preços são marcadores: com o padrão do código a loja está fechada mesmo com os endereços
-  assert.equal(PRECOS_PROVISORIOS, true)
-  assert.equal(carSales(env).open, false)
+  // os preços são os do fundador (13/11); sem os dois endereços próprios a loja continua fechada
+  assert.equal(PRECOS_PROVISORIOS, false)
+  assert.equal(carSales({}).open, false)
 })
 
 test('loja fechada: o pedido responde 503 sales_closed e não grava nada', async () => {
@@ -149,8 +149,8 @@ test('pedido em BTC: sats pela mediana, trava de 15 min, dono = carteira da sess
   const { r, store } = await orderOf({ model: 'c52', currency: 'btc', paymentAddress: PAY, wallet: W2, ordinalsAddress: W2 })
   assert.equal(r.ok, true)
   const o = (r as any).order
-  assert.equal(o.sats, carSats(20_000, DOG_USD, BTC_USD))
-  assert.equal(o.sats, Math.ceil(20_000 * DOG_USD * 1e8 / BTC_USD))
+  assert.equal(o.sats, carSats(10_000, DOG_USD, BTC_USD))
+  assert.equal(o.sats, Math.ceil(10_000 * DOG_USD * 1e8 / BTC_USD))
   assert.equal(o.payTo, CAR_BTC)
   assert.equal(o.expiresAt, new Date(T0 + 15 * MIN).toISOString())
   // o corpo tentou nomear outra carteira: ignorado, o dono é a da sessão
@@ -162,8 +162,8 @@ test('pedido em $DOG: valor EXATO = preço + sufixo, pagador padrão = a própri
   const { r, store } = await orderOf({ model: 'c52', currency: 'dog' })
   assert.equal(r.ok, true)
   const o = (r as any).order
-  assert.equal(o.dogExactAtoms, 20_000 * 100_000 + 4217)
-  assert.equal(o.dogExact, '20000.04217')
+  assert.equal(o.dogExactAtoms, 10_000 * 100_000 + 4217)
+  assert.equal(o.dogExact, '10000.04217')
   assert.equal(o.payTo, CAR_DOG)
   assert.equal(o.payerAddress, W)
   assert.equal(store.orders[0].sats, null)
@@ -177,7 +177,7 @@ test('pedido em $DOG: o sufixo nunca se repete enquanto o outro pedido pode casa
   const fix = () => sorteios.shift()!
   await orderOf({ model: 'c52', currency: 'dog' }, store, W, { randomSuffix: fix })
   const { r } = await orderOf({ model: 'c56', currency: 'dog' }, store, W2, { randomSuffix: fix })
-  assert.equal((r as any).order.dogExactAtoms, 20_000 * 100_000 + 99)
+  assert.equal((r as any).order.dogExactAtoms, 10_000 * 100_000 + 99)
   // sem sufixo livre em SUFFIX_TRIES tentativas: 503, nada gravado
   const { r: r2 } = await orderOf({ model: 'c56', currency: 'dog', paymentAddress: OTHER }, store, 'bc1p' + '9'.repeat(58), { randomSuffix: () => 4217 })
   assert.deepEqual(r2, { ok: false, status: 503, error: 'no reliable quote right now' })
@@ -211,7 +211,7 @@ test('o preço só vale quando código e banco concordam; modelo inativo 409; ba
   assert.deepEqual((await orderOf({ model: 'c52', currency: 'dog' }, s1)).r, { ok: false, status: 503, error: 'model_unavailable' })
   const s2 = new MemOrders(); s2.models.delete('c52')
   assert.equal((await orderOf({ model: 'c52', currency: 'dog' }, s2)).r.status, 503)
-  const s3 = new MemOrders(); s3.models.set('c52', { priceDog: 20_000, active: false })
+  const s3 = new MemOrders(); s3.models.set('c52', { priceDog: 10_000, active: false })
   assert.deepEqual((await orderOf({ model: 'c52', currency: 'dog' }, s3)).r, { ok: false, status: 409, error: 'model_not_for_sale' })
   const s4 = new MemOrders(); s4.fail = true
   assert.equal((await orderOf({ model: 'c52', currency: 'dog' }, s4)).r.status, 503)
@@ -366,7 +366,7 @@ test('ATAQUE pedido com o endereço pagador de OUTRA pessoa: pagador ligado a du
   assert.deepEqual(matchBtcPayment(btcPay(), [vitima, atacante], FUNDS), { status: 'pending_review', reason: 'ambiguous_owner' })
   // em $DOG o valor exato separa: o pagamento da vítima só casa com o pedido dela
   const dv = dogOrder({ id: 'dv' })
-  const da = dogOrder({ id: 'da', wallet: W2, dogExactAtoms: dogExactAtoms(20_000, 777) })
+  const da = dogOrder({ id: 'da', wallet: W2, dogExactAtoms: dogExactAtoms(10_000, 777) })
   const m = matchDogPayment(dogPay(), [dv, da], FUNDS)
   assert.equal(m.status, 'match')
   assert.equal((m as any).order.id, 'dv')
@@ -590,4 +590,14 @@ test('o carro nunca toca a licença: nenhum arquivo do carro lê as tabelas da l
     const src = readFileSync(join(root, f), 'utf8')
     assert.equal(/car_(orders|payments|ownership|models)|CAR_FUND_/.test(src), false, f)
   }
+})
+
+test('preços do fundador (13/11): topo 250.000 $DOG nos dois supercarros, 10.000 nos Fuscas', () => {
+  assert.equal(CAR_MODELS.c02.priceDog, 250_000)
+  assert.equal(CAR_MODELS.c05.priceDog, 250_000)
+  assert.equal(CAR_MODELS.c52.priceDog, 10_000)
+  assert.equal(CAR_MODELS.c56.priceDog, 10_000)
+  const precos = CAR_MODEL_IDS.map((id) => CAR_MODELS[id].priceDog)
+  assert.equal(Math.max(...precos), 250_000)
+  assert.equal(Math.min(...precos), 10_000)
 })
