@@ -38,6 +38,10 @@
     {
       "path": "/api/cron/referrals",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/car-pay",
+      "schedule": "*/2 * * * *"
     }
   ]
 }

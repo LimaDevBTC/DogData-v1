@@ -16,7 +16,7 @@
 import { FUND_BTC_ADDRESS, FUND_DOG_ADDRESS, normalizeAddress } from '@/lib/dog/licence-btc'
 import { PRECOS_PROVISORIOS, catalogIsSane } from './catalog'
 
-export type SalesClosedReason = 'no_btc_address' | 'no_dog_address' | 'licence_address' | 'provisional_prices' | 'bad_catalog'
+export type SalesClosedReason = 'no_btc_address' | 'no_dog_address' | 'licence_address' | 'provisional_prices' | 'bad_catalog' | 'not_open'
 
 export type CarSales =
   | { open: true; btcAddress: string; dogAddress: string }
@@ -35,6 +35,9 @@ export function carSales(
   if (LICENCE_ADDRESSES.has(btc.toLowerCase()) || LICENCE_ADDRESSES.has(dog.toLowerCase())) return { open: false, reason: 'licence_address' }
   if (opts.catalogOk ?? catalogIsSane()) {
     if (opts.provisional ?? PRECOS_PROVISORIOS) return { open: false, reason: 'provisional_prices' }
+    // a chave de abertura (13/11): mesmo com endereços, preços e banco prontos, só vende com CAR_SALES_OPEN=1. Ela
+    // existe porque o jogo precisa entregar o carro comprado antes de a loja abrir; quem liga é o fundador.
+    if ((env.CAR_SALES_OPEN ?? '').trim() !== '1') return { open: false, reason: 'not_open' }
     return { open: true, btcAddress: btc, dogAddress: dog }
   }
   return { open: false, reason: 'bad_catalog' }

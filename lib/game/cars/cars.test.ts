@@ -121,7 +121,7 @@ test('catálogo: id que não é modelo (protótipo, vazio, número) não passa',
 })
 
 test('loja FECHADA sem as variáveis, com endereço inválido, com endereço do fundo da licença ou com preço provisório', () => {
-  const env = { CAR_FUND_BTC_ADDRESS: CAR_BTC, CAR_FUND_DOG_ADDRESS: CAR_DOG }
+  const env = { CAR_FUND_BTC_ADDRESS: CAR_BTC, CAR_FUND_DOG_ADDRESS: CAR_DOG, CAR_SALES_OPEN: '1' }
   assert.deepEqual(carSales({}, { provisional: false }), { open: false, reason: 'no_btc_address' })
   assert.deepEqual(carSales({ CAR_FUND_BTC_ADDRESS: CAR_BTC }, { provisional: false }), { open: false, reason: 'no_dog_address' })
   assert.deepEqual(carSales({ ...env, CAR_FUND_BTC_ADDRESS: '  ' }, { provisional: false }), { open: false, reason: 'no_btc_address' })
@@ -132,6 +132,11 @@ test('loja FECHADA sem as variáveis, com endereço inválido, com endereço do 
   assert.deepEqual(carSales(env, { provisional: true }), { open: false, reason: 'provisional_prices' })
   assert.deepEqual(carSales(env, { provisional: false, catalogOk: false }), { open: false, reason: 'bad_catalog' })
   assert.deepEqual(carSales(env, { provisional: false }), { open: true, btcAddress: CAR_BTC, dogAddress: CAR_DOG })
+  // a chave de abertura: sem CAR_SALES_OPEN=1 a loja não vende, mesmo com tudo pronto
+  for (const v of [undefined, '', '0', 'true', 'yes', ' 2 ']) {
+    assert.deepEqual(carSales({ ...env, CAR_SALES_OPEN: v }, { provisional: false }), { open: false, reason: 'not_open' }, `CAR_SALES_OPEN=${v}`)
+  }
+  assert.equal(carSales({ ...env, CAR_SALES_OPEN: ' 1 ' }, { provisional: false }).open, true)
   // os preços são os do fundador (13/11); sem os dois endereços próprios a loja continua fechada
   assert.equal(PRECOS_PROVISORIOS, false)
   assert.equal(carSales({}).open, false)
