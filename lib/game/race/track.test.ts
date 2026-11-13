@@ -5,6 +5,7 @@
 // reprovar, o servidor e o jogo deixaram de concordar sobre os portoes. Mexer no tracado = pista nova (an7-v2), nunca editar a v1.
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { AN7, PISTA_PADRAO, RUMO_LARGADA, VOLTA_M, canteiroNoRumo, gerarPortoes, medirNoAnel, pistaDe, resolverPortao, rumoBruto, rumoDoS, sDoRumo, somaDosPortoes } from './track'
 
 const SOMA_CLIENTE_AN7_V1 = '56b0afb5076b712eae30d208f9e7ab7d21cecf8c1c21a0bac58b7a18148a7783'
@@ -75,4 +76,12 @@ test('o registro de pistas: so a an7-v1', () => {
   assert.equal(pistaDe('an7-v2'), null)
   assert.equal(pistaDe('__proto__'), null)
   assert.equal(pistaDe(undefined), null)
+})
+
+test('a migration 038 semeia a pista com a MESMA soma, o mesmo numero de portoes e a volta de 43.668,14 m', () => {
+  const sql = readFileSync('supabase/migrations/038_dogcity_race.sql', 'utf8')
+  const g = gerarPortoes()
+  assert.ok(sql.includes(`'${somaDosPortoes(g)}'`), 'a soma sha256 dos portoes na migration')
+  assert.ok(sql.includes(`('an7-v1', 'AN7 perimeter, v1', 43668.14, ${g.length}, `), 'a linha de race_tracks')
+  assert.equal(g[g.length - 1]!.s_m, 43_668.14)
 })

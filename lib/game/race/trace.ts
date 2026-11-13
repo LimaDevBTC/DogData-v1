@@ -13,8 +13,9 @@
 //   4. SALTO MAXIMO: o deslocamento entre amostras cabe em 1,05 x Vmax x dt (mais 1 m de arredondamento);
 //   5. a trajetoria cruza TODOS os portoes, em ordem, DENTRO da abertura (mais 2 m de folga);
 //   6. o relogio bate: o tempo entre portoes na trajetoria (relogio do cliente) e o carimbado pelo servidor diferem no maximo
-//      `toleranciaRelogioMs` em cada portao, e a mediana da diferenca e' pequena (um robo que SEGURA o POST da largada para encurtar a
-//      volta desloca todos os portoes pelo mesmo tanto).
+//      `toleranciaRelogioMs` em cada portao, e a mediana da diferenca fica abaixo de `medianaRelogioMs` (quem SEGURA o POST da largada
+//      para encurtar a volta desloca todos os portoes pelo mesmo tanto, e a funcao fria do /gate na largada faz o mesmo sem querer: a
+//      mediana aguenta uma partida fria de ate 3 s e limita o ganho de quem segura o POST a esses 3 s).
 import { AN7, RUMO_LARGADA, medirNoAnel, type Pista } from './track'
 import { REGRAS, type Carimbo } from './rules'
 
@@ -29,10 +30,10 @@ export const REGRAS_TRACE = {
   folgaDistM: 1.0,
   /** folga alem da meia abertura do portao ao conferir a trajetoria (m): a trajetoria tem 5 Hz, o cliente confere por quadro */
   folgaPortaoM: 2.0,
-  /** diferenca maxima, por portao, entre o relogio do cliente e o carimbo do servidor (ms): atraso de rede e as 2 repeticoes do cliente */
-  toleranciaRelogioMs: 4_000,
-  /** mediana da diferenca (ms): o atraso honesto e' ruido de media zero */
-  medianaRelogioMs: 1_000,
+  /** diferenca maxima, por portao, entre o relogio do cliente e o carimbo do servidor (ms): atraso de rede, partida fria da funcao e as 2 repeticoes do cliente (0,8 s + 1,6 s) */
+  toleranciaRelogioMs: 6_000,
+  /** mediana da diferenca (ms): o atraso honesto e' ruido de media quase zero; a partida fria da funcao /gate na largada desloca todos os portoes igual */
+  medianaRelogioMs: 3_000,
   /** a ultima amostra pode parar este tempo antes da chegada (o cliente grava a cada 200 ms) (s) */
   folgaChegadaS: 0.45,
 } as const
