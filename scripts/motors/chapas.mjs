@@ -111,7 +111,7 @@ async function audit(page, tag) {
     const text = document.body.innerText
     const card = document.querySelector('[data-motors] article')
     return {
-      emDash: text.includes('—'),
+      emDash: text.includes('\u2014'),
       portuguese: /\b(não|você|comprar|preço|carro|carteira|garagem|loja)\b/i.test(text),
       overflowX: document.documentElement.scrollWidth - window.innerWidth,
       cardH: card ? Math.round(card.getBoundingClientRect().height) : null,
