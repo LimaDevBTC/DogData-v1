@@ -55,10 +55,13 @@ function WalletChip({ solid }: { solid: boolean }) {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className={`inline-flex h-9 lg:h-10 items-center gap-2 border border-dc-snow/[0.24] px-3 font-mono text-[11px] tracking-[0.06em] text-dc-snow transition-colors hover:border-dc-snow/[0.5] ${solid ? "" : "bg-dc-void/[0.6]"}`}
+        aria-label={`Wallet ${account.ordinalsAddress}`}
+        className={`inline-flex h-9 lg:h-10 items-center gap-2 whitespace-nowrap border border-dc-snow/[0.24] px-3 font-mono text-[11px] tracking-[0.06em] text-dc-snow transition-colors hover:border-dc-snow/[0.5] ${solid ? "" : "bg-dc-void/[0.6]"}`}
       >
-        <span aria-hidden className="h-[6px] w-[6px] bg-dc-lava" />
-        {short(account.ordinalsAddress)}
+        <span aria-hidden className="h-[6px] w-[6px] shrink-0 bg-dc-lava" />
+        {/* no celular só o fim do endereço: a barra não tem largura para os dois pedaços */}
+        <span className="whitespace-nowrap sm:hidden">…{account.ordinalsAddress.slice(-4)}</span>
+        <span className="hidden whitespace-nowrap sm:inline">{short(account.ordinalsAddress)}</span>
       </button>
       {open && (
         <div className="absolute right-0 top-[calc(100%+8px)] z-10 min-w-[200px] border border-dc-snow/[0.16] bg-dc-void px-4 py-3">

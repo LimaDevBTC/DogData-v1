@@ -40,18 +40,19 @@ export default function Hero() {
         <Frame>
           <div className="flex flex-col gap-10 dkl:flex-row dkl:items-end dkl:justify-between">
             <div className="max-w-[840px]">
-              <p className="mt-in dc-label flex flex-wrap items-baseline gap-x-3 gap-y-1 text-dc-snow/[0.9] dc-halo" style={{ animationDelay: "80ms" }}>
+              {/* no celular, duas linhas limpas (o lote em cima); do tablet para cima, uma linha com o fio no meio */}
+              <p className="mt-in dc-label flex flex-col gap-1 text-dc-snow/[0.9] dc-halo dk:flex-row dk:items-baseline dk:gap-3" style={{ animationDelay: "80ms" }}>
                 <span className="text-dc-hot">Lot S07-Q00-B0001-L176</span>
-                <span aria-hidden className="h-px w-6 self-center bg-dc-snow/[0.4]" />
+                <span aria-hidden className="hidden h-px w-6 self-center bg-dc-snow/[0.4] dk:inline-block" />
                 <span>Orla Nobre · The Spit</span>
               </p>
-              <h1 id="mt-h1" className="mt-in mt-h1 mt-4 text-dc-snow dc-halo" style={{ animationDelay: "160ms" }}>
+              <h1 id="mt-h1" className="mt-in mt-h1 mt-3 dk:mt-4 text-dc-snow dc-halo" style={{ animationDelay: "160ms" }}>
                 DOG Motors
               </h1>
-              <p className="mt-in dc-lede mt-5 !max-w-[34ch] dc-halo" style={{ animationDelay: "260ms" }}>
-                The dealership of DOG CITY. Eighteen cars on the Orla Nobre, priced in $DOG, paid in $DOG or BTC, and registered to the wallet that buys them.
+              <p className="mt-in dc-lede mt-4 dk:mt-5 !max-w-[34ch] dc-halo" style={{ animationDelay: "260ms" }}>
+                The dealership of DOG CITY. Eighteen cars, priced in $DOG, paid in $DOG or BTC and registered to the wallet that buys them.
               </p>
-              <div className="mt-in mt-8 grid grid-cols-2 gap-3 dk:flex dk:flex-wrap" style={{ animationDelay: "360ms" }}>
+              <div className="mt-in mt-6 dk:mt-8 grid grid-cols-2 gap-3 dk:flex dk:flex-wrap" style={{ animationDelay: "360ms" }}>
                 <Btn href="#cars" className="max-sm:!px-3">See the 18 cars</Btn>
                 <Btn href={CITY_URL} variant="line" className="dc-halo max-sm:!px-3">Play DogCity</Btn>
               </div>

@@ -14,19 +14,20 @@
   position: absolute; inset: 0; pointer-events: none;
   background:
     linear-gradient(to top, #15130F 0%, rgba(21, 19, 15, 0.9) 16%, rgba(21, 19, 15, 0.35) 40%, rgba(21, 19, 15, 0) 62%),
-    linear-gradient(to right, rgba(21, 19, 15, 0.6) 0%, rgba(21, 19, 15, 0) 46%);
+    linear-gradient(to right, rgba(21, 19, 15, 0.8) 0%, rgba(21, 19, 15, 0.5) 30%, rgba(21, 19, 15, 0) 58%);
 }
 [data-motors] .mt-hero { height: max(640px, min(100svh, 1000px)); }
 [data-motors] .mt-hero-body { position: absolute; inset: auto 0 0 0; padding-bottom: clamp(36px, 6vh, 72px); }
 
 @media (max-aspect-ratio: 4/5) {
   [data-motors] .mt-hero { height: auto; min-height: 100svh; display: flex; flex-direction: column; }
-  [data-motors] .mt-hero-media { position: relative; inset: auto; z-index: 0; aspect-ratio: 4 / 5; width: 100%; max-height: 74svh; }
+  /* a imagem cede altura para o nome, a frase e o botão caberem na primeira tela de um iPhone (664 px úteis no Safari) */
+  [data-motors] .mt-hero-media { position: relative; inset: auto; z-index: 0; aspect-ratio: 4 / 5; width: 100%; max-height: 54svh; }
   [data-motors] .mt-hero-media img { object-position: 50% 30%; }
   [data-motors] .mt-hero-scrim {
     background: linear-gradient(to top, #15130F 0%, rgba(21, 19, 15, 0.92) 14%, rgba(21, 19, 15, 0) 46%);
   }
-  [data-motors] .mt-hero-body { position: relative; inset: auto; z-index: 1; margin-top: -96px; padding-bottom: 32px; }
+  [data-motors] .mt-hero-body { position: relative; inset: auto; z-index: 1; margin-top: -72px; padding-bottom: 32px; }
 }
 
 /* o nome da loja: a mesma Barlow Condensed 700 do letreiro do prédio, no tamanho do quadro */

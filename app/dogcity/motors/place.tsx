@@ -61,7 +61,7 @@ export default function Place() {
         {/* a Gallery: a imagem larga e a prancha do lote ao lado (no celular, uma embaixo da outra) */}
         <div className="mt-14 dk:mt-20 grid gap-4 dkl:grid-cols-12 dkl:gap-5">
           <Reveal y={16} className="dkl:col-span-7">
-            <figure className="relative h-full min-h-[220px] overflow-hidden border border-dc-snow/[0.12] bg-dc-deep">
+            <figure className="relative h-full overflow-hidden border border-dc-snow/[0.12] bg-dc-deep">
               <div className="aspect-[16/9] dkl:aspect-auto dkl:h-full">
                 <Picture pic={PLACE.gallery} sizes="(min-width: 1024px) 58vw, 100vw" w={1600} h={900}
                   alt="Inside the Gallery: an orange supercar on a lit turntable, more cars behind it and the mezzanine stair at the back" />

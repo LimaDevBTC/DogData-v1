@@ -69,7 +69,7 @@ function Stat({ label, value, unit, first }: { label: string; value: string; uni
   return (
     <div className={`flex flex-col-reverse py-3 ${first ? "" : "border-l border-dc-snow/[0.12] pl-3"}`}>
       <dt className="mt-1.5 dc-label !text-[9px] !tracking-[0.16em] text-dc-dusty">{label}</dt>
-      <dd className="mt-stat text-dc-snow">
+      <dd className="mt-stat uppercase text-dc-snow">
         {value}
         {unit && <span className="ml-1 font-mono text-[10px] font-medium tracking-[0.06em] text-dc-mist">{unit}</span>}
       </dd>
