@@ -39,7 +39,7 @@ export default function Hero() {
       <div className="mt-hero-body">
         <Frame>
           <div className="flex flex-col gap-10 dkl:flex-row dkl:items-end dkl:justify-between">
-            <div className="max-w-[760px]">
+            <div className="max-w-[840px]">
               <p className="mt-in dc-label flex flex-wrap items-baseline gap-x-3 gap-y-1 text-dc-snow/[0.9] dc-halo" style={{ animationDelay: "80ms" }}>
                 <span className="text-dc-hot">Lot S07-Q00-B0001-L176</span>
                 <span aria-hidden className="h-px w-6 self-center bg-dc-snow/[0.4]" />
@@ -52,8 +52,8 @@ export default function Hero() {
                 The dealership of DOG CITY. Eighteen cars on the Orla Nobre, priced in $DOG, paid in $DOG or BTC, and registered to the wallet that buys them.
               </p>
               <div className="mt-in mt-8 grid grid-cols-2 gap-3 dk:flex dk:flex-wrap" style={{ animationDelay: "360ms" }}>
-                <Btn href="#cars">See the 18 cars</Btn>
-                <Btn href={CITY_URL} variant="line" className="dc-halo">Play DogCity</Btn>
+                <Btn href="#cars" className="max-sm:!px-3">See the 18 cars</Btn>
+                <Btn href={CITY_URL} variant="line" className="dc-halo max-sm:!px-3">Play DogCity</Btn>
               </div>
             </div>
 

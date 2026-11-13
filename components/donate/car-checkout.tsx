@@ -197,6 +197,9 @@ export function CarCheckout({ car, isOpen, onClose }: { car: CarPick; isOpen: bo
 
   const panel = useRef<HTMLDivElement>(null)
   const closeBtn = useRef<HTMLButtonElement>(null)
+  // a janela da carteira por cima: o Escape é dela, não desta
+  const walletOpen = useRef(isModalOpen)
+  walletOpen.current = isModalOpen
 
   const ordAddr = account ? normalizeAddress(account.ordinalsAddress) : null
   const payAddr = account ? normalizeAddress(account.paymentAddress) : null
@@ -284,6 +287,7 @@ export function CarCheckout({ car, isOpen, onClose }: { car: CarPick; isOpen: bo
     html.style.overflow = 'hidden'
     const t = setTimeout(() => closeBtn.current?.focus(), 30)
     const onKey = (e: KeyboardEvent) => {
+      if (walletOpen.current) return
       if (e.key === 'Escape') onClose()
       if (e.key !== 'Tab' || !panel.current) return
       const f = panel.current.querySelectorAll<HTMLElement>('a[href],button:not([disabled])')
@@ -326,7 +330,11 @@ export function CarCheckout({ car, isOpen, onClose }: { car: CarPick; isOpen: bo
         throw new Error(orderErrorText(r.status, j?.error))
       }
       const p = parseCarOrder(j, { model: car.id, currency, payerAddress: payer, priceDog: car.priceDog })
-      if (!p.ok) throw new Error('The order came back in a shape this page does not accept. Do not pay. Try again in a minute.')
+      if (!p.ok) {
+        throw new Error(p.error === 'price changed'
+          ? 'The price of this car changed. Close this window and open the car again to see the new price.'
+          : 'The order came back in a shape this page does not accept. Do not pay. Try again in a minute.')
+      }
       setClockOffset(p.order.serverTimeMs - Date.now())
       setNowMs(Date.now())
       setOrder(p.order)
