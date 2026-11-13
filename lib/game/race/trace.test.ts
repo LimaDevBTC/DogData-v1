@@ -103,13 +103,18 @@ test('errar a abertura de um portao reprova (portao): 8 m para dentro da faixa',
   if (d.ok) assert.deepEqual(validarTrace(d.amostras, PISTA, v.carimbos, CYBER), { ok: false, motivo: 'trace_portao' })
 })
 
-test('um robo que segura o POST da largada por 2,5 s para encurtar a volta reprova (relogio, mediana)', () => {
-  const { v, amostras } = honesta({ latenciaMs: (i) => (i === 0 ? 2_500 : 0) })
+test('uma partida fria da funcao /gate (a largada carimbada 2 s tarde) nao reprova uma volta honesta', () => {
+  const { v, amostras } = honesta({ latenciaMs: (i) => (i === 0 ? 2_000 : 0) })
+  assert.deepEqual(validarTrace(amostras, PISTA, v.carimbos, CYBER), { ok: true })
+})
+
+test('um robo que segura o POST da largada por 3,5 s para encurtar a volta reprova (relogio, mediana)', () => {
+  const { v, amostras } = honesta({ latenciaMs: (i) => (i === 0 ? 3_500 : 0) })
   assert.deepEqual(validarTrace(amostras, PISTA, v.carimbos, CYBER), { ok: false, motivo: 'trace_relogio' })
 })
 
-test('um portao carimbado 5 s depois do que a trajetoria mostra reprova (relogio, por portao)', () => {
-  const { v, amostras } = honesta({ latenciaMs: (i) => (i >= 30 && i < 33 ? 5_000 : 0) })
+test('um portao carimbado 7 s depois do que a trajetoria mostra reprova (relogio, por portao)', () => {
+  const { v, amostras } = honesta({ latenciaMs: (i) => (i >= 30 && i < 33 ? 7_000 : 0) })
   assert.deepEqual(validarTrace(amostras, PISTA, v.carimbos, CYBER), { ok: false, motivo: 'trace_relogio' })
 })
 

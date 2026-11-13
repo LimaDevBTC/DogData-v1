@@ -4,6 +4,7 @@
 // carimbos da volta inteira, bandeiras, fases do campeonato, regra do premio, empate (volta mais antiga) e fechamento do campeonato.
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import {
   REGRAS,
   compararVoltas,
@@ -46,6 +47,12 @@ test('os modelos: Cyber 210, Moto2 350 e os 18 carros da DOG MOTORS; so os 18 da
   }
   for (const [id, kmh] of Object.entries(esperado)) assert.equal(MODELOS_CORRIDA[id]!.vmaxKmh, kmh, id)
   assert.equal(Object.keys(esperado).length, 18)
+})
+
+test('todo modelo da tabela cabe no check da migration 038 (^[a-z][a-z0-9]{1,15}$)', () => {
+  const sql = readFileSync('supabase/migrations/038_dogcity_race.sql', 'utf8')
+  assert.ok(sql.includes("model ~ '^[a-z][a-z0-9]{1,15}$'"))
+  for (const id of IDS_MODELOS) assert.match(id, /^[a-z][a-z0-9]{1,15}$/)
 })
 
 test('modelo valido: so os da tabela (nada de __proto__ nem constructor)', () => {
