@@ -348,3 +348,19 @@ html[data-dc-intro] .dc-hero-number { animation: dc-num-in 550ms var(--dc-ease) 
 }
 
 .dc-balance { text-wrap: balance; }
+
+/* 13/11: a faixa de nomes da fase Partners no herói (../sections/partners-phase.tsx). Duas cópias da fileira e um
+   translate de -50%: o laço fecha sem costura. Movimento reduzido: a fileira para e quebra em linhas. */
+.dc-partners-ticker { -webkit-mask: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); mask: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
+.dc-partners-track { animation: dc-partners-roll 70s linear infinite; }
+.dc-partners-ticker:hover .dc-partners-track { animation-play-state: paused; }
+@keyframes dc-partners-roll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) {
+  .dc-partners-ticker { -webkit-mask: none; mask: none; }
+  .dc-partners-track { animation: none; width: auto; }
+  .dc-partners-track .dc-partners-row { flex-wrap: wrap; row-gap: 8px; }
+  .dc-partners-track .dc-partners-row[aria-hidden] { display: none; }
+}
+[data-motion="off"] .dc-partners-track { animation: none; width: auto; }
+[data-motion="off"] .dc-partners-track .dc-partners-row { flex-wrap: wrap; row-gap: 8px; }
+[data-motion="off"] .dc-partners-track .dc-partners-row[aria-hidden] { display: none; }
