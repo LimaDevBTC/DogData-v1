@@ -58,3 +58,23 @@ Dinheiro de verdade: falha fechada, teto absoluto em todo valor, nenhum número 
 - Pagamento em BTC visto pela primeira vez já confirmado e sem a primeira vista do mempool.space pode casar com pedido criado até 2 h depois do bloco (folga do horário de bloco); exige o mesmo pagador e o valor que cobre o pedido.
 - Prêmio da corrida dado DEPOIS de uma compra do mesmo modelo: a 038 não confere `car_ownership`; a garagem mostra um carro só (a compra), mas o prêmio fica registrado. Conferir no fechamento do campeonato.
 - A 038 e a 039 citam `race_prizes`; a 039 usa SQL dinâmico e não quebra sem a 038.
+
+## 13/11 tarde: preços do fundador
+
+O fundador definiu os preços: a tabela provisória dividida por dois, com o topo em 250.000 $DOG (os dois supercarros,
+metade da licença Patron) e o mais barato em 10.000 $DOG (os Fuscas). `PRECOS_PROVISORIOS = false` em
+`lib/game/cars/catalog.ts` e os mesmos números na semente da migração 039 (teste `preços do fundador` trava o topo e o piso).
+A loja continua FECHADA até existirem `CAR_FUND_BTC_ADDRESS` e `CAR_FUND_DOG_ADDRESS` (e os mesmos endereços em
+`lib/game/cars/pay-to.ts` do PR #63). 32 testes verdes, tsc verde.
+
+| Carro | $DOG |
+|---|---|
+| DOG Centurion, DOG Revolt | 250.000 |
+| DOG Sovereign | 100.000 |
+| DOG Bison | 75.000 |
+| DOG Horizon R, DOG Apex 90, DOG Surge IV | 60.000 |
+| DOG Turbo 75, DOG Gullwing 54, DOG Monarch GT | 40.000 |
+| DOG Cutter 71, DOG Stallion, DOG Stallion 65 Convertible | 35.000 |
+| DOG Breeze | 30.000 |
+| DOG Field 41, DOG Outpost 110 | 25.000 |
+| DOG Bug, DOG Bug Classic | 10.000 |

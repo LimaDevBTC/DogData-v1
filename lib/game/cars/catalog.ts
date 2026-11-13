@@ -4,18 +4,18 @@
 // Os 18 modelos são os da concessionária do jogo (dogcity-mundo, src/jogador/tipos_carro.ts, os mesmos ids
 // que a corrida usa em lib/game/race/models.ts do PR #61). Nome de marca não se traduz.
 //
-// ⚠️ PREÇOS PROVISÓRIOS. Os valores abaixo são marcadores para o código e os testes andarem; quem define os
-// reais é o fundador. Enquanto `PRECOS_PROVISORIOS` for true NENHUMA rota vende (503 sales_closed): carro não
-// se vende por preço de mentira. Para abrir: trocar os `priceDog` pelos reais, pôr `PRECOS_PROVISORIOS = false`
-// e gravar os MESMOS preços em `car_models` (migração 039). O preço só vale quando o código e o banco concordam
+// PREÇOS DEFINIDOS PELO FUNDADOR em 13/11/2026: a tabela provisória dividida por dois, com o topo (os dois
+// supercarros) em 250.000 $DOG, metade da licença Patron, e o mais barato (os Fuscas) em 10.000 $DOG. Mudar preço =
+// mudar aqui E em `car_models` (migração 039 ou um update no banco) com os MESMOS números. O preço só vale quando o código e o banco concordam
 // (lib/game/cars/order.ts): um lugar sozinho, mexido por engano, não muda o que se cobra.
 //
 // O preço é FIXO em $DOG por modelo. Em BTC paga-se o equivalente pela mediana das corretoras, travada por
 // 15 minutos, pela MESMA régua da licença (lib/dog/licence-btc.ts, lib/dog/price-sources.ts).
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** ⚠️ true = os preços abaixo são marcadores e nada se vende. O fundador troca para false junto com os preços reais. */
-export const PRECOS_PROVISORIOS = true
+/** true = os preços abaixo são marcadores e nada se vende. false desde 13/11: os preços são os do fundador. A loja
+ *  continua fechada até existirem os dois endereços próprios (CAR_FUND_BTC_ADDRESS e CAR_FUND_DOG_ADDRESS). */
+export const PRECOS_PROVISORIOS = false
 
 /** teto absoluto do preço de um carro em $DOG: preço acima disto é erro de digitação, não preço */
 export const MAX_CAR_PRICE_DOG = 5_000_000
@@ -29,7 +29,7 @@ export interface CarModel {
   /** nome de marca, não se traduz */
   name: string
   class: CarClass
-  /** preço em $DOG inteiro (sem casas); PROVISÓRIO enquanto PRECOS_PROVISORIOS */
+  /** preço em $DOG inteiro (sem casas) */
   priceDog: number
 }
 
@@ -37,24 +37,24 @@ const car = (id: string, name: string, cls: CarClass, priceDog: number): CarMode
 
 // ⚠️ PROVISÓRIO: preços de marcação, NÃO são os reais.
 const LIST: ReadonlyArray<CarModel> = [
-  car('c02', 'DOG Centurion', 'super', 500_000),
-  car('c05', 'DOG Revolt', 'super', 500_000),
-  car('c15', 'DOG Bison', 'sport', 150_000),
-  car('c39', 'DOG Horizon R', 'sport', 120_000),
-  car('c40', 'DOG Apex 90', 'sport', 120_000),
-  car('c41', 'DOG Surge IV', 'sport', 120_000),
-  car('c10', 'DOG Sovereign', 'luxury', 200_000),
-  car('c25', 'DOG Turbo 75', 'classic', 80_000),
-  car('c26', 'DOG Gullwing 54', 'classic', 80_000),
-  car('c28', 'DOG Monarch GT', 'classic', 80_000),
-  car('c62', 'DOG Breeze', 'classic', 60_000),
-  car('c30', 'DOG Cutter 71', 'muscle', 70_000),
-  car('c32', 'DOG Stallion', 'muscle', 70_000),
-  car('c61', 'DOG Stallion 65 Convertible', 'muscle', 70_000),
-  car('c42', 'DOG Field 41', 'offroad', 50_000),
-  car('c43', 'DOG Outpost 110', 'offroad', 50_000),
-  car('c52', 'DOG Bug', 'popular', 20_000),
-  car('c56', 'DOG Bug Classic', 'popular', 20_000),
+  car('c02', 'DOG Centurion', 'super', 250_000),
+  car('c05', 'DOG Revolt', 'super', 250_000),
+  car('c15', 'DOG Bison', 'sport', 75_000),
+  car('c39', 'DOG Horizon R', 'sport', 60_000),
+  car('c40', 'DOG Apex 90', 'sport', 60_000),
+  car('c41', 'DOG Surge IV', 'sport', 60_000),
+  car('c10', 'DOG Sovereign', 'luxury', 100_000),
+  car('c25', 'DOG Turbo 75', 'classic', 40_000),
+  car('c26', 'DOG Gullwing 54', 'classic', 40_000),
+  car('c28', 'DOG Monarch GT', 'classic', 40_000),
+  car('c62', 'DOG Breeze', 'classic', 30_000),
+  car('c30', 'DOG Cutter 71', 'muscle', 35_000),
+  car('c32', 'DOG Stallion', 'muscle', 35_000),
+  car('c61', 'DOG Stallion 65 Convertible', 'muscle', 35_000),
+  car('c42', 'DOG Field 41', 'offroad', 25_000),
+  car('c43', 'DOG Outpost 110', 'offroad', 25_000),
+  car('c52', 'DOG Bug', 'popular', 10_000),
+  car('c56', 'DOG Bug Classic', 'popular', 10_000),
 ]
 
 export const CAR_MODELS: Readonly<Record<string, CarModel>> = Object.freeze(Object.fromEntries(LIST.map((m) => [m.id, m])))
