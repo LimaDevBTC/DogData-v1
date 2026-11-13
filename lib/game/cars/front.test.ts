@@ -181,3 +181,15 @@ test('a linha mais final entre as saídas do mesmo txid', () => {
   assert.equal(mostFinal([{ status: 'observed' as const }, { status: 'pending_review' as const }, { status: 'unmatched' as const }])?.status, 'pending_review')
   assert.equal(mostFinal([]), null)
 })
+
+test('segunda declaração (13/11): os endereços do fundador confirmam; um caractere trocado ou o fundo da licença não', () => {
+  const btc = 'bc1qlmd3cmjmuqk3aecdyjrqlcss0apvfdrcz32n2x'
+  const dog = 'bc1p2rtqq0q7rwg7v47sytpml7w5x4h2wms6jl542kpppl580cj2x7yqh0tsd0'
+  assert.equal(payToConfirmed('btc', btc), true)
+  assert.equal(payToConfirmed('dog', dog), true)
+  assert.equal(payToConfirmed('btc', btc.slice(0, -1) + 'y'), false)
+  assert.equal(payToConfirmed('dog', dog.slice(0, -1) + 'y'), false)
+  assert.equal(payToConfirmed('btc', dog), false)
+  assert.equal(payToConfirmed('dog', btc), false)
+  assert.equal(payToConfirmed('btc', 'bc1qkq43gqyr7gjzj0mxz0v7e0nzs3cm59g9jspc63'), false)
+})

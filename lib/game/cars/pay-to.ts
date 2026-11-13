@@ -19,9 +19,11 @@
 
 export interface AddressEnds { start: string; end: string; length: number }
 
+// Endereços enviados pelo fundador em 13/11/2026 (conta nova na mesma carteira das licenças), conferidos: bech32 v0 e
+// bech32m v1 de mainnet, diferentes do fundo da licença (lib/dog/licence-btc.ts).
 export const CAR_PAY_TO_ENDS: Readonly<Record<'btc' | 'dog', AddressEnds | null>> = {
-  btc: null,
-  dog: null,
+  btc: { start: 'bc1qlmd3cm', end: 'cz32n2x', length: 42 },
+  dog: { start: 'bc1p2rtqq0', end: 'qh0tsd0', length: 62 },
 }
 
 /** true só quando o endereço do pedido bate com a segunda declaração da moeda */

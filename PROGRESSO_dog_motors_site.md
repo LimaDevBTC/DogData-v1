@@ -114,3 +114,11 @@ nunca `git add .`. Copy 100% em inglês, sem travessão, sem rosto do $DOG, sem 
 - O envio do valor exato em $DOG pela carteira segue a mesma premissa da licença (o `amount` da runa em unidades atômicas,
   conferido na UniSat; na Xverse, a carteira mostra o valor antes de assinar).
 - A faixa "Unclaimed lots" da landing também aparece aqui (vem do layout de /dogcity, como em /docs).
+
+## 13/11 tarde: endereços dos carros
+
+O fundador criou uma conta nova na mesma carteira das licenças e mandou os endereços: BTC
+`bc1qlmd3cmjmuqk3aecdyjrqlcss0apvfdrcz32n2x` (bech32 v0) e $DOG `bc1p2rtqq0q7rwg7v47sytpml7w5x4h2wms6jl542kpppl580cj2x7yqh0tsd0`
+(taproot, bech32m v1), conferidos como mainnet e diferentes do fundo da licença. As pontas estão em `lib/game/cars/pay-to.ts`
+(teste em `front.test.ts`). Falta criar na Vercel `CAR_FUND_BTC_ADDRESS` e `CAR_FUND_DOG_ADDRESS` com estes mesmos valores,
+DEPOIS de aplicar a migração 039.
