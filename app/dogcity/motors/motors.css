@@ -1,0 +1,84 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   DOG MOTORS (/dogcity/motors). Os tokens, os dois materiais (visor e prancha), os botões e os rótulos são os da
+   landing v3 (../landing/landing.css, importado junto). Aqui só o que é desta página, escopado em [data-motors].
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── o herói: a entrada pela AN7 ──
+   Paisagem: a imagem cobre a tela e o visor mora embaixo, sobre a avenida escura do próprio render.
+   Retrato (o mesmo corte do <source media> do herói, max-aspect-ratio 4/5): o recorte 4:5 com o letreiro e a torre
+   no alto, e o texto embaixo, no void, entrando um pouco por cima da imagem. */
+[data-motors] .mt-hero { position: relative; isolation: isolate; background: var(--dc-void); }
+[data-motors] .mt-hero-media { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
+[data-motors] .mt-hero-media img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 42%; }
+[data-motors] .mt-hero-scrim {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(to top, #15130F 0%, rgba(21, 19, 15, 0.9) 16%, rgba(21, 19, 15, 0.35) 40%, rgba(21, 19, 15, 0) 62%),
+    linear-gradient(to right, rgba(21, 19, 15, 0.6) 0%, rgba(21, 19, 15, 0) 46%);
+}
+[data-motors] .mt-hero { height: max(640px, min(100svh, 1000px)); }
+[data-motors] .mt-hero-body { position: absolute; inset: auto 0 0 0; padding-bottom: clamp(36px, 6vh, 72px); }
+
+@media (max-aspect-ratio: 4/5) {
+  [data-motors] .mt-hero { height: auto; min-height: 100svh; display: flex; flex-direction: column; }
+  [data-motors] .mt-hero-media { position: relative; inset: auto; z-index: 0; aspect-ratio: 4 / 5; width: 100%; max-height: 74svh; }
+  [data-motors] .mt-hero-media img { object-position: 50% 30%; }
+  [data-motors] .mt-hero-scrim {
+    background: linear-gradient(to top, #15130F 0%, rgba(21, 19, 15, 0.92) 14%, rgba(21, 19, 15, 0) 46%);
+  }
+  [data-motors] .mt-hero-body { position: relative; inset: auto; z-index: 1; margin-top: -96px; padding-bottom: 32px; }
+}
+
+/* o nome da loja: a mesma Barlow Condensed 700 do letreiro do prédio, no tamanho do quadro */
+[data-motors] .mt-h1 {
+  font-family: var(--font-cond), 'Barlow Condensed', sans-serif;
+  font-weight: 700; text-transform: uppercase; line-height: 0.84; letter-spacing: -0.005em;
+  font-size: min(25vw, 112px);
+}
+@media (min-width: 640px) and (min-height: 521px) { [data-motors] .mt-h1 { font-size: clamp(112px, 11.2vw, 184px); } }
+
+/* ── o cartão do carro ── */
+[data-motors] .mt-card { container-type: inline-size; }
+/* a foto do estúdio: o alto dela é o void quente (o fundo foi igualado no preparo), então ela encosta na prancha */
+[data-motors] .mt-photo { background: #15130F; }
+[data-motors] .mt-photo img { transition: transform 900ms var(--dc-ease); }
+@media (hover: hover) and (pointer: fine) {
+  [data-motors] .mt-card:hover .mt-photo img { transform: scale(1.035); }
+}
+[data-motors][data-motion="off"] .mt-photo img { transition: none; transform: none !important; }
+/* o fio lava que corre sob a foto no foco/hover: o único gesto do cartão */
+[data-motors] .mt-rule { transform: scaleX(0); transform-origin: left; transition: transform 600ms var(--dc-ease); }
+@media (hover: hover) and (pointer: fine) {
+  [data-motors] .mt-card:hover .mt-rule { transform: scaleX(1); }
+}
+[data-motors] .mt-card:focus-within .mt-rule { transform: scaleX(1); }
+
+/* o número grande dos dados (velocidade, 0-100) */
+[data-motors] .mt-stat {
+  font-family: var(--font-cond), 'Barlow Condensed', sans-serif;
+  font-weight: 600; line-height: 1; font-size: 30px; font-variant-numeric: tabular-nums;
+}
+@container (max-width: 340px) { [data-motors] .mt-stat { font-size: 26px; } }
+
+/* a grade: largura fixa por coluna e centrada, para um filtro com 1 ou 2 carros ficar no meio, não encostado */
+[data-motors] .mt-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; }
+[data-motors] .mt-grid > * { flex: 0 0 100%; }
+@media (min-width: 720px) { [data-motors] .mt-grid > * { flex-basis: calc((100% - 16px) / 2); } }
+@media (min-width: 1180px) { [data-motors] .mt-grid { gap: 20px; } [data-motors] .mt-grid > * { flex-basis: calc((100% - 40px) / 3); } }
+
+/* ── a janela de compra (portal dentro de [data-motors]) ── */
+@keyframes mt-sheet-in { from { transform: translate3d(0, 24px, 0); opacity: 0; } to { transform: none; opacity: 1; } }
+.dc-sheet { animation: mt-sheet-in 420ms var(--dc-ease, cubic-bezier(0.16, 1, 0.3, 1)) both; }
+@media (prefers-reduced-motion: reduce) { .dc-sheet { animation: none; } }
+[data-motors][data-motion="off"] .dc-sheet { animation: none; }
+
+/* o contorno de carregamento do preço (sem brilho correndo: só respira) */
+@keyframes mt-wait { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.7; } }
+[data-motors] .mt-wait { animation: mt-wait 1.6s ease-in-out infinite; }
+[data-motors][data-motion="off"] .mt-wait { animation: none; opacity: 0.5; }
+
+/* a entrada do visor do herói: por MÁSCARA (sobe de trás de uma borda), peça por peça, como na landing (dc-mask-in);
+   máscara e não opacidade, que tiraria o texto da conta do LCP */
+[data-motors] .mt-in { animation: dc-mask-in 720ms var(--dc-ease) both; }
+[data-motors][data-motion="off"] .mt-in { animation: none; }
+@media (prefers-reduced-motion: reduce) { [data-motors] .mt-in { animation: none; } }
