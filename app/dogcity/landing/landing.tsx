@@ -40,6 +40,7 @@ import Calendar from "../sections/calendar"
 import DocsAtlas from "../sections/docs-atlas"
 import ConstructionFund from "../sections/construction-fund"
 import Tiers from "../sections/tiers"
+import MotorsCall from "../sections/motors-call"
 import { useLeaderboard } from "./use-leaderboard"
 
 const TITLE_KEY = "dc-title-card"
@@ -120,6 +121,8 @@ export default function DogCityLanding({ initialFund = null, initialMintB = null
             <Provenance />
             <Deeds />
             <TheCity />
+            {/* 13/11: a porta da DOG MOTORS (a vitrine dos carros, /dogcity/motors), sem número de folha */}
+            <MotorsCall />
             <Calendar cd={cd} />
             <DocsAtlas />
           </main>
