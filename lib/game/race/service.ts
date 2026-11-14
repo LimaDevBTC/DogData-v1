@@ -2,29 +2,28 @@
 // `RaceStore` (store-supabase.ts em producao; uma memoria nos testes), e o relogio entra como argumento: o instante em que a rota
 // recebeu o pedido (carimbo do SERVIDOR). A conta de verdade esta em rules.ts, trace.ts e track.ts (puros).
 //
-// Contrato jogo <-> servidor v1 (PLANO_CORRIDA_PERIMETRAL.md, dogcity-mundo src/corrida/contrato.ts):
+// Contrato jogo <-> servidor (PLANO_CORRIDA_PERIMETRAL.md, dogcity-mundo src/corrida/contrato.ts) com a regra do premio v2
+// (assets_carros/projeto/CORRIDA_REGRA_V2.md; a v2 so' ACRESCENTA campos, o cliente antigo ignora):
 //   start  {model, track}                  -> {raceId, serverTime, gates, expiresAt}
 //   gate   {raceId, i, pos, v}             -> {ok, t}
-//   finish {raceId, trace, flags, clientLapMs} -> {valid, lapMs, rank, record, prize}
-//   leaderboard ?track&model&limit         -> {track, model, entries[{rank, wallet, handle, lapMs, at, splits}]}
+//   finish {raceId, trace, flags, clientLapMs} -> {valid, lapMs, rank, record, prize,
+//                                                 phase: 'opening'|'open', opening: {drivers, needed}, openingClosed}   (v2: os 3 ultimos so' com valid:true)
+//   leaderboard ?track&model&limit         -> {track, model, opening: {drivers, needed, open}, entries[{rank, wallet, handle, lapMs, at, splits}]}   (v2: opening)
 //   me                                     -> {wallet, best{modelo:{lapMs, rank}}, open}
 // A carteira ja' chega verificada e normalizada (sessionWallet). Toda recusa de regra que anula a volta grava o motivo no banco
 // (`void_reason`) e NAO o devolve a quem chamou: quem tenta trapacear nao ganha um mapa das regras.
 import { createHash } from 'node:crypto'
-import { IDS_MODELOS_COM_PREMIO, ehModeloCorrida, modeloTemPremio, vmaxMs } from './models'
+import { ehModeloCorrida, modeloTemPremio, vmaxMs } from './models'
 import {
+  NECESSARIOS_ABERTURA,
   REGRAS,
   decidirPortao,
-  decidirPremioNaHora,
-  faseDoCampeonato,
   lerFlags,
   motivoDasFlags,
   posicaoPlausivel,
   validarCarimbos,
-  vencedoresDoFechamento,
   type Carimbo,
   type FlagsVolta,
-  type VoltaDaJanela,
 } from './rules'
 import { PISTA_PADRAO, pistaDe } from './track'
 import { decodificarTrace, validarTrace } from './trace'
@@ -47,13 +46,6 @@ export interface VoltaRow {
   lapMs: number | null
 }
 
-export interface CampeonatoRow {
-  trackId: string
-  startsAtMs: number
-  endsAtMs: number
-  closedAtMs: number | null
-}
-
 export interface LinhaRanking {
   lapId: string
   wallet: string
@@ -70,13 +62,26 @@ export interface MelhorDaCarteira {
   finishedAtMs: number
 }
 
-export interface PremioNovo {
-  trackId: string
-  wallet: string
-  model: string
-  lapId: string
-  lapMs: number
-  phase: 'campeonato' | 'desafio'
+/** O que o banco devolve ao fechar uma volta valida (race_finish_lap): recorde, premio, posicao e a abertura do modelo, numa transacao so'. */
+export interface ResultadoDaVolta {
+  /** esta volta e' a que segura o recorde do modelo */
+  record: boolean
+  rank: number
+  /** premio para a carteira que terminou ESTA volta (nao rejeitado, sobre esta volta) */
+  prize: 'none' | 'pending_review'
+  /** `opening` = o modelo ainda junta pilotos; `open` = o recorde vale carro. Modelo sem premio: sempre `open` */
+  phase: 'opening' | 'open'
+  /** carteiras diferentes com volta valida no modelo */
+  drivers: number
+  needed: number
+  /** esta volta fechou a abertura (o carro pode ter ido para OUTRA carteira) */
+  openingClosed: boolean
+}
+
+export interface AberturaDoModelo {
+  drivers: number
+  /** a abertura do modelo ja' fechou (race_openings) */
+  fechada: boolean
 }
 
 export interface DadosValidos {
@@ -90,7 +95,6 @@ export interface DadosValidos {
 
 /** Tudo que o servico precisa do banco. Cada metodo e' uma operacao so', e as que competem (abrir, gravar, validar, premiar) devolvem o desfecho. */
 export interface RaceStore {
-  campeonato(trackId: string): Promise<CampeonatoRow | null>
   /** anula (open -> void) as voltas abertas da carteira */
   anularAbertas(wallet: string, motivo: string, agoraMs: number): Promise<void>
   /** `conflito` = a carteira ja' tem uma aberta (outra chamada abriu no meio) */
@@ -105,21 +109,18 @@ export interface RaceStore {
   anular(raceId: string, motivo: string, agoraMs: number): Promise<void>
   /** open -> valid. `perdida` = ja' nao estava aberta (outra chamada fechou); `trace_repetido` = a mesma trajetoria ja' vale outra volta */
   validar(raceId: string, d: DadosValidos): Promise<'ok' | 'perdida' | 'trace_repetido'>
-  /** true so' se a volta e' o recorde NOVO do modelo (estritamente mais rapida; empate fica com a mais antiga) */
-  reivindicarRecorde(v: { trackId: string; model: string; lapId: string; wallet: string; lapMs: number }): Promise<boolean>
-  recordeEh(trackId: string, model: string, lapId: string): Promise<boolean>
+  /**
+   * Depois de validar: numa transacao so' (race_finish_lap, com trava por pista e modelo) o recorde (so' estritamente melhor), as carteiras
+   * diferentes do modelo, a fase, o premio (abertura fechando agora ou recorde novo depois dela) e a posicao. Idempotente: o finish repetido
+   * devolve o mesmo e nao cria nada. `premio` = o modelo vale carro. null = a volta nao esta valida (anulada no meio).
+   */
+  concluirVolta(a: { lapId: string; premio: boolean; necessarios: number }): Promise<ResultadoDaVolta | null>
   /** 1 + quantas OUTRAS carteiras tem melhor volta que esta (menor tempo; empate: a mais antiga) */
   posicao(trackId: string, model: string, wallet: string, lapMs: number, finishedAtMs: number): Promise<number>
-  /** `ja_tem` = a carteira ja' tem premio nao rejeitado desse modelo */
-  criarPremio(p: PremioNovo): Promise<'ok' | 'ja_tem'>
-  temPremio(wallet: string, model: string): Promise<boolean>
-  premioDaVolta(lapId: string): Promise<boolean>
+  /** carteiras diferentes com volta valida no modelo e se a abertura ja' fechou */
+  abertura(trackId: string, model: string): Promise<AberturaDoModelo>
   ranking(trackId: string, model: string, limite: number): Promise<LinhaRanking[]>
   melhoresDaCarteira(trackId: string, wallet: string): Promise<MelhorDaCarteira[]>
-  /** a melhor volta valida de cada modelo DENTRO da janela (race_championship_best) */
-  candidatosDoFechamento(trackId: string): Promise<VoltaDaJanela[]>
-  /** marca o fechamento; true se ESTA chamada fechou (closed_at estava vazio) */
-  fecharCampeonato(trackId: string, agoraMs: number): Promise<boolean>
   /** handle por carteira (so' as que tem perfil) */
   handles(wallets: string[]): Promise<Map<string, string>>
 }
@@ -244,7 +245,7 @@ export async function terminar(d: Deps, wallet: string, corpo: unknown, agoraMs:
   const volta = await d.store.volta(p.raceId)
   if (!volta || volta.wallet !== wallet) return erro(404, 'not_found')
   if (volta.status === 'void') return ok(INVALIDA)
-  if (volta.status === 'valid') return concluir(d, volta, agoraMs)
+  if (volta.status === 'valid') return concluir(d, volta)
 
   const anulada = async (motivo: string): Promise<Resposta> => {
     await d.store.anular(volta.id, motivo, agoraMs)
@@ -277,37 +278,32 @@ export async function terminar(d: Deps, wallet: string, corpo: unknown, agoraMs:
   if (r === 'perdida') {
     // outra chamada fechou esta volta no meio: le o que ficou e responde por ele
     const atual = await d.store.volta(volta.id)
-    if (atual && atual.status === 'valid') return concluir(d, atual, agoraMs)
+    if (atual && atual.status === 'valid') return concluir(d, atual)
     return ok(INVALIDA)
   }
-  return concluir(d, { ...volta, status: 'valid', lapMs: conferido.lapMs, finishedAtMs: agoraMs }, agoraMs)
+  return concluir(d, { ...volta, status: 'valid', lapMs: conferido.lapMs, finishedAtMs: agoraMs })
 }
 
 /**
- * O que acontece com uma volta VALIDA: recorde, premio e posicao. Idempotente (o finish repetido cai aqui de novo): o recorde so'
- * muda para uma volta estritamente melhor, o premio e' um por carteira por modelo, e a resposta sai do que ficou gravado.
+ * O que acontece com uma volta VALIDA: recorde, abertura do modelo, premio e posicao, tudo numa transacao do banco (race_finish_lap, trava
+ * por pista e modelo). Idempotente (o finish repetido cai aqui de novo): o recorde so' muda para uma volta estritamente melhor, a abertura
+ * fecha uma vez, o premio e' um por carteira por modelo e nunca se repete numa volta; a resposta sai do que ficou gravado.
+ * `prize` e' sempre sobre a carteira que terminou a volta; `openingClosed` = esta volta fechou a abertura (o carro pode ter ido para OUTRA).
  */
-async function concluir(d: Deps, volta: VoltaRow, agoraMs: number): Promise<Resposta> {
-  const lapMs = volta.lapMs!
-  const finishedAtMs = volta.finishedAtMs ?? agoraMs
-  const record =
-    (await d.store.reivindicarRecorde({ trackId: volta.trackId, model: volta.model, lapId: volta.id, wallet: volta.wallet, lapMs })) ||
-    (await d.store.recordeEh(volta.trackId, volta.model, volta.id))
-
-  let prize: 'none' | 'pending_review' = 'none'
-  if (modeloTemPremio(volta.model)) {
-    const camp = await d.store.campeonato(volta.trackId)
-    const fase = faseDoCampeonato(finishedAtMs, camp ? { startsAtMs: camp.startsAtMs, endsAtMs: camp.endsAtMs } : null)
-    if (record && fase === 'depois' && !(await d.store.premioDaVolta(volta.id))) {
-      const jaTemPremio = await d.store.temPremio(volta.wallet, volta.model)
-      if (decidirPremioNaHora({ modeloComPremio: true, fase, recorde: record, jaTemPremio }) === 'desafio') {
-        await d.store.criarPremio({ trackId: volta.trackId, wallet: volta.wallet, model: volta.model, lapId: volta.id, lapMs, phase: 'desafio' })
-      }
-    }
-    if (await d.store.premioDaVolta(volta.id)) prize = 'pending_review'
-  }
-  const rank = await d.store.posicao(volta.trackId, volta.model, volta.wallet, lapMs, finishedAtMs)
-  return ok({ valid: true, lapMs, rank, record, prize })
+async function concluir(d: Deps, volta: VoltaRow): Promise<Resposta> {
+  const r = await d.store.concluirVolta({ lapId: volta.id, premio: modeloTemPremio(volta.model), necessarios: NECESSARIOS_ABERTURA })
+  // a volta foi anulada no meio (revisao a mao): nao vale
+  if (!r) return ok(INVALIDA)
+  return ok({
+    valid: true,
+    lapMs: volta.lapMs!,
+    rank: r.rank,
+    record: r.record,
+    prize: r.prize,
+    phase: r.phase,
+    opening: { drivers: r.drivers, needed: r.needed },
+    openingClosed: r.openingClosed,
+  })
 }
 
 // ---- leaderboard e me ----
@@ -319,7 +315,7 @@ export async function ranking(d: Deps, trackId: unknown, model: unknown, limite:
   if (!pista) return erro(400, 'invalid_track')
   if (!ehModeloCorrida(model)) return erro(400, 'invalid_model')
   const n = Number.isFinite(limite) ? Math.max(1, Math.min(LIMITE_RANKING.max, Math.floor(limite))) : LIMITE_RANKING.padrao
-  const linhas = await d.store.ranking(pista.id, model, n)
+  const [linhas, ab] = await Promise.all([d.store.ranking(pista.id, model, n), d.store.abertura(pista.id, model)])
   const handles = linhas.length ? await d.store.handles(linhas.map((l) => l.wallet)) : new Map<string, string>()
   const entries = linhas.map((l, k) => ({
     rank: k + 1,
@@ -329,7 +325,9 @@ export async function ranking(d: Deps, trackId: unknown, model: unknown, limite:
     at: new Date(l.finishedAtMs).toISOString(),
     splits: k === 0 ? l.splits : null,
   }))
-  return ok({ track: pista.id, model, entries })
+  // a abertura do modelo (v2): `open` = ainda junta pilotos; Cyber e Moto2 nao tem abertura (so' recorde)
+  const opening = { drivers: ab.drivers, needed: NECESSARIOS_ABERTURA, open: modeloTemPremio(model) && !ab.fechada }
+  return ok({ track: pista.id, model, opening, entries })
 }
 
 export async function meu(d: Deps, wallet: string, agoraMs: number): Promise<Resposta> {
@@ -343,50 +341,4 @@ export async function meu(d: Deps, wallet: string, agoraMs: number): Promise<Res
   const aberta = await d.store.voltaAberta(wallet)
   const open = aberta && aberta.expiresAtMs > agoraMs ? { raceId: aberta.id, model: aberta.model, expiresAt: aberta.expiresAtMs } : null
   return ok({ wallet, best, open })
-}
-
-// ---- o fechamento do campeonato ----
-
-export interface PremiadoNoFechamento {
-  model: string
-  wallet: string
-  lapId: string
-  lapMs: number
-  /** `created` = premio criado agora; `exists` = ja' existia para esta volta (rodar de novo); `wallet_has_one` = a carteira ja' tem o carro do modelo */
-  prize: 'created' | 'exists' | 'wallet_has_one'
-}
-
-/**
- * Fecha o campeonato de uma pista: so' depois do fim da janela. O vencedor de cada um dos 18 modelos da DOG MOTORS (a melhor volta
- * valida terminada dentro da janela; empate: a mais antiga) ganha race_prizes `pending_review`, fase `campeonato`. Idempotente: rodar
- * de novo nao cria premio em dobro (e completa um fechamento que parou no meio). Cyber e Moto2 nao tem premio.
- */
-export async function fechar(d: Deps, trackId: unknown, agoraMs: number): Promise<Resposta> {
-  const pista = pistaDe(trackId)
-  if (!pista) return erro(400, 'invalid_track')
-  const camp = await d.store.campeonato(pista.id)
-  if (!camp) return erro(404, 'no_championship')
-  if (agoraMs < camp.endsAtMs) return erro(409, 'window_open', { endsAt: new Date(camp.endsAtMs).toISOString() })
-  const janela = { startsAtMs: camp.startsAtMs, endsAtMs: camp.endsAtMs }
-  const candidatos = await d.store.candidatosDoFechamento(pista.id)
-  const jaTem = new Set<string>()
-  for (const c of candidatos) if (await d.store.temPremio(c.wallet, c.model)) jaTem.add(`${c.wallet}|${c.model}`)
-  const vencedores = vencedoresDoFechamento(candidatos, janela, IDS_MODELOS_COM_PREMIO, (w, m) => jaTem.has(`${w}|${m}`))
-  const premiados: PremiadoNoFechamento[] = []
-  for (const v of vencedores) {
-    const base = { model: v.model, wallet: v.volta.wallet, lapId: v.volta.id, lapMs: v.volta.lapMs }
-    if (!v.premiar) {
-      premiados.push({ ...base, prize: (await d.store.premioDaVolta(v.volta.id)) ? 'exists' : 'wallet_has_one' })
-      continue
-    }
-    const r = await d.store.criarPremio({ trackId: pista.id, wallet: v.volta.wallet, model: v.model, lapId: v.volta.id, lapMs: v.volta.lapMs, phase: 'campeonato' })
-    premiados.push({ ...base, prize: r === 'ok' ? 'created' : 'wallet_has_one' })
-  }
-  const fechouAgora = await d.store.fecharCampeonato(pista.id, agoraMs)
-  return ok({
-    track: pista.id,
-    closedNow: fechouAgora,
-    closedAt: new Date(fechouAgora ? agoraMs : (camp.closedAtMs ?? agoraMs)).toISOString(),
-    winners: premiados,
-  })
 }

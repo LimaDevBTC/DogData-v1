@@ -1,6 +1,7 @@
-// As regras da corrida no SERVIDOR (PLANO_CORRIDA_PERIMETRAL.md: "Regra do prêmio", "Padrões propostos", "Contrato jogo <-> servidor"):
-// ordem e piso de tempo dos portoes, bandeiras da volta, fase do campeonato, regra do premio e desempate. PURO (sem banco, sem Redis,
-// sem relogio): o servico (service.ts) e os testes leem daqui. O relogio que vale e' o do servidor: os tempos entram como numero.
+// As regras da corrida no SERVIDOR (PLANO_CORRIDA_PERIMETRAL.md: "Padrões propostos", "Contrato jogo <-> servidor"; regra do premio v2 em
+// assets_carros/projeto/CORRIDA_REGRA_V2.md): ordem e piso de tempo dos portoes, bandeiras da volta, abertura do modelo, regra do premio e
+// desempate. PURO (sem banco, sem Redis, sem relogio): o servico (service.ts) e os testes leem daqui. O relogio que vale e' o do
+// servidor: os tempos entram como numero.
 import { AN7, medirNoAnel, type Portao } from './track'
 
 export const REGRAS = {
@@ -133,30 +134,24 @@ export function motivoDasFlags(f: FlagsVolta): string | null {
   return null
 }
 
-// ---- o campeonato e o premio ----
+// ---- a abertura do modelo e o premio (regra v2) ----
+//
+// Cada um dos 18 carros da DOG MOTORS tem a sua pista de recorde na AN7, independente dos outros. O modelo comeca em ABERTURA: ate NECESSARIOS_ABERTURA
+// carteiras verificadas DIFERENTES terem uma volta valida com ele, nenhuma volta e' premiada na hora (o recorde so' acompanha a melhor volta). A
+// volta que fecha a primeira volta valida da 10a carteira fecha a abertura: a MELHOR volta valida do modelo ate' aquele instante (de qualquer uma
+// das 10 carteiras, inclusive voltas repetidas delas; empate: a mais antiga) leva o carro (fase `abertura`) e e' o recorde. Depois, quem bater o
+// recorde (estritamente mais rapido) leva o carro do modelo (fase `desafio`), se ainda nao tem o dele. UM carro de cada modelo por carteira.
+// O banco decide isto numa transacao so' (race_finish_lap, migration 041); a conta abaixo e' a MESMA, e' o que o StoreMemoria roda nos testes.
 
-/** A janela do campeonato de uma pista (config: race_championship). */
-export interface JanelaCampeonato {
-  startsAtMs: number
-  endsAtMs: number
-}
+/** Quantas carteiras DIFERENTES precisam ter uma volta valida num modelo para a abertura dele fechar. */
+export const NECESSARIOS_ABERTURA = 10
 
-/**
- * `sem_campeonato` (nao ha config), `antes` (a janela ainda nao abriu), `durante` (nada e' premiado na hora; o vencedor de cada modelo
- * sai no fechamento) e `depois` (recorde novo do modelo gera premio na hora).
- */
-export type FaseCampeonato = 'sem_campeonato' | 'antes' | 'durante' | 'depois'
+/** `abertura` = ainda juntando pilotos (nada e' premiado); `aberto` = o recorde vale carro. Modelo sem premio (Cyber, Moto2) e' sempre `aberto`. */
+export type FaseDoModelo = 'abertura' | 'aberto'
 
-export function faseDoCampeonato(agoraMs: number, janela: JanelaCampeonato | null): FaseCampeonato {
-  if (!janela) return 'sem_campeonato'
-  if (agoraMs < janela.startsAtMs) return 'antes'
-  if (agoraMs < janela.endsAtMs) return 'durante'
-  return 'depois'
-}
-
-/** Uma volta dentro da janela do campeonato? (`[inicio, fim)`; vale o instante em que a volta TERMINOU.) */
-export function dentroDaJanela(finishedAtMs: number, janela: JanelaCampeonato): boolean {
-  return finishedAtMs >= janela.startsAtMs && finishedAtMs < janela.endsAtMs
+/** A fase de um modelo, do que esta gravado: com premio, ainda sem a abertura fechada = em abertura. */
+export function faseDoModelo(args: { modeloComPremio: boolean; aberturaFechada: boolean }): FaseDoModelo {
+  return args.modeloComPremio && !args.aberturaFechada ? 'abertura' : 'aberto'
 }
 
 /** O que identifica uma volta valida para comparar. */
@@ -176,46 +171,70 @@ export function recordeNovo(atual: { lapMs: number } | null, lapMs: number): boo
   return atual === null || lapMs < atual.lapMs
 }
 
-/**
- * A regra do premio no momento em que uma volta valida termina:
- *   - so' os carros da DOG MOTORS dao premio (Cyber e Moto2 rankeiam sem premio);
- *   - fora da fase `depois` nada e' premiado na hora (sem campeonato configurado, antes da janela e durante a janela);
- *   - na fase `depois`, so' o recorde novo do modelo vale;
- *   - UM premio por carteira por modelo: quem ja' tem o do modelo atualiza o recorde mas nao ganha outro.
- * `desafio` = gera race_prizes `pending_review` agora.
- */
-export function decidirPremioNaHora(args: { modeloComPremio: boolean; fase: FaseCampeonato; recorde: boolean; jaTemPremio: boolean }): 'none' | 'desafio' {
-  if (!args.modeloComPremio) return 'none'
-  if (args.fase !== 'depois') return 'none'
-  if (!args.recorde) return 'none'
-  if (args.jaTemPremio) return 'none'
-  return 'desafio'
-}
-
-export interface VoltaDaJanela extends VoltaComparavel {
+/** Uma volta valida com a carteira que a fez. */
+export interface VoltaDeCarteira extends VoltaComparavel {
   wallet: string
-  model: string
+}
+
+/** A melhor volta (menor tempo; empate: a mais antiga). Sem voltas: null. */
+export function melhorVolta<T extends VoltaComparavel>(voltas: ReadonlyArray<T>): T | null {
+  let melhor: T | null = null
+  for (const v of voltas) if (melhor === null || compararVoltas(v, melhor) < 0) melhor = v
+  return melhor
+}
+
+/** Quantas carteiras DIFERENTES tem nestas voltas. */
+export function carteirasDistintas(voltas: ReadonlyArray<{ wallet: string }>): number {
+  return new Set(voltas.map((v) => v.wallet)).size
+}
+
+export type FasePremio = 'abertura' | 'desafio'
+
+export interface PremioDecidido {
+  fase: FasePremio
+  /** quem leva o carro: na abertura pode ser OUTRA carteira que a da volta que fechou */
+  wallet: string
+  lapId: string
+  lapMs: number
+}
+
+export interface DecisaoDoPremio {
+  /** a fase do modelo DEPOIS desta volta */
+  fase: FaseDoModelo
+  /** esta volta fechou a abertura (o vencedor pode ser outra carteira) */
+  fechouAbertura: boolean
+  /** o premio a criar agora (`pending_review`), ou null */
+  premio: PremioDecidido | null
 }
 
 /**
- * O fechamento do campeonato: o vencedor de CADA modelo com premio = a melhor volta valida terminada dentro da janela (empate: a mais
- * antiga). Modelo sem volta na janela nao tem vencedor. `jaTemPremio` (carteira, modelo): quem ja' tem o carro do modelo nao ganha outro
- * (o segundo colocado NAO herda: o premio so' vai para quem fez a melhor volta).
+ * A regra do premio no instante em que uma volta valida e' fechada (o que race_finish_lap faz no banco):
+ *   - so' os carros da DOG MOTORS dao premio (Cyber e Moto2 so' tem recorde): modelo sem premio nunca premia e nunca tem abertura;
+ *   - abertura em andamento: nada e' premiado, a nao ser que esta volta tenha completado as `necessarios` carteiras (conta esta inclusa):
+ *     a abertura fecha agora e a melhor volta do modelo (`melhorDoModelo`, esta inclusa) leva o carro `abertura`, mesmo que seja de outra
+ *     carteira; se essa carteira ja' tem o modelo, o carro nao sai (o proximo recorde leva);
+ *   - abertura ja' fechada: so' o recorde NOVO (`recorde`: estritamente mais rapido) leva o carro `desafio`, e so' se a carteira ainda nao tem o modelo.
+ * Quem ja' tem o modelo bate o proprio recorde e segue dono dele, sem carro novo. `jaTemPremio(carteira)`: premio nao rejeitado desse modelo.
  */
-export function vencedoresDoFechamento(
-  voltas: ReadonlyArray<VoltaDaJanela>,
-  janela: JanelaCampeonato,
-  modelosComPremio: ReadonlyArray<string>,
-  jaTemPremio: (wallet: string, model: string) => boolean = () => false,
-): Array<{ model: string; volta: VoltaDaJanela; premiar: boolean }> {
-  const out: Array<{ model: string; volta: VoltaDaJanela; premiar: boolean }> = []
-  for (const model of modelosComPremio) {
-    let melhor: VoltaDaJanela | null = null
-    for (const v of voltas) {
-      if (v.model !== model || !dentroDaJanela(v.finishedAtMs, janela)) continue
-      if (!melhor || compararVoltas(v, melhor) < 0) melhor = v
-    }
-    if (melhor) out.push({ model, volta: melhor, premiar: !jaTemPremio(melhor.wallet, model) })
+export function decidirPremio(args: {
+  modeloComPremio: boolean
+  aberturaFechada: boolean
+  carteiras: number
+  necessarios?: number
+  volta: VoltaDeCarteira
+  recorde: boolean
+  melhorDoModelo: VoltaDeCarteira | null
+  jaTemPremio: (wallet: string) => boolean
+}): DecisaoDoPremio {
+  const necessarios = args.necessarios ?? NECESSARIOS_ABERTURA
+  if (!args.modeloComPremio) return { fase: 'aberto', fechouAbertura: false, premio: null }
+  if (!args.aberturaFechada) {
+    if (args.carteiras < necessarios) return { fase: 'abertura', fechouAbertura: false, premio: null }
+    const v = args.melhorDoModelo ?? args.volta
+    const premio: PremioDecidido | null = args.jaTemPremio(v.wallet) ? null : { fase: 'abertura', wallet: v.wallet, lapId: v.id, lapMs: v.lapMs }
+    return { fase: 'aberto', fechouAbertura: true, premio }
   }
-  return out
+  const v = args.volta
+  const premio: PremioDecidido | null = args.recorde && !args.jaTemPremio(v.wallet) ? { fase: 'desafio', wallet: v.wallet, lapId: v.id, lapMs: v.lapMs } : null
+  return { fase: 'aberto', fechouAbertura: false, premio }
 }

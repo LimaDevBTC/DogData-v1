@@ -11,7 +11,7 @@ export interface ModeloCorrida {
   /** nome de marca, nao se traduz */
   nome: string
   vmaxKmh: number
-  /** o modelo vale um carro de premio (campeonato e desafio permanente) */
+  /** o modelo vale um carro de premio (abertura de 10 pilotos e depois o recorde) */
   premio: boolean
 }
 
