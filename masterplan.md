@@ -1,5 +1,15 @@
 # DogCity Master Plan — A Constituição da Fundação (`masterplan.md`)
 
+> **EMENDA DE 12/11/2026 (fundador): "a licença pertence ao lote e vai com a escritura".** A licença de construção e os
+> itens da licença (a casa, os veículos estacionados, o rifle de caça e o barco) passam a pertencer ao LOTE, isto é, à
+> inscrição da escritura, e acompanham a escritura. Nunca se vendem sozinhos: quando a escritura muda de mãos, vão junto.
+> Isto **revoga** a frase da emenda de 17/10 abaixo ("licença e itens ficam no endereço original") e supera os trechos
+> soulbound deste documento que prendem a licença e os itens dela à carteira (§0.2, §4, §9, §11 e §11.1; cada um leva uma
+> nota curta). Seguem da carteira e nunca mudam: o status de Founder e o selo Original Airdrop Receiver. O pagamento
+> continua creditado à carteira que paga e vira licença quando é aplicado a um lote; cada lote mantém a sua licença e nada
+> se soma entre lotes. Rifle e barco valem pela licença mais alta entre os lotes que a carteira guarda agora (vendeu esse
+> lote, perde os dois). Fonte: `LICENCA_NO_LOTE_CONTRATO.md`; texto público em `/dogcity/docs` (seções 6, 7 e 8).
+
 > **EMENDA DE 17/10/2026 (fundador). Para o MINT, este documento NÃO é mais a fonte.** A fonte única do mint é
 > `plano/ROADMAP_MINT.md` do repositório `dogcity-mundo` (decisões nas seções 1, 7.1 e 7.1b), e o texto público é a
 > seção 7 de `/dogcity/docs`. Ficam superados aqui: o deed **soulbound / intransferível** (§0.2 e onde mais aparecer:
@@ -34,6 +44,7 @@
 2. **Prédio é da carteira, como os UTXOs.** 🔒 O deed é intransferível *na prática*: o
    vínculo lote↔endereço mora no **registry** (a lei); a inscription é o **certificado**.
    Transferir a inscription não transfere nada — o renderer ignora o novo portador.
+   > ⚠️ **Superado** (17/10/2026: a escritura é transferível; 12/11/2026: a licença e os itens vão com ela, ver as emendas no topo).
 3. **A fundação é uma fotografia.** 🔒 Lote (posição, área, distrito, tipologia) congela no
    bloco do snapshot, para sempre. Gastar UTXO antigo *depois* não move o prédio.
 4. ~~**Só o prédio respira.** Altura/classe/estado derivam do saldo vivo~~ (substituído em 24/10/2026, ver a nota abaixo da lista) — calculados pelo
@@ -215,6 +226,7 @@ internas... patrons podem personalizar"):
 - **Autenticação:** só a carteira dona do lote edita (assinatura BIP-322 via
   `connectwallet.md` Bloco A, já implementado) — consistente com o princípio soulbound
   do §0.2: a customização é tão intransferível quanto o prédio.
+  > ⚠️ **Superado em 12/11/2026** (ver a emenda de 12/11 no topo): a licença e os itens dela pertencem ao LOTE e acompanham a escritura; só o status de Founder e o selo Original Airdrop Receiver seguem presos à carteira. O histórico acima fica como foi decidido.
 
 **Fora de escopo nesta rodada:** a UI do editor 3D em si (`/city/explore`), o schema
 JSON completo de customização e o catálogo de peças/add-ons por tipologia — são um
@@ -379,6 +391,8 @@ programa cívico §5 · Reserva Urbana §6 · geometria de distrito em cunha ang
 internas de edição, Personal/Commercial no kit paramétrico, Patron com modo avançado
 elevado (§4.1).
 
+> ⚠️ **Superado em 12/11/2026** (ver a emenda de 12/11 no topo): a licença e os itens dela pertencem ao LOTE e acompanham a escritura; só o status de Founder e o selo Original Airdrop Receiver seguem presos à carteira. O histórico acima, "soulbound à carteira", fica como foi decidido.
+
 ---
 
 🔒 **2026-08-28, dono. A rodada que mexeu na constituição.** Seis decisões, e as três
@@ -424,6 +438,9 @@ das filhas é a linha do tempo da obra.
 ⚠️ Limite duro: a recursão enxerga PROCEDÊNCIA, não POSSE. Peça soldada renderiza 100% na
 cadeia e não é vendável; peça negociável precisa do nosso indexador e deixa de ser
 trustless. Decisão: soldar, casando com o soulbound do §0.2.
+
+> ⚠️ **Superado em 12/11/2026** (ver a emenda de 12/11 no topo): a licença e os itens dela pertencem ao LOTE e acompanham a escritura; só o status de Founder e o selo Original Airdrop Receiver seguem presos à carteira. O histórico acima fica como foi decidido.
+
 ⚠️ (Resolvida em 24/10/2026: a casa não acompanha mais o saldo, ver §1.) Armadilha medida: comprar peça com DOG baixa o saldo e, pela decisão 1, ENCOLHERIA o
 prédio. Conserto: a área olha saldo mais o DOG já enterrado na cidade.
 
@@ -724,6 +741,8 @@ item de Fundador e de conquista   SOULBOUND     vale por provar algo que você f
 item de catálogo, comprado        TRANSFERÍVEL  vale por gosto, e por isso pode ter mercado
 ```
 
+> ⚠️ **Superado em 12/11/2026** (ver a emenda de 12/11 no topo): os itens da licença (casa, veículos, rifle, barco) pertencem ao LOTE e acompanham a escritura; só o status de Founder e o selo Original Airdrop Receiver seguem presos à carteira. O histórico acima fica como foi decidido.
+
 Ninguém compra a prova de ter sido primeiro; todo mundo compra decoração. Isso dá mercado sem
 transformar mérito em mercadoria.
 
@@ -1002,6 +1021,8 @@ Cyber $DOG laranja; o do Patron é a **Cyber $DOG preta**.
 ⚠️ **Toda variante exclusiva é SOULBOUND.** Se a versão exclusiva puder ser vendida, a
 exclusividade vira mercadoria e o status do Patron se compra no secundário, o que derruba a
 frase do pacote de que ninguém compra a prova de ter chegado primeiro.
+
+> ⚠️ **Superado em 12/11/2026** (ver a emenda de 12/11 no topo): as variantes exclusivas que vêm com a licença (Cyber preta, helicóptero, Field Rifle Elite, DOG Yacht) pertencem ao LOTE e acompanham a escritura; só o status de Founder e o selo Original Airdrop Receiver seguem presos à carteira. O histórico acima fica como foi decidido.
 
 ### §11.2 — A fronteira do custom building 🔒 (2026-09-13)
 

@@ -117,14 +117,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Claim a handle before speaking in the plaza.' }, { status: 403 })
   }
 
-  let body: { text?: string }
+  let body: { text?: unknown } | null
   try {
     body = await req.json()
   } catch {
     return NextResponse.json({ error: 'Invalid body.' }, { status: 422 })
   }
 
-  const text = (body.text ?? '').trim()
+  // numero, lista ou objeto no lugar do texto derrubava a rota em 500 (.trim de nao-string)
+  const text = (typeof body?.text === 'string' ? body.text : '').trim()
   if (text.length < 1 || text.length > MAX_TEXT_LENGTH) {
     return NextResponse.json({ error: 'Message must be 1 to 280 characters.' }, { status: 422 })
   }

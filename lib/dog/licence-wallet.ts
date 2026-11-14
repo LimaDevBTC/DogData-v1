@@ -63,7 +63,8 @@ export function licenceOfWallet(rows: TxRow[], address: string, credits: Credit[
 const PAGE = 1000
 const MAX_PAGES = 20 // 20.000 transações de uma carteira com o fundo: acima disso é defeito, não doador
 
-async function rowsOf(db: SupabaseClient, address: string, signal: AbortSignal): Promise<TxRow[]> {
+/** as linhas que ligam o fundo a UMA carteira (índice GIN de `addresses`); também usada por licence-lot-supabase.ts */
+export async function rowsOf(db: SupabaseClient, address: string, signal: AbortSignal): Promise<TxRow[]> {
   const rows: TxRow[] = []
   for (let page = 0; page < MAX_PAGES; page++) {
     const from = page * PAGE

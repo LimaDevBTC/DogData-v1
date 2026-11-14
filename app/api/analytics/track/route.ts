@@ -50,6 +50,8 @@ export async function POST(req: NextRequest) {
     // de saída, que carregam a permanência da última página da visita.
     const bruto = await req.text()
     if (!bruto) return NextResponse.json({ error: 'corpo vazio' }, { status: 400 })
+    // Nenhum evento de verdade passa de poucos KB; os campos ja sao cortados abaixo, e o JSON.parse nao precisa ver o resto
+    if (bruto.length > 16 * 1024) return NextResponse.json({ error: 'corpo grande' }, { status: 413 })
 
     let body: Record<string, unknown>
     try {

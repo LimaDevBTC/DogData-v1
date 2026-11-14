@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { buildLedger, type TxRow } from '@/lib/dog/founders-ledger'
 import { applyBtcCredits, type Credit } from '@/lib/dog/licence-btc'
+import { licencasPorLote } from '@/lib/dog/licence-lot-supabase'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -113,7 +114,10 @@ async function handler(req: NextRequest) {
     // contribution (block, position in block), anonymous never numbered.
     const ledger = buildLedger(rows, DONATION_WALLET, { licenseFor })
     const totalReceived = ledger.totalReceived
-    const credits = slim ? [] : await loadBtcCredits()
+    // LICENÇA NO LOTE (12/11): a contagem de licenças da landing passa a ser por LOTE (dogcity_lot_licence,
+    // migração 037). O placar continua por carteira (é quem pagou). Sem a tabela: null, e a landing conta
+    // pelas carteiras como antes.
+    const [credits, lotLicences] = slim ? [[] as Credit[], null] : await Promise.all([loadBtcCredits(), licencasPorLote(supabase)])
     const board = applyBtcCredits(ledger.leaderboard, credits)
     const leaderboard = board.entries
     const founders = applyBtcCredits(ledger.founders.map(({ totalAtomos: _t, ...f }) => f), credits).entries
@@ -151,6 +155,8 @@ async function handler(req: NextRequest) {
         founders,
         // carteiras com BTC creditado e nenhum DOG no fundo: fora do placar, com o degrau da soma
         btc_licences: board.btcOnly,
+        // licenças por lote, { personal, commercial, patron }; null antes da migração 037
+        lot_licences: lotLicences,
         recent,
         last_updated: new Date().toISOString(),
       },

@@ -169,6 +169,14 @@ export interface CountdownInput {
 
 export interface Cta { label: string; href: string; external?: boolean }
 
+// ── a fase Partners na landing (13/11/2026, fundador) ──
+// O herói e a seção #partners (../sections/partners-phase.tsx) ligam PARTNER_TEASE_BLOCKS antes da fase e ficam até o
+// Public. A lista é o corte do mint (blocos 975,467-468, o mesmo parceiros.txt do MINT_PARTNERS_URL).
+export const PARTNER_TEASE_BLOCKS = 144
+export const PARTNER_CUT_BLOCK = 975_467
+export type PartnersMode = "tease" | "open" | null
+const CHECK_WALLET: Cta = { label: "Check your wallet", href: "#partners" }
+
 export interface CountdownState {
   kind: StateKind
   /** id interno da fase (CLOSED, FOUNDER...) quando há calendário */
@@ -191,6 +199,8 @@ export interface CountdownState {
   aria: string
   /** leitura compacta para a navegação (desktop e celular) */
   nav: { desktop: string; mobile: string; cta: string; href: string; external?: boolean }
+  /** a fase Partners na landing: "tease" nos últimos PARTNER_TEASE_BLOCKS da whitelist, "open" na fase */
+  partners: PartnersMode
   /** calendário absoluto quando B existe */
   calendar: Calendar | null
   B: number | null
@@ -251,7 +261,7 @@ export function countdownState(input: CountdownInput): CountdownState {
 function countdownByHeight(input: CountdownInput): CountdownState {
   const goal = input.goal && input.goal > 0 ? input.goal : FUND_GOAL
   const { raised, B, tip } = input
-  const base = { calendar: null as Calendar | null, B, tip }
+  const base = { calendar: null as Calendar | null, B, tip, partners: null as PartnersMode }
 
   // ── B conhecido: o calendário manda (o fundo encheu, por definição) ──
   if (B != null) {
@@ -318,6 +328,8 @@ function countdownByHeight(input: CountdownInput): CountdownState {
         primary: { label: "Mint your lot", href: MINT_URL, external: true }, secondary: FIND,
         aria: `Whitelist open, ${fmtInt(left)} blocks left to claim your lot`,
         nav: open("WHITELIST"),
+        // a véspera do Partners: o $DOG holder segue com o botão dele, e quem chega pelas coleções acha o seu
+        ...(left <= PARTNER_TEASE_BLOCKS ? { partners: "tease" as const, secondary: CHECK_WALLET } : {}),
       }
     }
     if (phase === "PARTNER") {
@@ -326,8 +338,8 @@ function countdownByHeight(input: CountdownInput): CountdownState {
         ...common, kind: "E", label: "PARTNERS · OPEN",
         number: fmtInt(left), unit: "BLOCKS TO THE PUBLIC MINT",
         sub: `${conta}${aboutBlocks(left)} · the public mint opens at block ${fmtInt(end)}`,
-        h1: "Holders of partner collections mint unclaimed lots at a quarter off the public price, from US$1.50.",
-        primary: MINT_AT, secondary: FIND,
+        h1: `Hold one of 36 Ordinals collections? Mint a lot in DogCity: one per wallet, held at block ${fmtInt(PARTNER_CUT_BLOCK)}, from US$1.50.`,
+        primary: MINT_AT, secondary: CHECK_WALLET, partners: "open",
         aria: `Partners phase open, ${fmtInt(left)} blocks to the public mint`,
         nav: open("PARTNERS"),
       }
@@ -391,7 +403,7 @@ function stateB0(goal: number, raised: number | null, base: { calendar: Calendar
   // fosse o arrecadado; sem o dado do fundo, só a unidade diz que a meta foi atingida
   const real = raised != null && Number.isFinite(raised) ? Math.floor(raised) : null
   return {
-    ...base, kind: "B0", phase: null,
+    ...base, partners: null, kind: "B0", phase: null,
     label: "THE FUND IS FULL",
     number: real != null ? fmtInt(real) : null,
     unit: real != null ? "$DOG RAISED · GOAL REACHED" : "GOAL REACHED",

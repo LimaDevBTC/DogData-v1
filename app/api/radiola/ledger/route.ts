@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { readLedger } from '@/lib/radiola/ledger'
 import { RADIOLA } from '@/lib/radiola/catalog'
+import { segredoConfere } from '@/lib/seguranca/cron'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -17,7 +18,7 @@ export const dynamic = 'force-dynamic'
 export async function GET(req: NextRequest) {
   const expected = process.env.RADIOLA_ADMIN_KEY
   const provided = req.headers.get('x-admin-key') || new URL(req.url).searchParams.get('key')
-  if (!expected || provided !== expected) {
+  if (!segredoConfere(provided, expected)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 

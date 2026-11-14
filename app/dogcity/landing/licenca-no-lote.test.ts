@@ -57,7 +57,7 @@ test('as frases de quem tem licença, por estado', () => {
   assert.equal(fraseDaCasa('commercial', 'mintado_sem_casa').titulo, 'Your Commercial house is in production.')
   assert.equal(fraseDaCasa('commercial', 'mintado_sem_casa').nota, 'It appears on this lot in the city.')
   assert.equal(fraseDaCasa('personal', 'ausente').nota, 'It stands on this lot in the city once the deed is minted.')
-  assert.deepEqual(fraseDaCasa('personal', 'desconhecido'), { titulo: 'Your Personal licence is on this wallet.', nota: null, verCasa: false })
+  assert.deepEqual(fraseDaCasa('personal', 'desconhecido'), { titulo: 'Your Personal licence is on this lot.', nota: null, verCasa: false })
   // Patron: sempre "residence in design", nunca "house"
   for (const e of ['construida', 'mintado_sem_casa', 'ausente', 'desconhecido'] as EstadoDaCasa[]) {
     const f = fraseDaCasa('patron', e)

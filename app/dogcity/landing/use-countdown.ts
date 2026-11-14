@@ -11,7 +11,7 @@
 // A variável pública NEXT_PUBLIC_DOGCITY_MINT_B, quando preenchida, vale como SOBREPOSIÇÃO
 // MANUAL e o detector nem é consultado.
 //
-// ⚠️ SIMULAÇÃO SÓ NO DEV. `?mintsim=A|B0|B|C|D|E|F|Fcount|connecting` troca a entrada
+// ⚠️ SIMULAÇÃO SÓ NO DEV. `?mintsim=A|B0|B|C|D|Dtease|E|F|Fcount|connecting` troca a entrada
 // por dado simulado para conferir os seis estados na tela. O ramo inteiro some
 // do build de produção (NODE_ENV é substituído em tempo de compilação), então
 // nunca há número de exemplo em produção.
@@ -135,6 +135,7 @@ function simulated(): CountdownInput | null {
     B: { raised: 10_000_250, B, tip: B + 76 },
     C: { raised: null, B, tip: B + 380 },
     D: { raised: null, B, tip: B + 854 },
+    Dtease: { raised: null, B, tip: B + 3700 },
     E: { raised: null, B, tip: B + 3852 },
     F: { raised: null, B, tip: B + 4100 },
     Fcount: { raised: null, B, tip: B + 4100, inscribed: 18_342 },

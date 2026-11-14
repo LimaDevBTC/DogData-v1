@@ -23,6 +23,7 @@ import { useDonate } from "@/components/donate/donate-modal"
 import { Btn, Odometer, TextLink, WORDMARK_DOT, WORDMARK_RATIO, WORDMARK_SRC } from "../landing/ui"
 import { HERO_FILM, POSTER } from "../landing/media"
 import { FUND_GOAL, RULER, type CountdownState } from "../landing/mint-state"
+import { PartnersTicker } from "./partners-phase"
 
 // ── a escolha do filme: retrato pega o encode 9:16, nunca recorte do 16:9 ──
 type Src = { webm?: string; mp4?: string }
@@ -451,6 +452,8 @@ export function HeroVisor({
               {cd.secondary.label}
             </TextLink>
           </div>
+
+          {cd.partners && <PartnersTicker />}
 
           {cd.founderLine && (
             <p className="dc-in-founder mt-4 dk:mt-5 max-w-[60ch] font-mono text-[10px] dk:text-[11px] leading-[1.6] tracking-[0.04em] text-dc-snow/[0.85] dk:text-dc-snow/[0.72]">

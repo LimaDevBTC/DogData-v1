@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { captureStacksSnapshot } from '@/lib/multichain/stacks-history'
 import { recordHealth } from '@/lib/health-logger'
+import { cronAutorizado } from '@/lib/seguranca/cron'
+import { eventoSeguranca } from '@/lib/seguranca/evento'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -19,13 +21,10 @@ export const maxDuration = 30
  *   { "path": "/api/stacks/snapshot", "schedule": "0 * * * *" }
  */
 export async function POST(request: NextRequest) {
-  // Verify cron secret (skip in dev)
-  const cronSecret = process.env.CRON_SECRET
-  if (cronSecret) {
-    const auth = request.headers.get('authorization')
-    if (auth !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+  // Falha fechada: sem CRON_SECRET em produção a rota recusa (lib/seguranca/cron.ts)
+  if (!cronAutorizado(request)) {
+    eventoSeguranca('cron_negado', request)
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const start = Date.now()

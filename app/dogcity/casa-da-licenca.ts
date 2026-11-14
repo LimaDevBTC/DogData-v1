@@ -67,7 +67,7 @@ export type CasaDaLicenca =
       licenca: string
       /** "BUILDING LICENCE · PERSONAL" */
       rotulo: string
-      /** "This wallet holds a Personal licence." */
+      /** "This wallet has a Personal licence credit." (a licença é do lote; sem lote, o crédito espera um) */
       titulo: string
       /** neutro, sem promessa: onde a casa vai */
       aviso: string
@@ -81,7 +81,7 @@ export const STATUS_EM_PRODUCAO = "In production"
 export const STATUS_EM_PROJETO = "In design"
 
 export const AVISO_SEM_LOTE =
-  "No lot is linked to this wallet. The building goes on the lot of the wallet that holds the deed."
+  "No lot is linked to this wallet. A credit with no lot waits for one."
 
 // ── O CTA DA LICENÇA, PARA QUEM NÃO TEM LICENÇA (28/10/2026) ────────────────
 // O fundo fechou no bloco 972.336 e o número de Founder acabou, então "LOCK YOUR
@@ -91,7 +91,7 @@ export const AVISO_SEM_LOTE =
 // licenças na landing (#tiers), o mesmo destino do "Get a building licence" da
 // página dos founders, não para a página de honra dos 138.
 export const CTA_LICENCA = { href: "/dogcity#tiers", rotulo: "GET THE LICENCE TO BUILD ON IT" } as const
-export const TEXTO_LICENCA_ABERTA = "A building licence is open to anyone, in $DOG or Bitcoin, and it is counted per wallet."
+export const TEXTO_LICENCA_ABERTA = "A building licence is open to anyone, in $DOG or Bitcoin, and it belongs to the lot it is applied to."
 
 // ── QUEM PAGOU SACANDO DE UMA CORRETORA (28/10/2026, decisão do fundador) ───
 // Um saque de corretora chega ao fundo vindo da carteira da corretora, não da do
@@ -243,7 +243,7 @@ export function casaDaLicenca(
       degrau,
       licenca,
       rotulo: `BUILDING LICENCE · ${licenca.toUpperCase()}`,
-      titulo: `This wallet holds a ${licenca} licence.`,
+      titulo: `This wallet has a ${licenca} licence credit.`,
       aviso: AVISO_SEM_LOTE,
     }
   }

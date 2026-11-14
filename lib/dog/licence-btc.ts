@@ -121,6 +121,11 @@ export interface Quote {
   createdAtMs: number
   expiresAtMs: number
   sources: SourceSample[]
+  /**
+   * (12/11, licença no lote) o lote que esta cotação paga: o crédito do pagamento cai direto nele
+   * (lib/dog/licence-lot.ts). Ausente nas cotações antigas e nas que não nomeiam lote.
+   */
+  lotId?: string
 }
 
 /** sats que valem `dog` DOG: arredonda PARA CIMA, para quem paga nunca ficar abaixo do degrau. */
@@ -168,6 +173,8 @@ export function buildQuote(input: {
   btc: MedianResult
   nowMs: number
   heldDog: number
+  /** o lote que a cotação paga (já validado por quem chama); `heldDog` é então o que o LOTE soma */
+  lotId?: string | null
 }): { ok: true; quote: Quote } | { ok: false; reason: QuoteRefusal } {
   if (!isTier(input.tier) || !Number.isFinite(input.nowMs)) return { ok: false, reason: 'bad_input' }
   if (!input.dog.ok) return { ok: false, reason: input.dog.reason }
@@ -194,6 +201,7 @@ export function buildQuote(input: {
         ...input.dog.sources.map((s) => ({ name: `DOG/USD ${s.name}`, price: s.price })),
         ...input.btc.sources.map((s) => ({ name: `BTC/USD ${s.name}`, price: s.price })),
       ],
+      ...(input.lotId ? { lotId: input.lotId } : {}),
     },
   }
 }

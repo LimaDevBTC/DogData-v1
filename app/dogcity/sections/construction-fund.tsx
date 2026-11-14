@@ -484,7 +484,7 @@ export default function Section({ lb, parte = "topo" }: { lb: LeaderboardData | 
               The construction fund reached 10,000,000 $DOG at block 972,336, from 138 founders, and
               that block started the mint. From here the fund pays for building: a licence of 10,000,
               50,000 or 500,000 $DOG, or the same value in Bitcoin, gives the right to build on the
-              lot a wallet owns.
+              lot it is applied to. The licence belongs to the lot and goes with the deed.
             </p>
           </Reveal>
         </div>
@@ -626,8 +626,9 @@ export default function Section({ lb, parte = "topo" }: { lb: LeaderboardData | 
               })}
               <Reveal delay={0.24} y={10}>
                 <p className="font-mono text-[11px] sm:text-[10px] text-dusty leading-relaxed pt-1">
-                  Pay from the wallet that owns the lot: licences are counted per wallet and payments add up
-                  across several transactions. No seed phrase is ever requested.
+                  Pay from the wallet that holds the lot. A licence payment is credited to the wallet that pays
+                  and applied to the lot that wallet holds, and payments add up across several transactions.
+                  No seed phrase is ever requested.
                 </p>
               </Reveal>
 

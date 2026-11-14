@@ -34,12 +34,14 @@ import { useCountdown, type FundData, type MinterRead } from "./use-countdown"
 import type { MintBInfo } from "./mint-state"
 import Opening, { type ChromeState } from "../sections/opening"
 import Provenance from "../sections/provenance"
+import PartnersPhase from "../sections/partners-phase"
 import Deeds from "../sections/deeds"
 import TheCity from "../sections/the-city"
 import Calendar from "../sections/calendar"
 import DocsAtlas from "../sections/docs-atlas"
 import ConstructionFund from "../sections/construction-fund"
 import Tiers from "../sections/tiers"
+import MotorsCall from "../sections/motors-call"
 import { useLeaderboard } from "./use-leaderboard"
 
 const TITLE_KEY = "dc-title-card"
@@ -109,6 +111,8 @@ export default function DogCityLanding({ initialFund = null, initialMintB = null
           <Nav cd={cd} live={chrome.live} solid={chrome.solid} quiet={chrome.quiet} />
           <main>
             <Opening cd={cd} intro={intro} onIntroDone={introDone} onChrome={setChrome} />
+            {/* 13/11: a fase Partners (véspera e as 48 h), logo depois do herói; fora dela não renderiza nada */}
+            <PartnersPhase cd={cd} />
             {/* o modelo da landing anterior, no mínimo para encaixar (cores: landing.css); 20/10, fundador: logo depois do
                 hero, como segunda e terceira seções (o fundo é o que dispara o mint) */}
             <div data-dc-legacy>
@@ -120,6 +124,8 @@ export default function DogCityLanding({ initialFund = null, initialMintB = null
             <Provenance />
             <Deeds />
             <TheCity />
+            {/* 13/11: a porta da DOG MOTORS (a vitrine dos carros, /dogcity/motors), sem número de folha */}
+            <MotorsCall />
             <Calendar cd={cd} />
             <DocsAtlas />
           </main>

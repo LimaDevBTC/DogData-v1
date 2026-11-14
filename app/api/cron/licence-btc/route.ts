@@ -6,6 +6,13 @@
  * ordinals ligada pela cotação (lib/dog/licence-btc-sweep.ts). Regras de crédito:
  * lib/dog/licence-btc.ts. Falha fechada: sem cotação confiável o pagamento fica em revisão.
  *
+ * LICENÇA NO LOTE (12/11, LICENCA_NO_LOTE_CONTRATO.md): depois da varredura, a MESMA volta aplica o crédito
+ * livre aos lotes (lib/dog/licence-lot-service.ts, passeDosLotes): primeiro os pagamentos em BTC cuja cotação
+ * nomeou o lote (o crédito que esta volta acabou de gravar já cai no lote), depois a automática, perguntando
+ * ao mint quem guarda o quê (até 20 carteiras por volta, em rodízio). Fica aqui e não num cron novo porque é
+ * a continuação do crédito em BTC, roda a cada 2 minutos com o mesmo segredo, e não pede mudança na Vercel.
+ * Uma falha nesta parte não derruba a varredura: sai em `lots.error` e a próxima volta tenta de novo.
+ *
  * Protegida por CRON_SECRET (Authorization: Bearer ...), como o cron da Vercel manda quando
  * a variável existe. Sem CRON_SECRET configurada a rota recusa TUDO: nada de segredo no repo.
  * Não toca em dog_transactions, no livro dos founders, em total_received nem no bloco B.
@@ -16,6 +23,9 @@ import { timingSafeEqual } from 'node:crypto'
 import { LINK_WINDOW_AFTER_EXPIRY_MS, normalizeAddress, type Quote } from '@/lib/dog/licence-btc'
 import { readChain, sweepOnce, keyOf, type StoredPayment, type SweepStore } from '@/lib/dog/licence-btc-sweep'
 import { priceAtTime, type FetchLike } from '@/lib/dog/price-sources'
+import { normalizeLotId } from '@/lib/dog/licence-lot'
+import { passeDosLotes } from '@/lib/dog/licence-lot-service'
+import { holderDoMint, lotLicenceStore } from '@/lib/dog/licence-lot-supabase'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -68,9 +78,11 @@ function fromQuoteDb(r: any): Quote | null {
   const created = ms(r.created_at), expires = ms(r.expires_at)
   const normOrd = normalizeAddress(r.ordinals_address), normPay = normalizeAddress(r.payment_address)
   if (created === null || expires === null || !normOrd || !normPay) return null
+  const lotId = normalizeLotId(r.lot_id)
   return {
     id: r.id, tier: r.tier, ordinalsAddress: normOrd, paymentAddress: normPay, dogAmount: Number(r.dog_amount), sats: Number(r.sats),
     dogUsd: Number(r.dog_usd), btcUsd: Number(r.btc_usd), createdAtMs: created, expiresAtMs: expires, sources: Array.isArray(r.sources) ? r.sources : [],
+    ...(lotId ? { lotId } : {}),
   }
 }
 
@@ -98,14 +110,22 @@ const store: SweepStore = {
   },
 }
 
+// a licença no lote: roda com ou sem a varredura (o crédito em $DOG não depende do mempool.space), e a
+// falha dela não desfaz nem esconde a varredura
+const lotsPass = () =>
+  passeDosLotes({ store: lotLicenceStore(supabase), holder: (a) => holderDoMint(a), nowMs: Date.now() })
+    .catch((e) => { console.error('[cron/licence-btc] lots pass failed:', e); return { error: 'lots pass failed' } })
+
 export async function GET(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401, headers: { 'Cache-Control': 'no-store' } })
   try {
     const chain = await readChain(nofetch)
     const result = await sweepOnce({ nowMs: Date.now(), chain, store, priceAtBlock: (t) => priceAtTime(nofetch, t) })
-    return NextResponse.json({ ok: true, tip: chain.tip, seen: chain.payments.length, ...result }, { headers: { 'Cache-Control': 'no-store' } })
+    const lots = await lotsPass()
+    return NextResponse.json({ ok: true, tip: chain.tip, seen: chain.payments.length, ...result, lots }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (err) {
     console.error('[cron/licence-btc] error:', err)
-    return NextResponse.json({ ok: false, error: 'sweep failed' }, { status: 502, headers: { 'Cache-Control': 'no-store' } })
+    const lots = await lotsPass()
+    return NextResponse.json({ ok: false, error: 'sweep failed', lots }, { status: 502, headers: { 'Cache-Control': 'no-store' } })
   }
 }

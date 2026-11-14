@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { redisClient } from '@/lib/upstash';
 import { recordHealth } from '@/lib/health-logger';
+import { cronAutorizado } from '@/lib/seguranca/cron';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -230,9 +231,11 @@ export async function GET(request: NextRequest) {
     const snapshotQuery = searchParams.get('snapshot');
     if (snapshotQuery) {
       const snapshotStart = Date.now();
+      // os dados sao publicos, a escrita no system_health_log nao: sem o cron, nao se grava a saude de ninguem
+      const doCron = snapshotQuery === 'refresh' && cronAutorizado(request);
       const data = await loadLocalHolders();
       if (!data) {
-        if (snapshotQuery === 'refresh') {
+        if (doCron) {
           await recordHealth({
             component: 'cron:dog-rune-holders',
             component_type: 'cron',
@@ -249,7 +252,7 @@ export async function GET(request: NextRequest) {
 
       const { holders, total, timestamp } = processHoldersData(data);
 
-      if (snapshotQuery === 'refresh') {
+      if (doCron) {
         await recordHealth({
           component: 'cron:dog-rune-holders',
           component_type: 'cron',

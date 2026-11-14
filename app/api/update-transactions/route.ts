@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { redisClient } from '@/lib/upstash';
 import { recordHealth } from '@/lib/health-logger';
+import { cronAutorizado } from '@/lib/seguranca/cron';
+import { eventoSeguranca } from '@/lib/seguranca/evento';
 
 const UNISAT_API_URL = 'https://open-api.unisat.io/v1/indexer/runes/event';
 const RUNE_NAME = 'DOG•GO•TO•THE•MOON';
@@ -1291,13 +1293,11 @@ function rowToTransaction(row: any): Transaction {
 export async function GET(request: NextRequest) {
   const cronStart = Date.now();
   try {
-    const secret = request.nextUrl.searchParams.get('secret');
-    const expectedSecret = process.env.UPDATE_SECRET || 'your-secret-token-here';
-    if (secret !== expectedSecret) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Invalid secret token' },
-        { status: 401 }
-      );
+    // So' o cron da Vercel (Authorization: Bearer $CRON_SECRET). O `?secret=` e o valor padrao no codigo sairam: segredo em
+    // URL vai para log e para o vercel.json, e este repositorio e' publico.
+    if (!cronAutorizado(request)) {
+      eventoSeguranca('cron_negado', request);
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     if (!_txSupabase) {

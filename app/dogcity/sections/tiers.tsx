@@ -37,9 +37,10 @@
 // 19/10: the card TEXT is the published contract's (/dogcity/docs, sections 6 and 8, "The
 // ladder"), word for word; see the note on TIERS in dogcity-data.ts.
 //
-// 28/10: each card also shows WHAT THE LICENCE GIVES, not only what it costs: the building (hero image) and every vehicle
-// of the rung (a row of cut-out tiles); see `Scene` and the note on TIERS in dogcity-data.ts. Between `sm` and `lg` the
-// three deeds are one wide column each (the trio needs 1024px for three vehicles to stay readable).
+// 28/10: each card also shows WHAT THE LICENCE GIVES, not only what it costs: the building (hero image) and every item
+// of the rung; see the note on TIERS in dogcity-data.ts.
+// 12/11: the card was laid out again for what it holds today (building, vehicles, rifle, boat): six fixed bands and a
+// two-shelf garage of equal tiles, three deeds side by side from `lg` with the bands aligned; see the note above `Tile`.
 //
 // Every string, threshold, perk, note, href and id below is verbatim from
 // dogcity-data.ts and the markup this replaces. The Founder note is a legal
@@ -148,13 +149,19 @@ interface Tier {
   building?: LicenceImage & { kind: string; note: string }
   /** every vehicle the licence includes, in order (the moto first, each rung adds to the right); `credit` is a CC BY condition, shown on the card */
   vehicles?: Array<LicenceImage & { label: string; credit?: { text: string; href: string } }>
+  /** the hunting rifle of this licence (10/11): one per rung, bound to the licence; `credit` is a CC BY condition, shown on the card */
+  rifle?: LicenceImage & { label: string; credit?: { text: string; href: string } }
+  /** the boat of this licence (12/11): one per rung, bound to the licence; `credit` is a CC BY condition, shown on the card */
+  boat?: LicenceImage & { label: string; credit?: { text: string; href: string } }
   cta: string
 }
 
 type LicenceCount = { personal: number; commercial: number; patron: number }
 
-// How many licences exist, from the fund ledger the construction fund section already reads (one wallet, one rung:
-// its $DOG plus any credited Bitcoin). A wallet under 10,000 $DOG is a founder without a licence and is not counted.
+// How many licences exist. Since 12/11 the licence belongs to the lot: the leaderboard sends `lot_licences` (one lot,
+// one rung, migration 037) and that is the count. Before the migration, from the fund ledger the construction fund
+// section already reads (one wallet, one rung: its $DOG plus any credited Bitcoin); a wallet under 10,000 $DOG is a
+// founder without a licence and is not counted.
 // No answer, no strip: the section never shows a number it did not read.
 function useLicenceCount(): LicenceCount | null {
   const [n, setN] = useState<LicenceCount | null>(null)
@@ -164,6 +171,12 @@ function useLicenceCount(): LicenceCount | null {
       fetch("/api/donate/leaderboard")
         .then((r) => (r.ok ? r.json() : null))
         .then((j) => {
+          // the licence belongs to the lot (12/11): count lots when the API has them, wallets otherwise
+          const byLot = j?.lot_licences
+          if (alive && byLot && ["personal", "commercial", "patron"].every((k) => Number.isSafeInteger(byLot[k]) && byLot[k] >= 0)) {
+            setN({ personal: byLot.personal, commercial: byLot.commercial, patron: byLot.patron })
+            return
+          }
           const rows: Array<{ license?: string }> = Array.isArray(j?.leaderboard) ? j.leaderboard : []
           if (!alive || rows.length === 0) return
           const c: LicenceCount = { personal: 0, commercial: 0, patron: 0 }
@@ -266,69 +279,129 @@ function Pic({ img, className }: { img: LicenceImage; className: string }) {
   )
 }
 
-// ── what the licence gives: the building, then every vehicle ──────────────────
-// The building is the hero (16:10, sitting on a tinted ground line); the vehicles are a row of equal tiles under it,
-// three slots wide on every card so Personal / Commercial / Patron fill one, two and three of them: the ladder again.
-// The row never wraps and never scrolls. Stacked on phones and in the desktop trio; beside the text between `sm` and `lg`.
-function Scene({ t, className }: { t: Tier; className: string }) {
-  const { building, vehicles = [] } = t
-  if (!building && vehicles.length === 0) return null
-  const credits = vehicles.filter((v) => v.credit)
+// ── what the licence gives ─────────────────────────────────────────────────
+// 12/11 (the founder, on a phone): the card had grown one item at a time (vehicles in 1/3 tiles, the rifle and the boat full
+// width, the yacht taller than the house) and ran past a screen and a half on an iPhone. The card is now SIX FIXED BANDS, in
+// the same order on every screen: head, building, garage, CTA, "What's included" (the contract's own lines, untouched) and
+// the CC BY credits on one grouped line. On a phone the bands stack. From `sm` to `lg` each card is one wide deed: the head
+// across the top, the building and the garage side by side, then the CTA, the perks and the credits. From `lg` the three
+// deeds stand side by side and the bands are rows of one shared `subgrid`, so building, garage, CTA and perks line up.
+//
+// THE GARAGE is an inventory grid of two shelves of the SAME height on a 6-column grid. The top shelf holds the vehicles of
+// the rung, each in a 1/3 tile, centred: Personal 1, Commercial 2, Patron 3, the ladder read across the deck. The bottom
+// shelf is always the rifle and the boat, half the width each. Every vehicle has the same tile on every card, so the same
+// Cyber is the same size in Commercial and Patron, and no vehicle sits alone in a wide, empty tile. Every tile has the same
+// image height (24% of the grid width, 84 px at most), the same inset and the same caption (two lines kept), with the
+// picture `object-contain` in the middle: the moto and the yacht weigh the same, as in a game inventory.
+
+type Item = LicenceImage & { label: string; credit?: { text: string; href: string } }
+
+// the top shelf: n vehicles in 1/3 tiles, centred on the 6 columns (1: columns 3-4; 2: columns 2-3 and 4-5; 3: all six)
+function vehicleSpan(i: number, n: number): string {
+  if (n === 1) return "col-span-2 col-start-3"
+  if (n === 2 && i === 0) return "col-span-2 col-start-2"
+  return "col-span-2"
+}
+// the bottom shelf: the rifle and the boat share the width
+const GEAR_SPAN: Record<number, string> = { 1: "col-span-6", 2: "col-span-3", 3: "col-span-2" }
+
+function Tile({ it, span }: { it: Item; span: string }) {
   return (
-    <div className={className}>
-      {building && (
-        <figure>
-          <div
-            className="relative aspect-[16/10] w-full"
-            style={{ background: `radial-gradient(70% 55% at 50% 80%, ${t.color}1A, transparent 70%)` }}
-          >
-            <Pic img={building} className="absolute inset-0 h-full w-full object-contain object-bottom" />
-          </div>
-          <span
-            aria-hidden
-            className="block h-px"
-            style={{ background: `linear-gradient(to right, transparent, ${t.color}66 18%, ${t.color}66 82%, transparent)` }}
-          />
-          <figcaption className="mt-2 font-mono text-[10px] leading-relaxed">
-            <span className="block tracking-[0.18em] text-mist">{building.kind}</span>
-            <span className="block mt-0.5 text-dusty">{building.note}</span>
-          </figcaption>
-        </figure>
-      )}
+    <li className={`${span} flex flex-col border border-dc-snow/[0.12] bg-dc-plate`}>
+      <div className="relative mx-0.5 mt-1 h-[min(24cqi,84px)]">
+        <Pic img={it} className="absolute inset-0 h-full w-full object-contain" />
+      </div>
+      <span className="flex min-h-[2.6em] items-center justify-center px-0.5 pb-0.5 text-center font-mono text-[9px] leading-[1.2] tracking-[0.12em] text-dc-mist">
+        {it.label}
+      </span>
+    </li>
+  )
+}
 
-      {vehicles.length > 0 && (
-        <ul aria-label="Vehicles included" className="mt-4 grid grid-cols-3 gap-2">
-          {vehicles.map((v) => (
-            <li key={v.src} className={`flex flex-col border ${HAIR} bg-white/[0.02]`}>
-              <div className="p-1.5">
-                <div className="relative aspect-[4/3] w-full">
-                  <Pic img={v} className="absolute inset-0 h-full w-full object-contain" />
-                </div>
-              </div>
-              <span className="px-1 pb-1.5 text-center font-mono text-[9px] leading-tight tracking-[0.14em] text-mist">
-                {v.label}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+function Building({ t }: { t: Tier }) {
+  const b = t.building
+  if (!b) return <div aria-hidden />
+  return (
+    <figure className="mt-4">
+      <div
+        // 2:1 on short screens (an iPhone SE, a phone held sideways), so the CTA still closes the first screen
+        className="relative aspect-[16/9] [@media(max-height:700px)]:aspect-[2/1] max-h-[240px] w-full"
+        style={{ background: `radial-gradient(70% 55% at 50% 80%, ${t.color}1A, transparent 70%)` }}
+      >
+        <Pic img={b} className="absolute inset-0 h-full w-full object-contain object-bottom" />
+      </div>
+      <span
+        aria-hidden
+        className="block h-px"
+        style={{ background: `linear-gradient(to right, transparent, ${t.color}66 18%, ${t.color}66 82%, transparent)` }}
+      />
+      <figcaption className="mt-2 font-mono text-[10px] leading-snug">
+        <span className="block tracking-[0.18em] text-dc-mist">{b.kind}</span>
+        <span className="block mt-0.5 text-dc-dusty [text-wrap:pretty]">{b.note}</span>
+      </figcaption>
+    </figure>
+  )
+}
 
-      {credits.map((v) => (
-        <a
-          key={v.src}
-          href={v.credit!.href}
+function Garage({ t }: { t: Tier }) {
+  const vehicles: Item[] = t.vehicles ?? []
+  const gear = [t.rifle, t.boat].filter(Boolean) as Item[]
+  if (vehicles.length === 0 && gear.length === 0) return <div aria-hidden />
+  return (
+    <ul aria-label="Items included" className="mt-4 grid grid-cols-6 gap-1 [container-type:inline-size]">
+      {vehicles.map((v, i) => <Tile key={v.src} it={v} span={vehicleSpan(i, vehicles.length)} />)}
+      {gear.map((g) => <Tile key={g.src} it={g} span={GEAR_SPAN[gear.length] ?? "col-span-2"} />)}
+    </ul>
+  )
+}
+
+// "3D model: <title> by <author>, CC BY 4.0" (the form the tests lock in dogcity-data.ts) becomes one piece of the single line
+const CREDIT = /^3D model: (.+) by (.+), CC BY 4\.0$/
+
+// The CC BY credits are a condition of the models' licence: they stay on the card, but grouped on one line of fine print.
+// Each "title by author" links to its source; "CC BY 4.0" links to the licence text.
+function Credits({ t }: { t: Tier }) {
+  const items = [...(t.vehicles ?? []), t.rifle, t.boat].filter((v): v is Item => !!v?.credit)
+  if (items.length === 0) return <div aria-hidden />
+  return (
+    <p className="mt-4 pt-3 border-t border-dc-snow/[0.12] font-mono text-[9px] leading-relaxed text-dc-dusty sm:max-lg:col-span-2">
+      3D models:{" "}
+      {items.map((v, i) => {
+        const m = CREDIT.exec(v.credit!.text)
+        return (
+          <span key={v.src}>
+            {i > 0 && ", "}
+            <a
+              href={v.credit!.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-dc-snow/20 underline-offset-2 hover:text-dc-mist"
+            >
+              {m ? `${m[1]} by ${m[2]}` : v.credit!.text}
+            </a>
+          </span>
+        )
+      })}{" "}
+      <span className="whitespace-nowrap">
+        (<a
+          href="https://creativecommons.org/licenses/by/4.0/"
           target="_blank"
           rel="noopener noreferrer"
-          className="block mt-2 font-mono text-[9px] leading-relaxed text-dusty/80 hover:text-mist"
-        >
-          {v.credit!.text}
-        </a>
-      ))}
-    </div>
+          className="underline decoration-dc-snow/20 underline-offset-2 hover:text-dc-mist"
+        >CC BY 4.0</a>)
+      </span>
+    </p>
   )
 }
 
 // ── one deed ───────────────────────────────────────────────────────────────
+// lg+: the StaggerItem, the card and its contents are a 6-row `subgrid` (the six bands above); the outer grid sizes each
+// band to the tallest of the three cards. No row gap: each band carries its own top margin.
+const SUBGRID = "lg:row-span-6 lg:grid lg:grid-rows-subgrid"
+// sm to lg: one wide deed per row, two columns: the head across, the building beside the garage, the rest across
+const WIDE = "sm:max-lg:grid sm:max-lg:grid-cols-2 sm:max-lg:gap-x-6 sm:max-lg:content-start"
+const ACROSS = "sm:max-lg:col-span-2"
+
 function Deed({ t, index, count, sats }: { t: Tier; index: number; count: number; sats: number | null }) {
   const { ref, onPointerMove } = useSpotlight<HTMLDivElement>()
   // $DOG or BTC, chosen on the card (licences only); the wallet window opens on that choice
@@ -341,11 +414,11 @@ function Deed({ t, index, count, sats }: { t: Tier; index: number; count: number
   const slot = index * 0.075   // this card's place in the deck's stagger
 
   return (
-    <StaggerItem>
+    <StaggerItem className={SUBGRID}>
       <div
         ref={ref}
         onPointerMove={onPointerMove}
-        className={`dc-deed spotlight-card relative h-full border p-6 flex flex-col transition-colors duration-500 ${
+        className={`dc-deed spotlight-card relative h-full border px-3.5 pt-6 pb-4 sm:p-6 lg:px-5 lg:pb-5 flex flex-col ${SUBGRID} transition-colors duration-500 ${
           t.featured
             ? "border-lava/50 bg-lava/[0.04] hover:border-lava/75"
             : `${HAIR} hover:border-white/25`
@@ -389,12 +462,13 @@ function Deed({ t, index, count, sats }: { t: Tier; index: number; count: number
           </span>
         )}
 
-        {/* contents sit above the lot: a positioned wrapper, no z-index war.
-            Stacked (phones, and the desktop trio): head, then building + vehicles, then the perks. Between `sm` and
-            `lg` each card is one wide column, so the head and the scene sit side by side and the perks run underneath */}
-        <div className="relative flex flex-col flex-1 sm:max-lg:grid sm:max-lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] sm:max-lg:content-start sm:max-lg:gap-x-6">
-          <div className="sm:max-lg:col-start-1 sm:max-lg:row-start-1">
-            <div className="flex items-baseline justify-between gap-3 font-mono text-[9px] tracking-[0.25em] text-dusty">
+        {/* contents sit above the lot: a positioned wrapper, no z-index war. The six bands, in order: head, building,
+            garage, CTA, what's included, credits (see the note above `Tile`). The CTA comes right after the garage so
+            that, on a phone, the name, the price, the building, every item and the button fit in the first screen */}
+        <div className={`relative flex flex-col flex-1 ${WIDE} ${SUBGRID}`}>
+          {/* 1 · head */}
+          <div className={ACROSS}>
+            <div className="flex items-baseline justify-between gap-3 font-mono text-[9px] tracking-[0.25em] text-dc-dusty">
               <span>THE LADDER</span>
               <span className="tabular-nums shrink-0">{pad2(index + 1)} / {pad2(count)}</span>
             </div>
@@ -405,55 +479,54 @@ function Deed({ t, index, count, sats }: { t: Tier; index: number; count: number
               <DrawRule className="mt-3 w-10" color="bg-current" delay={0.9 + slot} duration={0.7} />
             </span>
 
-            <div className="font-display font-bold text-xl mt-3" style={{ color: t.color }}>{t.name}</div>
-            <div className="font-mono text-sm text-snow mt-1 tabular-nums">
-              {t.threshold}{t.usd && <span className="text-dusty text-[11px]"> · {t.usd}</span>}
-            </div>
-            {t.btcLine && (
-              <div className="mt-1.5">
-                <p className="font-mono text-[11px] text-dusty">{t.btcLine}</p>
-                <p className="font-mono text-[12px] text-mist tabular-nums mt-0.5 min-h-[1.25em]" aria-live="polite">
-                  {sats && Number.isSafeInteger(sats) && sats > 0 ? `${sats.toLocaleString("en-US")} sats now` : "\u00a0"}
-                </p>
-                <div role="group" aria-label="Pay with" className="mt-2.5 inline-flex border border-white/15">
+            {/* the name and the price on the left, the $DOG / BTC choice on the right; it wraps under them when the
+                card is too narrow (the three-up tablet) */}
+            <div className="mt-3 flex flex-wrap items-end justify-between gap-x-2 gap-y-2.5 sm:gap-x-3">
+              <div className="min-w-0">
+                <div className="font-display font-bold text-xl" style={{ color: t.color }}>{t.name}</div>
+                <div className="font-mono text-sm text-dc-snow mt-0.5 tabular-nums">
+                  {t.threshold}{t.usd && <span className="text-dc-dusty text-[11px]"> · {t.usd}</span>}
+                </div>
+                {t.btcLine && (
+                  <>
+                    <p className="font-mono text-[11px] text-dc-dusty mt-1">{t.btcLine}</p>
+                    <p className="font-mono text-[12px] text-dc-mist tabular-nums min-h-[1.25em]" aria-live="polite">
+                      {sats && Number.isSafeInteger(sats) && sats > 0 ? `${sats.toLocaleString("en-US")} sats now` : " "}
+                    </p>
+                  </>
+                )}
+              </div>
+              {t.btcLine && (
+                <div role="group" aria-label="Pay with" className="inline-flex shrink-0 border border-dc-snow/[0.15]">
                   {(["dog", "btc"] as const).map((a) => (
                     <button
                       key={a}
                       type="button"
                       aria-pressed={pay === a}
                       onClick={() => setPay(a)}
-                      className={`px-4 py-2.5 min-h-[44px] font-mono text-[11px] tracking-[0.1em] transition-colors ${
-                        pay === a ? "bg-white/[0.1] text-snow" : "text-dusty hover:text-snow"
+                      className={`px-3 sm:px-4 py-2.5 min-h-[44px] min-w-[52px] font-mono text-[11px] tracking-[0.1em] transition-colors ${
+                        pay === a ? "bg-dc-snow/[0.1] text-dc-snow" : "text-dc-dusty hover:text-dc-snow"
                       }`}
                     >
                       {a === "dog" ? "$DOG" : "BTC"}
                     </button>
                   ))}
                 </div>
-                {t.btcNote && (
-                  <p className="font-mono text-[11px] text-dusty leading-relaxed mt-2.5">{t.btcNote}</p>
-                )}
-              </div>
+              )}
+            </div>
+            {t.btcNote && (
+              <p className="font-mono text-[11px] text-dc-dusty leading-relaxed mt-2.5">{t.btcNote}</p>
             )}
           </div>
 
-          <Scene t={t} className="mt-5 sm:max-lg:mt-0 sm:max-lg:col-start-2 sm:max-lg:row-start-1" />
+          {/* 2 · the building */}
+          <Building t={t} />
 
-          <div className="flex flex-col flex-1 sm:max-lg:col-span-2 sm:max-lg:row-start-2">
-            <ul className="mt-4 space-y-2 flex-1">
-              {t.perks.map((p) => (
-                <li key={p} className="text-[12.5px] text-mist leading-relaxed flex gap-2">
-                  <span className="text-lava shrink-0">▸</span>{p}
-                </li>
-              ))}
-            </ul>
+          {/* 3 · the garage: every item of the licence, one shelf of vehicles, one of gear */}
+          <Garage t={t} />
 
-            {t.note && (
-              <p className={`mt-4 pt-3 border-t ${HAIR} font-mono text-[11px] sm:text-[10px] text-dusty leading-relaxed`}>
-                {t.note}
-              </p>
-            )}
-
+          {/* 4 · the call to action */}
+          <div className={`mt-4 ${ACROSS}`}>
             <button
               type="button"
               onClick={() =>
@@ -464,15 +537,36 @@ function Deed({ t, index, count, sats }: { t: Tier; index: number; count: number
                 )
               }
               // min-h-[44px]: these measured 192x40, under the 44px touch floor
-              className={`mt-5 inline-flex justify-center items-center gap-2 px-4 py-2.5 min-h-[44px] font-mono text-[12px] font-bold transition-colors ${
+              className={`w-full inline-flex justify-center items-center gap-2 px-4 py-2.5 min-h-[44px] font-mono text-[12px] font-bold transition-colors ${
                 t.featured
                   ? "text-void bg-lava hover:bg-lava-light"
-                  : "text-snow border border-white/20 hover:border-white/[0.45]"
+                  : "text-dc-snow border border-dc-snow/20 hover:border-dc-snow/[0.45]"
               }`}
             >
               {t.cta}
             </button>
           </div>
+
+          {/* 5 · what's included: the contract's own lines, word for word (the tests lock them in dogcity-data.ts) */}
+          <div className={`mt-5 ${ACROSS}`}>
+            <p className="font-mono text-[9px] tracking-[0.25em] text-dc-dusty">WHAT&apos;S INCLUDED</p>
+            {/* two columns on the wide deed, so a line never runs the whole card */}
+            <ul className="mt-2 sm:max-lg:columns-2 sm:max-lg:gap-x-6">
+              {t.perks.map((p) => (
+                <li key={p} className="mb-1.5 last:mb-0 break-inside-avoid text-[12px] text-dc-mist leading-[1.5] flex gap-2 [text-wrap:pretty]">
+                  <span aria-hidden className="text-lava shrink-0">▸</span>{p}
+                </li>
+              ))}
+            </ul>
+            {t.note && (
+              <p className="mt-3 pt-3 border-t border-dc-snow/[0.12] font-mono text-[10px] text-dc-dusty leading-relaxed">
+                {t.note}
+              </p>
+            )}
+          </div>
+
+          {/* 6 · the CC BY credits, one grouped line */}
+          <Credits t={t} />
         </div>
       </div>
     </StaggerItem>
@@ -491,12 +585,13 @@ export default function Section({}) {
         <SectionHead
           eyebrow="THE LICENCES"
           title="Three licences to build on your deed."
-          sub="A licence is paid once, in $DOG or the same value in Bitcoin, to the construction fund, and it builds on the lot your wallet owns. Every licence includes everything in the one below it. Moving up costs only the difference: your payments add up, and nobody buys two licences. A higher licence changes how a building is used, not how big it is. Mint your lot, take a licence, and your house stands in the city."
+          sub="A licence is paid once, in $DOG or the same value in Bitcoin, to the construction fund, and it belongs to the lot. It is never sold on its own: when the deed changes hands, the licence goes with it. Every licence includes everything in the one below it. Moving up costs only the difference: the payments applied to a lot add up, and nobody buys two licences for the same lot. A higher licence changes how a building is used, not how big it is. Mint your lot, take a licence, and your house stands in the city."
         />
 
         <LicenceStrip n={licenceCount} />
 
-        <Stagger className="mt-6 grid lg:grid-cols-3 gap-4" delay={0.62} step={0.075}>
+        {/* lg+: three deeds side by side; each spans the six band rows (`subgrid`), so the bands line up across them */}
+        <Stagger className="mt-6 grid gap-4 lg:grid-cols-3 lg:gap-x-4 lg:gap-y-0" delay={0.62} step={0.075}>
           {tiers.map((t, i) => (
             <Deed key={t.key} t={t} index={i} count={tiers.length} sats={licenceSats?.[t.key] ?? null} />
           ))}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { redisClient } from '@/lib/upstash'
 import { DONATION_WALLET } from '@/app/dogcity/dogcity-data'
 import { FUND_BTC_ADDRESS } from '@/lib/dog/licence-btc'
+import { passouDoTeto, respostaFreio } from '@/lib/seguranca/freio'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -29,6 +30,7 @@ export const dynamic = 'force-dynamic'
 
 const TXID = /^[0-9a-f]{64}$/
 const CACHE_SECONDS = 120
+const TETO_IP_MINUTO = 60
 
 interface Verdict {
   txid: string
@@ -45,8 +47,10 @@ export async function GET(req: NextRequest) {
   if (!TXID.test(txid)) {
     return NextResponse.json({ error: 'Invalid transaction id.' }, { status: 400 })
   }
+  // cada txid novo vira uma ida ao mempool.space: sem freio, um script usava esta rota como proxy gastando a nossa cota
+  if (await passouDoTeto(req, 'donateverify', TETO_IP_MINUTO)) return respostaFreio()
 
-  const asset = req.nextUrl.searchParams.get('asset') === 'btc' ? 'btc' : 'dog'
+  const asset =req.nextUrl.searchParams.get('asset') === 'btc' ? 'btc' : 'dog'
   const fundAddress = asset === 'btc' ? FUND_BTC_ADDRESS : DONATION_WALLET
 
   const key = `donateverify:${asset}:${txid}`
