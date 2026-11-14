@@ -12,7 +12,7 @@ import type { Deps, Resposta } from './service'
 export const deps: Deps = { store: criarStoreSupabase(supabase), novoId: () => randomUUID() }
 
 /** Prazo de cada rota (regra da casa: rota tem prazo; estourou, 503 e o cliente repete). O gate tem o do cliente (8 s), o finish o dele (20 s). */
-export const PRAZO_MS = { start: 10_000, gate: 8_000, finish: 20_000, leitura: 5_000, fechar: 30_000 } as const
+export const PRAZO_MS = { start: 10_000, gate: 8_000, finish: 20_000, leitura: 5_000 } as const
 
 export const SEM_CACHE = { 'Cache-Control': 'no-store' } as const
 

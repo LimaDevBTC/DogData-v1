@@ -1,9 +1,10 @@
-// O RaceStore em producao: Supabase com a service role (lib/supabase.ts), nas tabelas da migration 038. So' as rotas do servidor
+// O RaceStore em producao: Supabase com a service role (lib/supabase.ts), nas tabelas das migrations 038 e 041. So' as rotas do servidor
 // importam este arquivo. Cada metodo e' UMA operacao atomica do banco; o que compete (abrir, gravar portao, validar, premiar, recordar)
-// se resolve pelos indices unicos, pelos gatilhos e pelas funcoes da migration, nunca por "le e depois grava".
+// se resolve pelos indices unicos, pelos gatilhos e pelas funcoes da migration, nunca por "le e depois grava". O recorde, a abertura do
+// modelo e o premio saem de UMA funcao (race_finish_lap, trava por pista e modelo).
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Carimbo, VoltaDaJanela } from './rules'
-import type { CampeonatoRow, DadosValidos, LinhaRanking, MelhorDaCarteira, PremioNovo, RaceStore, VoltaRow } from './service'
+import type { Carimbo } from './rules'
+import type { AberturaDoModelo, DadosValidos, LinhaRanking, MelhorDaCarteira, RaceStore, ResultadoDaVolta, VoltaRow } from './service'
 
 type Linha = Record<string, unknown>
 
@@ -35,20 +36,40 @@ function voltaDe(r: Linha): VoltaRow {
   }
 }
 
+/**
+ * A resposta da funcao race_finish_lap (jsonb), lida campo a campo (e' o nosso banco, mas a rota nunca repassa o que nao conferiu).
+ * `ok: false` (volta nao encontrada ou nao valida) = null. Forma inesperada = erro (a rota responde 503 e o cliente repete o finish).
+ */
+export function lerResultado(data: unknown): ResultadoDaVolta | null {
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) throw new Error('race concluirVolta: resposta inesperada')
+  const o = data as Linha
+  if (o.ok === false) return null
+  const int = (v: unknown, min: number): number => {
+    if (typeof v !== 'number' || !Number.isInteger(v) || v < min) throw new Error('race concluirVolta: numero inesperado')
+    return v
+  }
+  const bool = (v: unknown): boolean => {
+    if (typeof v !== 'boolean') throw new Error('race concluirVolta: booleano inesperado')
+    return v
+  }
+  if (o.ok !== true) throw new Error('race concluirVolta: resposta inesperada')
+  if (o.prize !== 'none' && o.prize !== 'pending_review') throw new Error('race concluirVolta: premio inesperado')
+  if (o.phase !== 'opening' && o.phase !== 'open') throw new Error('race concluirVolta: fase inesperada')
+  return {
+    record: bool(o.record),
+    rank: int(o.rank, 1),
+    prize: o.prize,
+    phase: o.phase,
+    drivers: int(o.drivers, 0),
+    needed: int(o.needed, 1),
+    openingClosed: bool(o.opening_closed),
+  }
+}
+
 const COLUNAS_VOLTA = 'id, track_id, wallet, model, status, void_reason, started_at, expires_at, finished_at, lap_ms'
 
 export function criarStoreSupabase(db: SupabaseClient): RaceStore {
   return {
-    async campeonato(trackId): Promise<CampeonatoRow | null> {
-      const { data, error } = await db.from('race_championship').select('starts_at, ends_at, closed_at').eq('track_id', trackId).maybeSingle()
-      falha('campeonato', error)
-      if (!data) return null
-      const startsAtMs = ms(data.starts_at)
-      const endsAtMs = ms(data.ends_at)
-      if (startsAtMs === null || endsAtMs === null) return null
-      return { trackId, startsAtMs, endsAtMs, closedAtMs: ms(data.closed_at) }
-    },
-
     async anularAbertas(wallet, motivo, agoraMs) {
       const { error } = await db.from('race_laps').update({ status: 'void', void_reason: motivo, finished_at: iso(agoraMs) }).eq('wallet', wallet).eq('status', 'open')
       falha('anularAbertas', error)
@@ -127,16 +148,10 @@ export function criarStoreSupabase(db: SupabaseClient): RaceStore {
       return data && data.length > 0 ? 'ok' : 'perdida'
     },
 
-    async reivindicarRecorde(v) {
-      const { data, error } = await db.rpc('race_claim_record', { p_track: v.trackId, p_model: v.model, p_lap_id: v.lapId, p_wallet: v.wallet, p_lap_ms: v.lapMs })
-      falha('reivindicarRecorde', error)
-      return data === true
-    },
-
-    async recordeEh(trackId, model, lapId) {
-      const { data, error } = await db.from('race_records').select('lap_id').eq('track_id', trackId).eq('model', model).maybeSingle()
-      falha('recordeEh', error)
-      return (data as Linha | null)?.lap_id === lapId
+    async concluirVolta(a): Promise<ResultadoDaVolta | null> {
+      const { data, error } = await db.rpc('race_finish_lap', { p_lap_id: a.lapId, p_prize: a.premio, p_needed: a.necessarios })
+      falha('concluirVolta', error)
+      return lerResultado(data)
     },
 
     async posicao(trackId, model, wallet, lapMs, finishedAtMs) {
@@ -145,31 +160,15 @@ export function criarStoreSupabase(db: SupabaseClient): RaceStore {
       return typeof data === 'number' && Number.isInteger(data) && data >= 1 ? data : 1
     },
 
-    async criarPremio(p: PremioNovo) {
-      const { error } = await db.from('race_prizes').insert({
-        track_id: p.trackId,
-        wallet: p.wallet,
-        model: p.model,
-        lap_id: p.lapId,
-        lap_ms: p.lapMs,
-        phase: p.phase,
-        state: 'pending_review',
-      })
-      if (error?.code === PG_UNIQUE) return 'ja_tem'
-      falha('criarPremio', error)
-      return 'ok'
-    },
-
-    async temPremio(wallet, model) {
-      const { count, error } = await db.from('race_prizes').select('id', { count: 'exact', head: true }).eq('wallet', wallet).eq('model', model).neq('state', 'rejected')
-      falha('temPremio', error)
-      return (count ?? 0) > 0
-    },
-
-    async premioDaVolta(lapId) {
-      const { count, error } = await db.from('race_prizes').select('id', { count: 'exact', head: true }).eq('lap_id', lapId).neq('state', 'rejected')
-      falha('premioDaVolta', error)
-      return (count ?? 0) > 0
+    async abertura(trackId, model): Promise<AberturaDoModelo> {
+      // best_laps tem UMA linha por carteira e modelo: o total e' o de carteiras diferentes com volta valida
+      const [carteiras, fechada] = await Promise.all([
+        db.from('race_best_laps').select('wallet', { count: 'exact', head: true }).eq('track_id', trackId).eq('model', model),
+        db.from('race_openings').select('model', { count: 'exact', head: true }).eq('track_id', trackId).eq('model', model),
+      ])
+      falha('abertura.carteiras', carteiras.error)
+      falha('abertura.fechada', fechada.error)
+      return { drivers: carteiras.count ?? 0, fechada: (fechada.count ?? 0) > 0 }
     },
 
     async ranking(trackId, model, limite): Promise<LinhaRanking[]> {
@@ -204,21 +203,6 @@ export function criarStoreSupabase(db: SupabaseClient): RaceStore {
         const l = r as Linha
         return { model: l.model as string, lapId: l.id as string, lapMs: Number(l.lap_ms), finishedAtMs: ms(l.finished_at) ?? 0 }
       })
-    },
-
-    async candidatosDoFechamento(trackId): Promise<VoltaDaJanela[]> {
-      const { data, error } = await db.from('race_championship_best').select('lap_id, model, wallet, lap_ms, finished_at').eq('track_id', trackId).limit(100)
-      falha('candidatosDoFechamento', error)
-      return (data ?? []).map((r) => {
-        const l = r as Linha
-        return { id: l.lap_id as string, model: l.model as string, wallet: l.wallet as string, lapMs: Number(l.lap_ms), finishedAtMs: ms(l.finished_at) ?? 0 }
-      })
-    },
-
-    async fecharCampeonato(trackId, agoraMs) {
-      const { data, error } = await db.from('race_championship').update({ closed_at: iso(agoraMs) }).eq('track_id', trackId).is('closed_at', null).select('track_id')
-      falha('fecharCampeonato', error)
-      return (data?.length ?? 0) > 0
     },
 
     async handles(wallets) {

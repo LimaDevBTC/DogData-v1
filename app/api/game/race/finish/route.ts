@@ -11,9 +11,10 @@ export const dynamic = 'force-dynamic'
 // 13 min a 5 Hz sao ~60 KB de JSON; 30 min, ~200 KB. O teto exato vem do numero de amostras (12.000).
 const MAX_BYTES = 512 * 1024
 
-// POST { raceId, trace, flags, clientLapMs } -> { valid, lapMs, rank, record, prize }. Fecha a volta: bandeiras, portoes (ordem e piso
-// de tempo), trajetoria, tempo oficial = carimbo do ultimo portao menos o da largada, recorde, premio e posicao. Repetir o finish de
-// uma volta ja valida devolve o mesmo resultado.
+// POST { raceId, trace, flags, clientLapMs } -> { valid, lapMs, rank, record, prize, phase, opening: { drivers, needed }, openingClosed }
+// (os tres ultimos campos so' com valid: true). Fecha a volta: bandeiras, portoes (ordem e piso de tempo), trajetoria, tempo oficial =
+// carimbo do ultimo portao menos o da largada; depois, numa transacao do banco (race_finish_lap), o recorde, a abertura do modelo, o
+// premio e a posicao. `prize` e' sobre a carteira que terminou a volta. Repetir o finish de uma volta ja valida devolve o mesmo resultado.
 export async function POST(req: NextRequest) {
   const agora = Date.now()
   return comPrazo(

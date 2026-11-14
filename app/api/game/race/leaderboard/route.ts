@@ -7,7 +7,8 @@ import { PISTA_PADRAO } from '@/lib/game/race/track'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// GET ?track=an7-v1&model=<m>&limit=50 -> { track, model, entries: [{ rank, wallet, handle, lapMs, at, splits }] }. PUBLICO: sem cookie,
+// GET ?track=an7-v1&model=<m>&limit=50 -> { track, model, opening: { drivers, needed, open }, entries: [{ rank, wallet, handle, lapMs, at, splits }] }.
+// `opening.open` = o modelo ainda esta em abertura (junta pilotos; Cyber e Moto2 nunca). PUBLICO: sem cookie,
 // CORS aberto (como /api/dogcity/lot-licence), cache de 60 s na borda. Mostra a melhor volta valida de cada carteira no modelo; os
 // splits (ms desde a largada em cada portao) so' na primeira linha, o que o jogo usa para o delta do recorde.
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS' }

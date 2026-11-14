@@ -1,9 +1,10 @@
-// So' para os testes: o RaceStore na memoria, com as MESMAS regras do banco da migration 038 (uma aberta por carteira, carimbo
-// unico por portao e so' em volta aberta, trajetoria unica entre as validas, recorde estritamente melhor, um premio por carteira por
-// modelo, ranking pela melhor volta de cada carteira com empate pela mais antiga). Nada daqui entra em rota.
-import type { Carimbo, VoltaDaJanela } from './rules'
-import { compararVoltas } from './rules'
-import type { CampeonatoRow, DadosValidos, LinhaRanking, MelhorDaCarteira, PremioNovo, RaceStore, VoltaRow } from './service'
+// So' para os testes: o RaceStore na memoria, com as MESMAS regras do banco das migrations 038 e 041 (uma aberta por carteira, carimbo
+// unico por portao e so' em volta aberta, trajetoria unica entre as validas, recorde estritamente melhor, abertura do modelo e premio
+// decididos de uma vez em `concluirVolta` como race_finish_lap, um premio por carteira por modelo, ranking pela melhor volta de cada
+// carteira com empate pela mais antiga). Nada daqui entra em rota.
+import type { Carimbo } from './rules'
+import { carteirasDistintas, compararVoltas, decidirPremio, melhorVolta, type VoltaDeCarteira } from './rules'
+import type { AberturaDoModelo, DadosValidos, LinhaRanking, MelhorDaCarteira, RaceStore, ResultadoDaVolta, VoltaRow } from './service'
 
 interface VoltaGuardada extends VoltaRow {
   splits: number[] | null
@@ -11,9 +12,23 @@ interface VoltaGuardada extends VoltaRow {
   clientLapMs: number | null
 }
 
-interface PremioGuardado extends PremioNovo {
+export interface PremioGuardado {
   id: string
+  trackId: string
+  wallet: string
+  model: string
+  lapId: string
+  lapMs: number
+  phase: 'abertura' | 'desafio' | 'campeonato'
   state: 'pending_review' | 'approved' | 'delivered' | 'rejected'
+}
+
+/** A linha de race_openings: a abertura fechada de um modelo (a volta que fechou e a que leva o carro). */
+export interface AberturaGuardada {
+  closingLapId: string
+  winningLapId: string
+  prizeId: string | null
+  drivers: number
 }
 
 export class StoreMemoria implements RaceStore {
@@ -21,14 +36,11 @@ export class StoreMemoria implements RaceStore {
   hits = new Map<string, Array<Carimbo & { pos: [number, number, number]; v: number }>>()
   recordes = new Map<string, { lapId: string; wallet: string; lapMs: number }>()
   premios: PremioGuardado[] = []
-  campeonatos = new Map<string, CampeonatoRow>()
+  /** race_openings: por `pista|modelo` */
+  aberturas = new Map<string, AberturaGuardada>()
   perfis = new Map<string, string>()
   /** quantas chamadas ao banco (para provar que o replay nao regrava nada) */
   gravacoes = 0
-
-  async campeonato(trackId: string): Promise<CampeonatoRow | null> {
-    return this.campeonatos.get(trackId) ?? null
-  }
 
   async anularAbertas(wallet: string, motivo: string, agoraMs: number): Promise<void> {
     for (const v of this.voltas.values()) if (v.wallet === wallet && v.status === 'open') this.fechar(v, motivo, agoraMs)
@@ -92,17 +104,14 @@ export class StoreMemoria implements RaceStore {
     return 'ok'
   }
 
-  async reivindicarRecorde(n: { trackId: string; model: string; lapId: string; wallet: string; lapMs: number }): Promise<boolean> {
+  /** race_claim_record: true so' se NAO havia recorde ou a volta e' ESTRITAMENTE mais rapida (empate fica com a mais antiga) */
+  private reivindicarRecorde(n: { trackId: string; model: string; lapId: string; wallet: string; lapMs: number }): boolean {
     const k = `${n.trackId}|${n.model}`
     const atual = this.recordes.get(k)
     if (atual && !(atual.lapMs > n.lapMs)) return false
     this.recordes.set(k, { lapId: n.lapId, wallet: n.wallet, lapMs: n.lapMs })
     this.gravacoes++
     return true
-  }
-
-  async recordeEh(trackId: string, model: string, lapId: string): Promise<boolean> {
-    return this.recordes.get(`${trackId}|${model}`)?.lapId === lapId
   }
 
   /** a view race_best_laps: a melhor volta valida de cada carteira por modelo */
@@ -121,19 +130,63 @@ export class StoreMemoria implements RaceStore {
     return 1 + outros.filter((v) => v.lapMs! < lapMs || (v.lapMs === lapMs && v.finishedAtMs! < finishedAtMs)).length
   }
 
-  async criarPremio(p: PremioNovo): Promise<'ok' | 'ja_tem'> {
-    if (this.premios.some((x) => x.wallet === p.wallet && x.model === p.model && x.state !== 'rejected')) return 'ja_tem'
-    this.premios.push({ ...p, id: `premio-${this.premios.length + 1}`, state: 'pending_review' })
-    this.gravacoes++
-    return 'ok'
-  }
-
-  async temPremio(wallet: string, model: string): Promise<boolean> {
+  /** o indice unico (wallet, model) onde state <> 'rejected' */
+  private temPremio(wallet: string, model: string): boolean {
     return this.premios.some((x) => x.wallet === wallet && x.model === model && x.state !== 'rejected')
   }
 
-  async premioDaVolta(lapId: string): Promise<boolean> {
-    return this.premios.some((x) => x.lapId === lapId && x.state !== 'rejected')
+  private criarPremio(p: Omit<PremioGuardado, 'id' | 'state'>): string | null {
+    if (this.temPremio(p.wallet, p.model)) return null
+    const id = `premio-${this.premios.length + 1}`
+    this.premios.push({ ...p, id, state: 'pending_review' })
+    this.gravacoes++
+    return id
+  }
+
+  /** race_finish_lap: recorde, carteiras diferentes, abertura, premio e posicao numa transacao so' (o JS e' de uma thread: e' atomico) */
+  async concluirVolta(a: { lapId: string; premio: boolean; necessarios: number }): Promise<ResultadoDaVolta | null> {
+    const lap = this.voltas.get(a.lapId)
+    if (!lap || lap.status !== 'valid') return null
+    const k = `${lap.trackId}|${lap.model}`
+    const doModelo = [...this.voltas.values()].filter((v) => v.status === 'valid' && v.trackId === lap.trackId && v.model === lap.model)
+    const comCarteira = (v: VoltaGuardada): VoltaDeCarteira => ({ ...cmp(v), wallet: v.wallet })
+    const reivindicou = this.reivindicarRecorde({ trackId: lap.trackId, model: lap.model, lapId: lap.id, wallet: lap.wallet, lapMs: lap.lapMs! })
+    const carteiras = carteirasDistintas(doModelo)
+    const dec = decidirPremio({
+      modeloComPremio: a.premio,
+      aberturaFechada: this.aberturas.has(k),
+      carteiras,
+      necessarios: a.necessarios,
+      volta: comCarteira(lap),
+      recorde: reivindicou,
+      melhorDoModelo: melhorVolta(doModelo.map(comCarteira)),
+      jaTemPremio: (w) => this.temPremio(w, lap.model),
+    })
+    if (dec.fechouAbertura) {
+      const vencedora = melhorVolta(doModelo.map(comCarteira))!
+      // o recorde da abertura e' a volta vencedora (conserta um recorde velho que tenha sido anulado)
+      this.recordes.set(k, { lapId: vencedora.id, wallet: vencedora.wallet, lapMs: vencedora.lapMs })
+      const prizeId = dec.premio ? this.criarPremio({ trackId: lap.trackId, wallet: dec.premio.wallet, model: lap.model, lapId: dec.premio.lapId, lapMs: dec.premio.lapMs, phase: 'abertura' }) : null
+      this.aberturas.set(k, { closingLapId: lap.id, winningLapId: vencedora.id, prizeId, drivers: carteiras })
+    } else if (dec.premio && !this.premios.some((x) => x.lapId === lap.id)) {
+      // nunca dois premios na mesma volta, em estado nenhum
+      this.criarPremio({ trackId: lap.trackId, wallet: dec.premio.wallet, model: lap.model, lapId: dec.premio.lapId, lapMs: dec.premio.lapMs, phase: 'desafio' })
+    }
+    const abertura = this.aberturas.get(k)
+    return {
+      record: this.recordes.get(k)?.lapId === lap.id,
+      rank: await this.posicao(lap.trackId, lap.model, lap.wallet, lap.lapMs!, lap.finishedAtMs!),
+      prize: this.premios.some((x) => x.lapId === lap.id && x.state !== 'rejected') ? 'pending_review' : 'none',
+      phase: a.premio && !abertura ? 'opening' : 'open',
+      drivers: carteiras,
+      needed: a.necessarios,
+      openingClosed: a.premio && abertura?.closingLapId === lap.id,
+    }
+  }
+
+  async abertura(trackId: string, model: string): Promise<AberturaDoModelo> {
+    const doModelo = [...this.voltas.values()].filter((v) => v.status === 'valid' && v.trackId === trackId && v.model === model)
+    return { drivers: carteirasDistintas(doModelo), fechada: this.aberturas.has(`${trackId}|${model}`) }
   }
 
   async ranking(trackId: string, model: string, limite: number): Promise<LinhaRanking[]> {
@@ -150,26 +203,6 @@ export class StoreMemoria implements RaceStore {
       if (m) out.push({ model, lapId: m.id, lapMs: m.lapMs!, finishedAtMs: m.finishedAtMs! })
     }
     return out
-  }
-
-  /** a view race_championship_best */
-  async candidatosDoFechamento(trackId: string): Promise<VoltaDaJanela[]> {
-    const c = this.campeonatos.get(trackId)
-    if (!c) return []
-    const por = new Map<string, VoltaGuardada>()
-    for (const v of this.voltas.values()) {
-      if (v.status !== 'valid' || v.trackId !== trackId || v.finishedAtMs! < c.startsAtMs || v.finishedAtMs! >= c.endsAtMs) continue
-      const m = por.get(v.model)
-      if (!m || compararVoltas(cmp(v), cmp(m)) < 0) por.set(v.model, v)
-    }
-    return [...por.values()].map((v) => ({ id: v.id, wallet: v.wallet, model: v.model, lapMs: v.lapMs!, finishedAtMs: v.finishedAtMs! }))
-  }
-
-  async fecharCampeonato(trackId: string, agoraMs: number): Promise<boolean> {
-    const c = this.campeonatos.get(trackId)
-    if (!c || c.closedAtMs !== null) return false
-    c.closedAtMs = agoraMs
-    return true
   }
 
   async handles(wallets: string[]): Promise<Map<string, string>> {
