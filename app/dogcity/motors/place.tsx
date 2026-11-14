@@ -44,7 +44,7 @@ const PLATES: { key: string; pic: Pic; alt: string; label: string; title: string
     alt: "The Spit from the bay at dusk: the DOG TOWER lit above the Orla Nobre, the pier and the beach club",
     label: "AN7 perimeter · Ranked by model",
     title: "The AN7 race",
-    text: "The race on the AN7 perimeter starts and finishes at DOG MOTORS. Every model keeps its own leaderboard. Rules and prizes are published in the docs before the first championship.",
+    text: "The race on the AN7 perimeter starts and finishes at DOG MOTORS. Every model keeps its own leaderboard. The rules are in the docs.",
   },
 ]
 

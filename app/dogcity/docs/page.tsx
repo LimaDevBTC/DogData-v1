@@ -229,6 +229,7 @@ const TOC = [
   { id: "founders-program", n: "6", label: "The Founders Program" },
   { id: "the-mint", n: "7", label: "How the mint works" },
   { id: "after-the-deed", n: "8", label: "After the deed" },
+  { id: "an7-race", n: "", label: "The AN7 race" },
   { id: "not-yet", n: "9", label: "What this is not, yet" },
 ]
 
@@ -1639,6 +1640,96 @@ export default function DogCityDocsPage() {
                   },
                 ]}
               />
+            </Section>
+
+            {/* ═══════════════ A CORRIDA DA AN7 (DOG MOTORS) ═══════════════
+                Sem número, como a proveniência: as seções 1 a 9 são citadas por número no texto e nos links.
+                Regra do prêmio v2, decisão do fundador de 14/11/2026 (assets_carros/projeto/CORRIDA_REGRA_V2.md).
+                É o contrato público com o jogador: o jogo linka aqui (/dogcity/docs#an7-race) e o servidor
+                (DogData, lib/game/race) segue exatamente isto. Mudou a regra no servidor, muda aqui, e o contrário.
+                Sem preço e sem promessa de valor: o carro é um prêmio por habilidade, nada mais. */}
+            <Section id="an7-race" n="" eyebrow="DOG MOTORS · THE AN7 RACE" title="The AN7 race: how a car is won">
+              <P>
+                The AN7 is the perimeter avenue of the city. A lap starts and finishes at DOG MOTORS,
+                runs the whole ring and is timed by the server. Every one of the 18 DOG MOTORS models
+                has its own leaderboard and its own record, and the best driver of a model can win that
+                car. The game rewards skill, so a driver who is the best with several models can win
+                several cars, up to all 18.
+              </P>
+
+              <Sub>How a car is won</Sub>
+              <NumberedList
+                items={[
+                  {
+                    lead: "One record per model.",
+                    text: "Each model has its own record on the AN7, independent of the other models. The best valid lap with a model is that model's record.",
+                  },
+                  {
+                    lead: "Every model starts in an opening.",
+                    text: "The opening lasts until 10 different verified wallets have each finished at least one valid lap with that model. Until then nobody wins a car with it, and the record simply follows the best lap so far.",
+                  },
+                  {
+                    lead: "The 10th wallet closes the opening.",
+                    text: "When the 10th different wallet finishes its first valid lap, the opening closes, and the best valid lap of the model up to that moment wins the car. That lap can come from any of the 10 wallets, and it can be a repeated lap of one of them. On a tie, the older lap wins. The wallet that closes the opening is not always the winner.",
+                  },
+                  {
+                    lead: "After the opening, beat the record.",
+                    text: "Anyone who beats the record of a model with that model, by any margin, takes the record and wins that car, as long as the wallet does not hold a car of that model yet.",
+                  },
+                  {
+                    lead: "One car of each model per wallet.",
+                    text: "A wallet can win each of the 18 models once, so at most 18 cars. A wallet that already won a model can still beat its own record and keep it, but it does not win the same car again. The next driver who beats that time and does not hold the model wins it.",
+                  },
+                  {
+                    lead: "No cap, no end date.",
+                    text: "There is no weekly or daily limit and no season. The race is always on.",
+                  },
+                ]}
+              />
+              <Table
+                head={["The model is", "What happens at the finish line"]}
+                rows={[
+                  ["In opening (fewer than 10 wallets)", "Nothing is won. The record follows the best lap so far."],
+                  ["The 10th wallet finishes its first valid lap", "The opening closes. The best valid lap of the model wins the car."],
+                  ["Open (past its opening)", "A new record wins the car, unless the wallet already holds that model."],
+                ]}
+              />
+              <P>
+                In the game, the entry panel and the leaderboard of each model show how many drivers
+                the opening has so far, and the record once the opening is closed.
+              </P>
+
+              <Sub>What counts as a valid lap</Sub>
+              <P className="mt-3">
+                One full lap of the AN7 ring, through every gate in order, with the times stamped by
+                the server&apos;s clock, at a speed the model can really do, driven by you (no
+                autopilot, no teleporting), from a verified wallet. A lap that breaks any of this
+                is voided and never reaches the leaderboard.
+              </P>
+
+              <Sub>Delivery</Sub>
+              <BulletList
+                items={[
+                  {
+                    lead: "The car is the model of the winning lap.",
+                    text: "Win with a DOG Revolt lap and the car is a DOG Revolt.",
+                  },
+                  {
+                    lead: "It reaches your garage after a review.",
+                    text: "A lap time is measured on the player's side of the game, so every winning lap is reviewed before the car is delivered.",
+                  },
+                  {
+                    lead: "Suspect laps are voided.",
+                    text: "A voided lap counts for nothing: not for an opening, not for a record. If it held a record, the record goes back to the best valid lap that remains.",
+                  },
+                ]}
+              />
+
+              <Sub>Cyber $DOG and Moto2</Sub>
+              <P className="mt-3">
+                The Cyber $DOG and the Moto2 race too, and each has its own leaderboard and record, but
+                they give no car and have no opening.
+              </P>
             </Section>
 
             {/* ═══════════════════════════ 9 ═══════════════════════════ */}

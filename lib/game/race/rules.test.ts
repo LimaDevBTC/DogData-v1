@@ -1,26 +1,27 @@
 // Rodar: npx tsx --test lib/game/race/rules.test.ts
 //
 // A logica pura da corrida no servidor: piso de tempo por trecho, ordem dos portoes (fora de ordem, repetido, repeticao do ultimo),
-// carimbos da volta inteira, bandeiras, fases do campeonato, regra do premio, empate (volta mais antiga) e fechamento do campeonato.
+// carimbos da volta inteira, bandeiras, abertura do modelo (10 carteiras), regra do premio v2, empate (volta mais antiga).
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
+  NECESSARIOS_ABERTURA,
   REGRAS,
+  carteirasDistintas,
   compararVoltas,
   decidirPortao,
-  decidirPremioNaHora,
-  dentroDaJanela,
-  faseDoCampeonato,
+  decidirPremio,
+  faseDoModelo,
   lerFlags,
+  melhorVolta,
   motivoDasFlags,
   pisoDoTrechoMs,
   posicaoPlausivel,
   recordeNovo,
   validarCarimbos,
-  vencedoresDoFechamento,
   type Carimbo,
-  type VoltaDaJanela,
+  type VoltaDeCarteira,
 } from './rules'
 import { IDS_MODELOS, IDS_MODELOS_COM_PREMIO, MODELOS_CORRIDA, ehModeloCorrida, modeloTemPremio, vmaxMs } from './models'
 import { gerarPortoes } from './track'
@@ -198,42 +199,132 @@ test('bandeiras: qualquer uma anula ou exclui; bot e' + "'" + ' o primeiro motiv
   assert.equal(motivoDasFlags({ ...limpa, bot: true, autopilot: true, void: 'piloto' }), 'bot')
 })
 
-// ---- o campeonato e o premio ----
+// ---- a abertura do modelo e o premio (regra v2) ----
 
-const JANELA = { startsAtMs: 1_000, endsAtMs: 2_000 }
+const NINGUEM = (): boolean => false
+const volta = (id: string, wallet: string, lapMs: number, finishedAtMs: number): VoltaDeCarteira => ({ id, wallet, lapMs, finishedAtMs })
 
-test('fase do campeonato: sem config, antes, durante e depois (a janela e [inicio, fim))', () => {
-  assert.equal(faseDoCampeonato(5_000, null), 'sem_campeonato')
-  assert.equal(faseDoCampeonato(999, JANELA), 'antes')
-  assert.equal(faseDoCampeonato(1_000, JANELA), 'durante')
-  assert.equal(faseDoCampeonato(1_999, JANELA), 'durante')
-  assert.equal(faseDoCampeonato(2_000, JANELA), 'depois')
-  assert.equal(faseDoCampeonato(9_000_000, JANELA), 'depois')
-  assert.equal(dentroDaJanela(1_000, JANELA), true)
-  assert.equal(dentroDaJanela(2_000, JANELA), false)
-  assert.equal(dentroDaJanela(999, JANELA), false)
+test('abertura: 10 carteiras diferentes; a fase do modelo vem do que esta gravado; Cyber e Moto2 nunca tem abertura', () => {
+  assert.equal(NECESSARIOS_ABERTURA, 10)
+  assert.equal(faseDoModelo({ modeloComPremio: true, aberturaFechada: false }), 'abertura')
+  assert.equal(faseDoModelo({ modeloComPremio: true, aberturaFechada: true }), 'aberto')
+  assert.equal(faseDoModelo({ modeloComPremio: modeloTemPremio('cyber'), aberturaFechada: false }), 'aberto')
+  assert.equal(faseDoModelo({ modeloComPremio: modeloTemPremio('moto2'), aberturaFechada: false }), 'aberto')
 })
 
-test('premio: dentro da janela NADA e premiado na hora, nem recorde', () => {
-  for (const fase of ['sem_campeonato', 'antes', 'durante'] as const) {
-    assert.equal(decidirPremioNaHora({ modeloComPremio: true, fase, recorde: true, jaTemPremio: false }), 'none', fase)
+test('abertura: carteiras DIFERENTES contam uma vez, por mais voltas que tenham', () => {
+  const nove = Array.from({ length: 9 }, (_, i) => volta(`v${i}`, `W${i}`, 700_000 + i, 1_000 + i))
+  assert.equal(carteirasDistintas(nove), 9)
+  // a mesma carteira volta 3 vezes: 12 voltas, 9 carteiras
+  const repetidas = [...nove, volta('r1', 'W0', 690_000, 2_000), volta('r2', 'W0', 680_000, 2_100), volta('r3', 'W3', 695_000, 2_200)]
+  assert.equal(repetidas.length, 12)
+  assert.equal(carteirasDistintas(repetidas), 9)
+  assert.equal(carteirasDistintas([]), 0)
+})
+
+test('abertura: a melhor volta e a de menor tempo; EMPATE fica com a mais antiga; sem volta, ninguem', () => {
+  const voltas = [volta('a', 'A', 700_000, 300), volta('b', 'B', 690_000, 500), volta('c', 'C', 690_000, 400), volta('d', 'D', 710_000, 100)]
+  assert.equal(melhorVolta(voltas)!.id, 'c')
+  assert.equal(melhorVolta([volta('x', 'X', 5, 9), volta('y', 'Y', 5, 9)])!.id, 'x') // o id desempata, so' para ser total
+  assert.equal(melhorVolta([]), null)
+})
+
+test('premio: 9 carteiras = abertura em andamento, NADA premiado na hora, nem o recorde', () => {
+  const v = volta('v9', 'W9', 650_000, 9_000)
+  const r = decidirPremio({ modeloComPremio: true, aberturaFechada: false, carteiras: 9, volta: v, recorde: true, melhorDoModelo: v, jaTemPremio: NINGUEM })
+  assert.deepEqual(r, { fase: 'abertura', fechouAbertura: false, premio: null })
+})
+
+test('premio: a 10a carteira fecha a abertura e a MELHOR volta do modelo leva o carro (aqui, a dela mesma)', () => {
+  const v = volta('v10', 'W10', 640_000, 10_000)
+  const r = decidirPremio({ modeloComPremio: true, aberturaFechada: false, carteiras: 10, volta: v, recorde: true, melhorDoModelo: v, jaTemPremio: NINGUEM })
+  assert.deepEqual(r, { fase: 'aberto', fechouAbertura: true, premio: { fase: 'abertura', wallet: 'W10', lapId: 'v10', lapMs: 640_000 } })
+})
+
+test('premio: a 10a carteira fecha e a melhor volta e de OUTRA carteira: ela leva o carro, a que fechou nao', () => {
+  const doquinto = volta('v5', 'W5', 600_000, 5_000)
+  const v10 = volta('v10', 'W10', 700_000, 10_000)
+  const r = decidirPremio({ modeloComPremio: true, aberturaFechada: false, carteiras: 10, volta: v10, recorde: false, melhorDoModelo: doquinto, jaTemPremio: NINGUEM })
+  assert.equal(r.fechouAbertura, true)
+  assert.deepEqual(r.premio, { fase: 'abertura', wallet: 'W5', lapId: 'v5', lapMs: 600_000 })
+})
+
+test('premio: na abertura a melhor volta pode ser uma volta REPETIDA de uma das carteiras (a segunda volta dela)', () => {
+  const voltas = [
+    ...Array.from({ length: 10 }, (_, i) => volta(`p${i}`, `W${i}`, 700_000 + i * 1_000, 1_000 + i)),
+    volta('seg', 'W2', 610_000, 2_000), // a 2a volta da W2, que e' a melhor de todas
+  ]
+  const melhor = melhorVolta(voltas)!
+  assert.equal(melhor.id, 'seg')
+  const r = decidirPremio({ modeloComPremio: true, aberturaFechada: false, carteiras: carteirasDistintas(voltas), volta: voltas[9]!, recorde: false, melhorDoModelo: melhor, jaTemPremio: NINGUEM })
+  assert.deepEqual(r.premio, { fase: 'abertura', wallet: 'W2', lapId: 'seg', lapMs: 610_000 })
+})
+
+test('premio: na abertura, empate entre carteiras fica com a volta mais antiga', () => {
+  const a = volta('a', 'A', 650_000, 100)
+  const b = volta('b', 'B', 650_000, 200)
+  const melhor = melhorVolta([b, a])!
+  const r = decidirPremio({ modeloComPremio: true, aberturaFechada: false, carteiras: 10, volta: b, recorde: false, melhorDoModelo: melhor, jaTemPremio: NINGUEM })
+  assert.equal(r.premio!.wallet, 'A')
+})
+
+test('premio: abertura fechando e a melhor volta e de quem ja tem o modelo: nenhum carro (o proximo recorde leva)', () => {
+  const v5 = volta('v5', 'W5', 600_000, 5_000)
+  const v10 = volta('v10', 'W10', 700_000, 10_000)
+  const r = decidirPremio({ modeloComPremio: true, aberturaFechada: false, carteiras: 10, volta: v10, recorde: false, melhorDoModelo: v5, jaTemPremio: (w) => w === 'W5' })
+  assert.deepEqual(r, { fase: 'aberto', fechouAbertura: true, premio: null })
+})
+
+test('premio: depois da abertura, recorde NOVO leva o carro (desafio); quem nao e recorde nao', () => {
+  const v = volta('n1', 'N1', 590_000, 20_000)
+  assert.deepEqual(decidirPremio({ modeloComPremio: true, aberturaFechada: true, carteiras: 14, volta: v, recorde: true, melhorDoModelo: v, jaTemPremio: NINGUEM }), {
+    fase: 'aberto',
+    fechouAbertura: false,
+    premio: { fase: 'desafio', wallet: 'N1', lapId: 'n1', lapMs: 590_000 },
+  })
+  assert.equal(decidirPremio({ modeloComPremio: true, aberturaFechada: true, carteiras: 14, volta: v, recorde: false, melhorDoModelo: v, jaTemPremio: NINGUEM }).premio, null)
+})
+
+test('premio: quem ja tem o modelo bate o proprio recorde sem carro novo; o proximo que bate e nao tem, leva', () => {
+  const dono = volta('d1', 'DONO', 580_000, 30_000)
+  const jaTem = (w: string): boolean => w === 'DONO'
+  assert.equal(decidirPremio({ modeloComPremio: true, aberturaFechada: true, carteiras: 11, volta: dono, recorde: true, melhorDoModelo: dono, jaTemPremio: jaTem }).premio, null)
+  const proximo = volta('p1', 'OUTRO', 570_000, 40_000)
+  assert.deepEqual(decidirPremio({ modeloComPremio: true, aberturaFechada: true, carteiras: 12, volta: proximo, recorde: true, melhorDoModelo: proximo, jaTemPremio: jaTem }).premio, {
+    fase: 'desafio',
+    wallet: 'OUTRO',
+    lapId: 'p1',
+    lapMs: 570_000,
+  })
+  // um segundo quase igual (nao e recorde estrito): nada
+  assert.equal(decidirPremio({ modeloComPremio: true, aberturaFechada: true, carteiras: 12, volta: volta('q', 'Q', 570_000, 50_000), recorde: false, melhorDoModelo: proximo, jaTemPremio: jaTem }).premio, null)
+})
+
+test('premio: Cyber e Moto2 nunca premiam e nunca tem abertura, com 10 carteiras ou mil', () => {
+  const v = volta('c1', 'W1', 500_000, 1_000)
+  for (const id of ['cyber', 'moto2']) {
+    for (const carteiras of [1, 9, 10, 1_000]) {
+      for (const fechada of [false, true]) {
+        const r = decidirPremio({ modeloComPremio: modeloTemPremio(id), aberturaFechada: fechada, carteiras, volta: v, recorde: true, melhorDoModelo: v, jaTemPremio: NINGUEM })
+        assert.deepEqual(r, { fase: 'aberto', fechouAbertura: false, premio: null }, `${id} ${carteiras} ${fechada}`)
+      }
+    }
   }
 })
 
-test('premio: depois da janela, recorde novo do modelo gera o premio do desafio', () => {
-  assert.equal(decidirPremioNaHora({ modeloComPremio: true, fase: 'depois', recorde: true, jaTemPremio: false }), 'desafio')
-  assert.equal(decidirPremioNaHora({ modeloComPremio: true, fase: 'depois', recorde: false, jaTemPremio: false }), 'none')
+test('premio: modelos independentes (ganhar o c02 nao impede o c05): o limite e por carteira E modelo', () => {
+  const tem = new Set(['W1|c02'])
+  const v = volta('a', 'W1', 600_000, 1_000)
+  const para = (modelo: string) =>
+    decidirPremio({ modeloComPremio: modeloTemPremio(modelo), aberturaFechada: true, carteiras: 12, volta: v, recorde: true, melhorDoModelo: v, jaTemPremio: (w) => tem.has(`${w}|${modelo}`) })
+  assert.equal(para('c02').premio, null)
+  assert.equal(para('c05').premio!.fase, 'desafio')
 })
 
-test('premio: UM por carteira por modelo (quem ja tem bate o proprio recorde sem ganhar outro)', () => {
-  assert.equal(decidirPremioNaHora({ modeloComPremio: true, fase: 'depois', recorde: true, jaTemPremio: true }), 'none')
-})
-
-test('premio: Cyber e Moto2 rankeiam sem premio, em qualquer fase', () => {
-  for (const fase of ['sem_campeonato', 'antes', 'durante', 'depois'] as const) {
-    assert.equal(decidirPremioNaHora({ modeloComPremio: modeloTemPremio('cyber'), fase, recorde: true, jaTemPremio: false }), 'none')
-    assert.equal(decidirPremioNaHora({ modeloComPremio: modeloTemPremio('moto2'), fase, recorde: true, jaTemPremio: false }), 'none')
-  }
+test('premio: o numero de carteiras da abertura e parametro (o teste fecha com 3)', () => {
+  const v = volta('v3', 'W3', 600_000, 3_000)
+  assert.equal(decidirPremio({ modeloComPremio: true, aberturaFechada: false, carteiras: 3, necessarios: 3, volta: v, recorde: true, melhorDoModelo: v, jaTemPremio: NINGUEM }).fechouAbertura, true)
+  assert.equal(decidirPremio({ modeloComPremio: true, aberturaFechada: false, carteiras: 2, necessarios: 3, volta: v, recorde: true, melhorDoModelo: v, jaTemPremio: NINGUEM }).fechouAbertura, false)
 })
 
 test('empate: vale a volta feita primeiro; recorde novo e' + "'" + ' ESTRITAMENTE mais rapido', () => {
@@ -250,34 +341,17 @@ test('empate: vale a volta feita primeiro; recorde novo e' + "'" + ' ESTRITAMENT
   assert.equal(recordeNovo({ lapMs: 700_000 }, 700_001), false)
 })
 
-test('fechamento: a melhor volta de CADA modelo dentro da janela; empate fica com a mais antiga', () => {
-  const v = (id: string, wallet: string, model: string, lapMs: number, finishedAtMs: number): VoltaDaJanela => ({ id, wallet, model, lapMs, finishedAtMs })
-  const voltas = [
-    v('1', 'A', 'c02', 700_000, 1_500),
-    v('2', 'B', 'c02', 690_000, 1_600),
-    v('3', 'C', 'c02', 690_000, 1_550), // empata com B e e' mais antiga: ganha
-    v('4', 'D', 'c02', 650_000, 999), // antes da janela: nao conta
-    v('5', 'E', 'c02', 640_000, 2_000), // no instante do fim: fora ([inicio, fim))
-    v('6', 'F', 'c05', 800_000, 1_100),
-    v('7', 'G', 'cyber', 600_000, 1_200), // sem premio: nao entra
-    v('8', 'H', 'c52', 900_000, 1_999),
-  ]
-  const r = vencedoresDoFechamento(voltas, JANELA, IDS_MODELOS_COM_PREMIO)
-  const porModelo = Object.fromEntries(r.map((x) => [x.model, x.volta.wallet]))
-  assert.deepEqual(porModelo, { c02: 'C', c05: 'F', c52: 'H' })
-  assert.ok(r.every((x) => x.premiar))
-  assert.equal(r.find((x) => x.model === 'c10'), undefined) // sem volta na janela: sem vencedor
-})
-
-test('fechamento: quem ja tem o carro do modelo nao ganha outro e o segundo NAO herda', () => {
-  const voltas: VoltaDaJanela[] = [
-    { id: '1', wallet: 'A', model: 'c02', lapMs: 690_000, finishedAtMs: 1_500 },
-    { id: '2', wallet: 'B', model: 'c02', lapMs: 700_000, finishedAtMs: 1_600 },
-  ]
-  const r = vencedoresDoFechamento(voltas, JANELA, ['c02'], (w, m) => w === 'A' && m === 'c02')
-  assert.equal(r.length, 1)
-  assert.equal(r[0]!.volta.wallet, 'A')
-  assert.equal(r[0]!.premiar, false)
+test('a migration 041 casa com o codigo: fase abertura no check, a funcao com trava por pista e modelo, so service_role', () => {
+  const sql = readFileSync('supabase/migrations/041_dogcity_corrida_regra_v2.sql', 'utf8')
+  assert.ok(sql.includes("phase in ('campeonato', 'desafio', 'abertura')"))
+  assert.ok(sql.includes('create or replace function public.race_finish_lap('))
+  assert.ok(sql.includes('pg_advisory_xact_lock'))
+  assert.ok(sql.includes('p_needed integer default 10'))
+  assert.ok(sql.includes('grant execute on function public.race_finish_lap(uuid, boolean, integer) to service_role'))
+  assert.ok(sql.includes('revoke all on function public.race_finish_lap(uuid, boolean, integer) from public, anon, authenticated'))
+  assert.ok(!/DROP\s+TABLE/i.test(sql))
+  // sem travessao (U+2013, U+2014) na migration
+  assert.ok(!/[\u2013\u2014]/.test(sql))
 })
 
 test('REGRAS: prazo de 30 min e margem de 5% (o cliente usa os mesmos)', () => {
