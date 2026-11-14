@@ -350,8 +350,8 @@ test('a migration 041 casa com o codigo: fase abertura no check, a funcao com tr
   assert.ok(sql.includes('grant execute on function public.race_finish_lap(uuid, boolean, integer) to service_role'))
   assert.ok(sql.includes('revoke all on function public.race_finish_lap(uuid, boolean, integer) from public, anon, authenticated'))
   assert.ok(!/DROP\s+TABLE/i.test(sql))
-  // o texto da migration e o dos docs nao usam travessao
-  assert.ok(!/[–—]/.test(sql.replace(/^--.*$/gm, '')))
+  // sem travessao (U+2013, U+2014) na migration
+  assert.ok(!/[\u2013\u2014]/.test(sql))
 })
 
 test('REGRAS: prazo de 30 min e margem de 5% (o cliente usa os mesmos)', () => {
