@@ -31,9 +31,9 @@ const CYBER = vmaxMs('cyber')
 
 // ---- os modelos ----
 
-test('os modelos: Cyber 210, Moto2 350 e os 18 carros da DOG MOTORS; so os 18 dao premio', () => {
-  assert.equal(IDS_MODELOS.length, 20)
-  assert.equal(IDS_MODELOS_COM_PREMIO.length, 18)
+test('os modelos: Cyber 210, Moto2 350 e os 16 carros da DOG MOTORS; so os 16 dao premio', () => {
+  assert.equal(IDS_MODELOS.length, 18)
+  assert.equal(IDS_MODELOS_COM_PREMIO.length, 16)
   assert.equal(MODELOS_CORRIDA.cyber!.vmaxKmh, 210)
   assert.equal(MODELOS_CORRIDA.moto2!.vmaxKmh, 350)
   assert.equal(modeloTemPremio('cyber'), false)
@@ -41,13 +41,19 @@ test('os modelos: Cyber 210, Moto2 350 e os 18 carros da DOG MOTORS; so os 18 da
   assert.equal(modeloTemPremio('c02'), true)
   assert.equal(modeloTemPremio('nada'), false)
   assert.ok(!IDS_MODELOS_COM_PREMIO.includes('cyber') && !IDS_MODELOS_COM_PREMIO.includes('moto2'))
-  // as velocidades do jogo (tipos_carro.ts, vMaxDoTipo) dos 18
+  // as velocidades do jogo (tipos_carro.ts, vMaxDoTipo) dos 16
   const esperado: Record<string, number> = {
     c02: 350, c05: 350, c15: 300, c39: 280, c40: 270, c41: 285, c10: 250, c25: 230, c26: 225,
-    c28: 228, c62: 205, c30: 205, c32: 225, c61: 210, c42: 160, c43: 175, c52: 140, c56: 150,
+    c28: 228, c62: 205, c30: 205, c32: 225, c61: 210, c42: 160, c43: 175,
   }
   for (const [id, kmh] of Object.entries(esperado)) assert.equal(MODELOS_CORRIDA[id]!.vmaxKmh, kmh, id)
-  assert.equal(Object.keys(esperado).length, 18)
+  assert.equal(Object.keys(esperado).length, 16)
+  // os dois Fuscas sairam da frota (fundador, 15/11/2026): nao sao modelo de corrida, nem com premio
+  for (const id of ['c52', 'c56']) {
+    assert.equal(ehModeloCorrida(id), false, id)
+    assert.equal(modeloTemPremio(id), false, id)
+    assert.ok(!IDS_MODELOS.includes(id), id)
+  }
 })
 
 test('todo modelo da tabela cabe no check da migration 038 (^[a-z][a-z0-9]{1,15}$)', () => {
@@ -123,10 +129,10 @@ test('carimbos: o tempo oficial e' + "'" + ' o ultimo carimbo menos o da largada
   if (r.ok) assert.equal(r.lapMs, c[60]!.t - c[0]!.t)
 })
 
-test('um carro mais lento tem o piso mais alto: o tempo da Moto2 nao vale para um c52', () => {
+test('um carro mais lento tem o piso mais alto: o tempo da Moto2 nao vale para um c42', () => {
   const moto = noPiso(vmaxMs('moto2'))
   assert.equal(validarCarimbos(G, moto, vmaxMs('moto2')).ok, true)
-  assert.deepEqual(validarCarimbos(G, moto, vmaxMs('c52')), { ok: false, motivo: 'velocidade' })
+  assert.deepEqual(validarCarimbos(G, moto, vmaxMs('c42')), { ok: false, motivo: 'velocidade' })
 })
 
 // ---- a chegada de um portao ----

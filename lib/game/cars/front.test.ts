@@ -25,13 +25,13 @@ const btcOrder = (over: Record<string, unknown> = {}) => ({
   ...over,
 })
 const dogOrder = (over: Record<string, unknown> = {}) => ({
-  id: '7a1c2e3f-4b5d-4c6e-8f70-91a2b3c4d5e6', model: 'c52', name: 'DOG Bug', currency: 'dog', priceDog: 20_000,
+  id: '7a1c2e3f-4b5d-4c6e-8f70-91a2b3c4d5e6', model: 'c42', name: 'DOG Field 41', currency: 'dog', priceDog: 20_000,
   payTo: CAR_DOG, payerAddress: WALLET, expiresAt: iso(T0 + 60 * 60_000), serverTime: iso(T0),
   dogExact: '20000.04217', dogExactAtoms: 2_000_004_217,
   ...over,
 })
 const expBtc = { model: 'c41', currency: 'btc' as const, payerAddress: PAYER, priceDog: 120_000 }
-const expDog = { model: 'c52', currency: 'dog' as const, payerAddress: WALLET, priceDog: 20_000 }
+const expDog = { model: 'c42', currency: 'dog' as const, payerAddress: WALLET, priceDog: 20_000 }
 
 test('o pedido certo passa, em BTC e em $DOG', () => {
   const b = parseCarOrder(btcOrder(), expBtc)

@@ -10,7 +10,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { CAR_MODELS, CAR_MODEL_IDS, DOG_PER_DC_POINT, MAX_CAR_PRICE_DC, catalogIsSane } from '@/lib/game/cars/catalog'
+import { CAR_MODELS, CAR_MODEL_IDS, DOG_PER_DC_POINT, MAX_CAR_PRICE_DC, RETIRED_CAR_MODEL_IDS, catalogIsSane } from '@/lib/game/cars/catalog'
 import { computeCheckin } from '@/lib/game/checkin'
 import { ECONOMIA } from './ajustes_economia'
 import {
@@ -126,19 +126,19 @@ test('ataque: gastar acima do saldo responde 402 e não mexe em nada', async () 
 test('ataque: comprar carro sem saldo responde 402 com quanto falta, sem carro', async () => {
   const s = store()
   await earnPoints(s, W, { source: 'venda', amount: 300, ref: ref() })
-  const r = await buyCarWithPoints(s, W, { model: 'c52', ref: ref() })
+  const r = await buyCarWithPoints(s, W, { model: 'c42', ref: ref() })
   assert.equal(r.status, 402)
-  assert.deepEqual(r.body, { error: 'insufficient_points', balance: 300, priceDc: 500, missing: 200 })
+  assert.deepEqual(r.body, { error: 'insufficient_points', balance: 300, priceDc: 1250, missing: 950 })
   assert.equal(s.owned.size, 0)
   assert.equal(s.balances.get(W), 300)
 })
 
 test('ataque: um saldo de outra carteira não paga a minha compra (a carteira é a da sessão)', async () => {
   const s = store([W, W2])
-  await fund(s, W2, 600)
-  const r = await buyCarWithPoints(s, W, { model: 'c52', ref: ref(), wallet: W2, address: W2 })
+  await fund(s, W2, 1500)
+  const r = await buyCarWithPoints(s, W, { model: 'c42', ref: ref(), wallet: W2, address: W2 })
   assert.equal(r.status, 402)
-  assert.equal(s.balances.get(W2), 600)
+  assert.equal(s.balances.get(W2), 1500)
 })
 
 // ── referência repetida ───────────────────────────────────────────────────────────────────────────────────────
@@ -168,16 +168,16 @@ test('ataque: a mesma referência para OUTRA operação é 409 ref_conflict', as
 
 test('ataque: compra repetida com a mesma referência debita uma vez e devolve duplicate', async () => {
   const s = store()
-  await fund(s, W, 1000)
-  const body = { model: 'c52', ref: 'buy-ref-0001' }
+  await fund(s, W, 2000)
+  const body = { model: 'c42', ref: 'buy-ref-0001' }
   const a = await buyCarWithPoints(s, W, body)
   const b = await buyCarWithPoints(s, W, body)
   assert.equal(a.status, 200)
   assert.equal(b.status, 200)
   assert.equal(b.body.duplicate, true)
-  assert.equal(s.balances.get(W), 500)
+  assert.equal(s.balances.get(W), 750)
   // outra referência para o mesmo modelo: já tem
-  const c = await buyCarWithPoints(s, W, { model: 'c52', ref: ref() })
+  const c = await buyCarWithPoints(s, W, { model: 'c42', ref: ref() })
   assert.equal(c.status, 409)
   assert.equal(c.body.error, 'already_owned')
 })
@@ -217,31 +217,31 @@ test('ataque: tutorial e Verified pagam UMA vez por carteira, qualquer que seja 
 // ── corrida de duas compras simultâneas do mesmo modelo ───────────────────────────────────────────────────────
 test('ataque: duas compras simultâneas do mesmo modelo dão UM carro e UM débito', async () => {
   const s = store()
-  await fund(s, W, 1500)
-  const rs = await Promise.all(Array.from({ length: 8 }, () => buyCarWithPoints(s, W, { model: 'c52', ref: ref() })))
+  await fund(s, W, 3000)
+  const rs = await Promise.all(Array.from({ length: 8 }, () => buyCarWithPoints(s, W, { model: 'c42', ref: ref() })))
   const ok = rs.filter((r) => r.status === 200)
   assert.equal(ok.length, 1)
   assert.equal(rs.filter((r) => r.status === 409 && r.body.error === 'already_owned').length, 7)
-  assert.equal(s.balances.get(W), 1000)
-  assert.equal([...s.owned.keys()].filter((k) => k === `${W}|c52`).length, 1)
+  assert.equal(s.balances.get(W), 1750)
+  assert.equal([...s.owned.keys()].filter((k) => k === `${W}|c42`).length, 1)
 })
 
 test('ataque: duas compras simultâneas de modelos diferentes não gastam o mesmo saldo duas vezes', async () => {
   const s = store()
-  await fund(s, W, 600)
+  await fund(s, W, 1500)
   const [a, b] = await Promise.all([
-    buyCarWithPoints(s, W, { model: 'c52', ref: ref() }),
-    buyCarWithPoints(s, W, { model: 'c56', ref: ref() }),
+    buyCarWithPoints(s, W, { model: 'c42', ref: ref() }),
+    buyCarWithPoints(s, W, { model: 'c43', ref: ref() }),
   ])
   assert.deepEqual([a.status, b.status].sort(), [200, 402])
-  assert.equal(s.balances.get(W), 100)
+  assert.equal(s.balances.get(W), 250)
 })
 
 test('controle: sem a trava, o banco de mentira deixa a corrida passar (o teste acima mede de verdade)', async () => {
   const s = store()
-  await fund(s, W, 1500)
+  await fund(s, W, 3000)
   s.locking = false
-  const rs = await Promise.all([1, 2].map(() => buyCarWithPoints(s, W, { model: 'c52', ref: ref() })))
+  const rs = await Promise.all([1, 2].map(() => buyCarWithPoints(s, W, { model: 'c42', ref: ref() })))
   assert.equal(rs.filter((r) => r.status === 200).length, 2)
 })
 
@@ -330,7 +330,8 @@ test('ataque: fonte desconhecida, check-in pela rota earn, protótipo e corpo to
     assert.equal(r.body.error, 'invalid_ref')
   }
   assert.equal((await earnPoints(s, W, { source: 'pesca', amount: 10, ref: ref(), allOrNothing: 'yes' })).status, 400)
-  for (const model of ['__proto__', 'C52', 'c99', 'cyber', '', 52, null]) {
+  // os dois Fuscas saíram da frota (fundador, 15/11/2026): modelo inexistente
+  for (const model of ['c52', 'c56', '__proto__', 'C42', 'c99', 'cyber', '', 42, null]) {
     const r = await buyCarWithPoints(s, W, { model, ref: ref() })
     assert.equal(r.status, 400, `model ${String(model)}`)
     assert.equal(r.body.error, 'invalid_model')
@@ -369,12 +370,12 @@ test('ataque: preço mandado pelo cliente na compra do carro é ignorado; o banc
   assert.equal(r.body.priceDc, 12_500)
   assert.equal(s.balances.get(W), 500)
   // o banco com outro preço (alguém mexeu numa ponta só): 503, nada debitado
-  s.models.set('c56', { priceDc: 1, active: true })
-  const m = await buyCarWithPoints(s, W, { model: 'c56', ref: ref() })
+  s.models.set('c43', { priceDc: 1, active: true })
+  const m = await buyCarWithPoints(s, W, { model: 'c43', ref: ref() })
   assert.equal(m.status, 503)
   assert.equal(m.body.error, 'catalog_mismatch')
-  s.models.set('c52', { priceDc: 500, active: false })
-  assert.equal((await buyCarWithPoints(s, W, { model: 'c52', ref: ref() })).body.error, 'model_not_for_sale')
+  s.models.set('c42', { priceDc: 1250, active: false })
+  assert.equal((await buyCarWithPoints(s, W, { model: 'c42', ref: ref() })).body.error, 'model_not_for_sale')
   assert.equal(s.balances.get(W), 500)
 })
 
@@ -448,15 +449,21 @@ const SQL = readFileSync(join(process.cwd(), 'supabase/migrations/042_dc_points.
 test('preço em DC Points = preço em $DOG / 20 (fundador, 15/11), a tabela da decisão, e o seed da 042 igual', () => {
   assert.equal(catalogIsSane(), true)
   assert.equal(DOG_PER_DC_POINT, 20)
+  // a frota de 16 (os dois Fuscas, c52 e c56, saíram em 15/11): o mais barato é o off-road, 1.250
   const FUNDADOR: Record<string, number> = {
-    c52: 500, c56: 500, c42: 1250, c43: 1250, c62: 1500, c30: 1750, c32: 1750, c61: 1750, c25: 2000, c26: 2000, c28: 2000,
+    c42: 1250, c43: 1250, c62: 1500, c30: 1750, c32: 1750, c61: 1750, c25: 2000, c26: 2000, c28: 2000,
     c39: 3000, c40: 3000, c41: 3000, c15: 3750, c10: 5000, c02: 12500, c05: 12500,
   }
-  assert.equal(CAR_MODEL_IDS.length, 18)
+  assert.equal(CAR_MODEL_IDS.length, 16)
+  assert.deepEqual([...RETIRED_CAR_MODEL_IDS], ['c52', 'c56'])
+  for (const id of RETIRED_CAR_MODEL_IDS) assert.ok(!CAR_MODEL_IDS.includes(id), id)
   const seed = new Map<string, number>()
   const block = SQL.slice(SQL.indexOf('update public.car_models m set price_dc'), SQL.indexOf(') as v (id, p)'))
   for (const m of block.matchAll(/\('(c[0-9]{2})', ([0-9]+)\)/g)) seed.set(m[1], Number(m[2]))
-  assert.equal(seed.size, 18)
+  assert.equal(seed.size, 16)
+  // no banco os dois Fuscas ficam inativos e sem preço em DC (nada se apaga)
+  assert.ok(SQL.includes("update public.car_models set active = false, price_dc = null, updated_at = now()\n where id in ('c52', 'c56')"))
+  assert.ok(!/delete from public\.car_models/i.test(SQL))
   for (const id of CAR_MODEL_IDS) {
     const c = CAR_MODELS[id]
     assert.equal(c.priceDc, c.priceDog / 20, id)
@@ -516,13 +523,15 @@ test('a vitrine em DC Points: preço do código, à venda só quando o banco con
   const rows = CAR_MODEL_IDS.map((id) => ({ id, priceDc: CAR_MODELS[id].priceDc, active: true }))
   rows[0] = { ...rows[0], priceDc: 1 }
   rows[1] = { ...rows[1], active: false }
-  const v = carDcShowroom(rows.slice(0, 17)) as { currency: string; models: { id: string; priceDc: number; available: boolean }[] }
+  // uma linha de Fusca ativa no banco (alguém religou à mão) não volta à vitrine: o código não o conhece
+  const v = carDcShowroom([...rows.slice(0, 15), { id: 'c52', priceDc: 500, active: true }]) as { currency: string; models: { id: string; priceDc: number; available: boolean }[] }
   assert.equal(v.currency, 'dc_points')
-  assert.equal(v.models.length, 18)
+  assert.equal(v.models.length, 16)
   const by = new Map(v.models.map((m) => [m.id, m]))
+  assert.ok(!by.has('c52') && !by.has('c56'))
   assert.equal(by.get(rows[0].id)!.available, false)
   assert.equal(by.get(rows[1].id)!.available, false)
-  assert.equal(by.get(CAR_MODEL_IDS[17])!.available, false) // sem linha no banco
+  assert.equal(by.get(CAR_MODEL_IDS[15])!.available, false) // sem linha no banco
   assert.equal(by.get(CAR_MODEL_IDS[2])!.available, true)
   assert.equal(by.get('c02')!.priceDc, 12_500)
 })

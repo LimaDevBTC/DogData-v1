@@ -1,11 +1,15 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // DOG MOTORS: o catálogo dos carros à venda no DOG CITY e o preço de cada um em $DOG.
 //
-// Os 18 modelos são os da concessionária do jogo (dogcity-mundo, src/jogador/tipos_carro.ts, os mesmos ids
+// Os 16 modelos são os da concessionária do jogo (dogcity-mundo, src/jogador/tipos_carro.ts, os mesmos ids
 // que a corrida usa em lib/game/race/models.ts do PR #61). Nome de marca não se traduz.
 //
+// 15/11/2026, decisão do fundador: os dois FUSCAS (c52 DOG Bug e c56 DOG Bug Classic) saíram da frota, da venda e da
+// corrida. Não estão mais aqui (isCarModel recusa); no banco as linhas ficam, INATIVAS e sem price_dc (migração 042).
+// A frota passa a 16 carros e o mais barato vira o c42/c43 (25.000 $DOG, 1.250 DC Points).
+//
 // PREÇOS DEFINIDOS PELO FUNDADOR em 13/11/2026: a tabela provisória dividida por dois, com o topo (os dois
-// supercarros) em 250.000 $DOG, metade da licença Patron, e o mais barato (os Fuscas) em 10.000 $DOG. Mudar preço =
+// supercarros) em 250.000 $DOG, metade da licença Patron (os Fuscas, a 10.000 $DOG, saíram em 15/11). Mudar preço =
 // mudar aqui E em `car_models` (migração 039 ou um update no banco) com os MESMOS números. O preço só vale quando o código e o banco concordam
 // (lib/game/cars/order.ts): um lugar sozinho, mexido por engano, não muda o que se cobra.
 //
@@ -65,9 +69,10 @@ const LIST: ReadonlyArray<CarModel> = [
   car('c61', 'DOG Stallion 65 Convertible', 'muscle', 35_000, 1_750),
   car('c42', 'DOG Field 41', 'offroad', 25_000, 1_250),
   car('c43', 'DOG Outpost 110', 'offroad', 25_000, 1_250),
-  car('c52', 'DOG Bug', 'popular', 10_000, 500),
-  car('c56', 'DOG Bug Classic', 'popular', 10_000, 500),
 ]
+
+/** os modelos que SAÍRAM da frota (fundador, 15/11/2026): inativos no banco, recusados em toda rota */
+export const RETIRED_CAR_MODEL_IDS: ReadonlyArray<string> = Object.freeze(['c52', 'c56'])
 
 export const CAR_MODELS: Readonly<Record<string, CarModel>> = Object.freeze(Object.fromEntries(LIST.map((m) => [m.id, m])))
 export const CAR_MODEL_IDS: ReadonlyArray<string> = Object.freeze(LIST.map((m) => m.id))

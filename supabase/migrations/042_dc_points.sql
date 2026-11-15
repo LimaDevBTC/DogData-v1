@@ -30,7 +30,9 @@
 --
 -- O DIA DO JOGO é do relógio do BANCO (dc_points_today), nunca de quem chama.
 --
--- CARROS: car_models ganha price_dc (seed = preço em $DOG / 20, conferido contra lib/game/cars/catalog.ts por teste);
+-- CARROS: car_models ganha price_dc (seed = preço em $DOG / 20, conferido contra lib/game/cars/catalog.ts por teste); os
+-- dois FUSCAS (c52 DOG Bug, c56 DOG Bug Classic) saíram da frota em 15/11/2026 (fundador): as linhas ficam, INATIVAS e sem
+-- price_dc, e a compra os recusa ('not_for_sale'). A frota da DOG MOTORS passa a 16 carros;
 -- car_ownership aceita a origem 'dc' (ref 'dc:<id do livro>'), escrita SÓ por dc_points_buy_car (a bandeira da 039). Um de
 -- cada modelo por carteira continua: unique (wallet, model) da 039 e dogcity_car_owned (compra em cripto, compra em DC e
 -- prêmio da corrida contam).
@@ -357,6 +359,7 @@ $$;
 
 -- Preço em DC Points = preço em $DOG / 20 (fundador, 15/11/2026), igual a lib/game/cars/catalog.ts (priceDc). Só preenche
 -- o que está vazio: rodar de novo não desfaz um preço mudado à mão. Mudar preço = mudar aqui (ou um update) E no código.
+-- Os 16 da frota; os dois Fuscas ficam sem preço em DC (saíram da frota, logo abaixo).
 update public.car_models m set price_dc = v.p, updated_at = now()
   from (values
     ('c02', 12500),
@@ -374,11 +377,14 @@ update public.car_models m set price_dc = v.p, updated_at = now()
     ('c32', 1750),
     ('c61', 1750),
     ('c42', 1250),
-    ('c43', 1250),
-    ('c52', 500),
-    ('c56', 500)
+    ('c43', 1250)
   ) as v (id, p)
  where m.id = v.id and m.price_dc is null;
+
+-- Os dois FUSCAS saem da frota (fundador, 15/11/2026): nada se apaga (car_orders e a história citam car_models); a linha
+-- fica inativa e sem preço em DC. Nenhuma rota os vende (o código também não os conhece mais) e a corrida não os larga.
+update public.car_models set active = false, price_dc = null, updated_at = now()
+ where id in ('c52', 'c56') and (active or price_dc is not null);
 
 -- ── carros: a origem 'dc' na posse ─────────────────────────────────────────────────────────────────────────────
 -- Os checks da 039 que falam de source ou ref (nomes automáticos) saem e entram os novos, nomeados. Toda linha que já
