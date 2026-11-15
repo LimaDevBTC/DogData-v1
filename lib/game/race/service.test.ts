@@ -574,10 +574,10 @@ test('modelos independentes: ganhar o c02 nao impede o c05, cada um com a sua ab
   assert.equal(store.recordes.get('an7-v1|c02')!.wallet, carteira(1))
   assert.equal(store.recordes.get('an7-v1|c05')!.wallet, carteira(1))
   assert.equal(store.aberturas.size, 2)
-  // e as carteiras do c02 nao contam no c05: o c52 comeca do zero
-  const c52 = await correr(d, carteira(1), 'c52', quando(200), 130)
-  assert.deepEqual(corpo(c52.fim).opening, { drivers: 1, needed: 10 })
-  assert.equal(corpo(c52.fim).phase, 'opening')
+  // e as carteiras do c02 nao contam no c05: o c43 comeca do zero
+  const c43 = await correr(d, carteira(1), 'c43', quando(200), 130)
+  assert.deepEqual(corpo(c43.fim).opening, { drivers: 1, needed: 10 })
+  assert.equal(corpo(c43.fim).phase, 'opening')
 })
 
 test('premio: a volta anulada nunca premia nem conta carteira para a abertura', async () => {
@@ -644,12 +644,22 @@ test('leaderboard: opening por modelo (carteiras, 10 necessarias, open = ainda e
   assert.ok(Array.isArray(rk.entries))
 })
 
-test('os 18 modelos com premio e os 2 sem estao na tabela: todo modelo da tabela larga', async () => {
+test('os 16 modelos com premio e os 2 sem estao na tabela: todo modelo da tabela larga', async () => {
   const { d } = novo()
   let k = 0
   for (const id of Object.keys(MODELOS_CORRIDA)) {
     const r = await iniciar(d, `bc1p${String(++k).padStart(58, 'z')}`, { model: id, track: 'an7-v1' }, HOJE)
     assert.equal(r.status, 200, id)
   }
-  assert.equal(k, 20)
+  assert.equal(k, 18)
+})
+
+test('os dois Fuscas sairam da frota (fundador, 15/11/2026): largar com c52 ou c56 e modelo inexistente', async () => {
+  const { d, store } = novo()
+  for (const id of ['c52', 'c56']) {
+    const r = await iniciar(d, `bc1p${'y'.repeat(58)}`, { model: id, track: 'an7-v1' }, HOJE)
+    assert.equal(r.status, 400, id)
+    assert.deepEqual(r.body, { error: 'invalid_model' })
+  }
+  assert.equal(store.voltas.size, 0)
 })

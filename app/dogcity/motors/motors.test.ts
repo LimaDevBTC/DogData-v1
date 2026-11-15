@@ -1,6 +1,6 @@
 // Run: npx tsx --test app/dogcity/motors/motors.test.ts
 //
-// A vitrine da DOG MOTORS: a ficha dos 18 bate com o catálogo da loja (nome, classe, ordem), os números do jogo ficam
+// A vitrine da DOG MOTORS: a ficha dos 16 bate com o catálogo da loja (nome, classe, ordem), os números do jogo ficam
 // dentro das faixas da classe, as fotos existem nas três larguras, os créditos cobrem todo carro, e a leitura da
 // vitrine e da garagem falha FECHADA (resposta torta = sem preço, sem botão, sem "Owned").
 import test from 'node:test'
@@ -9,13 +9,19 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { CAR_MODELS, CAR_MODEL_IDS } from '@/lib/game/cars/catalog'
 import { CAR_CREDITS, CLASS_COUNT, CLASS_LABEL, CLASS_ORDER, GAME_CLASS, PHOTO_WIDTHS, SHOWROOM, SPECS, photoSrcSet } from './cars'
-import { offerFor, parseGarage, parseShowroom, satsToBtc } from './quote'
+import { dcOfferFor, fmtPoints, offerFor, parseDcShowroom, parseGarage, parsePoints, parseShowroom, satsToBtc } from './quote'
 
 const ROOT = join(__dirname, '..', '..', '..')
 const ADDR = 'bc1pxk7aw9ug55jkkz02z7ayhlkxxq92ya0ctegcwm5j8jumgaavjlkqdylk2q'.replace(/q$/, 'p')
 
-test('os 18 da vitrine são os 18 do catálogo, com o mesmo nome e a mesma classe, na ordem das classes', () => {
-  assert.equal(SHOWROOM.length, 18)
+test('os 16 da vitrine são os 16 do catálogo, com o mesmo nome e a mesma classe, na ordem das classes', () => {
+  assert.equal(SHOWROOM.length, 16)
+  // os dois Fuscas saíram da frota (fundador, 15/11/2026): nem na vitrine, nem na ficha, nem nos créditos
+  for (const id of ['c52', 'c56']) {
+    assert.ok(!SHOWROOM.some((c) => c.id === id), id)
+    assert.ok(!(id in SPECS) && !(id in CAR_CREDITS), id)
+  }
+  assert.ok(!CLASS_ORDER.includes('popular'))
   assert.deepEqual([...SHOWROOM.map((c) => c.id)].sort(), [...CAR_MODEL_IDS].sort())
   for (const c of SHOWROOM) {
     assert.equal(c.name, CAR_MODELS[c.id].name)
@@ -25,8 +31,8 @@ test('os 18 da vitrine são os 18 do catálogo, com o mesmo nome e a mesma class
   // a ordem das classes e a numeração contínua 1..18
   const order = SHOWROOM.map((c) => CLASS_ORDER.indexOf(c.cls))
   assert.deepEqual(order, [...order].sort((a, b) => a - b))
-  assert.deepEqual(SHOWROOM.map((c) => c.n), Array.from({ length: 18 }, (_, i) => i + 1))
-  assert.equal(Object.values(CLASS_COUNT).reduce((a, b) => a + b, 0), 18)
+  assert.deepEqual(SHOWROOM.map((c) => c.n), Array.from({ length: 16 }, (_, i) => i + 1))
+  assert.equal(Object.values(CLASS_COUNT).reduce((a, b) => a + b, 0), 16)
   for (const cls of CLASS_ORDER) assert.ok(CLASS_COUNT[cls] >= 1, `classe ${cls} sem carro`)
 })
 
@@ -44,8 +50,8 @@ test('os números do jogo: dentro das faixas que o jogo prova (dinamica_carro.te
     assert.ok(Number.isInteger(s.massKg) && s.massKg >= 700 && s.massKg <= 3000)
     assert.ok(/^[A-Za-z0-9 -]{2,20}$/.test(s.engine))
   }
-  // o que se sente: o supercarro arranca antes do clássico, que arranca antes do popular
-  assert.ok(SPECS.c02.zeroTo100 < SPECS.c28.zeroTo100 && SPECS.c28.zeroTo100 < SPECS.c52.zeroTo100)
+  // o que se sente: o supercarro arranca antes do clássico, que arranca antes do off-road
+  assert.ok(SPECS.c02.zeroTo100 < SPECS.c28.zeroTo100 && SPECS.c28.zeroTo100 < SPECS.c42.zeroTo100)
 })
 
 test('as fotos existem nas três larguras e em AVIF e WebP, leves', () => {
@@ -147,4 +153,48 @@ test('sats em BTC sem ponto flutuante', () => {
   assert.equal(satsToBtc(50_000_000), '0.50000000')
   assert.equal(satsToBtc(-1), '')
   assert.equal(satsToBtc(1.5), '')
+})
+
+// ── a vitrine em DC Points (GET /api/dogcity/car-buy), desde 15/11/2026 ──
+const dcBody = () => ({
+  currency: 'dc_points',
+  models: CAR_MODEL_IDS.map((id) => ({ id, name: CAR_MODELS[id].name, class: CAR_MODELS[id].class, priceDc: CAR_MODELS[id].priceDc, available: true })),
+})
+
+test('vitrine em DC Points: só 200 com currency dc_points; modelo torto ou com outro preço fica sem preço', () => {
+  assert.equal(parseDcShowroom(503, { error: 'unavailable' }).kind, 'unavailable')
+  assert.equal(parseDcShowroom(200, { ...dcBody(), currency: 'dog' }).kind, 'unavailable')
+  assert.equal(parseDcShowroom(200, { currency: 'dc_points', models: 'x' }).kind, 'unavailable')
+  const b = dcBody()
+  ;(b.models[0] as any).priceDc = 1                 // preço que não é o do catálogo
+  ;(b.models[1] as any).priceDc = Number.NaN
+  ;(b.models[2] as any).available = false
+  ;(b.models[3] as any).name = 'Lamborghini'
+  b.models.push({ id: 'c52', name: 'DOG Bug', class: 'popular', priceDc: 500, available: true } as any) // Fusca: saiu da frota
+  const s = parseDcShowroom(200, b)
+  assert.equal(s.kind, 'open')
+  assert.equal(dcOfferFor(s, b.models[0].id).kind, 'unavailable')
+  assert.equal(dcOfferFor(s, b.models[1].id).kind, 'unavailable')
+  assert.equal(dcOfferFor(s, b.models[2].id).kind, 'not_for_sale')
+  assert.equal(dcOfferFor(s, b.models[3].id).kind, 'unavailable')
+  assert.deepEqual(dcOfferFor(s, b.models[4].id), { kind: 'for_sale', priceDc: CAR_MODELS[b.models[4].id].priceDc })
+  assert.deepEqual(dcOfferFor(s, 'c43'), { kind: 'for_sale', priceDc: 1_250 })
+  assert.equal(dcOfferFor(s, 'c52').kind, 'unavailable')
+  assert.equal(dcOfferFor({ kind: 'loading' }, 'c02').kind, 'loading')
+  assert.equal(fmtPoints(12_500), '12,500')
+})
+
+test('o saldo da sessão: só afirma com 200 e números inteiros da faixa', () => {
+  assert.deepEqual(parsePoints(200, { balance: 1250, canEarn: true }), { balance: 1250, canEarn: true })
+  assert.equal(parsePoints(401, { error: 'unauthenticated' }), null)
+  for (const balance of [-1, 1.5, NaN, '10', null, 1_000_001]) assert.equal(parsePoints(200, { balance, canEarn: true }), null, String(balance))
+  assert.equal(parsePoints(200, { balance: 1, canEarn: 'yes' }), null)
+})
+
+test('a vitrine não oferece mais pagar em $DOG/BTC: o cartão não abre a janela de pagamento em cripto', () => {
+  const src = readFileSync(join(__dirname, 'showroom.tsx'), 'utf8')
+  assert.ok(!src.includes('useDonate'))
+  assert.ok(!src.includes('/api/dogcity/car-quote'))
+  assert.ok(src.includes('/api/dogcity/car-buy'))
+  assert.ok(src.includes('Buy in DOG CITY'))
 })

@@ -39,6 +39,9 @@ import { Layout } from "@/components/layout"
 // ../dogcity-data.ts, com a data da medição e o comando que remede.
 import { ENTREGA } from "../dogcity-data"
 import { ATLAS_PLATES, ATLAS_SHEETS, ATLAS_PDF_MB } from "../atlas/atlas-data"
+// DOG MOTORS e DC Points (15/11/2026): os preços e os tetos vêm do código que o servidor usa, nunca digitados aqui
+import { CAR_MODELS, CAR_MODEL_IDS } from "@/lib/game/cars/catalog"
+import { ECONOMIA } from "@/lib/game/points/ajustes_economia"
 // proveniência on-chain: ids, tamanhos e diagrama vêm de UM módulo, o mesmo da landing
 import {
   PIECES, ProvenanceDiagram, REHEARSAL_DEED, REHEARSAL_DEED_BYTES, VERIFY_URL,
@@ -229,6 +232,8 @@ const TOC = [
   { id: "founders-program", n: "6", label: "The Founders Program" },
   { id: "the-mint", n: "7", label: "How the mint works" },
   { id: "after-the-deed", n: "8", label: "After the deed" },
+  { id: "dc-points", n: "", label: "DC Points" },
+  { id: "dog-motors", n: "", label: "DOG MOTORS" },
   { id: "an7-race", n: "", label: "The AN7 race" },
   { id: "not-yet", n: "9", label: "What this is not, yet" },
 ]
@@ -1642,6 +1647,95 @@ export default function DogCityDocsPage() {
               />
             </Section>
 
+            {/* ═══════════════ DC POINTS E A DOG MOTORS (15/11/2026) ═══════════════
+                Sem número, como a corrida: as seções 1 a 9 são citadas por número. Decisão do fundador de 15/11/2026
+                (assets_carros/projeto/CARROS_DC_POINTS.md): os carros custam DC Points, pontos do jogo; dinheiro de
+                verdade entra só pela licença e pelo mint. É o contrato público: o servidor (DogData, lib/game/points e a
+                migração 042) segue exatamente isto. Sem preço em dinheiro e sem promessa de valor: DC Points não se
+                compram, não se transferem e nunca viram $DOG. Os números (teto diário, preços) vêm do código. */}
+            <Section id="dc-points" n="" eyebrow="DOG CITY · GAME POINTS" title="DC Points: the points you earn by playing">
+              <P>
+                DC Points are the points of the game. You earn them by playing DOG CITY and you spend
+                them inside it: food, water and tools at the market, and cars at DOG MOTORS. They are
+                points, not money.
+              </P>
+
+              <Sub>What DC Points are not</Sub>
+              <BulletList
+                items={[
+                  { lead: "They cannot be bought.", text: "No payment of any kind turns into DC Points." },
+                  { lead: "They cannot be sent.", text: "DC Points stay with the wallet that earned them. There is no transfer between players." },
+                  { lead: "They never turn into $DOG.", text: "There is no exchange, no withdrawal and no swap. DC Points have no price outside the game." },
+                ]}
+              />
+
+              <Sub>Who earns them</Sub>
+              <P className="mt-3">
+                A verified wallet with a handle: connect a Bitcoin wallet in DOG CITY, sign one message
+                (no transaction, no fee) and register a handle. A guest can play everything, but does not
+                earn DC Points.
+              </P>
+
+              <Sub>How they are earned</Sub>
+              <Table
+                head={["Source", "What it pays"]}
+                rows={[
+                  ["Daily check-in", "10 DC Points a day, plus 50 on the 7th day of a streak."],
+                  ["First steps", "25 DC Points, once, when you finish the guided first steps."],
+                  ["Selling to the market", "What you hunt, catch or gather, at the price of the day."],
+                  ["More activities", "Farm shifts, wood, ore, horses and missions pay as they open in the game."],
+                ]}
+              />
+
+              <Sub>The daily cap</Sub>
+              <P className="mt-3">
+                A wallet earns at most {ECONOMIA.tetoDiarioRecebido} DC Points per game day, from all sources
+                together. The game day turns at 08:00 UTC. What does not fit in the day is not credited.
+                One DC Point is about one minute of casual play, so the cap is about eight hours.
+              </P>
+
+              <Sub>Where the balance lives</Sub>
+              <P className="mt-3">
+                The balance is kept by the server, not by your browser. Every credit and every purchase is
+                written to a ledger tied to your wallet, and the balance can never go below zero. Points earned
+                while the balance still lived in the browser were carried over once per wallet, up
+                to {ECONOMIA.tetoDiarioRecebido} DC Points for each game day since 29 October 2026.
+              </P>
+            </Section>
+
+            <Section id="dog-motors" n="" eyebrow="DOG MOTORS · BUYING A CAR" title="DOG MOTORS: cars cost DC Points">
+              <P>
+                DOG MOTORS, the dealership on the Orla Nobre, sells {CAR_MODEL_IDS.length} cars. Every car is
+                priced in DC Points and bought with DC Points only: cars are not sold for $DOG or BTC.
+              </P>
+              <Table
+                head={["Car", "Price in DC Points"]}
+                rows={CAR_MODEL_IDS.map((id) => [CAR_MODELS[id].name, CAR_MODELS[id].priceDc.toLocaleString("en-US")])}
+              />
+
+              <Sub>How to buy</Sub>
+              <NumberedList
+                items={[
+                  { lead: "Earn the points.", text: "Play DOG CITY with a verified wallet and a handle (see DC Points above)." },
+                  { lead: "Pick the car.", text: "At the DOG MOTORS counter in the game, or on dogcity.space/motors with the same wallet. The price is shown before you confirm." },
+                  { lead: "Confirm.", text: "The server checks the price, your balance and your garage, takes the DC Points and registers the car to your wallet in one step. If any check fails, nothing is taken." },
+                  { lead: "Drive it.", text: "The car waits in your garage in DOG CITY." },
+                ]}
+              />
+
+              <Sub>Rules</Sub>
+              <BulletList
+                items={[
+                  { lead: "One of each model per wallet.", text: `A wallet can hold each of the ${CAR_MODEL_IDS.length} models once. A car won in the AN7 race counts as that model.` },
+                  { lead: "The car stays with the wallet.", text: "There is no Ordinal: the car is a record tied to your wallet, and the game reads it. It cannot be moved to another wallet." },
+                  { lead: "The server sets the price.", text: "The price charged is the one DOG MOTORS shows. Nothing the game or the browser sends can change it." },
+                ]}
+              />
+              <P>
+                A car can also be won without spending points: see <a href="#an7-race" className="text-mist underline decoration-white/20 underline-offset-4 hover:text-snow">the AN7 race</a> below.
+              </P>
+            </Section>
+
             {/* ═══════════════ A CORRIDA DA AN7 (DOG MOTORS) ═══════════════
                 Sem número, como a proveniência: as seções 1 a 9 são citadas por número no texto e nos links.
                 Regra do prêmio v2, decisão do fundador de 14/11/2026 (assets_carros/projeto/CORRIDA_REGRA_V2.md).
@@ -1651,10 +1745,10 @@ export default function DogCityDocsPage() {
             <Section id="an7-race" n="" eyebrow="DOG MOTORS · THE AN7 RACE" title="The AN7 race: how a car is won">
               <P>
                 The AN7 is the perimeter avenue of the city. A lap starts and finishes at DOG MOTORS,
-                runs the whole ring and is timed by the server. Every one of the 18 DOG MOTORS models
+                runs the whole ring and is timed by the server. Every one of the 16 DOG MOTORS models
                 has its own leaderboard and its own record, and the best driver of a model can win that
                 car. The game rewards skill, so a driver who is the best with several models can win
-                several cars, up to all 18.
+                several cars, up to all 16.
               </P>
 
               <Sub>How a car is won</Sub>
@@ -1678,7 +1772,7 @@ export default function DogCityDocsPage() {
                   },
                   {
                     lead: "One car of each model per wallet.",
-                    text: "A wallet can win each of the 18 models once, so at most 18 cars. A wallet that already won a model can still beat its own record and keep it, but it does not win the same car again. The next driver who beats that time and does not hold the model wins it.",
+                    text: "A wallet can win each of the 16 models once, so at most 16 cars. A wallet that already won a model can still beat its own record and keep it, but it does not win the same car again. The next driver who beats that time and does not hold the model wins it.",
                   },
                   {
                     lead: "No cap, no end date.",

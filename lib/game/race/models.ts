@@ -1,11 +1,15 @@
 // Os modelos que correm a perimetral AN7 (PLANO_CORRIDA_PERIMETRAL.md) e a velocidade maxima de cada um.
 //
 // ESPELHO do jogo: `vmaxKmh` e' o `motor.velocidadeMax` do tipo em `src/jogador/tipos_carro.ts` (dogcity-mundo, funcao `vMaxDoTipo`:
-// os 18 carros da DOG MOTORS) e, para a Cyber e a Moto2, o `MODELOS_CORRIDA` de `src/corrida/modelos.ts` (210 e 350). E' esta
+// os carros da DOG MOTORS) e, para a Cyber e a Moto2, o `MODELOS_CORRIDA` de `src/corrida/modelos.ts` (210 e 350). E' esta
 // tabela que o servidor usa no piso de tempo por trecho (distancia / (1,05 x Vmax)): carro novo na DOG MOTORS = uma linha aqui,
 // com a mesma velocidade do jogo, antes de ele correr valendo.
 //
-// `premio`: so' os 18 carros da DOG MOTORS dao carro de premio. A Cyber e a Moto2 sao veiculos de licenca: entram no ranking, sem premio.
+// `premio`: so' os 16 carros da DOG MOTORS dao carro de premio. A Cyber e a Moto2 sao veiculos de licenca: entram no ranking, sem premio.
+//
+// 15/11/2026, decisao do fundador: os dois Fuscas (c52 DOG Bug e c56 DOG Bug Classic) SAIRAM da frota, da venda e da corrida.
+// Nao estao mais aqui: o start de uma volta com eles e' recusado como modelo inexistente (400 invalid_model). Nenhuma volta deles
+// estava gravada. A frota da DOG MOTORS passa a 16 carros.
 export interface ModeloCorrida {
   id: string
   /** nome de marca, nao se traduz */
@@ -43,9 +47,6 @@ const LISTA: ReadonlyArray<ModeloCorrida> = [
   // off-road
   dogMotors('c42', 'DOG Field 41', 160),
   dogMotors('c43', 'DOG Outpost 110', 175),
-  // populares
-  dogMotors('c52', 'DOG Bug', 140),
-  dogMotors('c56', 'DOG Bug Classic', 150),
 ]
 
 export const MODELOS_CORRIDA: Readonly<Record<string, ModeloCorrida>> = Object.freeze(
@@ -53,7 +54,7 @@ export const MODELOS_CORRIDA: Readonly<Record<string, ModeloCorrida>> = Object.f
 )
 
 export const IDS_MODELOS: ReadonlyArray<string> = LISTA.map((m) => m.id)
-/** Os que dao carro de premio (os 18 da DOG MOTORS). */
+/** Os que dao carro de premio (os 16 da DOG MOTORS). */
 export const IDS_MODELOS_COM_PREMIO: ReadonlyArray<string> = LISTA.filter((m) => m.premio).map((m) => m.id)
 
 export function ehModeloCorrida(v: unknown): v is string {
