@@ -1,6 +1,10 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// DOG MOTORS no site: a leitura da vitrine (GET /api/dogcity/car-quote) e da garagem (GET /api/dogcity/cars),
-// pura, para o servidor (página) e o cliente (cartões) lerem do mesmo jeito e o teste conferir sem rede.
+// DOG MOTORS no site: a leitura da vitrine e da garagem (GET /api/dogcity/cars), pura, para o servidor (página) e o
+// cliente (cartões) lerem do mesmo jeito e o teste conferir sem rede.
+//
+// DESDE 15/11/2026 OS CARROS CUSTAM DC POINTS (decisão do fundador, assets_carros/projeto/CARROS_DC_POINTS.md): a vitrine
+// lê GET /api/dogcity/car-buy (parseDcShowroom, dcOfferFor). A leitura da cotação em $DOG/BTC (parseShowroom, offerFor)
+// fica para quando CAR_SALES_OPEN voltar a ser ligado; a vitrine não a usa.
 //
 // FALHA FECHADA. O cartão só mostra preço e botão de compra quando a resposta é 200 e o modelo veio inteiro: id do
 // catálogo, nome e classe iguais aos do catálogo, preço dentro do piso e do teto, `available` true. Qualquer coisa
@@ -9,7 +13,7 @@
 // Os sats são a PRÉVIA (indicativa): o valor que se paga é o do pedido, travado pelo servidor.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { CAR_MODELS, isCarModel, validPriceDog } from "@/lib/game/cars/catalog"
+import { CAR_MODELS, isCarModel, validPriceDc, validPriceDog } from "@/lib/game/cars/catalog"
 import { normalizeAddress } from "@/lib/dog/licence-btc"
 
 /** os mesmos tetos do servidor (lib/game/cars/order.ts e lib/dog/licence-btc.ts), repetidos aqui só para recusar */
@@ -90,3 +94,68 @@ export function satsToBtc(sats: number): string {
   const s = String(sats).padStart(9, "0")
   return `${s.slice(0, -8)}.${s.slice(-8)}`
 }
+
+// ── DC POINTS (GET /api/dogcity/car-buy) ──────────────────────────────────────────────────────────────────────
+
+export interface DcQuote {
+  priceDc: number
+  available: boolean
+}
+
+export type DcShowroomState =
+  | { kind: "loading" }
+  | { kind: "unavailable" }
+  | { kind: "open"; models: Readonly<Record<string, DcQuote>> }
+
+/**
+ * A vitrine em DC Points. FALHA FECHADA: só 200 com `currency: "dc_points"`; cada modelo só vale com id, nome e classe do
+ * catálogo e o MESMO preço em DC do catálogo (preço diferente = sem preço e sem botão). Qualquer outra coisa: "unavailable".
+ */
+export function parseDcShowroom(status: number, body: unknown): DcShowroomState {
+  const b = body && typeof body === "object" && !Array.isArray(body) ? (body as Record<string, unknown>) : null
+  if (status !== 200 || !b || b.currency !== "dc_points" || !Array.isArray(b.models)) return { kind: "unavailable" }
+  const models: Record<string, DcQuote> = {}
+  for (const m of b.models as unknown[]) {
+    if (!m || typeof m !== "object") continue
+    const r = m as Record<string, unknown>
+    if (!isCarModel(r.id) || models[r.id]) continue
+    const c = CAR_MODELS[r.id]
+    if (r.name !== c.name || r.class !== c.class) continue
+    if (!validPriceDc(r.priceDc) || r.priceDc !== c.priceDc) continue
+    models[r.id] = { priceDc: r.priceDc, available: r.available === true }
+  }
+  return { kind: "open", models }
+}
+
+/** o que o cartão de um modelo mostra, pela vitrine em DC Points */
+export type DcOffer =
+  | { kind: "loading" }
+  | { kind: "unavailable" }
+  | { kind: "not_for_sale" }
+  | { kind: "for_sale"; priceDc: number }
+
+export function dcOfferFor(state: DcShowroomState, id: string): DcOffer {
+  if (state.kind !== "open") return { kind: state.kind }
+  const q = state.models[id]
+  if (!q) return { kind: "unavailable" }
+  if (!q.available) return { kind: "not_for_sale" }
+  return { kind: "for_sale", priceDc: q.priceDc }
+}
+
+/** o saldo de DC Points da sessão (GET /api/game/points); null = não afirmar nada (sem sessão, falha, forma torta) */
+export interface PointsView {
+  balance: number
+  canEarn: boolean
+}
+
+export function parsePoints(status: number, body: unknown): PointsView | null {
+  if (status !== 200 || !body || typeof body !== "object" || Array.isArray(body)) return null
+  const b = body as Record<string, unknown>
+  const bal = b.balance
+  if (typeof bal !== "number" || !Number.isSafeInteger(bal) || bal < 0 || bal > 1_000_000) return null
+  if (typeof b.canEarn !== "boolean") return null
+  return { balance: bal, canEarn: b.canEarn }
+}
+
+/** "12,500" */
+export const fmtPoints = (n: number) => n.toLocaleString("en-US")

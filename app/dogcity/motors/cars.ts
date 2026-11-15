@@ -1,9 +1,11 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// DOG MOTORS no site: a ficha dos 18 carros da vitrine (/dogcity/motors).
+// DOG MOTORS no site: a ficha dos 16 carros da vitrine (/dogcity/motors).
 //
 // NOME e CLASSE vêm do catálogo da loja (lib/game/cars/catalog.ts, o mesmo que cobra): a vitrine nunca mostra um
-// nome que a loja não vende. O PREÇO NÃO MORA AQUI: vem só do GET /api/dogcity/car-quote (./quote.ts). O catálogo
-// tem preços marcadores (PRECOS_PROVISORIOS) e nenhum deles vai para a tela.
+// nome que a loja não vende. O PREÇO NÃO MORA AQUI: vem só do GET /api/dogcity/car-buy, em DC Points (./quote.ts).
+//
+// 15/11/2026, decisão do fundador: os dois Fuscas (c52 DOG Bug e c56 DOG Bug Classic, a classe Compact) saíram da frota.
+// A vitrine tem 16 carros em 6 classes; as fotos deles ficam em public/ (sem uso).
 //
 // OS NÚMEROS SÃO DO JOGO, não de ficha técnica de fábrica (dogcity-mundo, branch claude/tipos-carro, e68ad5983):
 //   topKmh     velocidade máxima de TIPOS_CARRO (src/jogador/tipos_carro.ts, `kmh` de cada linha; vMaxDoTipo)
@@ -21,7 +23,8 @@
 
 import { CAR_MODEL_IDS, CAR_MODELS, type CarClass } from "@/lib/game/cars/catalog"
 
-export const CLASS_ORDER: readonly CarClass[] = ["super", "sport", "luxury", "classic", "muscle", "offroad", "popular"]
+/** as classes da vitrine, na ordem (a "popular", os Fuscas, saiu com eles em 15/11) */
+export const CLASS_ORDER: readonly CarClass[] = ["super", "sport", "luxury", "classic", "muscle", "offroad"]
 
 /** o nome da classe na tela ("popular" do catálogo é Compact na vitrine) */
 export const CLASS_LABEL: Readonly<Record<CarClass, string>> = {
@@ -68,13 +71,11 @@ export const SPECS: Readonly<Record<string, GameSpec>> = {
   c61: { gameClass: "muscle", topKmh: 210, zeroTo100: 4.3, drive: "RWD", engine: "V8", massKg: 1350 },
   c42: { gameClass: "offroad", topKmh: 160, zeroTo100: 6.5, drive: "4X4", engine: "Inline-4", massKg: 1100 },
   c43: { gameClass: "offroad", topKmh: 175, zeroTo100: 5.6, drive: "4X4", engine: "V8", massKg: 2100 },
-  c52: { gameClass: "popular", topKmh: 140, zeroTo100: 8.0, drive: "RWD", engine: "Flat-4", massKg: 820 },
-  c56: { gameClass: "popular", topKmh: 150, zeroTo100: 7.0, drive: "RWD", engine: "Flat-4", massKg: 870 },
 }
 
 export interface Credit { author: string; url: string }
 
-/** os autores dos modelos dos 18 carros (CC BY 4.0), pelo endereço curto do modelo */
+/** os autores dos modelos dos 16 carros (CC BY 4.0), pelo endereço curto do modelo */
 export const CAR_CREDITS: Readonly<Record<string, Credit>> = {
   c02: { author: "SDC PERFORMANCE™", url: "https://sketchfab.com/models/d679af35b5694301a185c7454a700c73" },
   c05: { author: "ALIEEEN", url: "https://sketchfab.com/models/cf52245eb68f48daa909c7ad2a8deaa3" },
@@ -90,8 +91,6 @@ export const CAR_CREDITS: Readonly<Record<string, Credit>> = {
   c41: { author: "Martin Trafas", url: "https://sketchfab.com/models/eb9bb1eb41db431cb078088ae1ce45f8" },
   c42: { author: "AnilG", url: "https://sketchfab.com/models/b635f6d5a7a045cf9bae3cc71952cd23" },
   c43: { author: "meeww", url: "https://sketchfab.com/models/5773ec04488b46148816b5f7a9f3f44f" },
-  c52: { author: "soujagah", url: "https://sketchfab.com/models/cb6e82e73386448fb3b4e2dd25255a5e" },
-  c56: { author: "Matej Ondra", url: "https://sketchfab.com/models/3d166ec739cb440984cbcd17608675e0" },
   c61: { author: "Kristian LaGrange", url: "https://sketchfab.com/models/05f2a294087541ab82f681136d134344" },
   c62: { author: "Ricy", url: "https://sketchfab.com/models/7acee5044310499f85df631b203227b5" },
 }
@@ -112,13 +111,13 @@ export interface ShowroomCar {
   name: string
   cls: CarClass
   classLabel: string
-  /** a posição na vitrine (1 a 18), na ordem das classes */
+  /** a posição na vitrine (1 a 16), na ordem das classes */
   n: number
   spec: GameSpec
   credit: Credit
 }
 
-/** os 18, na ordem das classes (e, dentro da classe, na ordem do catálogo) */
+/** os 16, na ordem das classes (e, dentro da classe, na ordem do catálogo) */
 export const SHOWROOM: readonly ShowroomCar[] = CLASS_ORDER
   .flatMap((cls) => CAR_MODEL_IDS.filter((id) => CAR_MODELS[id].class === cls))
   .map((id, i) => ({

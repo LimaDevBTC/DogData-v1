@@ -1,22 +1,22 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// DOG MOTORS (/dogcity/motors; no domínio da cidade, dogcity.space/motors): a vitrine de venda dos carros da
-// concessionária da DOG CITY, ligada ao backend da loja (PR #62: GET/POST /api/dogcity/car-quote,
-// GET /api/dogcity/cars, GET /api/dogcity/car-order).
+// DOG MOTORS (/dogcity/motors; no domínio da cidade, dogcity.space/motors): a vitrine dos carros da concessionária da
+// DOG CITY. Desde 15/11/2026 os carros custam DC POINTS, pontos do jogo (decisão do fundador,
+// assets_carros/projeto/CARROS_DC_POINTS.md): a vitrine lê GET /api/dogcity/car-buy e a garagem GET /api/dogcity/cars.
+// A venda em $DOG/BTC (car-quote) segue atrás de CAR_SALES_OPEN, desligada, e saiu da vitrine.
 //
 // Componente de SERVIDOR: os metadados, a pré-carga da imagem do herói (o LCP) e a VITRINE JÁ NO HTML. A página pede
-// a própria rota (como a landing faz com o fundo), com teto de 800 ms: a primeira pintura já sabe se a loja está
-// fechada ("Coming soon") ou aberta (preços), sem piscar um estado e trocar por outro. Estourou ou falhou, o HTML
-// sai em "loading" e o cliente busca.
+// a própria rota (como a landing faz com o fundo), com teto de 800 ms: a primeira pintura já tem os preços em DC
+// Points, sem piscar um estado e trocar por outro. Estourou ou falhou, o HTML sai em "loading" e o cliente busca.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import type { Metadata } from "next"
 import { headers } from "next/headers"
 import MotorsPage from "./motors"
-import { parseShowroom, type ShowroomState } from "./quote"
+import { parseDcShowroom, type DcShowroomState } from "./quote"
 import { HERO } from "./media"
 
 const DESCRIPTION =
-  "The dealership of DOG CITY, on the Orla Nobre. Eighteen cars in seven classes, priced in $DOG and payable in $DOG or BTC, registered to the wallet that buys them."
+  "The dealership of DOG CITY, on the Orla Nobre. Sixteen cars in six classes, bought with DC Points earned by playing, registered to the wallet that buys them."
 const OG = "https://www.dogdata.xyz/dogcity-motors/og-dog-motors-r2.jpg"
 
 export const metadata: Metadata = {
@@ -39,15 +39,15 @@ export const metadata: Metadata = {
   },
 }
 
-async function vitrineInicial(): Promise<ShowroomState> {
+async function vitrineInicial(): Promise<DcShowroomState> {
   try {
     // ⚠️ só o `host`, nunca o x-forwarded-host (o cliente forja esse)
     const h = await headers()
     const host = h.get("host")
     if (!host || !/^[a-z0-9.-]+(:\d+)?$/i.test(host)) return { kind: "loading" }
     const proto = /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host) ? "http" : "https"
-    const r = await fetch(`${proto}://${host}/api/dogcity/car-quote`, { signal: AbortSignal.timeout(800), next: { revalidate: 30 } })
-    const state = parseShowroom(r.status, await r.json().catch(() => null))
+    const r = await fetch(`${proto}://${host}/api/dogcity/car-buy`, { signal: AbortSignal.timeout(800), next: { revalidate: 30 } })
+    const state = parseDcShowroom(r.status, await r.json().catch(() => null))
     // uma falha de leitura no servidor não vira "Prices unavailable" na primeira pintura: o cliente tenta de novo
     return state.kind === "unavailable" ? { kind: "loading" } : state
   } catch {
