@@ -175,9 +175,10 @@ export async function dogRowsTouching(db: SupabaseClient, address: string, since
   return { rows, truncated: true }
 }
 
-export interface OwnedCar { model: string; source: 'purchase' | 'prize'; since: string | null }
+/** purchase = comprado em $DOG/BTC (039); prize = prêmio da corrida; dc = comprado com DC Points (042) */
+export interface OwnedCar { model: string; source: 'purchase' | 'prize' | 'dc'; since: string | null }
 
-/** a garagem de uma carteira: a posse registrada mais os prêmios aprovados/entregues da corrida */
+/** a garagem de uma carteira: a posse registrada (compra em cripto ou em DC Points) mais os prêmios aprovados/entregues da corrida */
 export async function carsOf(db: SupabaseClient, wallet: string, signal?: AbortSignal): Promise<OwnedCar[]> {
   let q = db.rpc('dogcity_cars_of', { p_wallet: wallet })
   if (signal) q = q.abortSignal(signal)
@@ -188,7 +189,7 @@ export async function carsOf(db: SupabaseClient, wallet: string, signal?: AbortS
   const out: OwnedCar[] = []
   for (const r of data as any[]) {
     if (!isCarModel(r?.model) || seen.has(r.model)) continue
-    if (r.source !== 'purchase' && r.source !== 'prize') continue
+    if (r.source !== 'purchase' && r.source !== 'prize' && r.source !== 'dc') continue
     seen.add(r.model)
     out.push({ model: r.model, source: r.source, since: typeof r.since === 'string' ? r.since : null })
   }
