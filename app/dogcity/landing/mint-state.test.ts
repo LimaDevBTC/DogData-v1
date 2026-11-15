@@ -118,7 +118,7 @@ test('E: Partners de B+3.744 até B+4.032', () => {
   assert.equal(s.label, 'PARTNERS · OPEN')
   assert.equal(s.number, '180')
   assert.equal(s.unit, 'BLOCKS TO THE PUBLIC MINT')
-  assert.equal(s.h1, 'Hold one of 36 Ordinals collections? Mint a lot in DogCity: one per wallet, held at block 975,467, from US$1.50.')
+  assert.equal(s.h1, 'Hold one of 36 Ordinals collections? Mint a lot in DogCity: one per wallet, held at block 975,943, from US$1.50.')
   assert.equal(s.nav.desktop, 'PARTNERS PHASE OPEN · MINT')
   assert.equal(s.partners, 'open')
   assert.equal(s.secondary.href, '#partners')
