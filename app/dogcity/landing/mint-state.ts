@@ -171,9 +171,9 @@ export interface Cta { label: string; href: string; external?: boolean }
 
 // ── a fase Partners na landing (13/11/2026, fundador) ──
 // O herói e a seção #partners (../sections/partners-phase.tsx) ligam PARTNER_TEASE_BLOCKS antes da fase e ficam até o
-// Public. A lista é o corte do mint (blocos 975,467-468, o mesmo parceiros.txt do MINT_PARTNERS_URL).
+// Public. A lista é o corte do mint (blocos 975,943-946, o mesmo parceiros.txt do MINT_PARTNERS_URL).
 export const PARTNER_TEASE_BLOCKS = 144
-export const PARTNER_CUT_BLOCK = 975_467
+export const PARTNER_CUT_BLOCK = 975_943
 export type PartnersMode = "tease" | "open" | null
 const CHECK_WALLET: Cta = { label: "Check your wallet", href: "#partners" }
 
