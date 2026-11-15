@@ -1,9 +1,10 @@
 /**
  * GET /api/dogcity/cars?address=<carteira>
- *   -> { address, cars: [{ model, name, source: 'purchase' | 'prize', since }] }
+ *   -> { address, cars: [{ model, name, source: 'purchase' | 'prize' | 'dc', since }] }
  *
  * A garagem DOG MOTORS de uma carteira: os carros que ela tem no DOG CITY (sem Ordinal: registro neste banco,
- * migração 039). Conta a compra (car_ownership) e o prêmio da corrida aprovado ou entregue (race_prizes da 038).
+ * migração 039). Conta a compra (car_ownership: 'purchase' em $DOG/BTC, 'dc' com DC Points desde a 042) e o prêmio da
+ * corrida aprovado ou entregue (race_prizes da 038). O jogo trata tudo que não é 'prize' como compra.
  * UM de cada modelo por carteira. É esta rota que o jogo lê para pôr o carro na garagem.
  *
  * Só leitura, CORS aberto (dado público, como /api/dogcity/lot-licence), cache curto na borda. Endereço fora da

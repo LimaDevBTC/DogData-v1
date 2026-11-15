@@ -8,8 +8,8 @@ import { Btn, Frame } from "../landing/ui"
 import { HERO } from "./media"
 
 const STATS: { v: string; u?: string; k: string }[] = [
-  { v: "18", k: "Cars" },
-  { v: "7", k: "Classes" },
+  { v: "16", k: "Cars" },
+  { v: "6", k: "Classes" },
   { v: "52", u: "m", k: "DOG TOWER" },
   { v: "350", u: "km/h", k: "Top speed" },
 ]
@@ -50,7 +50,7 @@ export default function Hero() {
                 DOG Motors
               </h1>
               <p className="mt-in dc-lede mt-4 dk:mt-5 !max-w-[34ch] dc-halo" style={{ animationDelay: "260ms" }}>
-                The dealership of DOG CITY. Eighteen cars, priced in $DOG, paid in $DOG or BTC and registered to the wallet that buys them.
+                The dealership of DOG CITY. Sixteen cars, bought with DC Points you earn by playing and registered to the wallet that buys them.
               </p>
               <div className="mt-in mt-6 dk:mt-8 grid grid-cols-2 gap-3 dk:flex dk:flex-wrap" style={{ animationDelay: "360ms" }}>
                 <Btn href="#cars" className="max-sm:!px-3">See the 18 cars</Btn>

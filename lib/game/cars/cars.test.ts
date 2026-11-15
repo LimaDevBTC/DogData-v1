@@ -76,15 +76,15 @@ async function orderOf(body: Record<string, unknown>, store = new MemOrders(), w
 
 function btcOrder(over: Partial<CarOrder> = {}): CarOrder {
   return {
-    id: 'ob', model: 'c52', wallet: W, currency: 'btc', payerAddress: PAY, payTo: CAR_BTC, priceDog: 10_000,
-    sats: carSats(10_000, DOG_USD, BTC_USD), dogExactAtoms: null, dogUsd: DOG_USD, btcUsd: BTC_USD, sources: [],
+    id: 'ob', model: 'c42', wallet: W, currency: 'btc', payerAddress: PAY, payTo: CAR_BTC, priceDog: 25_000,
+    sats: carSats(25_000, DOG_USD, BTC_USD), dogExactAtoms: null, dogUsd: DOG_USD, btcUsd: BTC_USD, sources: [],
     createdAtMs: T0, expiresAtMs: T0 + BTC_ORDER_LOCK_MS, ...over,
   }
 }
 function dogOrder(over: Partial<CarOrder> = {}): CarOrder {
   return {
-    id: 'od', model: 'c52', wallet: W, currency: 'dog', payerAddress: W, payTo: CAR_DOG, priceDog: 10_000,
-    sats: null, dogExactAtoms: dogExactAtoms(10_000, 4217), dogUsd: null, btcUsd: null, sources: [],
+    id: 'od', model: 'c42', wallet: W, currency: 'dog', payerAddress: W, payTo: CAR_DOG, priceDog: 25_000,
+    sats: null, dogExactAtoms: dogExactAtoms(25_000, 4217), dogUsd: null, btcUsd: null, sources: [],
     createdAtMs: T0, expiresAtMs: T0 + DOG_ORDER_LOCK_MS, ...over,
   }
 }
@@ -97,11 +97,13 @@ function dogPay(over: Partial<CarPayment> = {}): CarPayment {
 
 // ═══ catálogo e loja ════════════════════════════════════════════════════════
 
-test('catálogo: os 18 modelos da DOG MOTORS, preço válido, e o seed da 039 com os MESMOS preços', () => {
-  assert.deepEqual([...CAR_MODEL_IDS].sort(), ['c02', 'c05', 'c10', 'c15', 'c25', 'c26', 'c28', 'c30', 'c32', 'c39', 'c40', 'c41', 'c42', 'c43', 'c52', 'c56', 'c61', 'c62'])
+test('catálogo: os 16 modelos da DOG MOTORS (os Fuscas saíram em 15/11), preço válido, e o seed da 039 com os MESMOS preços', () => {
+  assert.deepEqual([...CAR_MODEL_IDS].sort(), ['c02', 'c05', 'c10', 'c15', 'c25', 'c26', 'c28', 'c30', 'c32', 'c39', 'c40', 'c41', 'c42', 'c43', 'c61', 'c62'])
+  for (const id of ['c52', 'c56']) assert.equal(isCarModel(id), false, id)
   assert.equal(catalogIsSane(), true)
   for (const id of CAR_MODEL_IDS) assert.equal(validPriceDog(CAR_MODELS[id].priceDog), true, id)
-  // o código e o banco têm de dar o mesmo preço: o seed da migração tranca a igualdade
+  // o código e o banco têm de dar o mesmo preço: o seed da migração tranca a igualdade (a 039 semeou 18; os dois Fuscas
+  // ficam no banco, inativos pela 042)
   const sql = readFileSync(join(process.cwd(), 'supabase/migrations/039_dogcity_cars.sql'), 'utf8')
   const seed = new Map([...sql.matchAll(/\('(c[0-9]{2})', '([^']+)', ([0-9]+)\)/g)].map((m) => [m[1], { name: m[2], price: Number(m[3]) }]))
   assert.equal(seed.size, 18)
@@ -143,7 +145,7 @@ test('loja FECHADA sem as variáveis, com endereço inválido, com endereço do 
 })
 
 test('loja fechada: o pedido responde 503 sales_closed e não grava nada', async () => {
-  const { r, store } = await orderOf({ model: 'c52', currency: 'dog' }, new MemOrders(), W, { sales: { open: false, reason: 'no_btc_address' } })
+  const { r, store } = await orderOf({ model: 'c42', currency: 'dog' }, new MemOrders(), W, { sales: { open: false, reason: 'no_btc_address' } })
   assert.deepEqual(r, { ok: false, status: 503, error: 'sales_closed' })
   assert.equal(store.orders.length, 0)
 })
@@ -151,11 +153,11 @@ test('loja fechada: o pedido responde 503 sales_closed e não grava nada', async
 // ═══ o pedido ═══════════════════════════════════════════════════════════════
 
 test('pedido em BTC: sats pela mediana, trava de 15 min, dono = carteira da sessão', async () => {
-  const { r, store } = await orderOf({ model: 'c52', currency: 'btc', paymentAddress: PAY, wallet: W2, ordinalsAddress: W2 })
+  const { r, store } = await orderOf({ model: 'c42', currency: 'btc', paymentAddress: PAY, wallet: W2, ordinalsAddress: W2 })
   assert.equal(r.ok, true)
   const o = (r as any).order
-  assert.equal(o.sats, carSats(10_000, DOG_USD, BTC_USD))
-  assert.equal(o.sats, Math.ceil(10_000 * DOG_USD * 1e8 / BTC_USD))
+  assert.equal(o.sats, carSats(25_000, DOG_USD, BTC_USD))
+  assert.equal(o.sats, Math.ceil(25_000 * DOG_USD * 1e8 / BTC_USD))
   assert.equal(o.payTo, CAR_BTC)
   assert.equal(o.expiresAt, new Date(T0 + 15 * MIN).toISOString())
   // o corpo tentou nomear outra carteira: ignorado, o dono é a da sessão
@@ -164,11 +166,11 @@ test('pedido em BTC: sats pela mediana, trava de 15 min, dono = carteira da sess
 })
 
 test('pedido em $DOG: valor EXATO = preço + sufixo, pagador padrão = a própria carteira', async () => {
-  const { r, store } = await orderOf({ model: 'c52', currency: 'dog' })
+  const { r, store } = await orderOf({ model: 'c42', currency: 'dog' })
   assert.equal(r.ok, true)
   const o = (r as any).order
-  assert.equal(o.dogExactAtoms, 10_000 * 100_000 + 4217)
-  assert.equal(o.dogExact, '10000.04217')
+  assert.equal(o.dogExactAtoms, 25_000 * 100_000 + 4217)
+  assert.equal(o.dogExact, '25000.04217')
   assert.equal(o.payTo, CAR_DOG)
   assert.equal(o.payerAddress, W)
   assert.equal(store.orders[0].sats, null)
@@ -180,46 +182,46 @@ test('pedido em $DOG: o sufixo nunca se repete enquanto o outro pedido pode casa
   const store = new MemOrders()
   const sorteios = [4217, 4217, 4217, 99]
   const fix = () => sorteios.shift()!
-  await orderOf({ model: 'c52', currency: 'dog' }, store, W, { randomSuffix: fix })
-  const { r } = await orderOf({ model: 'c56', currency: 'dog' }, store, W2, { randomSuffix: fix })
-  assert.equal((r as any).order.dogExactAtoms, 10_000 * 100_000 + 99)
+  await orderOf({ model: 'c42', currency: 'dog' }, store, W, { randomSuffix: fix })
+  const { r } = await orderOf({ model: 'c43', currency: 'dog' }, store, W2, { randomSuffix: fix })
+  assert.equal((r as any).order.dogExactAtoms, 25_000 * 100_000 + 99)
   // sem sufixo livre em SUFFIX_TRIES tentativas: 503, nada gravado
-  const { r: r2 } = await orderOf({ model: 'c56', currency: 'dog', paymentAddress: OTHER }, store, 'bc1p' + '9'.repeat(58), { randomSuffix: () => 4217 })
+  const { r: r2 } = await orderOf({ model: 'c43', currency: 'dog', paymentAddress: OTHER }, store, 'bc1p' + '9'.repeat(58), { randomSuffix: () => 4217 })
   assert.deepEqual(r2, { ok: false, status: 503, error: 'no reliable quote right now' })
   assert.equal(store.orders.length, 2)
 })
 
 test('pedido: sem sessão 401; campo torto 400; endereço do fundo como carteira 400', async () => {
-  assert.equal((await orderOf({ model: 'c52', currency: 'dog' }, new MemOrders(), null)).r.status, 401)
-  assert.equal((await orderOf({ model: 'c52', currency: 'dog' }, new MemOrders(), 'not-an-address')).r.status, 401)
+  assert.equal((await orderOf({ model: 'c42', currency: 'dog' }, new MemOrders(), null)).r.status, 401)
+  assert.equal((await orderOf({ model: 'c42', currency: 'dog' }, new MemOrders(), 'not-an-address')).r.status, 401)
   assert.equal((await orderOf({ model: 'c99', currency: 'dog' })).r.status, 400)
-  assert.equal((await orderOf({ model: 'c52', currency: 'eth' })).r.status, 400)
-  assert.equal((await orderOf({ model: 'c52', currency: 'btc' })).r.status, 400) // BTC sem endereço pagador
-  assert.equal((await orderOf({ model: 'c52', currency: 'btc', paymentAddress: 'xyz' })).r.status, 400)
-  for (const f of FUNDS) assert.equal((await orderOf({ model: 'c52', currency: 'btc', paymentAddress: f })).r.status, 400, f)
-  assert.equal((await orderOf({ model: 'c52', currency: 'dog' }, new MemOrders(), CAR_DOG)).r.status, 400)
+  assert.equal((await orderOf({ model: 'c42', currency: 'eth' })).r.status, 400)
+  assert.equal((await orderOf({ model: 'c42', currency: 'btc' })).r.status, 400) // BTC sem endereço pagador
+  assert.equal((await orderOf({ model: 'c42', currency: 'btc', paymentAddress: 'xyz' })).r.status, 400)
+  for (const f of FUNDS) assert.equal((await orderOf({ model: 'c42', currency: 'btc', paymentAddress: f })).r.status, 400, f)
+  assert.equal((await orderOf({ model: 'c42', currency: 'dog' }, new MemOrders(), CAR_DOG)).r.status, 400)
   assert.equal((await orderOf([] as any)).r.status, 400)
 })
 
 test('um carro de cada modelo por carteira: quem já tem (compra ou prêmio) recebe 409 e nada é gravado', async () => {
   const store = new MemOrders()
-  store.owned.add(`${W}:c52`)
-  const { r } = await orderOf({ model: 'c52', currency: 'dog' }, store)
+  store.owned.add(`${W}:c42`)
+  const { r } = await orderOf({ model: 'c42', currency: 'dog' }, store)
   assert.deepEqual(r, { ok: false, status: 409, error: 'already_owned' })
   assert.equal(store.orders.length, 0)
   // outro modelo, a mesma carteira: pode
-  assert.equal((await orderOf({ model: 'c56', currency: 'dog' }, store)).r.ok, true)
+  assert.equal((await orderOf({ model: 'c43', currency: 'dog' }, store)).r.ok, true)
 })
 
 test('o preço só vale quando código e banco concordam; modelo inativo 409; banco fora 503', async () => {
-  const s1 = new MemOrders(); s1.models.set('c52', { priceDog: 19_999, active: true })
-  assert.deepEqual((await orderOf({ model: 'c52', currency: 'dog' }, s1)).r, { ok: false, status: 503, error: 'model_unavailable' })
-  const s2 = new MemOrders(); s2.models.delete('c52')
-  assert.equal((await orderOf({ model: 'c52', currency: 'dog' }, s2)).r.status, 503)
-  const s3 = new MemOrders(); s3.models.set('c52', { priceDog: 10_000, active: false })
-  assert.deepEqual((await orderOf({ model: 'c52', currency: 'dog' }, s3)).r, { ok: false, status: 409, error: 'model_not_for_sale' })
+  const s1 = new MemOrders(); s1.models.set('c42', { priceDog: 19_999, active: true })
+  assert.deepEqual((await orderOf({ model: 'c42', currency: 'dog' }, s1)).r, { ok: false, status: 503, error: 'model_unavailable' })
+  const s2 = new MemOrders(); s2.models.delete('c42')
+  assert.equal((await orderOf({ model: 'c42', currency: 'dog' }, s2)).r.status, 503)
+  const s3 = new MemOrders(); s3.models.set('c42', { priceDog: 25_000, active: false })
+  assert.deepEqual((await orderOf({ model: 'c42', currency: 'dog' }, s3)).r, { ok: false, status: 409, error: 'model_not_for_sale' })
   const s4 = new MemOrders(); s4.fail = true
-  assert.equal((await orderOf({ model: 'c52', currency: 'dog' }, s4)).r.status, 503)
+  assert.equal((await orderOf({ model: 'c42', currency: 'dog' }, s4)).r.status, 503)
   for (const s of [s1, s2, s3, s4]) assert.equal(s.orders.length, 0)
 })
 
@@ -228,21 +230,21 @@ test('tetos por carteira e por pagador por hora: 429', async () => {
   for (let i = 0; i < MAX_ORDERS_PER_WALLET_PER_HOUR; i++) {
     store.orders.push(dogOrder({ id: `x${i}`, payerAddress: 'bc1q' + String(i).repeat(38).slice(0, 38), dogExactAtoms: 2_000_000_000 + 100 + i }))
   }
-  assert.equal((await orderOf({ model: 'c56', currency: 'dog' }, store)).r.status, 429)
+  assert.equal((await orderOf({ model: 'c43', currency: 'dog' }, store)).r.status, 429)
   const s2 = new MemOrders()
   for (let i = 0; i < MAX_ORDERS_PER_PAYER_PER_HOUR; i++) s2.orders.push(btcOrder({ id: `y${i}`, wallet: 'bc1p' + String(i).repeat(58).slice(0, 58) }))
-  assert.equal((await orderOf({ model: 'c56', currency: 'btc', paymentAddress: PAY }, s2)).r.status, 429)
+  assert.equal((await orderOf({ model: 'c43', currency: 'btc', paymentAddress: PAY }, s2)).r.status, 429)
 })
 
 test('BTC sem cotação confiável (fontes recusadas ou corretora fora): 503, nada gravado', async () => {
   const store = new MemOrders()
-  const r1 = await orderOf({ model: 'c52', currency: 'btc', paymentAddress: PAY }, store, W, { medians: async () => ({ dog: { ok: false, reason: 'not_enough_sources' }, btc: okMed(BTC_USD) }) })
-  const r2 = await orderOf({ model: 'c52', currency: 'btc', paymentAddress: PAY }, store, W, { medians: async () => { throw new Error('down') } })
+  const r1 = await orderOf({ model: 'c42', currency: 'btc', paymentAddress: PAY }, store, W, { medians: async () => ({ dog: { ok: false, reason: 'not_enough_sources' }, btc: okMed(BTC_USD) }) })
+  const r2 = await orderOf({ model: 'c42', currency: 'btc', paymentAddress: PAY }, store, W, { medians: async () => { throw new Error('down') } })
   assert.equal(r1.r.status, 503)
   assert.equal(r2.r.status, 503)
   assert.equal(store.orders.length, 0)
   // em $DOG não precisa de cotação: a corretora fora não impede
-  assert.equal((await orderOf({ model: 'c52', currency: 'dog' }, store, W, { medians: async () => { throw new Error('down') } })).r.ok, true)
+  assert.equal((await orderOf({ model: 'c42', currency: 'dog' }, store, W, { medians: async () => { throw new Error('down') } })).r.ok, true)
 })
 
 // ═══ ATAQUE: NaN, Infinity, negativo ════════════════════════════════════════
@@ -260,13 +262,13 @@ test('ATAQUE NaN/Infinity/negativo: preço, sats, sufixo e relógio tortos nunca
   for (const s of [NaN, Infinity, 0, -1, 1.5, DOG_SUFFIX_MAX + 1]) assert.equal(dogExactAtoms(20_000, s), null, `sufixo ${s}`)
   // mediana com preço NaN: não cota
   const store = new MemOrders()
-  const r = await orderOf({ model: 'c52', currency: 'btc', paymentAddress: PAY }, store, W, { medians: async () => ({ dog: okMed(NaN), btc: okMed(BTC_USD) }) })
+  const r = await orderOf({ model: 'c42', currency: 'btc', paymentAddress: PAY }, store, W, { medians: async () => ({ dog: okMed(NaN), btc: okMed(BTC_USD) }) })
   assert.equal(r.r.status, 503)
   // sorteio NaN: nunca grava um valor torto
-  const r2 = await orderOf({ model: 'c52', currency: 'dog' }, store, W, { randomSuffix: () => NaN })
+  const r2 = await orderOf({ model: 'c42', currency: 'dog' }, store, W, { randomSuffix: () => NaN })
   assert.equal(r2.r.status, 503)
   // relógio NaN: não grava
-  assert.equal((await orderOf({ model: 'c52', currency: 'dog' }, store, W, { nowMs: NaN })).r.status, 503)
+  assert.equal((await orderOf({ model: 'c42', currency: 'dog' }, store, W, { nowMs: NaN })).r.status, 503)
   assert.equal(store.orders.length, 0)
   // pagamento com valor NaN, Infinity, negativo, fração ou relógio NaN: revisão, nunca carro
   for (const amount of [NaN, Infinity, -5, 0, 1.5]) {
@@ -278,8 +280,8 @@ test('ATAQUE NaN/Infinity/negativo: preço, sats, sufixo e relógio tortos nunca
   // confirmações NaN contam como zero
   assert.deepEqual(matchBtcPayment(btcPay({ confirmations: NaN }), [btcOrder()], FUNDS), { status: 'observed', reason: 'confirmations' })
   // pedido torto vindo do banco não casa com nada
-  assert.equal(orderFromDb({ id: 'x', model: 'c52', wallet: W, currency: 'btc', payer_address: PAY, price_dog: '20000', sats: 'NaN', created_at: new Date(T0).toISOString(), expires_at: new Date(T0 + MIN).toISOString() }), null)
-  assert.equal(orderFromDb({ id: 'x', model: 'c52', wallet: W, currency: 'dog', payer_address: PAY, price_dog: 20000, dog_exact_atoms: -1, created_at: new Date(T0).toISOString(), expires_at: new Date(T0 + MIN).toISOString() }), null)
+  assert.equal(orderFromDb({ id: 'x', model: 'c42', wallet: W, currency: 'btc', payer_address: PAY, price_dog: '20000', sats: 'NaN', created_at: new Date(T0).toISOString(), expires_at: new Date(T0 + MIN).toISOString() }), null)
+  assert.equal(orderFromDb({ id: 'x', model: 'c42', wallet: W, currency: 'dog', payer_address: PAY, price_dog: 20000, dog_exact_atoms: -1, created_at: new Date(T0).toISOString(), expires_at: new Date(T0 + MIN).toISOString() }), null)
 })
 
 // ═══ ATAQUE: teto ═══════════════════════════════════════════════════════════
@@ -371,7 +373,7 @@ test('ATAQUE pedido com o endereço pagador de OUTRA pessoa: pagador ligado a du
   assert.deepEqual(matchBtcPayment(btcPay(), [vitima, atacante], FUNDS), { status: 'pending_review', reason: 'ambiguous_owner' })
   // em $DOG o valor exato separa: o pagamento da vítima só casa com o pedido dela
   const dv = dogOrder({ id: 'dv' })
-  const da = dogOrder({ id: 'da', wallet: W2, dogExactAtoms: dogExactAtoms(10_000, 777) })
+  const da = dogOrder({ id: 'da', wallet: W2, dogExactAtoms: dogExactAtoms(25_000, 777) })
   const m = matchDogPayment(dogPay(), [dv, da], FUNDS)
   assert.equal(m.status, 'match')
   assert.equal((m as any).order.id, 'dv')
@@ -392,8 +394,8 @@ test('menos de 6 confirmações: só observado', () => {
 })
 
 test('dois pedidos vivos de modelos diferentes que o pagamento cobre: revisão; o valor exato desempata', () => {
-  const a = btcOrder({ id: 'a', model: 'c52', sats: 30_000 })
-  const b = btcOrder({ id: 'b', model: 'c56', sats: 30_000, createdAtMs: T0 + MIN })
+  const a = btcOrder({ id: 'a', model: 'c42', sats: 30_000 })
+  const b = btcOrder({ id: 'b', model: 'c43', sats: 30_000, createdAtMs: T0 + MIN })
   assert.deepEqual(matchBtcPayment(btcPay({ amount: 30_000 }), [a, b], FUNDS), { status: 'pending_review', reason: 'ambiguous_order' })
   const c = btcOrder({ id: 'c', model: 'c02', sats: 700_000 })
   const m = matchBtcPayment(btcPay({ amount: 700_000 }), [a, c], FUNDS)
@@ -512,7 +514,7 @@ const chainDog = (p: Partial<ChainPayment> = {}): ChainPayment => ({
 })
 
 test('varredura: BTC e $DOG certos viram carro com 6 confirmações; antes disso só observado', async () => {
-  const store = new MemSweep([btcOrder(), dogOrder({ model: 'c56' })])
+  const store = new MemSweep([btcOrder(), dogOrder({ model: 'c43' })])
   const btc = { tip: 900_004, payments: [chainBtc()], firstSeenMs: new Map([[tx('1'), T0 + 5 * MIN]]) }
   const dog = { tip: 900_004, payments: [chainDog()] }
   let r = await sweepCars({ nowMs: T0 + H, funds: FUNDS, btc, dog, store })
@@ -520,7 +522,7 @@ test('varredura: BTC e $DOG certos viram carro com 6 confirmações; antes disso
   assert.equal(store.owned.size, 0)
   r = await sweepCars({ nowMs: T0 + 2 * H, funds: FUNDS, btc: { ...btc, tip: 900_005 }, dog: { ...dog, tip: 900_005 }, store })
   assert.equal(r.credited, 2)
-  assert.deepEqual([...store.owned.keys()].sort(), [`${W}:c52`, `${W}:c56`])
+  assert.deepEqual([...store.owned.keys()].sort(), [`${W}:c42`, `${W}:c43`])
   // a primeira vista só anda para trás: a gravada na 1ª volta vale
   assert.equal(store.rows.get(keyOf('btc', tx('1'), 0))!.firstSeenMs, T0 + 5 * MIN)
 })
@@ -546,14 +548,14 @@ test('ATAQUE txid repetido: a mesma saída nunca vira dois carros (nem repetida 
 
 test('varredura: o prêmio da corrida conta como posse (pagar o modelo ganho vai para revisão)', async () => {
   const store = new MemSweep([btcOrder()])
-  store.prizes.add(`${W}:c52`)
+  store.prizes.add(`${W}:c42`)
   const r = await sweepCars({ nowMs: T0 + H, funds: FUNDS, btc: { tip: 900_010, payments: [chainBtc()], firstSeenMs: new Map() }, dog: null, store })
   assert.equal(r.pendingReview, 1)
   assert.equal(store.rows.get(keyOf('btc', tx('1'), 0))!.reviewReason, 'already_owned')
 })
 
 test('varredura: pagamentos fora de par vão para revisão com o motivo; um que falha não derruba os outros', async () => {
-  const store = new MemSweep([btcOrder(), dogOrder({ model: 'c56' })])
+  const store = new MemSweep([btcOrder(), dogOrder({ model: 'c43' })])
   const bad = new MemSweep([])
   const btc = { tip: 900_010, payments: [chainBtc({ amount: btcOrder().sats! - 1 }), chainBtc({ txid: tx('4'), payerAddresses: [OTHER] })], firstSeenMs: new Map() }
   const dog = { tip: 900_010, payments: [chainDog({ amount: 20_000 * 100_000 })] }
@@ -597,12 +599,12 @@ test('o carro nunca toca a licença: nenhum arquivo do carro lê as tabelas da l
   }
 })
 
-test('preços do fundador (13/11): topo 250.000 $DOG nos dois supercarros, 10.000 nos Fuscas', () => {
+test('preços do fundador (13/11): topo 250.000 $DOG nos dois supercarros; sem os Fuscas (15/11) o piso é 25.000 do off-road', () => {
   assert.equal(CAR_MODELS.c02.priceDog, 250_000)
   assert.equal(CAR_MODELS.c05.priceDog, 250_000)
-  assert.equal(CAR_MODELS.c52.priceDog, 10_000)
-  assert.equal(CAR_MODELS.c56.priceDog, 10_000)
+  assert.equal(CAR_MODELS.c42.priceDog, 25_000)
+  assert.equal(CAR_MODELS.c43.priceDog, 25_000)
   const precos = CAR_MODEL_IDS.map((id) => CAR_MODELS[id].priceDog)
   assert.equal(Math.max(...precos), 250_000)
-  assert.equal(Math.min(...precos), 10_000)
+  assert.equal(Math.min(...precos), 25_000)
 })

@@ -42,7 +42,7 @@ export default function MotorsCall() {
               </p>
               <h2 id="dc-motors-h2" className="mt-4 font-cond text-[56px] dk:text-[80px] font-bold uppercase leading-[0.86] text-dc-snow">DOG Motors</h2>
               <p className="mt-5 max-w-[38ch] font-body text-[17px] leading-[27px] text-dc-snow/[0.86] [text-wrap:pretty]">
-                The dealership of DOG CITY. Eighteen cars in seven classes, priced in $DOG and paid in $DOG or BTC, with a 52 m tower and a test track on The Spit.
+                The dealership of DOG CITY. Sixteen cars in six classes, bought with DC Points earned by playing, with a 52 m tower and a test track on The Spit.
               </p>
               <div className="mt-8">
                 <Btn href="/dogcity/motors">Visit DOG MOTORS</Btn>

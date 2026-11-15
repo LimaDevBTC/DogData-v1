@@ -6,7 +6,7 @@
 // Nada de vidro, nada de faixa rolante, nada de 3D fingido. Quatro batidas e o rodapé:
 //
 //   Herói (a entrada pela AN7) · 01 The place (Gallery, DOG TOWER, DOG RING, a corrida da AN7) ·
-//   02 The showroom (os 18 por classe, preço do GET car-quote, compra pelo modo "car" da janela de pagamento) ·
+//   02 The showroom (os 16 por classe, preço em DC Points do GET car-buy, compra no jogo ou aqui pela sessão) ·
 //   03 How buying works · rodapé com os créditos CC BY
 //
 // Página própria, sem o <Layout> do DogData (como a landing). A janela da carteira (WalletProvider) e a de pagamento
@@ -21,7 +21,7 @@ import { useWallet } from "@/contexts/WalletContext"
 import { FaviconMark, MotionScope, TextLink, Wordmark } from "../landing/ui"
 import { MotionSwitch } from "../landing/chrome"
 import { CITY_URL, MINT_HOST, MINT_URL } from "../landing/mint-state"
-import type { ShowroomState } from "./quote"
+import type { DcShowroomState } from "./quote"
 import Hero from "./hero"
 import Place from "./place"
 import Showroom from "./showroom"
@@ -166,7 +166,7 @@ function FooterCol({ title, links }: { title: string; links: { label: string; hr
   )
 }
 
-export default function MotorsPage({ initial }: { initial: ShowroomState }) {
+export default function MotorsPage({ initial }: { initial: DcShowroomState }) {
   // a navegação fica sólida quando o herói sai de baixo dela
   const heroEnd = useRef<HTMLDivElement>(null)
   const [solid, setSolid] = useState(false)
