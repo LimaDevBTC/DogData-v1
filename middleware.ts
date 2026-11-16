@@ -108,6 +108,9 @@ function comCsp(req: NextRequest, reescrita: URL | null) {
     // blob: (18/10/2026, landing v3): o GLTFLoader busca as texturas embutidas no GLB do
     // $DOG por fetch de uma URL blob:; sem isto o modelo carrega sem textura nenhuma
     "connect-src 'self' https: blob:",
+    // frame-src (16/11/2026, bloco "On chain, live" da landing): só a prévia das escrituras servida pelo mint, os mesmos bytes
+    // inscritos (o mint libera o enquadramento só para dogcity.space e dogdata.xyz). Sem isto, o default-src 'self' barrava.
+    "frame-src https://mint.dogcity.space",
     "frame-ancestors 'none'",                  // clickjacking
     "base-uri 'none'",                         // <base> injetado redireciona caminho relativo
     "form-action 'self'",                      // exfiltracao por formulario

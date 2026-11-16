@@ -34,6 +34,7 @@ import { useCountdown, type FundData, type MinterRead } from "./use-countdown"
 import type { MintBInfo } from "./mint-state"
 import Opening, { type ChromeState } from "../sections/opening"
 import Provenance from "../sections/provenance"
+import type { RecentDeed } from "../sections/onchain-live-data"
 import PartnersPhase from "../sections/partners-phase"
 import Deeds from "../sections/deeds"
 import TheCity from "../sections/the-city"
@@ -46,7 +47,7 @@ import { useLeaderboard } from "./use-leaderboard"
 
 const TITLE_KEY = "dc-title-card"
 
-export default function DogCityLanding({ initialFund = null, initialMintB = null, initialMinter = null }: { initialFund?: FundData | null; initialMintB?: MintBInfo | null; initialMinter?: MinterRead | null }) {
+export default function DogCityLanding({ initialFund = null, initialMintB = null, initialMinter = null, initialDeeds = null }: { initialFund?: FundData | null; initialMintB?: MintBInfo | null; initialMinter?: MinterRead | null; initialDeeds?: { deeds: RecentDeed[]; inscribed: number | null } | null }) {
   const cd = useCountdown(initialFund, initialMintB, initialMinter)
   const lb = useLeaderboard()
 
@@ -121,7 +122,7 @@ export default function DogCityLanding({ initialFund = null, initialMintB = null
               <Tiers />
               <ConstructionFund lb={lb} parte="fim" />
             </div>
-            <Provenance />
+            <Provenance deeds={initialDeeds?.deeds ?? []} inscribed={initialDeeds?.inscribed ?? initialMinter?.inscribed ?? null} />
             <Deeds />
             <TheCity />
             {/* 13/11: a porta da DOG MOTORS (a vitrine dos carros, /dogcity/motors), sem número de folha */}
