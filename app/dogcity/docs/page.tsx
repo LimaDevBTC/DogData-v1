@@ -38,6 +38,9 @@ import { Layout } from "@/components/layout"
 // rodada, então ele não pode ser digitado aqui: vive em `ENTREGA`, em
 // ../dogcity-data.ts, com a data da medição e o comando que remede.
 import { ENTREGA } from "../dogcity-data"
+
+/** todas as filhas da City Charter no ordinals.com (16/11): as escrituras em ordem, as novas entram sozinhas */
+const CHARTER_CHILDREN_URL = "https://ordinals.com/children/d7dc12d0df773e1cbf9605ae8b1e09f38f7cde5f9fb797651fb698aa7964e794i0"
 import { ATLAS_PLATES, ATLAS_SHEETS, ATLAS_PDF_MB } from "../atlas/atlas-data"
 // DOG MOTORS e DC Points (15/11/2026): os preços e os tetos vêm do código que o servidor usa, nunca digitados aqui
 import { CAR_MODELS, CAR_MODEL_IDS } from "@/lib/game/cars/catalog"
@@ -235,6 +238,7 @@ const TOC = [
   { id: "dc-points", n: "", label: "DC Points" },
   { id: "dog-motors", n: "", label: "DOG MOTORS" },
   { id: "an7-race", n: "", label: "The AN7 race" },
+  { id: "merging-lots", n: "", label: "Merging lots (planned)" },
   { id: "not-yet", n: "9", label: "What this is not, yet" },
 ]
 
@@ -454,6 +458,18 @@ export default function DogCityDocsPage() {
               <div className="mt-4 font-mono text-[11px] tracking-[0.14em]">
                 <a href={VERIFY_URL} target="_blank" rel="noopener noreferrer" className="text-lava hover:text-lava-light">
                   OPEN THE VERIFIER →
+                </a>
+              </div>
+
+              <Sub>Every deed, live</Sub>
+              <P className="mt-3">
+                The City Charter&apos;s children page on ordinals.com lists every deed of the city in the order it was
+                inscribed, and new deeds appear there as they are minted. The first three children are not deeds: the
+                surroundings layer, the mint calendar and the founders list.
+              </P>
+              <div className="mt-4 font-mono text-[11px] tracking-[0.14em]">
+                <a href={CHARTER_CHILDREN_URL} target="_blank" rel="noopener noreferrer" className="text-lava hover:text-lava-light">
+                  SEE EVERY DEED ON BITCOIN →
                 </a>
               </div>
 
@@ -1827,6 +1843,40 @@ export default function DogCityDocsPage() {
             </Section>
 
             {/* ═══════════════════════════ 9 ═══════════════════════════ */}
+            {/* ═══════════════ FUSÃO DE LOTES (PLANEJADA) ═══════════════
+                Pedido do fundador de 16/11/2026. Desenho e decisões em aberto no doc "DOG CITY: fusão de lotes vizinhos num lote
+                maior". É PLANEJADO: o texto não promete data, preço nem regra que ainda não foi decidida. Quando as regras
+                forem decididas, esta seção vira o contrato (e o mint e o jogo seguem exatamente isto). */}
+            <Section id="merging-lots" n="" eyebrow="PLANNED · MERGING LOTS" title="Merging neighbouring lots (planned)">
+              <P>
+                Planned, not live yet: an owner who holds the deeds of neighbouring lots will be able to merge them into
+                one bigger lot, with one deed inscribed on Bitcoin for the merged plot.
+              </P>
+
+              <Sub>How it will work on chain</Sub>
+              <NumberedList
+                items={[
+                  { lead: "One transaction.", text: "The owner signs one transaction that spends the deeds being merged. The mint inscribes the new deed in it." },
+                  { lead: "A deed with several parents.", text: "The merged deed is a child of the City Charter and of every deed it replaces, so its provenance stays on chain." },
+                  { lead: "The old deeds are burned.", text: "In the same transaction the deeds being merged are burned, so no deed of an old lot stays in circulation." },
+                  { lead: "The proof carries every lot.", text: "The merged deed carries the Merkle proof of each original lot against the root the City Charter carries. Anyone can check that each lot exists, that they are neighbours and that the merged plot is their sum." },
+                ]}
+              />
+
+              <Sub>What comes first</Sub>
+              <P className="mt-3">
+                Before any on-chain merge, the game will let the owner of neighbouring lots build one house across them,
+                with no change to the deeds.
+              </P>
+
+              <Sub>Not decided yet</Sub>
+              <P className="mt-3">
+                Which lots count as neighbours, how many lots one merge can take, the tier of the merged lot, what happens
+                to licences and houses already on the lots, the fee and the date. This section will state the rules when
+                they are decided. Until then, nothing here is an offer, and no merge can be made.
+              </P>
+            </Section>
+
             <Section id="not-yet" n="9" title="What this is not, yet">
               <BulletList
                 items={[
@@ -1841,6 +1891,10 @@ export default function DogCityDocsPage() {
                   {
                     lead: "No building stands on any lot.",
                     text: "The owner takes the deed first. Building comes after it, with a licence, in the architecture of the district (section 8).",
+                  },
+                  {
+                    lead: "Lots cannot be merged yet.",
+                    text: "Merging neighbouring lots into one bigger deed is planned (see Merging lots above). Until its rules are published, every deed stays one lot.",
                   },
                   {
                     lead: "Nothing you do now changes the snapshot.",
