@@ -16,6 +16,8 @@
 import { Reveal, SplitLine } from "../landing/reveal"
 import { Btn, Frame, Plate, SectionHead, TextLink } from "../landing/ui"
 import { LOT_COUNT, PIECES, ProvenanceDiagram, VERIFY_URL } from "../provenance"
+import OnChainLive from "./onchain-live"
+import type { RecentDeed } from "./onchain-live-data"
 
 const STATS = [
   { n: "1.5 KB", label: "PER DEED" },
@@ -24,7 +26,7 @@ const STATS = [
   { n: "0", label: "SERVERS" },
 ]
 
-export default function Provenance() {
+export default function Provenance({ deeds = [], inscribed = null }: { deeds?: RecentDeed[]; inscribed?: number | null }) {
   return (
     <section id="provenance" aria-labelledby="dc-prov-h2" className="relative bg-dc-void pt-24 dk:pt-40 scroll-mt-14">
       <Frame>
@@ -66,6 +68,7 @@ export default function Provenance() {
             </div>
           </Reveal>
         </div>
+        <OnChainLive deeds={deeds} inscribed={inscribed} />
       </Frame>
     </section>
   )
