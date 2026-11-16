@@ -22,6 +22,7 @@
 // importado e comentado, com a data e o motivo.
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { parseRecentDeeds, type RecentDeed } from "./sections/onchain-live-data"
 import type { Metadata } from "next"
 import { headers } from "next/headers"
 import { preload } from "react-dom"
@@ -149,8 +150,20 @@ async function minterInicial(): Promise<{ accepting: boolean | null; claimed: nu
   }
 }
 
+// AS ÚLTIMAS ESCRITURAS NA CADEIA (16/11/2026, bloco "On chain, live" da proveniência): a rota pública do mint
+// (/api/mint/deeds/recent), teto de 800 ms, 60 s de cache. Falhou ou o mint ainda não tem a rota = o bloco mostra a Charter e o
+// link de todas as escrituras, sem a faixa. Tudo que vem de fora é conferido (lote e inscrição pela forma).
+async function escriturasRecentes(): Promise<{ deeds: RecentDeed[]; inscribed: number | null } | null> {
+  try {
+    const r = await fetch("https://mint.dogcity.space/api/mint/deeds/recent?limit=6", { signal: AbortSignal.timeout(800), next: { revalidate: 60 } })
+    return r.ok ? parseRecentDeeds(await r.json()) : null
+  } catch {
+    return null
+  }
+}
+
 export default async function DogCityPage() {
-  const [fund, mintB, minter] = await Promise.all([fundoInicial(), mintBInicial(), minterInicial()])
+  const [fund, mintB, minter, deeds] = await Promise.all([fundoInicial(), mintBInicial(), minterInicial(), escriturasRecentes()])
   // o fundo do contador: o navegador busca o JSON (que sai do cache da CDN) em paralelo com o
   // JS, e o fetch de ./landing/use-countdown.ts reaproveita a resposta. No desktop o número
   // grande é o maior texto da tela: quanto antes ele chega, mais cedo fecha o LCP.
@@ -166,7 +179,7 @@ export default async function DogCityPage() {
           ele chegava 0,8 s depois da primeira pintura no 4G lento). Mesmo arquivo de
           WORDMARK_SRC em ./landing/ui.tsx (módulo de cliente: não dá para importar aqui) */}
       <link rel="preload" as="image" type="image/svg+xml" href="/landing/v3/brand/dogcity-negativa.svg" fetchPriority="high" />
-      <DogCityLanding initialFund={fund} initialMintB={mintB} initialMinter={minter} />
+      <DogCityLanding initialFund={fund} initialMintB={mintB} initialMinter={minter} initialDeeds={deeds} />
     </>
   )
 }
