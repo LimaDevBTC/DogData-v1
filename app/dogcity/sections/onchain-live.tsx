@@ -13,10 +13,47 @@
 // Sem a rota do mint (fora, ou antes do merge dela), o bloco mostra a Charter, o contador do minter e o link, sem a faixa.
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { useEffect, useRef, useState } from "react"
 import { Btn, Plate } from "../landing/ui"
 import { CHARTER_CHILDREN_URL, CHARTER_ID, CHARTER_NUMBER, deedPreviewUrl, inscriptionUrl, type RecentDeed } from "./onchain-live-data"
 
 const fmt = (n: number) => n.toLocaleString("en-US")
+
+// A escritura é um SVG 4200x2970 desenhado inline pelo HTML inscrito, e o inline deixa ~4 px de linha embaixo: num quadro na
+// proporção exata a página de dentro rolava e cortava o TOPO da escritura (16/11, visto pelo fundador). O quadro agora desenha
+// em tamanho fixo (FRAME_W x FRAME_H, a sobra fica fora, sem rolagem) e é reduzido por escala até a largura do card.
+const FRAME_W = 1400
+const FRAME_H = Math.round((FRAME_W * 2970) / 4200) // 990
+
+function DeedFrame({ lotId }: { lotId: string }) {
+  const box = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(0)
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    const fit = () => setScale(el.clientWidth / FRAME_W)
+    fit()
+    const ro = new ResizeObserver(fit)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  return (
+    <div ref={box} className="relative w-full overflow-hidden" style={{ aspectRatio: `${FRAME_W} / ${FRAME_H}` }}>
+      {scale > 0 && (
+        <iframe
+          src={deedPreviewUrl(lotId)}
+          title={`Deed of lot ${lotId}`}
+          sandbox="allow-scripts"
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          scrolling="no"
+          className="absolute left-0 top-0 border-0"
+          style={{ width: FRAME_W, height: FRAME_H + 8, transform: `scale(${scale})`, transformOrigin: "0 0" }}
+        />
+      )}
+    </div>
+  )
+}
 
 export default function OnChainLive({ deeds, inscribed }: { deeds: RecentDeed[]; inscribed: number | null }) {
   return (
@@ -65,20 +102,11 @@ export default function OnChainLive({ deeds, inscribed }: { deeds: RecentDeed[];
       {deeds.length > 0 && (
         <div className="mt-10">
           <p className="dc-label text-dc-mist">LATEST DEEDS</p>
-          <ul className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 dkl:grid-cols-3">
+          <ul className="mt-4 grid grid-cols-1 gap-4 dk:grid-cols-2 dkl:grid-cols-3">
             {deeds.map((d, i) => (
               <li key={d.inscriptionId} className={i >= 2 ? "hidden dk:block" : ""}>
                 <Plate ticks={false} className="overflow-hidden">
-                  <div className="relative w-full" style={{ aspectRatio: "1.414 / 1" }}>
-                    <iframe
-                      src={deedPreviewUrl(d.lotId)}
-                      title={`Deed of lot ${d.lotId}`}
-                      sandbox="allow-scripts"
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
-                      className="absolute inset-0 h-full w-full border-0"
-                    />
-                  </div>
+                  <DeedFrame lotId={d.lotId} />
                   <div className="flex items-baseline justify-between gap-3 px-3 py-2.5">
                     <span className="font-mono text-[11px] tracking-[0.06em] text-dc-snow">{d.lotId}</span>
                     <a href={inscriptionUrl(d.inscriptionId)} target="_blank" rel="noopener noreferrer" className="font-mono text-[10px] tracking-[0.14em] text-dc-lava hover:text-dc-hot">
