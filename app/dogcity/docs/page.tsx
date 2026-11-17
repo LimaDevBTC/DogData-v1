@@ -238,7 +238,7 @@ const TOC = [
   { id: "dc-points", n: "", label: "DC Points" },
   { id: "dog-motors", n: "", label: "DOG MOTORS" },
   { id: "an7-race", n: "", label: "The AN7 race" },
-  { id: "merging-lots", n: "", label: "Merging lots (planned)" },
+  { id: "merging-lots", n: "", label: "Merging lots" },
   { id: "not-yet", n: "9", label: "What this is not, yet" },
 ]
 
@@ -1843,14 +1843,16 @@ export default function DogCityDocsPage() {
             </Section>
 
             {/* ═══════════════════════════ 9 ═══════════════════════════ */}
-            {/* ═══════════════ FUSÃO DE LOTES (PLANEJADA) ═══════════════
-                Pedido do fundador de 16/11/2026. Desenho e decisões em aberto no doc "DOG CITY: fusão de lotes vizinhos num lote
-                maior". É PLANEJADO: o texto não promete data, preço nem regra que ainda não foi decidida. Quando as regras
-                forem decididas, esta seção vira o contrato (e o mint e o jogo seguem exatamente isto). */}
-            <Section id="merging-lots" n="" eyebrow="PLANNED · MERGING LOTS" title="Merging neighbouring lots (planned)">
+            {/* ═══════════════ FUSÃO DE LOTES (PROMETIDA) ═══════════════
+                Pedido do fundador de 16/11/2026; em 17/11 ele decidiu PROMETER a fusão ("pode prometer sim... é tecnicamente
+                viável"), e o mint passa a oferecer o lote vizinho com essa promessa (Grow your land). A promessa cobre lotes
+                vizinhos na MESMA quadra (o mint só oferece esses). Data, taxa e o resto das regras seguem em aberto e entram
+                aqui antes de a fusão abrir. */}
+            <Section id="merging-lots" n="" eyebrow="COMING · MERGING LOTS" title="Merging neighbouring lots">
               <P>
-                Planned, not live yet: an owner who holds the deeds of neighbouring lots will be able to merge them into
-                one bigger lot, with one deed inscribed on Bitcoin for the merged plot.
+                Coming, not live yet: an owner who holds the deeds of neighbouring lots in the same block will be able to
+                merge them into one bigger lot, with one deed inscribed on Bitcoin for the merged plot. This is a commitment
+                of DOG CITY: if you own lots next to each other, you will be able to make them one property.
               </P>
 
               <Sub>How it will work on chain</Sub>
@@ -1871,9 +1873,9 @@ export default function DogCityDocsPage() {
 
               <Sub>Not decided yet</Sub>
               <P className="mt-3">
-                Which lots count as neighbours, how many lots one merge can take, the tier of the merged lot, what happens
-                to licences and houses already on the lots, the fee and the date. This section will state the rules when
-                they are decided. Until then, nothing here is an offer, and no merge can be made.
+                The date, the fee, how many lots one merge can take, the tier of the merged lot and what happens to
+                licences and houses already on the lots. This section will state these rules before merging opens. Until
+                then, no merge can be made.
               </P>
             </Section>
 
@@ -1894,7 +1896,7 @@ export default function DogCityDocsPage() {
                   },
                   {
                     lead: "Lots cannot be merged yet.",
-                    text: "Merging neighbouring lots into one bigger deed is planned (see Merging lots above). Until its rules are published, every deed stays one lot.",
+                    text: "Merging neighbouring lots in the same block into one bigger deed is coming (see Merging lots above). Until it opens, every deed stays one lot.",
                   },
                   {
                     lead: "Nothing you do now changes the snapshot.",
