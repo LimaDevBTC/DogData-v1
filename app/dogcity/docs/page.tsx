@@ -239,6 +239,7 @@ const TOC = [
   { id: "dog-motors", n: "", label: "DOG MOTORS" },
   { id: "an7-race", n: "", label: "The AN7 race" },
   { id: "merging-lots", n: "", label: "Merging lots" },
+  { id: "referrals", n: "", label: "Referrals" },
   { id: "not-yet", n: "9", label: "What this is not, yet" },
 ]
 
@@ -1877,6 +1878,57 @@ export default function DogCityDocsPage() {
                 licences and houses already on the lots. This section will state these rules before merging opens. Until
                 then, no merge can be made.
               </P>
+            </Section>
+
+            {/* ═══════════════ INDICAÇÃO (17/11/2026, decisão do fundador) ═══════════════
+                O código é o LOTE de quem indica; o mint grava `mint_order.referrer_lot` desde 17/11 (dogcity-mint #59, migração 015,
+                MINT_REFERRAL_ON=1). Prêmios em DC Points e itens exclusivos do jogo (sem selo, sem muro: "ninguém vê"); nada em BTC ou
+                $DOG. O crédito automático ainda não existe: o texto diz que o que foi gravado não se perde. Esta seção é o contrato. */}
+            <Section id="referrals" n="" eyebrow="REFERRALS · INVITE NEIGHBOURS" title="Invite neighbours, earn in the city">
+              <P>
+                Every lot with a deed is a referral code. Share <span className="font-mono">mint.dogcity.space/?ref=</span> followed by your
+                lot ID (the "Share your lot" button after a mint already does it). When someone mints through your link, you both earn.
+              </P>
+
+              <Sub>Who can refer</Sub>
+              <P className="mt-3">
+                The owner of a lot whose deed is inscribed. The link is remembered on the visitor&apos;s device for 30 days, and the first
+                link they opened is the one that counts.
+              </P>
+
+              <Sub>What you earn</Sub>
+              <BulletList
+                items={[
+                  { lead: "500 DC Points", text: "for each lot minted through your link." },
+                  { lead: "250 DC Points", text: "for the person you invited, on their first mint." },
+                  { lead: "Double in your block.", text: "If they mint a lot in the same block as yours, you both earn twice as much." },
+                  { lead: "Weekly top three.", text: "The three owners with the most lots minted through their links in the week earn 5,000, 2,500 and 1,000 DC Points." },
+                ]}
+              />
+
+              <Sub>Ambassador Edition items</Sub>
+              <P className="mt-3">
+                Exclusive in-game items, never sold, counted by the lots minted through your link:
+              </P>
+              <BulletList
+                items={[
+                  { lead: "3 lots:", text: "the DOG Trail Quad, an all-terrain quad." },
+                  { lead: "10 lots:", text: "the DOG Jet, a jet ski for the city's waters." },
+                  { lead: "25 lots:", text: "the DOG M4 Carbine, a rifle for the hunt." },
+                ]}
+              />
+
+              <Sub>Rules</Sub>
+              <BulletList
+                items={[
+                  { lead: "Only inscribed deeds count.", text: "A referral counts when the invited lot's deed is inscribed, and its DC Points are credited one day (144 blocks) later." },
+                  { lead: "Never yourself.", text: "Your own lot and your own wallet never count as referrals." },
+                  { lead: "One level.", text: "You earn from the people you invite, not from the people they invite." },
+                  { lead: "A daily ceiling.", text: "Up to 5,000 DC Points a day per owner; above that, a manual review." },
+                  { lead: "No money.", text: "Referrals pay in DC Points and items only, never in Bitcoin or $DOG. DC Points and items have no cash value." },
+                  { lead: "Counted from 17 November 2026.", text: "Every referral since then is recorded on the mint. DC Points and items are credited to recorded referrals as the rewards go live in the game; nothing recorded is lost." },
+                ]}
+              />
             </Section>
 
             <Section id="not-yet" n="9" title="What this is not, yet">
