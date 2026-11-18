@@ -56,7 +56,7 @@ function semSaidaAntiga(req: NextRequest) {
 const HOST_SPACE = /^(www\.)?dogcity\.space$/
 const PLAY = 'https://play.dogcity.space'
 const CAMPANHA = /^(utm_[a-z_]+|ref|gclid|fbclid|twclid|mc_cid|mc_eid|s|src)$/
-const ROTAS_SPACE: Record<string, string> = { '/': '/dogcity', '/docs': '/dogcity/docs', '/founders': '/dogcity/founders', '/support': '/dogcity/support', '/atlas': '/dogcity/atlas', '/referrals': '/dogcity/referrals', '/motors': '/dogcity/motors' }
+const ROTAS_SPACE: Record<string, string> = { '/': '/dogcity', '/docs': '/dogcity/docs', '/founders': '/dogcity/founders', '/support': '/dogcity/support', '/atlas': '/dogcity/atlas', '/referrals': '/dogcity/referrals', '/motors': '/dogcity/motors', '/profile': '/dogcity/profile' }
 
 function noDominioDaCidade(req: NextRequest): NextResponse | null {
   const host = (req.headers.get('host') || '').split(':')[0].toLowerCase()
@@ -71,11 +71,7 @@ function noDominioDaCidade(req: NextRequest): NextResponse | null {
     if (ROTAS_SPACE[curto]) return NextResponse.redirect(`https://dogcity.space${curto}${search}`, 308)
   }
   if (pathname === '/robots.txt' || pathname === '/sitemap.xml') return NextResponse.rewrite(new URL(`/dogcity-space${pathname}`, req.url))
-  // 18/11/2026: o perfil mora tambem no dominio da cidade (o marketing aponta para dogcity.space/profile; o dogdata.xyz e' o
-  // backend). A pagina e' a MESMA do dogdata.xyz/profile, servida como la': sem a CSP com nonce do comCsp, porque o /profile e'
-  // pre-renderizado (estatico) e os scripts dele nao levam nonce; com 'strict-dynamic' o navegador barraria todos. As /api que ela
-  // chama ja' passam neste dominio (o matcher deixa /api fora), e o cookie dg_wallet nao fixa dominio: o login vale aqui.
-  if (pathname === '/profile' || pathname === '/profile/') return NextResponse.next()
+  // 18/11/2026: o perfil tambem mora aqui (/profile -> /dogcity/profile, com a moldura da cidade e a CSP com nonce, como as demais)
   const alvo = ROTAS_SPACE[pathname.replace(/\/$/, '') || '/']
   if (alvo) return comCsp(req, new URL(alvo + search, req.url))
   // o resto do DogData nao mora neste dominio

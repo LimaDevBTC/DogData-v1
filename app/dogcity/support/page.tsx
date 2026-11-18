@@ -3,7 +3,7 @@
 "use client"
 
 import { useState } from "react"
-import { Layout } from "@/components/layout"
+import { CityLayout } from "../city-layout"
 
 const EMAIL = "support@dogcity.space"
 const HAIR = "border-white/10"
@@ -38,7 +38,7 @@ function CopyEmail() {
 
 export default function DogCitySupportPage() {
   return (
-    <Layout currentPage="donate" setCurrentPage={() => {}}>
+    <CityLayout>
       <div className="bg-void text-snow">
         <div className="max-w-6xl mx-auto px-6 md:px-10 pt-10 pb-8 md:pt-16">
           <div className="font-mono text-[10px] md:text-[11px] tracking-[0.3em] text-lava">DOGCITY · OFFICIAL CHANNEL</div>
@@ -92,6 +92,6 @@ export default function DogCitySupportPage() {
           <div className="font-mono text-[10px] md:text-[11px] tracking-[0.2em] text-dusty">SUPPORT AGENTS: COMING SOON</div>
         </div>
       </div>
-    </Layout>
+    </CityLayout>
   )
 }

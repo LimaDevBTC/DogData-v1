@@ -327,7 +327,7 @@ test('lookup e /profile: sem "LOCK YOUR FOUNDER NUMBER" nem "before the goal", c
   assert.match(lookup, /\{ofertaDaLicenca && <BotaoLicenca \/>\}/)
   assert.match(lookup, /\{ofertaDaLicenca && <NotaCorretora \/>\}/)
   assert.doesNotMatch(lookup, /\{!casa && <BotaoLicenca \/>\}/)
-  const perfil = lerRepo('app/profile/page.tsx')
+  const perfil = lerRepo('components/profile/profile-body.tsx')
   assert.doesNotMatch(perfil, /Any amount before the goal makes/)
   assert.doesNotMatch(perfil, /Fund the city/)
   assert.match(perfil, /!profile\?\.custody && standing\.license/)
