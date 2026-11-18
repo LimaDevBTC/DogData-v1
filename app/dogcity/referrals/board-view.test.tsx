@@ -88,7 +88,7 @@ test('o texto publico dos outros arquivos novos: sem travessao e sem endereco', 
   const layout = readFileSync(new URL('app/dogcity/referrals/layout.tsx', root), 'utf8')
   assert.doesNotMatch(layout, /[\u2014\u2013\u2015]/)
   assert.ok(layout.includes("We're counting. What referrals unlock will be announced."))
-  const perfil = readFileSync(new URL('app/profile/page.tsx', root), 'utf8')
+  const perfil = readFileSync(new URL('components/profile/profile-body.tsx', root), 'utf8')
   const ini = perfil.indexOf('{/* ── referral (fase 1: so contar) ── */}')
   const fim = perfil.indexOf('{/* ── cidade e registro de fundadores ── */}')
   assert.ok(ini > 0 && fim > ini)

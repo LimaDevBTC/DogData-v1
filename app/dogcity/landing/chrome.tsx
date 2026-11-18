@@ -238,7 +238,8 @@ function Drawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   )
 }
 
-export function Footer() {
+// `base`: nas paginas secundarias ("/"), as ancoras da landing viram "/#calendar"; na landing fica vazio
+export function Footer({ base = "" }: { base?: string } = {}) {
   return (
     <footer className="relative border-t border-dc-snow/[0.12] bg-dc-void pt-20 lg:pt-28 pb-[max(32px,env(safe-area-inset-bottom))]">
       <div className="mx-auto max-w-[calc(1360px+2*var(--dc-gutter))] px-[var(--dc-gutter)]">
@@ -253,7 +254,7 @@ export function Footer() {
             { label: "Atlas", href: "/dogcity/atlas" },
           ]} />
           <FooterCol title="Mint" links={[
-            { label: "Calendar", href: "#calendar" },
+            { label: "Calendar", href: `${base}#calendar` },
             { label: "Docs", href: "/dogcity/docs" },
             { label: MINT_HOST, href: MINT_URL },
           ]} />

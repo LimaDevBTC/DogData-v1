@@ -5,7 +5,7 @@
 // A tela mesma e' board-view.tsx; ver o cabecalho dela para as regras do texto.
 
 import { useEffect, useState } from "react"
-import { Layout } from "@/components/layout"
+import { CityLayout } from "../city-layout"
 import { ReferralBoardView, type BoardState } from "./board-view"
 import type { PublicBoard } from "@/lib/referral/board"
 
@@ -21,8 +21,8 @@ export default function DogCityReferralsPage() {
   }, [])
 
   return (
-    <Layout currentPage="donate" setCurrentPage={() => {}}>
+    <CityLayout>
       <ReferralBoardView state={state} />
-    </Layout>
+    </CityLayout>
   )
 }
