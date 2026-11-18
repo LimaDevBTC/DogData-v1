@@ -1285,7 +1285,7 @@ export default function DogCityDocsPage() {
                   },
                   {
                     lead: "One wallet, both coins.",
-                    text: "A licence payment is credited to the wallet that pays and applied to the lot that wallet holds. A wallet that holds more than one lot chooses the lot. A credit with no lot waits for one. For the licence rung of a lot, the $DOG and the Bitcoin applied to it add up. The Founder benefits do not: they depend on the $DOG in the fund alone, so a wallet with $DOG in the fund and Bitcoin on top is a Founder and takes its licence at the combined rung. The quote ties the address that pays to the ordinals address of the same wallet, so the Bitcoin is credited to the wallet that asked for it. It is counted at its $DOG value from the locked quote when the network saw the payment before the 15 minutes ended and it covers the quoted amount; a payment seen after that is counted at the median price at the block that confirmed it. Credit comes after 6 confirmations. A payment that cannot be tied to a quote, or priced from enough exchanges, is held for a manual check and never becomes a licence on its own. Pay from the wallet you asked the quote with.",
+                    text: "A licence payment is credited to the wallet that pays and applied to the lot that wallet holds. A wallet that holds more than one lot chooses the lot. When one payment is sent from both accounts of the same wallet, the part from the account that holds no lot goes to the lot that took the other part. A credit with no lot waits for one. For the licence rung of a lot, the $DOG and the Bitcoin applied to it add up. The Founder benefits do not: they depend on the $DOG in the fund alone, so a wallet with $DOG in the fund and Bitcoin on top is a Founder and takes its licence at the combined rung. The quote ties the address that pays to the ordinals address of the same wallet, so the Bitcoin is credited to the wallet that asked for it. It is counted at its $DOG value from the locked quote when the network saw the payment before the 15 minutes ended and it covers the quoted amount; a payment seen after that is counted at the median price at the block that confirmed it. Credit comes after 6 confirmations. A payment that cannot be tied to a quote, or priced from enough exchanges, is held for a manual check and never becomes a licence on its own. Pay from the wallet you asked the quote with.",
                   },
                 ]}
               />
@@ -1569,8 +1569,9 @@ export default function DogCityDocsPage() {
                 the lot the Founder holds (section 6). Any other wallet takes it the same way as before: $DOG sent to the construction
                 fund wallet, or the same value in Bitcoin under the four rules of section 6, priced in
                 $DOG. A licence payment is credited to the wallet that pays and applied to the lot
-                that wallet holds. A wallet that holds more than one lot chooses the lot. A credit
-                with no lot waits for one. The licence gives the item pack of its rung and no Founder
+                that wallet holds. A wallet that holds more than one lot chooses the lot. When one payment
+                is sent from both accounts of the same wallet, the part from the account that holds no
+                lot goes to the lot that took the other part. A credit with no lot waits for one. The licence gives the item pack of its rung and no Founder
                 benefits, and it is added to what the lot already counts for its rung. The $DOG of
                 every licence goes to the city&apos;s construction fund, which pays for phases 2 and 3.
               </P>

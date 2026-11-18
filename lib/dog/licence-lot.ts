@@ -172,6 +172,48 @@ export function planWallet(input: {
   return done('applied')
 }
 
+// ── A MESMA TRANSAÇÃO (18/11/2026) ──────────────────────────────────────────
+
+/** acima disto, a transação parece um lote de corretora ou uma mistura, não uma carteira com duas contas */
+export const MAX_CO_SENDERS = 3
+
+const enderecosDe = (v: unknown): string[] => {
+  let arr: unknown = v
+  if (typeof v === 'string') { try { arr = JSON.parse(v) } catch { return [] } }
+  if (!Array.isArray(arr)) return []
+  return [...new Set(arr.map((x) => (typeof x?.address === 'string' ? x.address : '')).filter(Boolean))]
+}
+
+/**
+ * O lote que a parte de uma carteira SEM lote segue. Uma carteira como a Xverse tem duas contas (a de
+ * pagamento e a de ordinals) e paga a licença numa transação só, com entradas das duas: o livro credita
+ * cada conta pela sua parte, e a de pagamento, que não guarda escritura, ficava sem lote. Quem assinou
+ * entradas da mesma transação é a mesma carteira; a parte dela vai para o lote em que os outros
+ * remetentes dessas transações aplicaram o $DOG deles, se for exatamente UM lote. Pura.
+ *   rows          as doações ao fundo em que `wallet` é remetente (outras linhas são ignoradas)
+ *   assignmentsOf as aplicações de outra carteira (o endereço como o livro o escreveu)
+ */
+export function coSpentLot(wallet: string, rows: TxRow[], fund: string, assignmentsOf: (w: string) => Assignment[]): string | null {
+  const lotes = new Set<string>()
+  for (const o of coSenders(wallet, rows, fund)) for (const a of assignmentsOf(o)) if (a.source === 'dog' && lotTakesLicence(a.lotId)) lotes.add(a.lotId)
+  return lotes.size === 1 ? [...lotes][0] : null
+}
+
+/** os outros remetentes (como o livro os escreveu) das doações ao fundo em que `wallet` também é remetente */
+export function coSenders(wallet: string, rows: TxRow[], fund: string): string[] {
+  const eu = wallet.toLowerCase()
+  const fundo = fund.toLowerCase()
+  const outros = new Set<string>()
+  for (const r of rows) {
+    const de = enderecosDe(r.senders)
+    const min = [...new Set(de.map((a) => a.toLowerCase()))]
+    if (!min.includes(eu) || min.includes(fundo) || min.length > MAX_CO_SENDERS) continue
+    if (!enderecosDe(r.receivers).some((a) => a.toLowerCase() === fundo)) continue
+    for (const a of de) if (a.toLowerCase() !== eu) outros.add(a)
+  }
+  return [...outros].sort()
+}
+
 // ── O MINT: QUEM GUARDA O QUÊ ───────────────────────────────────────────────
 
 /** GET https://mint.dogcity.space/api/mint/holder/<address> -> { address, lots, snapshotLot } */
