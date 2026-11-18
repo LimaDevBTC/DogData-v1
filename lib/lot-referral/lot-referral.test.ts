@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { describe, it } from 'node:test'
+import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { runReferralJob, type CreditArgs, type CreditStatus, type JobDeps } from './job'
 import { parseFeedPage, parseHolders } from './io'
@@ -21,52 +22,52 @@ const feed = (n: number, over: Partial<FeedItem> = {}): FeedItem => ({
 
 describe('quadra e maturidade', () => {
   it('blockOf tira o -Lnnn', () => {
-    expect(blockOf(LOT_A)).toBe('S05-Q07-B0602')
-    expect(blockOf(LOT_A)).toBe(blockOf(LOT_A2))
-    expect(blockOf(LOT_B)).not.toBe(blockOf(LOT_A))
+    assert.equal(blockOf(LOT_A), 'S05-Q07-B0602')
+    assert.equal(blockOf(LOT_A), blockOf(LOT_A2))
+    assert.notEqual(blockOf(LOT_B), blockOf(LOT_A))
   })
   it('144 blocos: 143 não, 144 sim; sem altura do pedido, 26 h', () => {
     const it0 = { indexed_at: '2026-11-17T10:00:00Z', indexed_block: 1000 }
-    expect(isMature(it0, 1143, NOW)).toBe(false)
-    expect(isMature(it0, 1144, NOW)).toBe(true)
-    expect(isMature(it0, null, NOW)).toBe(false)
-    expect(isMature({ indexed_at: '2026-11-19T09:00:00Z', indexed_block: null }, null, NOW)).toBe(true)
-    expect(isMature({ indexed_at: '2026-11-20T00:00:00Z', indexed_block: null }, null, NOW)).toBe(false)
-    expect(isMature({ indexed_at: null, indexed_block: null }, 5, NOW)).toBe(false)
+    assert.equal(isMature(it0, 1143, NOW), false)
+    assert.equal(isMature(it0, 1144, NOW), true)
+    assert.equal(isMature(it0, null, NOW), false)
+    assert.equal(isMature({ indexed_at: '2026-11-19T09:00:00Z', indexed_block: null }, null, NOW), true)
+    assert.equal(isMature({ indexed_at: '2026-11-20T00:00:00Z', indexed_block: null }, null, NOW), false)
+    assert.equal(isMature({ indexed_at: null, indexed_block: null }, 5, NOW), false)
   })
 })
 
 describe('decide', () => {
   it('500 + 250 normal', () => {
-    expect(decide(feed(1), OWNER, 976_144, NOW)).toMatchObject({ kind: 'credit', sameBlock: false, ownerAmount: 500, guestAmount: 250, ownerWallet: OWNER, guestWallet: G1 })
+    assert.deepEqual(decide(feed(1), OWNER, 976_144, NOW), { kind: 'credit', sameBlock: false, ownerAmount: 500, guestAmount: 250, ownerWallet: OWNER, guestWallet: G1 })
   })
   it('dobro para os dois na mesma quadra', () => {
-    expect(decide(feed(1, { lot_id: LOT_A2 }), OWNER, 976_144, NOW)).toMatchObject({ kind: 'credit', sameBlock: true, ownerAmount: 1000, guestAmount: 500 })
+    assert.deepEqual(decide(feed(1, { lot_id: LOT_A2 }), OWNER, 976_144, NOW), { kind: 'credit', sameBlock: true, ownerAmount: 1000, guestAmount: 500, ownerWallet: OWNER, guestWallet: G1 })
   })
   it('nunca o próprio lote', () => {
-    expect(decide(feed(1, { lot_id: LOT_A }), OWNER, 976_144, NOW)).toEqual({ kind: 'reject', reason: 'self_lot' })
+    assert.deepEqual(decide(feed(1, { lot_id: LOT_A }), OWNER, 976_144, NOW), { kind: 'reject', reason: 'self_lot' })
   })
   it('indicado igual ao dono do lote: recusa, também em maiúsculas e antes da maturidade', () => {
-    expect(decide(feed(1, { receive_address: OWNER }), OWNER, 976_144, NOW)).toEqual({ kind: 'reject', reason: 'self_wallet' })
-    expect(decide(feed(1, { receive_address: OWNER.toUpperCase() }), OWNER, 100, NOW)).toEqual({ kind: 'reject', reason: 'self_wallet' })
+    assert.deepEqual(decide(feed(1, { receive_address: OWNER }), OWNER, 976_144, NOW), { kind: 'reject', reason: 'self_wallet' })
+    assert.deepEqual(decide(feed(1, { receive_address: OWNER.toUpperCase() }), OWNER, 100, NOW), { kind: 'reject', reason: 'self_wallet' })
   })
   it('espera: sem maturidade ou sem dono conhecido', () => {
-    expect(decide(feed(1), OWNER, 976_143, NOW)).toEqual({ kind: 'wait', reason: 'not_mature' })
-    expect(decide(feed(1), null, 976_144, NOW)).toEqual({ kind: 'wait', reason: 'owner_unknown' })
+    assert.deepEqual(decide(feed(1), OWNER, 976_143, NOW), { kind: 'wait', reason: 'not_mature' })
+    assert.deepEqual(decide(feed(1), null, 976_144, NOW), { kind: 'wait', reason: 'owner_unknown' })
   })
 })
 
 describe('teto, itens, ranking, forma', () => {
   it('teto diário de 5.000', () => {
-    expect(fitsDailyCeiling(4000, 1000)).toBe(true)
-    expect(fitsDailyCeiling(4001, 1000)).toBe(false)
-    expect(fitsDailyCeiling(0, 5001)).toBe(false)
+    assert.equal(fitsDailyCeiling(4000, 1000), true)
+    assert.equal(fitsDailyCeiling(4001, 1000), false)
+    assert.equal(fitsDailyCeiling(0, 5001), false)
   })
   it('itens por quantidade: 3 quad, 10 jet, 25 m4', () => {
-    expect(itemsFor(2)).toEqual([])
-    expect(itemsFor(3)).toEqual(['quad'])
-    expect(itemsFor(10)).toEqual(['quad', 'jet'])
-    expect(itemsFor(25)).toEqual(['quad', 'jet', 'm4'])
+    assert.deepEqual(itemsFor(2), [])
+    assert.deepEqual(itemsFor(3), ['quad'])
+    assert.deepEqual(itemsFor(10), ['quad', 'jet'])
+    assert.deepEqual(itemsFor(25), ['quad', 'jet', 'm4'])
   })
   it('ranking top 3 com prêmios; empate: quem chegou primeiro', () => {
     const rows = [
@@ -75,25 +76,25 @@ describe('teto, itens, ranking, forma', () => {
       { wallet: 'W3', created_at: '2026-11-18T11:00:00Z' }, { wallet: 'W4', created_at: '2026-11-18T11:01:00Z' },
       { wallet: 'W5', created_at: '2026-11-18T11:02:00Z' },
     ]
-    expect(weeklyRanking(rows)).toEqual([
+    assert.deepEqual(weeklyRanking(rows), [
       { rank: 1, wallet: 'W2', lots: 3, prizeDc: 5000 }, { rank: 2, wallet: 'W1', lots: 3, prizeDc: 2500 }, { rank: 3, wallet: 'W3', lots: 1, prizeDc: 1000 },
     ])
   })
   it('o feed hostil: linha malformada cai fora', () => {
-    expect(isFeedItem(feed(1))).toBe(true)
+    assert.equal(isFeedItem(feed(1)), true)
     for (const bad of [null, {}, { ...feed(1), lot_id: 'x' }, { ...feed(1), order_id: 'x' }, { ...feed(1), indexed_block: -1 }, { ...feed(1), indexed_block: 1.5 }, { ...feed(1), receive_address: 'x' }]) {
-      expect(isFeedItem(bad)).toBe(false)
+      assert.equal(isFeedItem(bad), false)
     }
-    expect(parseFeedPage({ items: [feed(1), { lixo: 1 }], next: null }).items).toHaveLength(1)
-    expect(() => parseFeedPage({ nope: 1 })).toThrow()
+    assert.equal(parseFeedPage({ items: [feed(1), { lixo: 1 }], next: null }).items.length, 1)
+    assert.throws(() => parseFeedPage({ nope: 1 }))
   })
   it('detentores: só lote mintado com holder válido', () => {
     const m = parseHolders({ lots: [
       { lotId: LOT_A, state: 'minted', holder: OWNER }, { lotId: LOT_B, state: 'reserved', holder: OWNER }, { lotId: LOT_A2, state: 'minted', holder: null },
     ] })
-    expect(m.get(LOT_A)).toBe(OWNER)
-    expect(m.get(LOT_B)).toBeNull()
-    expect(m.get(LOT_A2)).toBeNull()
+    assert.equal(m.get(LOT_A), OWNER)
+    assert.equal(m.get(LOT_B), null)
+    assert.equal(m.get(LOT_A2), null)
   })
 })
 
@@ -147,88 +148,88 @@ describe('o giro do job', () => {
   it('credita dono e indicado, e rodar duas vezes não duplica', async () => {
     const w = fakeWorld({ ...base(), feedItems: [feed(1), feed(2, { receive_address: G2 })] })
     const r1 = await runReferralJob(w.deps)
-    expect(r1.credited).toEqual({ owner: 2, guest: 2 })
-    expect(total(w, OWNER)).toBe(1000)
-    expect(total(w, G1)).toBe(250)
+    assert.deepEqual(r1.credited, { owner: 2, guest: 2 })
+    assert.equal(total(w, OWNER), 1000)
+    assert.equal(total(w, G1), 250)
     const r2 = await runReferralJob(w.deps)
-    expect(r2.credited).toEqual({ owner: 0, guest: 0 })
-    expect(r2.skippedDone).toBe(2)
-    expect(total(w, OWNER)).toBe(1000)
-    expect(w.ledger).toHaveLength(4)
+    assert.deepEqual(r2.credited, { owner: 0, guest: 0 })
+    assert.equal(r2.skippedDone, 2)
+    assert.equal(total(w, OWNER), 1000)
+    assert.equal(w.ledger.length, 4)
   })
   it('antes de 144 blocos espera e depois credita', async () => {
     const w = fakeWorld({ ...base(), height: 976_100, feedItems: [feed(1)] })
-    expect((await runReferralJob(w.deps)).waiting.not_mature).toBe(1)
-    expect(w.ledger).toHaveLength(0)
+    assert.equal((await runReferralJob(w.deps)).waiting.not_mature, 1)
+    assert.equal(w.ledger.length, 0)
     const w2 = fakeWorld({ ...base(), height: 976_144, feedItems: [feed(1)] })
-    expect((await runReferralJob(w2.deps)).credited.owner).toBe(1)
+    assert.equal((await runReferralJob(w2.deps)).credited.owner, 1)
   })
   it('própria carteira e próprio lote: nada é creditado, e o pedido não volta', async () => {
     const w = fakeWorld({ ...base(), feedItems: [feed(1, { receive_address: OWNER }), feed(2, { lot_id: LOT_A })] })
     const r = await runReferralJob(w.deps)
-    expect(r.rejected).toBe(2)
-    expect(w.ledger).toHaveLength(0)
-    expect((await runReferralJob(w.deps)).skippedDone).toBe(2)
+    assert.equal(r.rejected, 2)
+    assert.equal(w.ledger.length, 0)
+    assert.equal((await runReferralJob(w.deps)).skippedDone, 2)
   })
   it('dono desconhecido espera; dono sem handle tenta de novo no giro seguinte', async () => {
     const w = fakeWorld({ ...base(), owners: new Map(), feedItems: [feed(1)] })
-    expect((await runReferralJob(w.deps)).waiting.owner_unknown).toBe(1)
+    assert.equal((await runReferralJob(w.deps)).waiting.owner_unknown, 1)
     const w2 = fakeWorld({ ...base(), handles: new Set([G1]), feedItems: [feed(1)] })
-    expect((await runReferralJob(w2.deps)).noHandle).toBe(1)
-    expect(w2.ledger.map((l) => l.wallet)).toEqual([G1])
+    assert.equal((await runReferralJob(w2.deps)).noHandle, 1)
+    assert.deepEqual(w2.ledger.map((l) => l.wallet), [G1])
   })
   it('teto de 5.000 por dia: o excesso vai para revisão e não credita', async () => {
     const many = Array.from({ length: 12 }, (_, i) => feed(i + 1, { receive_address: 'bc1p' + String(i).padStart(2, '0').repeat(29) }))
     const handles = new Set([OWNER, ...many.map((m) => m.receive_address)])
     const w = fakeWorld({ ...base(), handles, feedItems: many })
     const r = await runReferralJob(w.deps)
-    expect(total(w, OWNER)).toBe(5000)
-    expect(r.credited.owner).toBe(10)
-    expect(r.review).toBe(2)
-    expect([...w.rows.values()].filter((x) => x.status === 'review')).toHaveLength(2)
+    assert.equal(total(w, OWNER), 5000)
+    assert.equal(r.credited.owner, 10)
+    assert.equal(r.review, 2)
+    assert.equal([...w.rows.values()].filter((x) => x.status === 'review').length, 2)
     await runReferralJob(w.deps)
-    expect(total(w, OWNER)).toBe(5000)
+    assert.equal(total(w, OWNER), 5000)
   })
   it('itens por quantidade de lotes da carteira dona (3 quad, 10 jet)', async () => {
     const many = Array.from({ length: 10 }, (_, i) => feed(i + 1, { receive_address: 'bc1p' + String(i).padStart(2, '0').repeat(29) }))
     const w = fakeWorld({ ...base(), handles: new Set([OWNER, ...many.map((m) => m.receive_address)]), feedItems: many.slice(0, 2) })
     await runReferralJob(w.deps)
-    expect([...w.items]).toEqual([])
+    assert.deepEqual([...w.items], [])
     const w2 = fakeWorld({ ...base(), handles: new Set([OWNER, ...many.map((m) => m.receive_address)]), feedItems: many })
     await runReferralJob(w2.deps)
-    expect([...w2.items].sort()).toEqual([`${OWNER}|jet`, `${OWNER}|quad`])
+    assert.deepEqual([...w2.items].sort(), [`${OWNER}|jet`, `${OWNER}|quad`])
   })
   it('boas-vindas é uma por indicado: o segundo pedido dele só paga ao dono', async () => {
     const w = fakeWorld({ ...base(), feedItems: [feed(1), feed(2)] })
     const r = await runReferralJob(w.deps)
-    expect(r.credited).toEqual({ owner: 2, guest: 1 })
-    expect(total(w, G1)).toBe(250)
+    assert.deepEqual(r.credited, { owner: 2, guest: 1 })
+    assert.equal(total(w, G1), 250)
   })
   it('boas-vindas pendente do primeiro pedido não vai para o segundo', async () => {
     const w = fakeWorld({ ...base(), handles: new Set([OWNER]), feedItems: [feed(1), feed(2)] })
     const r = await runReferralJob(w.deps)
-    expect(r.credited.guest).toBe(0)
-    expect(r.noHandle).toBe(1)
+    assert.equal(r.credited.guest, 0)
+    assert.equal(r.noHandle, 1)
   })
   it('páginas do feed são percorridas', async () => {
     const items = Array.from({ length: 5 }, (_, i) => feed(i + 1, { receive_address: 'bc1p' + String(i).padStart(2, '0').repeat(29) }))
     const w = fakeWorld({ ...base(), pageSize: 2, handles: new Set([OWNER, ...items.map((m) => m.receive_address)]), feedItems: items })
     const r = await runReferralJob(w.deps)
-    expect(r.pages).toBe(3)
-    expect(r.credited.owner).toBe(5)
+    assert.equal(r.pages, 3)
+    assert.equal(r.credited.owner, 5)
   })
 })
 
 describe('a migração 043', () => {
   const sql = readFileSync(new URL('../../supabase/migrations/043_lot_referrals.sql', import.meta.url), 'utf8')
   it('chave única por pedido e lado, boas-vindas única, só service_role executa', () => {
-    expect(sql).toMatch(/primary key \(order_id, side\)/)
-    expect(sql).toMatch(/lot_referral_guest_once[^;]*where side = 'guest' and status = 'credited'/)
-    expect(sql).toMatch(/grant execute on function public\.lot_referral_credit[^;]*to service_role/)
-    expect(sql).toMatch(/revoke all on function public\.lot_referral_credit[^;]*from public, anon, authenticated/)
+    assert.match(sql, /primary key \(order_id, side\)/)
+    assert.match(sql, /lot_referral_guest_once[^;]*where side = 'guest' and status = 'credited'/)
+    assert.match(sql, /grant execute on function public\.lot_referral_credit[^;]*to service_role/)
+    assert.match(sql, /revoke all on function public\.lot_referral_credit[^;]*from public, anon, authenticated/)
   })
   it('o livro ganha referral fora do teto de 480 (kind próprio)', () => {
-    expect(sql).toMatch(/'referral'/)
-    expect(sql).not.toMatch(/kind = 'earn'.*referral/)
+    assert.match(sql, /'referral'/)
+    assert.doesNotMatch(sql, /kind = 'earn'.*referral/)
   })
 })
