@@ -239,7 +239,7 @@ const TOC = [
   { id: "dog-motors", n: "", label: "DOG MOTORS" },
   { id: "an7-race", n: "", label: "The AN7 race" },
   { id: "merging-lots", n: "", label: "Merging lots" },
-  { id: "referrals", n: "", label: "Referrals" },
+  { id: "referrals", n: "", label: "Ambassadors" },
   { id: "not-yet", n: "9", label: "What this is not, yet" },
 ]
 
@@ -1880,20 +1880,23 @@ export default function DogCityDocsPage() {
               </P>
             </Section>
 
-            {/* ═══════════════ INDICAÇÃO (17/11/2026, decisão do fundador) ═══════════════
-                O código é o LOTE de quem indica; o mint grava `mint_order.referrer_lot` desde 17/11 (dogcity-mint #59, migração 015,
-                MINT_REFERRAL_ON=1). Prêmios em DC Points e itens exclusivos do jogo (sem selo, sem muro: "ninguém vê"); nada em BTC ou
-                $DOG. O crédito automático ainda não existe: o texto diz que o que foi gravado não se perde. Esta seção é o contrato. */}
-            <Section id="referrals" n="" eyebrow="REFERRALS · INVITE NEIGHBOURS" title="Invite neighbours, earn in the city">
+            {/* ═══════════════ EMBAIXADORES (17/11/2026, unificado por @handle em 18/11, decisão do fundador) ═══════════════
+                O código é o @handle da PESSOA (perfil do DogData); o ID do lote continua aceito como atalho e credita o dono ATUAL do
+                lote. A indicação vale no PEDIDO do mint (`mint_order.referrer_handle` / `referrer_lot`). Prêmios em DC Points e itens
+                exclusivos do jogo; nada em BTC ou $DOG. Esta seção é o contrato. */}
+            <Section id="referrals" n="" eyebrow="AMBASSADORS · INVITE NEIGHBOURS" title="Invite neighbours, earn in the city">
               <P>
-                Every lot with a deed is a referral code. Share <span className="font-mono">mint.dogcity.space/?ref=</span> followed by your
-                lot ID (the "Share your lot" button after a mint already does it). When someone mints through your link, you both earn.
+                Your code is your DogData handle. Share <span className="font-mono">https://dogcity.space/?ref=@handle</span> or{" "}
+                <span className="font-mono">https://mint.dogcity.space/?ref=@handle</span>, with your own handle. When someone mints a lot
+                through your link, you both earn.
               </P>
 
               <Sub>Who can refer</Sub>
               <P className="mt-3">
-                The owner of a lot whose deed is inscribed. The link is remembered on the visitor&apos;s device for 30 days, and the first
-                link they opened is the one that counts.
+                Anyone with a handle on DogData, which is claimed after proving ownership of a wallet. You need a handle to receive the
+                rewards. The link is remembered on the visitor&apos;s device for 30 days, and the first link they opened is the one that counts.
+                A link with a lot ID, such as <span className="font-mono">mint.dogcity.space/?ref=S05-Q07-B0602-L018</span> (the &quot;Share your
+                lot&quot; button), still works: it credits the current owner of that lot.
               </P>
 
               <Sub>What you earn</Sub>
@@ -1901,8 +1904,8 @@ export default function DogCityDocsPage() {
                 items={[
                   { lead: "500 DC Points", text: "for each lot minted through your link." },
                   { lead: "250 DC Points", text: "for the person you invited, on their first mint." },
-                  { lead: "Double in your block.", text: "If they mint a lot in the same block as yours, you both earn twice as much." },
-                  { lead: "Weekly top three.", text: "The three owners with the most lots minted through their links in the week earn 5,000, 2,500 and 1,000 DC Points." },
+                  { lead: "Double in your block.", text: "If the lot they mint is in the same block as one of the lots you hold, you both earn twice as much. With a lot-ID link, it is the block of that lot." },
+                  { lead: "Weekly top three.", text: "The three ambassadors with the most lots minted through their links in the week earn 5,000, 2,500 and 1,000 DC Points." },
                 ]}
               />
 
@@ -1921,11 +1924,11 @@ export default function DogCityDocsPage() {
               <Sub>Rules</Sub>
               <BulletList
                 items={[
-                  { lead: "Only inscribed deeds count.", text: "A referral counts when the invited lot's deed is inscribed, and its DC Points are credited one day (144 blocks) later." },
-                  { lead: "Never yourself.", text: "Your own lot and your own wallet never count as referrals." },
+                  { lead: "The referral counts at the order.", text: "It is recorded when the invited person places the mint order. Once the deed is inscribed, its DC Points are credited one day (144 blocks) later." },
+                  { lead: "Never yourself.", text: "Your own lot and your own wallet never count as referrals, whether the order pays from or delivers to your wallet." },
                   { lead: "One level.", text: "You earn from the people you invite, not from the people they invite." },
-                  { lead: "A daily ceiling.", text: "Up to 5,000 DC Points a day per owner; above that, a manual review." },
-                  { lead: "No money.", text: "Referrals pay in DC Points and items only, never in Bitcoin or $DOG. DC Points and items have no cash value." },
+                  { lead: "A daily ceiling.", text: "Up to 5,000 DC Points a day per ambassador; above that, a manual review." },
+                  { lead: "No money.", text: "Ambassadors earn DC Points and items only, never Bitcoin or $DOG. DC Points and items have no cash value." },
                   { lead: "Counted from 17 November 2026.", text: "Every referral since then is recorded on the mint. DC Points and items are credited to recorded referrals as the rewards go live in the game; nothing recorded is lost." },
                 ]}
               />
