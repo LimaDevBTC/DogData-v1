@@ -1,11 +1,12 @@
--- Migration 043: crédito da indicação por lote (17/11/2026, decisão do fundador): DC Points e itens. NÃO APLICADA: o orquestrador
--- revisa e aplica. Depende da 042 (livro-caixa dc_points_*). Contrato público: /dogcity/docs#referrals e
+-- Migration 043: crédito da indicação de embaixadores (17/11/2026; unificada por @handle em 18/11): DC Points e itens. NÃO APLICADA:
+-- o orquestrador revisa e aplica. Depende da 042 (livro-caixa dc_points_*) e da 035 (referral_links, para gravar o vínculo). Contrato público: /dogcity/docs#referrals e
 -- GET /api/dogcity/referral-items. Quem lê o mint e chama estas funções: app/api/cron/lot-referrals (lib/lot-referral).
 --
--- REGRAS: 500 DC por lote indicado para o DONO ATUAL do lote que indicou; 250 DC ao indicado no primeiro mint; dobro para os dois
--- se os lotes são da mesma quadra; crédito 144 blocos depois do `indexed`; nunca o próprio lote nem a própria carteira; um nível
+-- REGRAS (18/11): o código é o @handle da PESSOA; o LOTE continua aceito como atalho (credita o dono ATUAL do lote). A indicação vale
+-- no PEDIDO do mint. 500 DC por lote indicado a quem indicou; 250 DC ao indicado no primeiro mint; dobro para os dois
+-- na mesma quadra (lote: a do lote que indicou; handle: a de qualquer escritura que o indicador guarda); crédito 144 blocos depois do `indexed`; nunca o próprio lote nem a própria carteira; um nível
 -- só; teto de 5.000 DC por dia de jogo por carteira (acima: fila de revisão, NÃO credita); itens por quantidade de lotes
--- indicados pela carteira dona: 3 quad, 10 jet, 25 m4 (ficam com a carteira que os conquistou).
+-- indicados pelo ENDEREÇO de quem indicou (o teto de 5.000 também): 3 quad, 10 jet, 25 m4 (ficam com a carteira que os conquistou).
 -- As decisões ficam em lib/lot-referral/rules.ts (testadas); aqui moram a idempotência, o teto, o livro e os itens.
 --
 --   lot_referral_rewards  uma linha por (pedido do mint, lado): 'owner' (quem indicou), 'guest' (o indicado) ou 'order' (o pedido
@@ -57,7 +58,10 @@ create table if not exists public.lot_referral_rewards (
   status text not null check (status in ('credited', 'review', 'rejected', 'guest_taken')),
   -- o lote indicado (o que foi mintado) e o lote que indicou
   lot_id text not null check (lot_id ~ '^S[0-9]{2}-Q[0-9]{2}-B[0-9]{3,5}-L[0-9]{3,5}$'),
-  referrer_lot text not null check (referrer_lot ~ '^S[0-9]{2}-Q[0-9]{2}-B[0-9]{3,5}-L[0-9]{3,5}$'),
+  -- quem indicou: o handle (código principal) e/ou o lote (atalho); ao menos um
+  referrer_lot text check (referrer_lot is null or referrer_lot ~ '^S[0-9]{2}-Q[0-9]{2}-B[0-9]{3,5}-L[0-9]{3,5}$'),
+  referrer_handle text check (referrer_handle is null or referrer_handle ~ '^[a-z0-9_]{3,15}$'),
+  check (referrer_lot is not null or referrer_handle is not null),
   -- a carteira deste lado (null no lado 'order'); o endereço de entrega do indicado
   wallet text check (wallet is null or length(wallet) between 26 and 90),
   guest_wallet text check (guest_wallet is null or length(guest_wallet) between 26 and 90),
@@ -100,6 +104,8 @@ create or replace function public.lot_referral_credit(
   p_amount integer,
   p_lot text,
   p_referrer_lot text,
+  p_referrer_handle text,
+  p_referrer_wallet text,
   p_guest_wallet text,
   p_same_block boolean,
   p_indexed_block integer,
@@ -117,8 +123,10 @@ declare
   v_after integer;
   v_n integer;
   v_ref text;
+  v_ref_handle text;
 begin
   if p_side not in ('owner', 'guest') then raise exception 'lot_referral_credit: bad side'; end if;
+  if p_referrer_lot is null and p_referrer_handle is null then raise exception 'lot_referral_credit: no referrer'; end if;
   if p_amount is null or p_amount < 1 or p_amount > 1000 then raise exception 'lot_referral_credit: bad amount'; end if;
   if p_daily_cap is null or p_daily_cap < 1 or p_daily_cap > 5000 then raise exception 'lot_referral_credit: bad cap'; end if;
   v_bal := public.dc_points_open(p_wallet);  -- trava a carteira e garante a linha dela
@@ -127,8 +135,8 @@ begin
     return jsonb_build_object('status', 'duplicate', 'credited', v_done.credited, 'balance', v_bal);
   end if;
   if p_side = 'guest' and exists (select 1 from public.lot_referral_rewards where wallet = p_wallet and side = 'guest' and status = 'credited') then
-    insert into public.lot_referral_rewards (order_id, side, status, lot_id, referrer_lot, wallet, guest_wallet, same_block, amount, indexed_block, indexed_at, game_day, reason)
-      values (p_order, p_side, 'guest_taken', p_lot, p_referrer_lot, p_wallet, p_guest_wallet, p_same_block, p_amount, p_indexed_block, p_indexed_at, v_day, 'welcome already paid');
+    insert into public.lot_referral_rewards (order_id, side, status, lot_id, referrer_lot, referrer_handle, wallet, guest_wallet, same_block, amount, indexed_block, indexed_at, game_day, reason)
+      values (p_order, p_side, 'guest_taken', p_lot, p_referrer_lot, p_referrer_handle, p_wallet, p_guest_wallet, p_same_block, p_amount, p_indexed_block, p_indexed_at, v_day, 'welcome already paid');
     return jsonb_build_object('status', 'guest_taken', 'credited', 0, 'balance', v_bal);
   end if;
   if not public.dc_points_has_handle(p_wallet) then
@@ -137,8 +145,8 @@ begin
   select coalesce(sum(delta), 0)::integer into v_today from public.dc_points_ledger
    where wallet = p_wallet and kind = 'referral' and game_day = v_day;
   if v_today + p_amount > p_daily_cap then
-    insert into public.lot_referral_rewards (order_id, side, status, lot_id, referrer_lot, wallet, guest_wallet, same_block, amount, indexed_block, indexed_at, game_day, reason)
-      values (p_order, p_side, 'review', p_lot, p_referrer_lot, p_wallet, p_guest_wallet, p_same_block, p_amount, p_indexed_block, p_indexed_at, v_day, 'daily ceiling');
+    insert into public.lot_referral_rewards (order_id, side, status, lot_id, referrer_lot, referrer_handle, wallet, guest_wallet, same_block, amount, indexed_block, indexed_at, game_day, reason)
+      values (p_order, p_side, 'review', p_lot, p_referrer_lot, p_referrer_handle, p_wallet, p_guest_wallet, p_same_block, p_amount, p_indexed_block, p_indexed_at, v_day, 'daily ceiling');
     return jsonb_build_object('status', 'review', 'credited', 0, 'balance', v_bal);
   end if;
   v_credit := least(p_amount, greatest(0, 1000000 - v_bal));
@@ -148,8 +156,16 @@ begin
     values (p_wallet, 'referral', 'referral', v_ref, p_amount, v_credit, v_day)
     returning id, balance_after into v_ledger, v_after;
   perform set_config('dogcity.dc_points', 'off', true);
-  insert into public.lot_referral_rewards (order_id, side, status, lot_id, referrer_lot, wallet, guest_wallet, same_block, amount, credited, indexed_block, indexed_at, ledger_id, game_day)
-    values (p_order, p_side, 'credited', p_lot, p_referrer_lot, p_wallet, p_guest_wallet, p_same_block, p_amount, v_credit, p_indexed_block, p_indexed_at, v_ledger, v_day);
+  insert into public.lot_referral_rewards (order_id, side, status, lot_id, referrer_lot, referrer_handle, wallet, guest_wallet, same_block, amount, credited, indexed_block, indexed_at, ledger_id, game_day)
+    values (p_order, p_side, 'credited', p_lot, p_referrer_lot, p_referrer_handle, p_wallet, p_guest_wallet, p_same_block, p_amount, v_credit, p_indexed_block, p_indexed_at, v_ledger, v_day);
+  -- o vínculo do indicado ao indicador (a mesma tabela do programa do perfil, 035): um indicador por carteira, o primeiro vence
+  -- (chave primária + gatilho de só-inserir), então 'do nothing' mantém o primeiro. Sem handle do indicador, não grava.
+  select handle into v_ref_handle from public.dogcity_profiles where address = lower(p_referrer_wallet);
+  if v_ref_handle is not null and lower(p_guest_wallet) <> lower(p_referrer_wallet) then
+    insert into public.referral_links (referred_address, referrer_address, referrer_handle)
+      values (p_guest_wallet, p_referrer_wallet, v_ref_handle)
+    on conflict (referred_address) do nothing;
+  end if;
   if p_side = 'owner' then
     select count(*)::integer into v_n from public.lot_referral_rewards where wallet = p_wallet and side = 'owner' and status = 'credited';
     insert into public.lot_referral_items (wallet, item, lots_at_unlock, order_id)
@@ -163,12 +179,12 @@ $$;
 
 -- o pedido inteiro recusado (própria carteira, próprio lote): grava e não volta mais
 create or replace function public.lot_referral_reject(
-  p_order uuid, p_lot text, p_referrer_lot text, p_guest_wallet text, p_reason text, p_indexed_block integer, p_indexed_at timestamptz
+  p_order uuid, p_lot text, p_referrer_lot text, p_referrer_handle text, p_guest_wallet text, p_reason text, p_indexed_block integer, p_indexed_at timestamptz
 ) returns jsonb
 language plpgsql as $$
 begin
-  insert into public.lot_referral_rewards (order_id, side, status, lot_id, referrer_lot, guest_wallet, reason, indexed_block, indexed_at)
-    values (p_order, 'order', 'rejected', p_lot, p_referrer_lot, p_guest_wallet, left(coalesce(p_reason, 'rejected'), 60), p_indexed_block, p_indexed_at)
+  insert into public.lot_referral_rewards (order_id, side, status, lot_id, referrer_lot, referrer_handle, guest_wallet, reason, indexed_block, indexed_at)
+    values (p_order, 'order', 'rejected', p_lot, p_referrer_lot, p_referrer_handle, p_guest_wallet, left(coalesce(p_reason, 'rejected'), 60), p_indexed_block, p_indexed_at)
   on conflict (order_id, side) do nothing;
   return jsonb_build_object('status', 'rejected');
 end;
@@ -177,9 +193,9 @@ $$;
 -- ── permissões: só o service role (as rotas do servidor) ──────────────────────
 revoke all on table public.lot_referral_rewards from anon, authenticated;
 revoke all on table public.lot_referral_items from anon, authenticated;
-revoke all on function public.lot_referral_credit(uuid, text, text, integer, text, text, text, boolean, integer, timestamptz, integer) from public, anon, authenticated;
-revoke all on function public.lot_referral_reject(uuid, text, text, text, text, integer, timestamptz) from public, anon, authenticated;
-grant execute on function public.lot_referral_credit(uuid, text, text, integer, text, text, text, boolean, integer, timestamptz, integer) to service_role;
-grant execute on function public.lot_referral_reject(uuid, text, text, text, text, integer, timestamptz) to service_role;
+revoke all on function public.lot_referral_credit(uuid, text, text, integer, text, text, text, text, text, boolean, integer, timestamptz, integer) from public, anon, authenticated;
+revoke all on function public.lot_referral_reject(uuid, text, text, text, text, text, integer, timestamptz) from public, anon, authenticated;
+grant execute on function public.lot_referral_credit(uuid, text, text, integer, text, text, text, text, text, boolean, integer, timestamptz, integer) to service_role;
+grant execute on function public.lot_referral_reject(uuid, text, text, text, text, text, integer, timestamptz) to service_role;
 
 commit;

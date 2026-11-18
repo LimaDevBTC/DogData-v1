@@ -1,9 +1,9 @@
 // Os fios do job de indicação com o mundo: o feed e os detentores do mint (HTTP) e as funções do banco (043). Só fios; as regras
 // moram em rules.ts e o giro em job.ts. Lê com desconfiança: forma inesperada LANÇA (o giro termina, o próximo tenta de novo).
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { MINT_ORIGIN } from '../dog/licence-lot-supabase'
+import { MINT_ORIGIN, holderDoMint } from '../dog/licence-lot-supabase'
 import type { CreditArgs, CreditStatus, JobDeps } from './job'
-import { isFeedItem, normWallet, type FeedItem } from './rules'
+import { blockOf, isFeedItem, normWallet, referrerHandleOf, type FeedItem } from './rules'
 
 const FEED_LIMIT = 200
 const HTTP_MS = 8_000
@@ -66,9 +66,25 @@ export function referralDeps(db: SupabaseClient, env: Record<string, string | un
       }
       return out
     },
+    async handles(handles) {
+      const out = new Map<string, string | null>(handles.map((h) => [h, null]))
+      for (let i = 0; i < handles.length; i += 200) {
+        const { data, error } = await db.from('dogcity_profiles').select('address, handle').in('handle', handles.slice(i, i + 200))
+        if (error) throw new Error(`dogcity_profiles: ${error.message}`)
+        for (const r of (data ?? []) as Array<{ address: string; handle: string }>) {
+          if (typeof r.handle === 'string' && typeof r.address === 'string') out.set(r.handle, normWallet(r.address))
+        }
+      }
+      return out
+    },
+    async heldBlocks(address) {
+      // falha (rede, prazo, forma) = sem dobro; nunca bloqueia o crédito
+      const h = await holderDoMint(address).catch(() => null)
+      return new Set((h?.lots ?? []).map(blockOf))
+    },
     async credit(a: CreditArgs): Promise<CreditStatus> {
       const { data, error } = await db.rpc('lot_referral_credit', {
-        p_order: a.orderId, p_side: a.side, p_wallet: a.wallet, p_amount: a.amount, p_lot: a.lot, p_referrer_lot: a.referrerLot,
+        p_order: a.orderId, p_side: a.side, p_wallet: a.wallet, p_amount: a.amount, p_lot: a.lot, p_referrer_lot: a.referrerLot, p_referrer_handle: a.referrerHandle, p_referrer_wallet: a.referrerWallet,
         p_guest_wallet: a.guestWallet, p_same_block: a.sameBlock, p_indexed_block: a.indexedBlock, p_indexed_at: a.indexedAt,
       })
       if (error) throw new Error(`lot_referral_credit: ${error.message}`)
@@ -78,7 +94,7 @@ export function referralDeps(db: SupabaseClient, env: Record<string, string | un
     },
     async reject(item, reason) {
       const { error } = await db.rpc('lot_referral_reject', {
-        p_order: item.order_id, p_lot: item.lot_id, p_referrer_lot: item.referrer_lot, p_guest_wallet: normWallet(item.receive_address),
+        p_order: item.order_id, p_lot: item.lot_id, p_referrer_lot: referrerHandleOf(item) ? null : item.referrer_lot, p_referrer_handle: referrerHandleOf(item), p_guest_wallet: normWallet(item.receive_address),
         p_reason: reason, p_indexed_block: item.indexed_block, p_indexed_at: item.indexed_at,
       })
       if (error) throw new Error(`lot_referral_reject: ${error.message}`)

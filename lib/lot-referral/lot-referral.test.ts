@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { runReferralJob, type CreditArgs, type CreditStatus, type JobDeps } from './job'
 import { parseFeedPage, parseHolders } from './io'
 import {
-  blockOf, decide, fitsDailyCeiling, isFeedItem, isMature, itemsFor, weeklyRanking, type FeedItem,
+  blockOf, decide, referrerHandleOf, fitsDailyCeiling, isFeedItem, isMature, itemsFor, weeklyRanking, type FeedItem,
 } from './rules'
 
 const NOW = Date.parse('2026-11-20T12:00:00Z')
@@ -16,7 +16,7 @@ const G1 = 'bc1p' + 'b'.repeat(58)
 const G2 = 'bc1p' + 'c'.repeat(58)
 const oid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`
 const feed = (n: number, over: Partial<FeedItem> = {}): FeedItem => ({
-  order_id: oid(n), lot_id: LOT_B, referrer_lot: LOT_A, receive_address: G1,
+  order_id: oid(n), lot_id: LOT_B, referrer_lot: LOT_A, referrer_handle: null, receive_address: G1, payer_address: null,
   indexed_at: '2026-11-17T10:00:00.000Z', indexed_block: 976_000, ...over,
 })
 
@@ -51,6 +51,25 @@ describe('decide', () => {
     assert.deepEqual(decide(feed(1, { receive_address: OWNER }), OWNER, 976_144, NOW), { kind: 'reject', reason: 'self_wallet' })
     assert.deepEqual(decide(feed(1, { receive_address: OWNER.toUpperCase() }), OWNER, 100, NOW), { kind: 'reject', reason: 'self_wallet' })
   })
+  it('handle: credita o endereço do handle; dobro se o indicador guarda escritura na quadra do lote indicado', () => {
+    const h = feed(1, { referrer_lot: null, referrer_handle: 'alice' })
+    assert.deepEqual(decide(h, OWNER, 976_144, NOW), { kind: 'credit', sameBlock: false, ownerAmount: 500, guestAmount: 250, ownerWallet: OWNER, guestWallet: G1 })
+    assert.deepEqual(decide(h, OWNER, 976_144, NOW, new Set([blockOf(LOT_A)])), { kind: 'credit', sameBlock: false, ownerAmount: 500, guestAmount: 250, ownerWallet: OWNER, guestWallet: G1 })
+    assert.deepEqual(decide(h, OWNER, 976_144, NOW, new Set([blockOf(LOT_B)])), { kind: 'credit', sameBlock: true, ownerAmount: 1000, guestAmount: 500, ownerWallet: OWNER, guestWallet: G1 })
+  })
+  it('handle que não existe: recusa; handle com @ e maiúsculas vale como o normalizado', () => {
+    assert.deepEqual(decide(feed(1, { referrer_lot: null, referrer_handle: 'ghost' }), null, 976_144, NOW), { kind: 'reject', reason: 'unknown_handle' })
+    assert.equal(referrerHandleOf(feed(1, { referrer_handle: '@Alice' })), 'alice')
+  })
+  it('autoindicação por handle: recebe ou paga com o endereço do indicador', () => {
+    const h = (o: Partial<FeedItem>) => feed(1, { referrer_lot: null, referrer_handle: 'alice', ...o })
+    assert.deepEqual(decide(h({ receive_address: OWNER }), OWNER, 976_144, NOW), { kind: 'reject', reason: 'self_wallet' })
+    assert.deepEqual(decide(h({ payer_address: OWNER }), OWNER, 100, NOW), { kind: 'reject', reason: 'self_wallet' })
+    assert.equal(decide(h({ payer_address: G2 }), OWNER, 976_144, NOW).kind, 'credit')
+  })
+  it('autoindicação por lote: pagador igual ao dono do lote', () => {
+    assert.deepEqual(decide(feed(1, { payer_address: OWNER }), OWNER, 976_144, NOW), { kind: 'reject', reason: 'self_wallet' })
+  })
   it('espera: sem maturidade ou sem dono conhecido', () => {
     assert.deepEqual(decide(feed(1), OWNER, 976_143, NOW), { kind: 'wait', reason: 'not_mature' })
     assert.deepEqual(decide(feed(1), null, 976_144, NOW), { kind: 'wait', reason: 'owner_unknown' })
@@ -82,7 +101,9 @@ describe('teto, itens, ranking, forma', () => {
   })
   it('o feed hostil: linha malformada cai fora', () => {
     assert.equal(isFeedItem(feed(1)), true)
-    for (const bad of [null, {}, { ...feed(1), lot_id: 'x' }, { ...feed(1), order_id: 'x' }, { ...feed(1), indexed_block: -1 }, { ...feed(1), indexed_block: 1.5 }, { ...feed(1), receive_address: 'x' }]) {
+    assert.equal(isFeedItem(feed(1, { referrer_lot: null, referrer_handle: 'alice' })), true)
+    assert.equal(isFeedItem({ ...feed(1), payer_address: undefined }), true)
+    for (const bad of [feed(1, { referrer_lot: null, referrer_handle: null }), feed(1, { referrer_handle: 'a b' }), feed(1, { payer_address: 'x' }), null, {}, { ...feed(1), lot_id: 'x' }, { ...feed(1), order_id: 'x' }, { ...feed(1), indexed_block: -1 }, { ...feed(1), indexed_block: 1.5 }, { ...feed(1), receive_address: 'x' }]) {
       assert.equal(isFeedItem(bad), false)
     }
     assert.equal(parseFeedPage({ items: [feed(1), { lixo: 1 }], next: null }).items.length, 1)
@@ -99,10 +120,11 @@ describe('teto, itens, ranking, forma', () => {
 })
 
 // ── um banco de mentira que imita 043 (unicidade por pedido+lado, handle, teto diário, boas-vindas única, itens) ──────────────
-function fakeWorld(opts: { handles: Set<string>; owners: Map<string, string | null>; height: number | null; feedItems: FeedItem[]; pageSize?: number }) {
+function fakeWorld(opts: { handles: Set<string>; owners: Map<string, string | null>; handleOwners?: Map<string, string | null>; held?: Map<string, string[]>; heldFails?: boolean; links?: Map<string, string>; height: number | null; feedItems: FeedItem[]; pageSize?: number }) {
   const rows = new Map<string, { status: string; wallet: string | null; amount: number }>() // `${order}|${side}`
   const ledger: Array<{ ref: string; wallet: string; delta: number }> = []
   const items = new Set<string>()
+  const links = opts.links ?? new Map<string, string>() // referred -> referrer (referral_links: o primeiro vence)
   const credit = async (a: CreditArgs): Promise<CreditStatus> => {
     const key = `${a.orderId}|${a.side}`
     if (rows.has(key)) return 'duplicate'
@@ -113,6 +135,7 @@ function fakeWorld(opts: { handles: Set<string>; owners: Map<string, string | nu
     const today = ledger.filter((l) => l.wallet === a.wallet).reduce((s, l) => s + l.delta, 0)
     if (!fitsDailyCeiling(today, a.amount)) { rows.set(key, { status: 'review', wallet: a.wallet, amount: a.amount }); return 'review' }
     ledger.push({ ref: key, wallet: a.wallet, delta: a.amount })
+    if (!links.has(a.guestWallet) && a.guestWallet !== a.referrerWallet) links.set(a.guestWallet, a.referrerWallet)
     rows.set(key, { status: 'credited', wallet: a.wallet, amount: a.amount })
     if (a.side === 'owner') {
       const n = [...rows.entries()].filter(([k, r]) => k.endsWith('|owner') && r.wallet === a.wallet && r.status === 'credited').length
@@ -135,10 +158,12 @@ function fakeWorld(opts: { handles: Set<string>; owners: Map<string, string | nu
       return out
     },
     async holders(lots) { return new Map(lots.map((l) => [l, opts.owners.get(l) ?? null])) },
+    async handles(hs) { return new Map(hs.map((h) => [h, opts.handleOwners?.get(h) ?? null])) },
+    async heldBlocks(addr) { return opts.heldFails ? new Set<string>() : new Set((opts.held?.get(addr) ?? []).map(blockOf)) },
     credit,
     async reject(item, reason) { rows.set(`${item.order_id}|order`, { status: 'rejected:' + reason, wallet: null, amount: 0 }) },
   }
-  return { deps, rows, ledger, items }
+  return { deps, rows, ledger, items, links }
 }
 const total = (w: ReturnType<typeof fakeWorld>, wallet: string) => w.ledger.filter((l) => l.wallet === wallet).reduce((s, l) => s + l.delta, 0)
 
@@ -211,6 +236,57 @@ describe('o giro do job', () => {
     assert.equal(r.credited.guest, 0)
     assert.equal(r.noHandle, 1)
   })
+  it('handle: credita o dono do handle, grava o vínculo e o dobro vem das escrituras do indicador', async () => {
+    const h = (n: number, o: Partial<FeedItem> = {}) => feed(n, { referrer_lot: null, referrer_handle: 'alice', ...o })
+    const handleOwners = new Map([['alice', OWNER]])
+    const w = fakeWorld({ ...base(), handleOwners, held: new Map([[OWNER, [LOT_B.replace('L001', 'L002')]]]), feedItems: [h(1), h(2, { receive_address: G2, lot_id: LOT_A })] })
+    const r = await runReferralJob(w.deps)
+    assert.deepEqual(r.credited, { owner: 2, guest: 2 })
+    assert.equal(total(w, G1), 500) // mesma quadra de uma escritura do indicador: dobro
+    assert.equal(total(w, G2), 250)
+    assert.equal(total(w, OWNER), 1000 + 500)
+    assert.equal(w.links.get(G1), OWNER)
+    assert.equal(w.links.get(G2), OWNER)
+  })
+  it('handle: falha ao consultar as escrituras = sem dobro, e o crédito sai', async () => {
+    const w = fakeWorld({ ...base(), handleOwners: new Map([['alice', OWNER]]), held: new Map([[OWNER, [LOT_B]]]), heldFails: true, feedItems: [feed(1, { referrer_lot: null, referrer_handle: 'alice' })] })
+    await runReferralJob(w.deps)
+    assert.equal(total(w, G1), 250)
+  })
+  it('handle inexistente: pedido recusado, nada creditado, não volta', async () => {
+    const w = fakeWorld({ ...base(), feedItems: [feed(1, { referrer_lot: null, referrer_handle: 'ghost' })] })
+    const r = await runReferralJob(w.deps)
+    assert.equal(r.rejected, 1)
+    assert.equal(w.ledger.length, 0)
+    assert.equal(w.rows.get(`${oid(1)}|order`)?.status, 'rejected:unknown_handle')
+    assert.equal((await runReferralJob(w.deps)).skippedDone, 1)
+  })
+  it('autoindicação por handle e por pagador: recusa', async () => {
+    const w = fakeWorld({ ...base(), handleOwners: new Map([['alice', OWNER]]), feedItems: [
+      feed(1, { referrer_lot: null, referrer_handle: 'alice', receive_address: OWNER }),
+      feed(2, { referrer_lot: null, referrer_handle: 'alice', payer_address: OWNER }),
+    ] })
+    assert.equal((await runReferralJob(w.deps)).rejected, 2)
+    assert.equal(w.ledger.length, 0)
+  })
+  it('lote como atalho continua: credita o dono atual e também grava o vínculo', async () => {
+    const w = fakeWorld({ ...base(), feedItems: [feed(1, { lot_id: LOT_A2 })] })
+    await runReferralJob(w.deps)
+    assert.equal(total(w, OWNER), 1000)
+    assert.equal(w.links.get(G1), OWNER)
+  })
+  it('o vínculo existente não é trocado (o primeiro vence)', async () => {
+    const w = fakeWorld({ ...base(), links: new Map([[G1, G2]]), feedItems: [feed(1)] })
+    await runReferralJob(w.deps)
+    assert.equal(w.links.get(G1), G2)
+  })
+  it('itens e teto contam por endereço de quem indicou, mesmo misturando handle e lote', async () => {
+    const mk = (i: number) => 'bc1p' + String(i).padStart(2, '0').repeat(29)
+    const many = [0, 1, 2].map((i) => i === 1 ? feed(i + 1, { receive_address: mk(i) }) : feed(i + 1, { referrer_lot: null, referrer_handle: 'alice', receive_address: mk(i) }))
+    const w = fakeWorld({ ...base(), handleOwners: new Map([['alice', OWNER]]), handles: new Set([OWNER, ...many.map((m) => m.receive_address)]), feedItems: many })
+    await runReferralJob(w.deps)
+    assert.deepEqual([...w.items], [`${OWNER}|quad`])
+  })
   it('páginas do feed são percorridas', async () => {
     const items = Array.from({ length: 5 }, (_, i) => feed(i + 1, { receive_address: 'bc1p' + String(i).padStart(2, '0').repeat(29) }))
     const w = fakeWorld({ ...base(), pageSize: 2, handles: new Set([OWNER, ...items.map((m) => m.receive_address)]), feedItems: items })
@@ -231,6 +307,15 @@ describe('a migração 043', () => {
   it('o livro ganha referral fora do teto de 480 (kind próprio)', () => {
     assert.match(sql, /'referral'/)
     assert.doesNotMatch(sql, /kind = 'earn'.*referral/)
+  })
+  it('handle e lote: referrer_lot anulável, referrer_handle gravado, vínculo em referral_links sem trocar o primeiro', () => {
+    assert.match(sql, /referrer_handle text check/)
+    assert.match(sql, /check \(referrer_lot is not null or referrer_handle is not null\)/)
+    assert.match(sql, /insert into public\.referral_links[^;]*on conflict \(referred_address\) do nothing/)
+  })
+  it('as assinaturas dos grants batem com as das funções', () => {
+    assert.match(sql, /lot_referral_credit\(uuid, text, text, integer, text, text, text, text, text, boolean, integer, timestamptz, integer\)/)
+    assert.match(sql, /lot_referral_reject\(uuid, text, text, text, text, text, integer, timestamptz\)/)
   })
   it('aplica toda a mudança numa única transação', () => {
     assert.match(sql, /\nbegin;\n/)
