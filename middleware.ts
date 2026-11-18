@@ -71,6 +71,11 @@ function noDominioDaCidade(req: NextRequest): NextResponse | null {
     if (ROTAS_SPACE[curto]) return NextResponse.redirect(`https://dogcity.space${curto}${search}`, 308)
   }
   if (pathname === '/robots.txt' || pathname === '/sitemap.xml') return NextResponse.rewrite(new URL(`/dogcity-space${pathname}`, req.url))
+  // 18/11/2026: o perfil mora tambem no dominio da cidade (o marketing aponta para dogcity.space/profile; o dogdata.xyz e' o
+  // backend). A pagina e' a MESMA do dogdata.xyz/profile, servida como la': sem a CSP com nonce do comCsp, porque o /profile e'
+  // pre-renderizado (estatico) e os scripts dele nao levam nonce; com 'strict-dynamic' o navegador barraria todos. As /api que ela
+  // chama ja' passam neste dominio (o matcher deixa /api fora), e o cookie dg_wallet nao fixa dominio: o login vale aqui.
+  if (pathname === '/profile' || pathname === '/profile/') return NextResponse.next()
   const alvo = ROTAS_SPACE[pathname.replace(/\/$/, '') || '/']
   if (alvo) return comCsp(req, new URL(alvo + search, req.url))
   // o resto do DogData nao mora neste dominio
