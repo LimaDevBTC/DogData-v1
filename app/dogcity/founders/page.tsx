@@ -18,7 +18,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Layout } from "@/components/layout"
+import { CityLayout } from "../city-layout"
 
 const HAIR = "border-white/10"
 const HAIR_SOFT = "border-white/[0.06]"
@@ -79,7 +79,7 @@ export default function DogCityFoundersPage() {
   }, [arq, q])
 
   return (
-    <Layout currentPage="donate" setCurrentPage={() => {}}>
+    <CityLayout>
       <div className="bg-void text-snow">
         <div className="max-w-6xl mx-auto px-6 md:px-10 pt-10 pb-10 md:pt-16 md:pb-14">
           <Eyebrow>THE FOUNDERS</Eyebrow>
@@ -218,6 +218,6 @@ export default function DogCityFoundersPage() {
           </div>
         </section>
       </div>
-    </Layout>
+    </CityLayout>
   )
 }

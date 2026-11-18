@@ -32,7 +32,7 @@
 
 "use client"
 
-import { Layout } from "@/components/layout"
+import { CityLayout } from "../city-layout"
 // ⚠️ A RAZÃO ENTREGUE/PROMETIDA VEM DE UMA FONTE SÓ. Todo número da subseção
 // "What the ground actually delivers" é saída do gerador e morre na próxima
 // rodada, então ele não pode ser digitado aqui: vive em `ENTREGA`, em
@@ -269,7 +269,7 @@ function Section({
 // ═══════════════════════════════════════════════════════════════════════════
 export default function DogCityDocsPage() {
   return (
-    <Layout currentPage="donate" setCurrentPage={() => {}}>
+    <CityLayout>
       <div className="bg-void text-snow">
         {/* ── cabeçalho do documento ─────────────────────────────────────── */}
         <div className="max-w-6xl mx-auto px-6 md:px-10 pt-10 pb-8 md:pt-16 md:pb-10">
@@ -1981,6 +1981,6 @@ export default function DogCityDocsPage() {
           </div>
         </div>
       </div>
-    </Layout>
+    </CityLayout>
   )
 }

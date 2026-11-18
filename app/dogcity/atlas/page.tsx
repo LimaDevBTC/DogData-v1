@@ -5,7 +5,7 @@
 "use client"
 
 import { useRef, useState } from "react"
-import { Layout } from "@/components/layout"
+import { CityLayout } from "../city-layout"
 import { ATLAS_PLATES, ATLAS_SHEETS, ATLAS_PDF_MB, ATLAS_LOTS } from "./atlas-data"
 
 const HAIR = "border-white/10"
@@ -148,7 +148,7 @@ export default function DogCityAtlasPage() {
   const chapters: string[] = []
   for (const p of rest) if (!chapters.includes(p.chapter)) chapters.push(p.chapter)
   return (
-    <Layout currentPage="donate" setCurrentPage={() => {}}>
+    <CityLayout>
       <div className="bg-void text-snow">
         <div className="max-w-6xl mx-auto px-6 md:px-10 pt-10 pb-8 md:pt-16">
           <div className="font-mono text-[10px] md:text-[11px] tracking-[0.3em] text-lava">BLOCK 966,670 · CITY V1</div>
@@ -201,6 +201,6 @@ export default function DogCityAtlasPage() {
           })}
         </div>
       </div>
-    </Layout>
+    </CityLayout>
   )
 }
