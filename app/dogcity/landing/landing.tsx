@@ -44,6 +44,7 @@ import ConstructionFund from "../sections/construction-fund"
 import Tiers from "../sections/tiers"
 import MotorsCall from "../sections/motors-call"
 import { useLeaderboard } from "./use-leaderboard"
+import { MintRefLinks } from "./mint-ref-links"
 
 const TITLE_KEY = "dc-title-card"
 
@@ -109,6 +110,8 @@ export default function DogCityLanding({ initialFund = null, initialMintB = null
           <a href="#lookup" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[90] focus:bg-dc-lava focus:px-4 focus:py-2 focus:text-dc-void">
             Skip to Find your lot
           </a>
+          {/* 18/11: quem chegou por um link de embaixador leva o @handle em todo link para o mint (só no cliente, depois de montar) */}
+          <MintRefLinks />
           <Nav cd={cd} live={chrome.live} solid={chrome.solid} quiet={chrome.quiet} />
           <main>
             <Opening cd={cd} intro={intro} onIntroDone={introDone} onChrome={setChrome} />

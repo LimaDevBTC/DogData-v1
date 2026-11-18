@@ -1110,24 +1110,24 @@ export default function ProfilePage() {
           />
         </section>
 
-        {/* ── referral (fase 1: so contar) ── */}
+        {/* ── embaixador (18/11: o codigo e o @handle; antes, fase 1 so contar) ── */}
         <section className="space-y-5">
           <Head
-            eyebrow="◆ referrals"
-            title="Your referral link"
-            sub="We're counting. What referrals unlock will be announced."
+            eyebrow="◆ ambassador"
+            title="Your ambassador link"
+            sub="500 DC Points for every lot minted through your link, and 250 for the new owner. Double for both when the lot is in the same block as one of yours. Bring 3 lots and get the DOG Trail Quad, 10 the DOG Jet, 25 the DOG M4 Carbine."
           />
 
           <Plate>
-            <PlateHead icon={Link2}>referral link</PlateHead>
+            <PlateHead icon={Link2}>ambassador link</PlateHead>
 
             {!verified ? (
               <p className="text-[12px] text-mist leading-relaxed max-w-xl">
-                Verify ownership and claim a handle to get your referral link.
+                Verify ownership and claim a handle to get your ambassador link.
               </p>
             ) : !profile?.handle || !myRefLink ? (
               <p className="text-[12px] text-mist leading-relaxed max-w-xl">
-                Claim a handle above to get your referral link. Only verified accounts with a handle can refer.
+                Claim a handle above to get your ambassador link. Only verified accounts with a handle can refer.
               </p>
             ) : (
               <div className="space-y-4 max-w-xl">
@@ -1143,7 +1143,7 @@ export default function ProfilePage() {
                   </button>
                 </div>
                 <p className="font-mono text-[10px] text-dusty leading-relaxed">
-                  It also works at www.dogdata.xyz/?ref=@{profile.handle}. A wallet counts when it proves ownership for the first time after opening your link.
+                  It also works at mint.dogcity.space/?ref=@{profile.handle}. The reward counts when the new owner mints a lot through your link.
                 </p>
               </div>
             )}
@@ -1167,7 +1167,7 @@ export default function ProfilePage() {
             href="/dogcity/referrals"
             className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-dusty hover:text-lava transition-colors"
           >
-            Referral board and counting rules <ArrowUpRight className="w-3 h-3" />
+            Ambassador board and rules <ArrowUpRight className="w-3 h-3" />
           </Link>
         </section>
 
