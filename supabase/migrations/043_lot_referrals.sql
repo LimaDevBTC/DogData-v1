@@ -19,6 +19,8 @@
 -- O LIVRO: ganha o tipo 'referral' (fonte 'referral', ref `referral:<id do pedido sem hífen>:<owner|guest>`). Fora do teto de 480
 -- DC por dia do jogo (dc_points_earned_on só soma kind 'earn') e com o teto próprio de 5.000.
 
+begin;
+
 -- ── o livro aceita 'referral' ─────────────────────────────────────────────
 do $$
 declare r record;
@@ -179,3 +181,5 @@ revoke all on function public.lot_referral_credit(uuid, text, text, integer, tex
 revoke all on function public.lot_referral_reject(uuid, text, text, text, text, integer, timestamptz) from public, anon, authenticated;
 grant execute on function public.lot_referral_credit(uuid, text, text, integer, text, text, text, boolean, integer, timestamptz, integer) to service_role;
 grant execute on function public.lot_referral_reject(uuid, text, text, text, text, integer, timestamptz) to service_role;
+
+commit;

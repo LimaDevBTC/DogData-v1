@@ -232,4 +232,8 @@ describe('a migração 043', () => {
     assert.match(sql, /'referral'/)
     assert.doesNotMatch(sql, /kind = 'earn'.*referral/)
   })
+  it('aplica toda a mudança numa única transação', () => {
+    assert.match(sql, /\nbegin;\n/)
+    assert.match(sql, /\ncommit;\s*$/)
+  })
 })
