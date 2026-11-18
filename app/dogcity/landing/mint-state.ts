@@ -30,6 +30,8 @@
 
 export const FUND_GOAL = 10_000_000
 export const TOTAL_LOTS = 70_714
+/** no Public, a contagem de escrituras so' ocupa o numero grande a partir daqui (abaixo, "US$2 AND UP") */
+export const PUBLIC_COUNT_MIN = 5_000
 /** confirmações de B antes de o calendário valer (estado B0 até lá) */
 export const B_CONFIRMATIONS = 6
 export const MINT_URL = "https://mint.dogcity.space"
@@ -346,7 +348,8 @@ function countdownByHeight(input: CountdownInput): CountdownState {
     }
     // PUBLIC
     const ins = input.inscribed
-    const hasCount = typeof ins === "number" && Number.isFinite(ins) && ins >= 0
+    // 18/11 (abertura do Public): a contagem so' vira o numero grande quando impressiona; antes disso o herói vende o preço
+    const hasCount = typeof ins === "number" && Number.isFinite(ins) && ins >= PUBLIC_COUNT_MIN
     // a contagem fica sozinha no número; "/ 70,714" desce para a unidade (o número
     // grande não pode carregar 15 caracteres)
     return {
@@ -354,7 +357,7 @@ function countdownByHeight(input: CountdownInput): CountdownState {
       number: hasCount ? fmtInt(ins as number) : "US$2",
       unit: hasCount ? `/ ${fmtInt(TOTAL_LOTS)} DEEDS INSCRIBED` : "AND UP · BY TIER AND SIZE",
       sub: conta ? conta.replace(/ · $/, "") : null,
-      h1: "Anyone mints any unclaimed lot from US$2, priced by its tier and size, up to 10 lots per wallet every 144 blocks.",
+      h1: "Anyone mints any unclaimed lot from US$2, priced by its tier and size. Up to 10 lots in one payment, every 144 blocks.",
       primary: MINT_AT, secondary: FIND,
       aria: hasCount
         ? `Public mint open, ${fmtInt(ins as number)} of ${fmtInt(TOTAL_LOTS)} deeds inscribed`
