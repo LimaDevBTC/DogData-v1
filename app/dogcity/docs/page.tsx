@@ -1576,7 +1576,8 @@ export default function DogCityDocsPage() {
               </P>
               <P>
                 The payments applied to a lot add up, so a lot with Personal pays only the
-                difference to Commercial or Patron. Nobody buys two licences for the same lot.
+                difference to Commercial or Patron. Nobody buys two licences for the same lot, and neighbouring lots
+                that become one property share one licence (see Merging lots).
                 Moving up a licence changes the use of the building, not its size. From Personal to
                 Commercial the ground floor can turn into a shopfront, and the building does not
                 grow: its size comes from the lot and the building code of its district, as in
@@ -1872,11 +1873,25 @@ export default function DogCityDocsPage() {
                 with no change to the deeds.
               </P>
 
+              <Sub>One licence for the whole property</Sub>
+              <NumberedList
+                items={[
+                  { lead: "No second licence.", text: "Neighbouring lots in the same block, held by the same wallet, form one property. The licence the owner already has covers all of it, so a lot bought next to a licensed lot does not need a licence of its own." },
+                  { lead: "The highest licence counts.", text: "When more than one of the lots carries a licence, the property takes the highest of them." },
+                  { lead: "Moving up covers everything.", text: "Moving up to Commercial or Patron moves the whole property up, every lot in it, and the owner pays only the difference, once." },
+                  { lead: "Any lot can join.", text: "The lots do not need to be the same size or the same use. Size comes from the lots, and the licence sets the use of the whole property." },
+                ]}
+              />
+              <P className="mt-3">
+                This applies as soon as the game joins the lots, before the deeds are merged on Bitcoin, and it carries
+                over to the merged deed.
+              </P>
+
               <Sub>Not decided yet</Sub>
               <P className="mt-3">
-                The date, the fee, how many lots one merge can take, the tier of the merged lot and what happens to
-                licences and houses already on the lots. This section will state these rules before merging opens. Until
-                then, no merge can be made.
+                The date, the fee, how many lots one merge can take, the tier of the merged lot, what happens to houses
+                already on the lots and what happens when one lot of a property is sold before its deeds are merged. This
+                section will state these rules before merging opens. Until then, no merge can be made.
               </P>
             </Section>
 
