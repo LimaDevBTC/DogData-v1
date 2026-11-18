@@ -66,7 +66,7 @@ export const HERO_FILM = {
   mobile: { webm: VIDEO.hero_mobile_webm ?? VIDEO.hero_desktop_webm, mp4: VIDEO.hero_mobile_mp4 ?? VIDEO.hero_desktop_mp4 },
   intro: { desktop: INTRO_DESKTOP, mobile: INTRO_MOBILE ?? INTRO_DESKTOP },
   /** a legenda enquanto T1 roda (o nome é o do catálogo do jogo) */
-  introPlace: "THE DOME",
+  introPlace: "THE SPHERE",
   cuts: {
     desktop: VIDEO.cuts_desktop ?? VIDEO.cuts ?? [],
     mobile: VIDEO.cuts_mobile ?? VIDEO.cuts_desktop ?? VIDEO.cuts ?? [],
