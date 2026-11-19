@@ -1427,6 +1427,16 @@ export default function DogCityDocsPage() {
                 that counts, and the project never inscribes a second one.
               </P>
               <P>
+                Lots that sit side by side in the same block can be joined into one property, by
+                choice and for free, from the owner&apos;s profile (Expand your house). The owner
+                picks which neighbouring lots join, so a lot can stay apart to be sold. A property
+                exists only in the game: its house spreads across the whole ground, with the leisure
+                its highest licence allows. On chain nothing changes: every lot stays its own deed,
+                with its own licence, and a licence never moves from one lot to another. Selling or
+                moving any lot of a property restores separate lots on its own, and each lot gets its
+                own house back. A property can be joined or restored by choice once every 21 days.
+              </P>
+              <P>
                 Three kinds of lot never go on sale. Lots of exchanges and custodians in the Financial
                 District are held for the company until it proves it controls the address. The 698
                 project lots stay as the Project Reserve. And a headstone mints its lot in Ring 2 at a

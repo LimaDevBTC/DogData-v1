@@ -35,6 +35,7 @@ import { useWallet } from "@/contexts/WalletContext"
 import { useIsAdmin } from "@/lib/admin/use-is-admin"
 import { useDonate } from "@/components/donate/donate-modal"
 import { LicenceChoiceCard } from "@/components/profile/licence-choice"
+import { PropertyCard } from "@/components/profile/property-card"
 import { WALLETS } from "@/lib/wallet"
 import { handleProblem, normalizeHandle } from "@/lib/identity/handle"
 import { refLink } from "@/lib/referral/ref"
@@ -1270,6 +1271,8 @@ export function ProfileBody({ Shell }: { Shell: ComponentType<{ children: ReactN
 
           {/* 19/11: com dois ou mais lotes o dono escolhe onde o credito livre cai; lotes vizinhos sao uma propriedade */}
           <LicenceChoiceCard verified={verified} onApplied={loadProfile} />
+          {/* 19/11: "Expand your house", a propriedade unida opt-in (so no jogo, de graca) */}
+          <PropertyCard verified={verified} />
         </section>
 
         {/* ── historico ── */}
