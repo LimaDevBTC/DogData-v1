@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { buildLedger, type TxRow } from '@/lib/dog/founders-ledger'
 import { applyBtcCredits, type Credit } from '@/lib/dog/licence-btc'
 import { licencasPorLote } from '@/lib/dog/licence-lot-supabase'
+import { comGrupos } from '@/lib/dog/licence-grupo'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -119,7 +120,18 @@ async function handler(req: NextRequest) {
     // pelas carteiras como antes.
     const [credits, lotLicences] = slim ? [[] as Credit[], null] : await Promise.all([loadBtcCredits(), licencasPorLote(supabase)])
     const board = applyBtcCredits(ledger.leaderboard, credits)
-    const leaderboard = board.entries
+    // CARTEIRAS QUE ASSINARAM A MESMA DOAÇÃO (19/11): a conta continua por endereço; cada linha de quem dividiu uma
+    // transação ganha co_signers / group_total / group_license (lib/dog/licence-grupo.ts), que é o que a licença do lote soma.
+    const original = new Map<string, string>()
+    for (const r of rows) for (const lado of [r.senders, r.receivers]) {
+      let arr: unknown = lado
+      if (typeof arr === 'string') { try { arr = JSON.parse(arr) } catch { arr = [] } }
+      if (Array.isArray(arr)) for (const x of arr) {
+        const a = (x as { address?: unknown })?.address
+        if (typeof a === 'string' && !a.toLowerCase().startsWith('bc1')) original.set(a.toLowerCase(), a)
+      }
+    }
+    const leaderboard = comGrupos(board.entries, ledger.contributions, original)
     const founders = applyBtcCredits(ledger.founders.map(({ totalAtomos: _t, ...f }) => f), credits).entries
     const recent = ledger.recent
 
