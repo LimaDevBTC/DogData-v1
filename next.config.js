@@ -201,6 +201,10 @@ const nextConfig = {
         './public/city/escrituras.bin',
         './data/dogcity_lot_vizinhos.json',
       ],
+      // a propriedade unida (19/11): quem divide divisa com quem
+      '/api/dogcity/property': [
+        './data/dogcity_lot_vizinhos.json',
+      ],
     },
     outputFileTracingExcludes: {
       '*': [
