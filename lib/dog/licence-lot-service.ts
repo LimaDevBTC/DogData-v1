@@ -21,9 +21,9 @@
 //     próxima volta refaz a conta. Nunca aplica o mesmo crédito duas vezes.
 // ═══════════════════════════════════════════════════════════════════════════
 import type { TxRow } from './founders-ledger'
-import type { LicenceTier } from './licence-btc'
+import { FUND_DOG_ADDRESS, type LicenceTier } from './licence-btc'
 import {
-  appliedAtoms, atomsOf, creditsOfPayments, directBtcOf, dogOfAtoms, heldLotsOf, lotTakesLicence, planWallet,
+  appliedAtoms, atomsOf, coSenders, coSpentLot, creditsOfPayments, directBtcOf, dogOfAtoms, heldLotsOf, lotTakesLicence, planWallet,
   standingOfLots, walletTotals,
   type Application, type Assignment, type CreditedPayment, type DirectBtc, type LotLicence, type MintHolder,
 } from './licence-lot'
@@ -72,6 +72,8 @@ interface Estado {
   walletTier: LicenceTier | null
   assignments: Assignment[]
   directBtc: DirectBtc[]
+  /** as doações ao fundo que tocam a carteira (para a regra da mesma transação) */
+  rows: TxRow[]
 }
 
 type EstadoOuAntigo = (Estado & { antigo: false }) | { antigo: true; totalDog: number; walletTier: LicenceTier | null }
@@ -100,7 +102,7 @@ async function estadoDe(store: LotLicenceStore, address: string, strict: boolean
       aplicacoes,
       quoteIds.length ? store.quoteLots(quoteIds, signal) : Promise.resolve(new Map<string, string>()),
     ])
-    return { antigo: false, totalDog: s.totalDog, walletTier: s.tier, assignments, directBtc: directBtcOf(credited, quoteLots) }
+    return { antigo: false, totalDog: s.totalDog, walletTier: s.tier, assignments, directBtc: directBtcOf(credited, quoteLots), rows }
   } catch (e) {
     if (e instanceof SemTabela) return { antigo: true, totalDog: s.totalDog, walletTier: s.tier }
     throw e
@@ -124,6 +126,20 @@ async function aplicarPlano(store: LotLicenceStore, wallet: string, assignments:
 }
 
 const comoAplicacoes = (wallet: string, apps: Application[]): Assignment[] => apps.map((a) => ({ ...a, wallet }))
+
+/**
+ * Os lotes que entram no plano: os que a carteira guarda; se não guarda nenhum, o lote que a parte dela
+ * segue pela regra da mesma transação (coSpentLot). null = o mint não respondeu.
+ */
+async function lotesDoPlano(store: LotLicenceStore, address: string, held: string[] | null, rows: TxRow[], signal?: AbortSignal): Promise<string[] | null> {
+  if (!held || held.length > 0) return held
+  const outros = coSenders(address, rows, FUND_DOG_ADDRESS)
+  if (!outros.length) return held
+  const deles = new Map<string, Assignment[]>()
+  await Promise.all(outros.map(async (o) => { deles.set(o, await store.assignmentsOf(o, signal)) }))
+  const lote = coSpentLot(address, rows, FUND_DOG_ADDRESS, (w) => deles.get(w) ?? [])
+  return lote ? [lote] : held
+}
 
 /** um prazo para a resposta inteira, encadeado ao sinal de quem pediu */
 async function comPrazo<T>(ms: number, signal: AbortSignal | undefined, fn: (s: AbortSignal) => Promise<T>): Promise<T | null> {
@@ -178,7 +194,8 @@ export async function standingDaCarteira(
 
       let assignments = estado.assignments
       const held = holder ? heldLotsOf(holder) : null
-      const plano = planWallet({ totalDog: estado.totalDog, assignments, directBtc: estado.directBtc, heldLots: held })
+      const paraPlano = await lotesDoPlano(deps.store, address, held, estado.rows, signal)
+      const plano = planWallet({ totalDog: estado.totalDog, assignments, directBtc: estado.directBtc, heldLots: paraPlano })
       if (opts.apply !== false && plano.applications.length) {
         const r = await aplicarPlano(deps.store, address, assignments, plano.applications)
         assignments = r.stale ? await deps.store.assignmentsOf(address, signal) : [...assignments, ...comoAplicacoes(address, r.feitas)]
@@ -236,7 +253,8 @@ export async function heldParaCotacao(
         if (!held.includes(lotId)) return 'not_holder'
       }
       let assignments = estado.assignments
-      const plano = planWallet({ totalDog: estado.totalDog, assignments, directBtc: estado.directBtc, heldLots: held })
+      const paraPlano = await lotesDoPlano(deps.store, address, held, estado.rows, signal)
+      const plano = planWallet({ totalDog: estado.totalDog, assignments, directBtc: estado.directBtc, heldLots: paraPlano })
       if (plano.applications.length) {
         const r = await aplicarPlano(deps.store, address, assignments, plano.applications)
         // cobrar sobre uma soma que acabou de mudar no meio é cobrar errado: melhor pedir de novo
@@ -352,7 +370,9 @@ export async function passeDosLotes(deps: {
     }
   }
 
-  // 2) automática: pergunta ao mint, em rodízio
+  // 2) automática: pergunta ao mint, em rodízio (a regra da mesma transação lê as aplicações por endereço em minúsculas)
+  const porCarteiraMin = new Map<string, Assignment[]>()
+  for (const [k, v] of porCarteira) porCarteiraMin.set(k.toLowerCase(), [...(porCarteiraMin.get(k.toLowerCase()) ?? []), ...v])
   const max = Math.max(0, deps.maxHolderChecks ?? MAX_HOLDER_CHECKS)
   const n = esperando.length
   const inicio = n ? (Math.floor(deps.nowMs / VOLTA_MS) * max) % n : 0
@@ -362,11 +382,16 @@ export async function passeDosLotes(deps: {
     res.checked++
     try {
       const holder = await deps.holder(w).catch(() => null)
+      let held = holder ? heldLotsOf(holder) : null
+      if (held && held.length === 0) {
+        const lote = coSpentLot(w, rows, FUND_DOG_ADDRESS, (o) => porCarteiraMin.get(o.toLowerCase()) ?? [])
+        if (lote) held = [lote]
+      }
       const plano = planWallet({
         totalDog: totals.get(w) ?? 0,
         assignments: porCarteira.get(w) ?? [],
         directBtc: directBtcOf(pagosPor.get(w) ?? [], quoteLots),
-        heldLots: holder ? heldLotsOf(holder) : null,
+        heldLots: held,
       })
       if (plano.why === 'no_lot') res.noLot++
       else if (plano.why === 'many_lots') res.manyLots++
