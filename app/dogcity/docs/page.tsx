@@ -1522,6 +1522,50 @@ export default function DogCityDocsPage() {
                 mint.dogcity.space, and no one from the project will ever ask for your seed phrase or
                 for you to sign a transaction someone else built.
               </P>
+
+              <Sub>From payment to deed: why it takes about an hour</Sub>
+              <P className="mt-3">
+                A deed is inscribed in two Bitcoin transactions, a commit and a reveal. Your payment is
+                the commit, and the mint sees it at once: from that moment the lot is held for you and
+                nobody else can mint it. The reveal spends your payment, so it waits until the payment
+                has 1 confirmation; a payment replaced before that would break the deed. The mint then
+                signs and sends the reveal, your deed as a child of the City Charter with the Merkle
+                proof of your lot, and it waits in the mempool until a miner includes it. That takes from
+                about 10 minutes to over an hour when network fees are low.
+              </P>
+              <P>
+                Your inscription exists from the block that includes the reveal. The mint calls the lot
+                yours, on the map, in the game, on your profile and in the ON BITCOIN counter, only after
+                6 confirmations, about 50 more minutes. Now and then two miners find a block at the same
+                time and the network drops one of them, sending its transactions back to the mempool.
+                After 6 blocks, undoing a deed would take most of the world&apos;s mining power for about
+                an hour, so a deed that shows as yours is one that is really on chain.
+              </P>
+              <figure className="m-0 mt-6 max-w-3xl">
+                <a
+                  href="/city/docs/deed-lifecycle_2400.webp"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`group relative block border ${HAIR} bg-white/[0.02] overflow-hidden`}
+                >
+                  {/* 19/11/2026: o caminho do deed (pagamento, commit, reveal, 6 confirmacoes), o mesmo do post. */}
+                  <img
+                    src="/city/docs/deed-lifecycle_1200.webp"
+                    alt="Diagram of a deed's lifecycle on Bitcoin: the payment in the mempool, the payment confirmed in block N, the reveal in the mempool, the deed inscribed in block N+k, confirmations 2 to 5, and the lot shown as yours at 6 confirmations; below, two competing blocks where one is dropped."
+                    className="w-full h-auto"
+                    loading="lazy"
+                  />
+                  <span
+                    className={`absolute bottom-0 right-0 border-l border-t ${HAIR} bg-void/85 backdrop-blur-sm
+                      font-mono text-[10px] tracking-[0.14em] text-lava group-hover:text-lava-light px-3 py-2`}
+                  >
+                    OPEN FULL SIZE →
+                  </span>
+                </a>
+                <figcaption className={`mt-3 border-t ${HAIR_SOFT} pt-3 font-mono text-[9px] md:text-[10px] tracking-[0.14em] text-mist leading-relaxed`}>
+                  DEED LIFECYCLE · COMMIT, REVEAL, 6 CONFIRMATIONS
+                </figcaption>
+              </figure>
             </Section>
 
             {/* ═══════════════════════════ 8 ═══════════════════════════ */}
