@@ -25,5 +25,4 @@ está ligada para todos ou atrás de flag/opt-in, para ele não anunciar antes d
 **Suporte pelo X:** relato de jogador (bug, casa, mint, lote) vai para o repo privado `dogcity-mundo`, pelo modelo
 "Bug do X (suporte)", nunca para este repo, que é público: o @ do X ao lado do lote e da carteira ligaria a pessoa à
 carteira em público. Aqui ficam só os pedidos de dado e de API.
-Contas monitoradas: @bitmaxdog (o fundador), @dogdatabtc (o DogData) e @dogdamassa (o Vavá). A resposta sai da mesma
-conta onde a pessoa reclamou, aprovada pelo dono dela (o fundador para @bitmaxdog e @dogdatabtc, o Vavá para @dogdamassa).
+Conta do suporte: só o @bitmaxdog, onde o Grok Bot roda. A resposta sai do @bitmaxdog, aprovada pelo fundador.
