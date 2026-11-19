@@ -36,6 +36,7 @@ import { useIsAdmin } from "@/lib/admin/use-is-admin"
 import { useDonate } from "@/components/donate/donate-modal"
 import { LicenceChoiceCard } from "@/components/profile/licence-choice"
 import { PropertyCard } from "@/components/profile/property-card"
+import { LandmarkCard } from "@/components/profile/landmark-card"
 import { WALLETS } from "@/lib/wallet"
 import { handleProblem, normalizeHandle } from "@/lib/identity/handle"
 import { refLink } from "@/lib/referral/ref"
@@ -1273,6 +1274,8 @@ export function ProfileBody({ Shell }: { Shell: ComponentType<{ children: ReactN
           <LicenceChoiceCard verified={verified} onApplied={loadProfile} />
           {/* 19/11: "Expand your house", a propriedade unida opt-in (so no jogo, de graca) */}
           <PropertyCard verified={verified} />
+          {/* 19/11: a casa sob medida da carteira (PIPS HOUSE, J.DOG ESTATE, a arena), do catálogo do jogo */}
+          {address && <LandmarkCard address={address} />}
         </section>
 
         {/* ── historico ── */}
