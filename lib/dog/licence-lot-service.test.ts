@@ -302,3 +302,84 @@ test('varredura: sem as tabelas da 037 não faz nada', async () => {
   const r = await passeDosLotes({ store, holder: async () => ({ lots: [L1], snapshotLot: null }), nowMs: 0 })
   assert.equal(r.skipped, 'no_tables')
 })
+
+// ── a mesma transação (18/11): a conta de pagamento segue a conta de ordinals ─
+
+const P = '3HToFakePaymentAccount111111111111'
+const L3 = 'S05-Q18-B1947-L023'
+/** uma doação com várias entradas (a Xverse paga com a conta de pagamento e a de ordinals juntas) */
+const conjunta = (partes: [string, number][]): TxRow => {
+  seq++
+  const total = partes.reduce((s, [, d]) => s + d, 0)
+  return {
+    id: seq, txid: `t${seq}`, block_height: 100 + seq, timestamp: '2026-11-18T04:27:10Z',
+    senders: partes.map(([address, dog]) => ({ address, amount: at(dog) })), receivers: [{ address: W, amount: at(total) }],
+  }
+}
+
+test('mesma transação: a parte da conta sem lote vai para o lote da outra parte (39k + 11k = Commercial)', async () => {
+  const { store, db, lots } = memDb({ rows: [conjunta([[A, 39_000], [P, 11_000]])] })
+  const { d } = deps(store, { [A]: { lots: [L1], snapshotLot: null }, [P]: { lots: [], snapshotLot: null } })
+  await standingDaCarteira(d, A)
+  assert.deepEqual(db.assignments, [{ lotId: L1, wallet: A, amountDog: 39_000, source: 'dog', ref: null }])
+  // agora A guarda três lotes (mintou mais dois), e a conta de pagamento ainda não tem lote
+  d.holder = async (a) => (a === A ? { lots: [L1, L2, L3], snapshotLot: null } : { lots: [], snapshotLot: null })
+  const s = await standingDaCarteira(d, P)
+  assert.deepEqual([s?.lots, s?.unassignedDog], [[], 0])
+  assert.deepEqual(db.assignments[1], { lotId: L1, wallet: P, amountDog: 11_000, source: 'dog', ref: null })
+  assert.equal(lots().get(L1), 50_000)
+  const a = await standingDaCarteira(d, A)
+  assert.equal(a?.lots?.find((l) => l.lot === L1)?.tier, 'commercial')
+})
+
+test('mesma transação: sem lote certo na outra parte, nada é aplicado', async () => {
+  // a outra parte aplicou em dois lotes: não se escolhe por ela
+  const dois = memDb({
+    rows: [conjunta([[A, 20_000], [P, 5_000]])],
+    assignments: [
+      { lotId: L1, wallet: A, amountDog: 10_000, source: 'dog', ref: null },
+      { lotId: L2, wallet: A, amountDog: 10_000, source: 'dog', ref: null },
+    ],
+  })
+  const x = deps(dois.store, { [P]: { lots: [], snapshotLot: null } })
+  assert.equal((await standingDaCarteira(x.d, P))?.unassignedDog, 5_000)
+  assert.equal(dois.db.assignments.length, 2)
+  // a outra parte ainda não aplicou nada
+  const nada = memDb({ rows: [conjunta([[A, 20_000], [P, 5_000]])] })
+  const y = deps(nada.store, { [P]: { lots: [], snapshotLot: null } })
+  assert.equal((await standingDaCarteira(y.d, P))?.unassignedDog, 5_000)
+  // remetentes demais: parece corretora, não carteira
+  const muitos = memDb({
+    rows: [conjunta([[A, 10_000], [B, 1_000], [C, 1_000], [P, 5_000]])],
+    assignments: [{ lotId: L1, wallet: A, amountDog: 10_000, source: 'dog', ref: null }],
+  })
+  const z = deps(muitos.store, { [P]: { lots: [], snapshotLot: null } })
+  assert.equal((await standingDaCarteira(z.d, P))?.unassignedDog, 5_000)
+  // o mint mudo continua sem resposta: nada aplicado
+  const mudo = memDb({ rows: [conjunta([[A, 10_000], [P, 5_000]])], assignments: [{ lotId: L1, wallet: A, amountDog: 10_000, source: 'dog', ref: null }] })
+  const m = deps(mudo.store, {})
+  await standingDaCarteira(m.d, P)
+  assert.equal(mudo.db.assignments.length, 1)
+})
+
+test('mesma transação: a conta que guarda lote próprio usa o lote dela', async () => {
+  const { store, db } = memDb({
+    rows: [conjunta([[A, 10_000], [P, 12_000]])],
+    assignments: [{ lotId: L1, wallet: A, amountDog: 10_000, source: 'dog', ref: null }],
+  })
+  const { d } = deps(store, { [P]: { lots: [L2], snapshotLot: null } })
+  await standingDaCarteira(d, P)
+  assert.deepEqual(db.assignments[1], { lotId: L2, wallet: P, amountDog: 12_000, source: 'dog', ref: null })
+})
+
+test('mesma transação: a varredura aplica a parte da conta de pagamento', async () => {
+  const { store, db } = memDb({
+    rows: [conjunta([[A, 39_000], [P, 11_000]])],
+    assignments: [{ lotId: L1, wallet: A, amountDog: 39_000, source: 'dog', ref: null }],
+  })
+  const holders: Record<string, MintHolder> = { [A]: { lots: [L1, L2, L3], snapshotLot: null }, [P]: { lots: [], snapshotLot: null } }
+  const r = await passeDosLotes({ store, holder: async (a) => holders[a] ?? null, nowMs: 0 })
+  assert.equal(r.automatic, 1)
+  assert.equal(r.noLot, 0)
+  assert.deepEqual(db.assignments[1], { lotId: L1, wallet: P, amountDog: 11_000, source: 'dog', ref: null })
+})
