@@ -11,7 +11,7 @@ import assert from 'node:assert/strict'
 import type { TxRow } from './founders-ledger'
 import { FUND_DOG_ADDRESS, licenceSats, type Quote } from './licence-btc'
 import { atomsOf, btcRef, dogOfAtoms, type Application, type Assignment, type CreditedPayment, type MintHolder } from './licence-lot'
-import { SemTabela, heldParaCotacao, passeDosLotes, standingDaCarteira, type LotDeps, type LotLicenceCronStore } from './licence-lot-service'
+import { SemTabela, aplicarEscolha, heldParaCotacao, passeDosLotes, standingDaCarteira, type LotDeps, type LotLicenceCronStore } from './licence-lot-service'
 import { createQuote, type QuoteStore } from './licence-quote'
 
 const A = 'bc1p' + 'a'.repeat(58)
@@ -382,4 +382,69 @@ test('mesma transação: a varredura aplica a parte da conta de pagamento', asyn
   assert.equal(r.automatic, 1)
   assert.equal(r.noLot, 0)
   assert.deepEqual(db.assignments[1], { lotId: L1, wallet: P, amountDog: 11_000, source: 'dog', ref: null })
+})
+
+// ── a escolha do dono (19/11) ───────────────────────────────────────────────
+
+const P1 = 'S09-Q00-B0035-L001'
+const P2 = 'S09-Q00-B0035-L002'
+const P3 = 'S09-Q00-B0035-L003'
+
+test('escolha: com três lotes o livre espera; o dono escolhe o L002 e o crédito inteiro cai nele, uma vez', async () => {
+  const { store, db } = memDb({ rows: [doacao(A, 20_000)] })
+  const { d } = deps(store, { [A]: { lots: [P1, P2, P3], snapshotLot: null } })
+  const antes = await standingDaCarteira(d, A)
+  assert.equal(antes?.unassignedDog, 20_000)
+  assert.equal(db.applyCalls, 0)
+  const r = await aplicarEscolha(d, A, P2)
+  assert.deepEqual(r, { ok: true, applied: [{ lotId: P2, amountDog: 20_000, source: 'dog', ref: null }], lotId: P2, lotTotalDog: 20_000, unassignedDog: 0 })
+  const de_novo = await aplicarEscolha(d, A, P2)
+  assert.deepEqual(de_novo, { ok: false, why: 'nothing_free' })
+  const depois = await standingDaCarteira(d, A)
+  assert.equal(depois?.tier, 'personal')
+  assert.equal(depois?.unassignedDog, 0)
+  assert.equal(db.assignments.length, 1)
+})
+
+test('escolha: dividir o livre em dois lotes (10 mil em cada) dá duas Personal', async () => {
+  const { store, db } = memDb({ rows: [doacao(A, 20_000)] })
+  const { d } = deps(store, { [A]: { lots: [P1, P2, P3], snapshotLot: null } })
+  assert.equal((await aplicarEscolha(d, A, P1, { amountDog: 10_000 })).ok, true)
+  const r = await aplicarEscolha(d, A, P3, { amountDog: 10_000 })
+  assert.equal(r.ok && r.unassignedDog, 0)
+  assert.deepEqual(db.assignments.map((a) => [a.lotId, a.amountDog]), [[P1, 10_000], [P3, 10_000]])
+  assert.deepEqual(await aplicarEscolha(d, A, P2, { amountDog: 1 }), { ok: false, why: 'nothing_free' })
+})
+
+test('escolha: lote que a carteira não guarda, valor acima do livre, setor 8, mint mudo e modo antigo são recusados sem escrever', async () => {
+  const { store, db } = memDb({ rows: [doacao(A, 20_000)] })
+  const { d } = deps(store, { [A]: { lots: [P1, P2], snapshotLot: null } })
+  assert.deepEqual(await aplicarEscolha(d, A, L1), { ok: false, why: 'not_holder' })
+  assert.deepEqual(await aplicarEscolha(d, A, P1, { amountDog: 20_001 }), { ok: false, why: 'too_much' })
+  assert.deepEqual(await aplicarEscolha(d, A, P1, { amountDog: -5 }), { ok: false, why: 'invalid_amount' })
+  assert.deepEqual(await aplicarEscolha(d, A, 'S08-Q00-B0001-L001'), { ok: false, why: 'invalid_lot' })
+  const mudo = deps(store, {})
+  assert.deepEqual(await aplicarEscolha(mudo.d, A, P1), { ok: false, why: 'unknown' })
+  const antigo = memDb({ rows: [doacao(A, 20_000)], semTabela: true })
+  assert.deepEqual(await aplicarEscolha(deps(antigo.store, { [A]: { lots: [P1, P2], snapshotLot: null } }).d, A, P1), { ok: false, why: 'old_mode' })
+  assert.equal(db.applyCalls, 0)
+})
+
+test('escolha: dois cliques ao mesmo tempo aplicam o crédito uma vez só (troca condicional)', async () => {
+  const { store, db } = memDb({ rows: [doacao(A, 50_000)] })
+  const { d } = deps(store, { [A]: { lots: [P1, L1], snapshotLot: null } })
+  const [x, y] = await Promise.all([aplicarEscolha(d, A, P1), aplicarEscolha(d, A, L1)])
+  assert.equal([x, y].filter((r) => r.ok).length, 1)
+  assert.ok([x, y].some((r) => !r.ok && r.why === 'stale'))
+  assert.equal(db.assignments.length, 1)
+  assert.equal(db.assignments[0].amountDog, 50_000)
+})
+
+test('escolha: o BTC com lote nomeado entra no lote dele primeiro; a escolha leva só o que sobra', async () => {
+  const pago: CreditedPayment = { txid: TX, vout: 0, ordinalsAddress: A, creditDog: 10_000, quoteId: 'q1' }
+  const { store, db } = memDb({ rows: [doacao(A, 5_000)], credited: [pago], quoteLots: [['q1', P3]] })
+  const { d } = deps(store, { [A]: { lots: [P1, P3], snapshotLot: null } })
+  const r = await aplicarEscolha(d, A, P1)
+  assert.equal(r.ok, true)
+  assert.deepEqual(db.assignments.map((a) => [a.lotId, a.amountDog, a.source]), [[P3, 10_000, 'btc'], [P1, 5_000, 'dog']])
 })

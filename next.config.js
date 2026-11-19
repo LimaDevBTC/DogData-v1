@@ -196,6 +196,11 @@ const nextConfig = {
       '/api/profile': [
         './public/city/escrituras.bin',
       ],
+      // a escolha do lote da licença (19/11): a reserva do snapshot e quem divide divisa com quem
+      '/api/dogcity/licence-choice': [
+        './public/city/escrituras.bin',
+        './data/dogcity_lot_vizinhos.json',
+      ],
     },
     outputFileTracingExcludes: {
       '*': [

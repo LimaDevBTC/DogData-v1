@@ -34,6 +34,7 @@ import { Plate, PlateHead, PlotGrid, StatTile, CAT } from "@/components/plot/kit
 import { useWallet } from "@/contexts/WalletContext"
 import { useIsAdmin } from "@/lib/admin/use-is-admin"
 import { useDonate } from "@/components/donate/donate-modal"
+import { LicenceChoiceCard } from "@/components/profile/licence-choice"
 import { WALLETS } from "@/lib/wallet"
 import { handleProblem, normalizeHandle } from "@/lib/identity/handle"
 import { refLink } from "@/lib/referral/ref"
@@ -1266,6 +1267,9 @@ export function ProfileBody({ Shell }: { Shell: ComponentType<{ children: ReactN
               </div>
             )}
           </div>
+
+          {/* 19/11: com dois ou mais lotes o dono escolhe onde o credito livre cai; lotes vizinhos sao uma propriedade */}
+          <LicenceChoiceCard verified={verified} onApplied={loadProfile} />
         </section>
 
         {/* ── historico ── */}
