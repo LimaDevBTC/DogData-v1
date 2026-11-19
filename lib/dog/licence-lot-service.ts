@@ -23,9 +23,9 @@
 import type { TxRow } from './founders-ledger'
 import { FUND_DOG_ADDRESS, type LicenceTier } from './licence-btc'
 import {
-  appliedAtoms, atomsOf, coSenders, coSpentLot, creditsOfPayments, directBtcOf, dogOfAtoms, heldLotsOf, lotTakesLicence, planWallet,
+  appliedAtoms, atomsOf, coSenders, coSpentLot, creditsOfPayments, directBtcOf, dogOfAtoms, heldLotsOf, lotTakesLicence, planChoice, planWallet,
   standingOfLots, walletTotals,
-  type Application, type Assignment, type CreditedPayment, type DirectBtc, type LotLicence, type MintHolder,
+  type Application, type ChoiceWhy, type Assignment, type CreditedPayment, type DirectBtc, type LotLicence, type MintHolder,
 } from './licence-lot'
 import { standingOfWallet } from './licence-wallet'
 
@@ -278,6 +278,58 @@ export async function heldParaCotacao(
   } catch (e) {
     if (!opts.signal?.aborted) console.error('[licence-lot] quote held unavailable:', erroDe(e))
     return null
+  }
+}
+
+// ── A ESCOLHA DO DONO (19/11/2026) ──────────────────────────────────────────
+
+export type ChoiceResult =
+  | { ok: true; applied: Application[]; lotId: string; lotTotalDog: number; unassignedDog: number }
+  | { ok: false; why: Exclude<ChoiceWhy, 'applied'> | 'old_mode' | 'unknown' | 'stale' }
+
+/**
+ * O dono escolhe em que lote o crédito livre cai (POST /api/dogcity/licence-choice). Quem chama já conferiu a
+ * sessão de carteira assinada: `address` é o da sessão, nunca o do corpo. Exige o MINT dizendo que a carteira
+ * guarda o lote (a reserva do snapshot não serve para escrever). Os pagamentos em BTC com lote nomeado entram
+ * antes, como na varredura. Troca condicional recusada: 'stale' (a tela relê e o dono tenta de novo).
+ *   'unknown'   banco ou mint fora, prazo estourado (nada foi aplicado, ou só o BTC que já tinha dono)
+ *   'old_mode'  sem as tabelas da 037
+ */
+export async function aplicarEscolha(
+  deps: Pick<LotDeps, 'store' | 'holder'>,
+  address: string,
+  lotId: string,
+  opts: { amountDog?: number | null; ms?: number; signal?: AbortSignal } = {},
+): Promise<ChoiceResult> {
+  try {
+    const r = await comPrazo<ChoiceResult>(opts.ms ?? 6000, opts.signal, async (signal) => {
+      const [estado, holder] = await Promise.all([
+        estadoDe(deps.store, address, true, signal),
+        deps.holder(address).catch(() => null),
+      ])
+      if (estado.antigo) return { ok: false, why: 'old_mode' }
+      if (!holder) return { ok: false, why: 'unknown' }
+      const plano = planChoice({
+        totalDog: estado.totalDog, assignments: estado.assignments, directBtc: estado.directBtc,
+        heldLots: heldLotsOf(holder), lotId, amountDog: opts.amountDog,
+      })
+      // o BTC com lote nomeado entra mesmo quando a escolha é recusada: ele já tinha dono
+      if (plano.applications.length) {
+        const a = await aplicarPlano(deps.store, address, estado.assignments, plano.applications)
+        if (a.stale) return { ok: false, why: 'stale' }
+      }
+      if (plano.why !== 'applied') return { ok: false, why: plano.why }
+      const escolhido = plano.applications[plano.applications.length - 1]
+      const totals = await deps.store.lotTotals([escolhido.lotId], signal)
+      return {
+        ok: true, applied: plano.applications, lotId: escolhido.lotId,
+        lotTotalDog: dogOfAtoms(atomsOf(totals.get(escolhido.lotId))), unassignedDog: plano.unassignedDog,
+      }
+    })
+    return r ?? { ok: false, why: 'unknown' }
+  } catch (e) {
+    if (!opts.signal?.aborted) console.error('[licence-lot] choice failed:', erroDe(e))
+    return { ok: false, why: 'unknown' }
   }
 }
 

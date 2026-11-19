@@ -400,3 +400,80 @@ export function sqlDaMigracao(linhas: LinhaDeMigracao[], cabecalho: string[]): s
   out.push('commit;', '')
   return out.join('\n')
 }
+
+// ── A ESCOLHA DO DONO (19/11/2026) ──────────────────────────────────────────
+// Com dois ou mais lotes o crédito livre esperava ("many_lots") e não havia como escolher. Agora o dono, com a
+// sessão de carteira assinada (lib/identity/session.ts), escolhe o lote; a escolha vai pelo MESMO caminho de
+// escrita (dogcity_licence_apply, troca condicional, source 'dog'), então duas escolhas ao mesmo tempo nunca
+// aplicam o mesmo crédito duas vezes. Escolher uma PROPRIEDADE (lotes vizinhos, lib/dog/lot-property.ts) é
+// escolher o lote dela onde o crédito cai: na cadeia a licença continua sendo de um lote só.
+
+export type ChoiceWhy =
+  | 'applied'         // aplicou no lote escolhido
+  | 'nothing_free'    // não há crédito livre
+  | 'not_holder'      // a carteira não guarda o lote escolhido (pelo mint)
+  | 'invalid_lot'     // id inválido ou lote que não leva licença (setor 8)
+  | 'too_much'        // pediu mais do que está livre
+  | 'invalid_amount'  // valor pedido zero, negativo ou não numérico
+
+export interface ChoicePlan {
+  applications: Application[]
+  unassignedDog: number
+  why: ChoiceWhy
+}
+
+/**
+ * O que aplicar quando o dono escolhe o lote. Pura. Primeiro os pagamentos em BTC que nomearam o lote (como
+ * em planWallet: esses já têm dono), depois o crédito livre que sobra, inteiro ou o valor pedido, no lote
+ * escolhido. `heldLots` é a lista do MINT (sem o mint não se escolhe: quem chama não chega aqui).
+ */
+export function planChoice(input: {
+  totalDog: number
+  assignments: Assignment[]
+  directBtc: DirectBtc[]
+  heldLots: string[]
+  lotId: string
+  /** quanto aplicar; null/undefined = todo o crédito livre */
+  amountDog?: number | null
+}): ChoicePlan {
+  const base = planWallet({ totalDog: input.totalDog, assignments: input.assignments, directBtc: input.directBtc, heldLots: null })
+  const applications = [...base.applications]
+  let room = atomsOf(base.unassignedDog)
+  const done = (why: ChoiceWhy): ChoicePlan => ({ applications, unassignedDog: dogOfAtoms(room), why })
+  const lot = normalizeLotId(input.lotId)
+  if (!lot || !lotTakesLicence(lot)) return done('invalid_lot')
+  if (!input.heldLots.filter(lotTakesLicence).includes(lot)) return done('not_holder')
+  if (room <= 0) return done('nothing_free')
+  let amt = room
+  if (input.amountDog !== null && input.amountDog !== undefined) {
+    if (typeof input.amountDog !== 'number' || !Number.isFinite(input.amountDog) || input.amountDog <= 0) return done('invalid_amount')
+    amt = atomsOf(input.amountDog)
+    if (amt <= 0) return done('invalid_amount')
+    if (amt > room) return done('too_much')
+  }
+  applications.push({ lotId: lot, amountDog: dogOfAtoms(amt), source: 'dog', ref: null })
+  room -= amt
+  return done('applied')
+}
+
+/** uma propriedade com a licença de cada lote dela */
+export interface PropertyLicence {
+  /** a âncora (o menor lot_id, lib/dog/lot-property.ts) */
+  id: string
+  lots: LotLicence[]
+  /** a licença da propriedade no jogo: a mais alta entre os lotes dela */
+  tier: LicenceTier | null
+  /** o lote de onde sai a licença da propriedade (o de maior total; empate: o menor id); null sem licença */
+  licenceLot: string | null
+}
+
+/** junta as propriedades (grupos de lot_id) com a licença de cada lote. Pura. */
+export function propertiesOfLots(groups: { id: string; lots: string[] }[], lots: LotLicence[]): PropertyLicence[] {
+  const porLote = new Map(lots.map((l) => [l.lot, l]))
+  return groups.map((g) => {
+    const ls = g.lots.map((id) => porLote.get(id) ?? { lot: id, tier: null, totalDog: 0 })
+    const topo = [...ls].sort((a, b) => atomsOf(b.totalDog) - atomsOf(a.totalDog) || (a.lot < b.lot ? -1 : 1))[0]
+    const tier = ls.reduce<LicenceTier | null>((t, l) => (rank(l.tier) > rank(t) ? l.tier : t), null)
+    return { id: g.id, lots: ls, tier, licenceLot: tier && topo ? topo.lot : null }
+  })
+}

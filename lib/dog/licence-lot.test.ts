@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs'
 import { buildLedger, type TxRow } from './founders-ledger'
 import { FUND_DOG_ADDRESS, LICENCE_DOG, applyBtcCredits, licenceFor, type Credit } from './licence-btc'
 import {
-  atomsOf, btcRef, directBtcOf, heldLotsOf, lotTakesLicence, normalizeLotId, planWallet, planoDeMigracao, readMintHolder,
+  atomsOf, btcRef, directBtcOf, planChoice, propertiesOfLots, heldLotsOf, lotTakesLicence, normalizeLotId, planWallet, planoDeMigracao, readMintHolder,
   sqlDaMigracao, standingOfLots, tierOfLot, walletTotals,
   type Assignment, type CreditedPayment, type DirectBtc,
 } from './licence-lot'
@@ -276,4 +276,30 @@ test('migração 037: as faixas do degrau são as de LICENCE_DOG, setor 8 recusa
   assert.match(sql, /create table if not exists public\.dogcity_lot_licence/)
   assert.match(sql, /create table if not exists public\.dogcity_licence_assignment/)
   assert.match(sql, /add column if not exists lot_id/)
+})
+
+// ── a escolha do dono e a licença da propriedade (19/11) ────────────────────
+
+test('planChoice: o livre inteiro no lote escolhido, ou o valor pedido; nunca acima do livre', () => {
+  const held = ['S09-Q00-B0035-L001', 'S09-Q00-B0035-L002']
+  const tudo = planChoice({ totalDog: 20_000, assignments: [], directBtc: [], heldLots: held, lotId: 's09-q00-b0035-l002' })
+  assert.equal(tudo.why, 'applied')
+  assert.deepEqual(tudo.applications, [{ lotId: 'S09-Q00-B0035-L002', amountDog: 20_000, source: 'dog', ref: null }])
+  const parte = planChoice({ totalDog: 20_000, assignments: [], directBtc: [], heldLots: held, lotId: held[0], amountDog: 10_000.123456 })
+  assert.equal(parte.applications[0].amountDog, 10_000.12346)
+  assert.equal(parte.unassignedDog, 9_999.87654)
+  assert.equal(planChoice({ totalDog: 20_000, assignments: [], directBtc: [], heldLots: held, lotId: held[0], amountDog: 30_000 }).why, 'too_much')
+  assert.equal(planChoice({ totalDog: 20_000, assignments: [], directBtc: [], heldLots: held, lotId: 'S01-Q00-B0001-L001' }).why, 'not_holder')
+  const ja: Assignment[] = [{ lotId: held[0], wallet: A, amountDog: 20_000, source: 'dog', ref: null }]
+  assert.equal(planChoice({ totalDog: 20_000, assignments: ja, directBtc: [], heldLots: held, lotId: held[1] }).why, 'nothing_free')
+})
+
+test('propertiesOfLots: a licença da propriedade é a do lote mais alto dela', () => {
+  const props = propertiesOfLots(
+    [{ id: 'S09-Q00-B0035-L001', lots: ['S09-Q00-B0035-L001', 'S09-Q00-B0035-L002'] }, { id: 'S01-Q90-B0079-L001', lots: ['S01-Q90-B0079-L001'] }],
+    [{ lot: 'S09-Q00-B0035-L002', tier: 'commercial', totalDog: 50_000 }, { lot: 'S09-Q00-B0035-L001', tier: 'personal', totalDog: 10_000 }],
+  )
+  assert.equal(props[0].tier, 'commercial')
+  assert.equal(props[0].licenceLot, 'S09-Q00-B0035-L002')
+  assert.deepEqual(props[1], { id: 'S01-Q90-B0079-L001', lots: [{ lot: 'S01-Q90-B0079-L001', tier: null, totalDog: 0 }], tier: null, licenceLot: null })
 })
