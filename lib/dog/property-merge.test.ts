@@ -10,7 +10,7 @@ import type { LicenceTier } from './licence-btc'
 import type { MintHolder } from './licence-lot'
 import { vizinhancaDaGeometria, type LoteGeo } from './lot-property'
 import {
-  FREIO_DIAS, FREIO_MS, TETO_DO_NIVEL, freioDoLote, opcoesDeConsolidacao, quebradas, tierDaPropriedade, validarConsolidacao,
+  FREIO_DIAS, FREIO_MS, REGUA_DO_LAZER, areaDaPropriedade, casaPelaArea, lazerPelaArea, publica, freioDoLote, opcoesDeConsolidacao, quebradas, tierDaPropriedade, validarConsolidacao,
   validarDesfazer, type PropertyRecord,
 } from './property-merge'
 import { consolidar, desfazer, propriedadesPublicas, vistaDaCarteira, type PropertyDeps, type PropertyStore } from './property-merge-service'
@@ -38,11 +38,20 @@ const reg = (over: Partial<PropertyRecord>): PropertyRecord => ({
 
 // ── as regras puras ─────────────────────────────────────────────────────────
 
-test('o teto do lazer por nível: Personal só piscina; Commercial até a casa de hóspedes; Patron a régua inteira', () => {
-  assert.deepEqual(TETO_DO_NIVEL.personal, ['piscina'])
-  assert.deepEqual(TETO_DO_NIVEL.commercial, ['piscina', 'basquete', 'tenis', 'hospedes'])
-  assert.deepEqual(TETO_DO_NIVEL.patron, ['piscina', 'basquete', 'tenis', 'hospedes', 'futebol', 'academia'])
-  for (const t of Object.values(TETO_DO_NIVEL)) assert.equal(t[0], 'piscina')
+test('o lazer vem da ÁREA, para toda licença: a régua em ordem, a piscina primeiro, sem teto por nível (20/11)', () => {
+  assert.deepEqual(REGUA_DO_LAZER.map((r) => r.peca), ['piscina', 'basquete', 'tenis', 'hospedes', 'futebol', 'academia'])
+  assert.equal(REGUA_DO_LAZER[0].minM2, 0)
+  assert.deepEqual(lazerPelaArea(1000), ['piscina'])
+  assert.deepEqual(lazerPelaArea(2500), ['piscina', 'basquete'])
+  assert.deepEqual(lazerPelaArea(7500), ['piscina', 'basquete', 'tenis', 'hospedes', 'futebol'])
+  assert.deepEqual(lazerPelaArea(15000), ['piscina', 'basquete', 'tenis', 'hospedes', 'futebol', 'academia'])
+  assert.deepEqual(lazerPelaArea(null), ['piscina'])
+  assert.deepEqual(lazerPelaArea(NaN), ['piscina'])
+  assert.deepEqual(casaPelaArea(2000), { largura: 26, fundo: 18 })
+  assert.deepEqual(casaPelaArea(6000), { largura: 36, fundo: 24 })
+  assert.equal(areaDaPropriedade(['a'], null), null)
+  assert.equal(areaDaPropriedade([L1, L2], (l) => (l === L1 ? 500 : 700)), 1200)
+  assert.equal(areaDaPropriedade([L1, L2], (l) => (l === L1 ? 500 : null)), null)
 })
 
 test('a licença da propriedade é a mais alta entre os lotes; lote sem licença entra só como terreno', () => {
@@ -149,6 +158,7 @@ function deps(db: ReturnType<typeof memDb>, held: Record<string, string[] | null
     holder: async (a): Promise<MintHolder | null> => (held[a] ? { lots: held[a]!, snapshotLot: null } : null),
     lotTotals: async (lots) => new Map(lots.filter((l) => l in totals).map((l) => [l, totals[l]])),
     vizinho: async () => VIZ,
+    areas: async () => null,
     agoraMs: db.agora,
   }
 }
@@ -169,7 +179,7 @@ test('serviço: une, a vista mostra a propriedade, desfazer antes de 21 dias esp
   assert.deepEqual(m, { ok: true, id: 'm1', anchor: L1, lots: [L1, L2], tier: 'personal' })
   assert.deepEqual(await consolidar(d, A, [L2, L3]), { ok: false, why: 'already_merged' })
   const v1 = await vistaDaCarteira(d, A)
-  assert.ok(!('ok' in v1) && v1.properties.length === 1 && v1.properties[0].amenities.join() === 'piscina')
+  assert.ok(!('ok' in v1) && v1.properties.length === 1 && v1.properties[0].amenities.join() === 'piscina' && v1.properties[0].areaM2 === null)
   const cedo = await desfazer(d, A, 'm1')
   assert.equal(!cedo.ok && cedo.why, 'cooldown')
   db.avanca(22 * DIA)
@@ -190,11 +200,11 @@ test('serviço: vender um lote desfaz a propriedade na próxima leitura (forçad
   assert.equal(r.ok, false)
 })
 
-test('serviço: a lista pública (o robô) traz âncora, lotes, licença e o teto do nível, sem endereço', async () => {
+test('serviço: a lista pública (o robô) traz âncora, lotes, licença, a área e o lazer que a área libera, sem endereço', async () => {
   const db = memDb()
   await consolidar(deps(db, { [A]: [L1, L2] }, { [L2]: 50_000 }), A, [L1, L2])
   const pub = await propriedadesPublicas(deps(db, { [A]: [L1, L2] }, { [L2]: 50_000 }))
-  assert.deepEqual(pub, [{ anchor: L1, lots: [L1, L2], tier: 'commercial', state: 'active', amenities: TETO_DO_NIVEL.commercial }])
+  assert.deepEqual(pub, [{ anchor: L1, lots: [L1, L2], tier: 'commercial', state: 'active', areaM2: null, amenities: ['piscina'] }])
   assert.ok(!JSON.stringify(pub).includes('bc1'))
 })
 
@@ -205,4 +215,21 @@ test('serviço: mint mudo nunca une nem desfaz; sem a tabela é "not open"', asy
   assert.equal((await propriedadesPublicas(deps(db, {})) as unknown[]).length, 1)   // mint mudo: continua ativa
   const fechado = memDb([], true)
   assert.deepEqual(await silencio(() => consolidar(deps(fechado, { [A]: [L1, L2] }), A, [L1, L2])), { ok: false, why: 'not_open' })
+})
+
+test('a prévia pela área: o arquivo de áreas, a área da propriedade e o lazer que ela libera (a licença não muda o lazer)', async () => {
+  const { arquivoDeAreas, lerAreas, areaDoLote } = await import('./lot-property')
+  const quadrado = (x: number, z: number, w: number, d: number) => [[x, z], [x + w, z], [x + w, z + d], [x, z + d]] as [number, number][]
+  assert.equal(areaDoLote(quadrado(0, 0, 40, 50)), 2000)
+  const arq = arquivoDeAreas([{ lotId: L1, cantos: quadrado(0, 0, 40, 100) }, { lotId: L2, cantos: quadrado(40, 0, 40, 100) }], 'teste')
+  assert.equal(arq.lotes, 2)
+  const areaDe = lerAreas(JSON.parse(JSON.stringify(arq)))!
+  assert.equal(areaDe(L1), 4000)
+  assert.equal(areaDe('S01-Q01-B0001-L999'), null)
+  assert.equal(lerAreas({ versao: 2 }), null)
+  for (const tier of ['personal', 'commercial', 'patron'] as const) {
+    const p = publica(reg({}), tiers({ [L1]: tier }), areaDe)
+    assert.equal(p.areaM2, 8000)
+    assert.deepEqual(p.amenities, ['piscina', 'basquete', 'tenis', 'hospedes', 'futebol'])
+  }
 })

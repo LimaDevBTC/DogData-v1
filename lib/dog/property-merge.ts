@@ -10,7 +10,9 @@
 //  2. Vizinho = mesmo quarteirão + divisa real (lib/dog/lot-property.ts). A seleção tem de ser UM grupo conexo.
 //     Setor 8 (Financial District) nunca entra.
 //  3. Lote sem licença entra só como terreno. A licença da propriedade é a mais alta entre os lotes; precisa de uma.
-//  4. O teto do lazer vem do nível (TETO_DO_NIVEL, o mesmo do gerador no dogcity-mundo, scripts/casas/propriedade.py).
+//  4. O LAZER VEM DA ÁREA do terreno unido, para toda licença (REGUA_DO_LAZER, a mesma do gerador no dogcity-mundo,
+//     scripts/casas/propriedade.py). A licença define o uso (Personal residencial, Commercial comercial ou misto, Patron sob
+//     medida) e os veículos, o rifle e o barco; nunca o tamanho da casa nem o lazer. Decisão do fundador, 20/11/2026.
 //  5. DESFAZER: voluntário (o dono) ou forçado (um lote saiu da carteira: a próxima leitura desfaz). Cada lote volta à
 //     casa original, guardada. A licença nunca se move (é do lote).
 //  6. FREIO: uma consolidação OU um desfazer voluntário por propriedade a cada 21 dias, contado por LOTE (nenhum lote
@@ -18,7 +20,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 import type { LicenceTier } from './licence-btc'
 import { lotTakesLicence, normalizeLotId } from './licence-lot'
-import { agruparPropriedades, type Vizinhanca } from './lot-property'
+import { agruparPropriedades, type AreaDe, type Vizinhanca } from './lot-property'
 
 export const FREIO_DIAS = 21
 export const FREIO_MS = FREIO_DIAS * 24 * 60 * 60 * 1000
@@ -40,11 +42,41 @@ export interface PropertyRecord {
   endedAt: string | null
 }
 
-/** as peças da régua que cada nível libera (a ordem é a da REGUA do gerador; a piscina sempre primeiro, a sobra é jardim) */
-export const TETO_DO_NIVEL: Record<LicenceTier, readonly string[]> = {
-  personal: ['piscina'],
-  commercial: ['piscina', 'basquete', 'tenis', 'hospedes'],
-  patron: ['piscina', 'basquete', 'tenis', 'hospedes', 'futebol', 'academia'],
+/**
+ * A RÉGUA DO LAZER, em ordem fixa (a REGUA de scripts/casas/propriedade.py no dogcity-mundo; quem muda uma muda a outra): a peça e a
+ * área mínima do terreno em m2. A piscina é sempre a primeira; cada peça seguinte entra se a área deixa e se cabe no desenho do terreno;
+ * a sobra é jardim. Nenhuma peça depende da licença.
+ */
+export const REGUA_DO_LAZER: readonly { peca: string; minM2: number }[] = [
+  { peca: 'piscina', minM2: 0 },
+  { peca: 'basquete', minM2: 2500 },
+  { peca: 'tenis', minM2: 4000 },
+  { peca: 'hospedes', minM2: 6000 },
+  { peca: 'futebol', minM2: 7500 },
+  { peca: 'academia', minM2: 9000 },
+]
+
+/** o lazer que a ÁREA do terreno libera (a prévia; o desenho final ainda confere se cabe na forma do terreno) */
+export function lazerPelaArea(areaM2: number | null | undefined): string[] {
+  const a = typeof areaM2 === 'number' && Number.isFinite(areaM2) && areaM2 > 0 ? areaM2 : 0
+  return REGUA_DO_LAZER.filter((r) => a >= r.minM2).map((r) => r.peca)
+}
+
+/** a casa pela área (m): a grande (36 x 24) a partir de 6.000 m2, a de sempre (26 x 18) abaixo; igual nas três licenças */
+export function casaPelaArea(areaM2: number | null | undefined): { largura: number; fundo: number } {
+  return typeof areaM2 === 'number' && areaM2 >= 6000 ? { largura: 36, fundo: 24 } : { largura: 26, fundo: 18 }
+}
+
+/** a área do terreno unido (m2): a soma dos lotes (são disjuntos); null se algum lote não está no arquivo de áreas */
+export function areaDaPropriedade(lots: string[], areaDe: AreaDe | null | undefined): number | null {
+  if (!areaDe) return null
+  let t = 0
+  for (const l of lots) {
+    const a = areaDe(l)
+    if (a === null) return null
+    t += a
+  }
+  return t
 }
 
 const RANK: Record<LicenceTier, number> = { personal: 1, commercial: 2, patron: 3 }
@@ -88,6 +120,8 @@ export interface Opcao {
   merged: string[]
   /** o freio de cada lote do grupo, ISO; só os que têm */
   cooldownUntil: Record<string, string>
+  /** a área de cada lote do grupo (m2), para a prévia pela área; só os que o arquivo de áreas conhece */
+  areaM2: Record<string, number>
 }
 
 export function opcoesDeConsolidacao(
@@ -96,6 +130,7 @@ export function opcoesDeConsolidacao(
   vizinho: Vizinhanca | null,
   registros: PropertyRecord[],
   agoraMs: number,
+  areaDe?: AreaDe | null,
 ): Opcao[] {
   if (!vizinho) return []
   const ok = [...new Set(held.map((l) => normalizeLotId(l)).filter((l): l is string => !!l && lotTakesLicence(l)))]
@@ -108,7 +143,9 @@ export function opcoesDeConsolidacao(
         const f = freioDoLote(l, registros, agoraMs)
         if (f) cooldownUntil[l] = new Date(f).toISOString()
       }
-      return { lots: g.lots, licensed: g.lots.filter((l) => tiers.get(l)), merged: g.lots.filter((l) => ativos.has(l)), cooldownUntil }
+      const areaM2: Record<string, number> = {}
+      for (const l of g.lots) { const a = areaDe?.(l); if (typeof a === 'number') areaM2[l] = a }
+      return { lots: g.lots, licensed: g.lots.filter((l) => tiers.get(l)), merged: g.lots.filter((l) => ativos.has(l)), cooldownUntil, areaM2 }
     })
 }
 
@@ -180,16 +217,20 @@ export function quebradas(registros: PropertyRecord[], wallet: string, held: str
   return registros.filter((r) => r.state === 'active' && r.wallet === wallet && r.lots.some((l) => !h.has(l)))
 }
 
-/** o que o robô lê (sem endereço): a propriedade ativa, os lotes, a licença dela e as peças que o nível libera */
+/** o que o robô lê (sem endereço): a propriedade ativa, os lotes, a licença dela (o uso) e o lazer que a ÁREA libera */
 export interface PropertyPublica {
   anchor: string
   lots: string[]
   tier: LicenceTier | null
   state: 'active'
+  /** a área do terreno unido (m2), ou null se o arquivo de áreas não a tem */
+  areaM2: number | null
   amenities: readonly string[]
 }
 
-export function publica(r: PropertyRecord, tiers: Map<string, LicenceTier | null>): PropertyPublica {
+export function publica(r: PropertyRecord, tiers: Map<string, LicenceTier | null>, areaDe?: AreaDe | null): PropertyPublica {
   const tier = tierDaPropriedade(r.lots, tiers)
-  return { anchor: r.anchor, lots: r.lots, tier, state: 'active', amenities: tier ? TETO_DO_NIVEL[tier] : [] }
+  const areaM2 = areaDaPropriedade(r.lots, areaDe)
+  // sem a área o desenho cai no mínimo da régua (a piscina): nunca promete o que a área não confirmou
+  return { anchor: r.anchor, lots: r.lots, tier, state: 'active', areaM2, amenities: tier ? lazerPelaArea(areaM2) : [] }
 }

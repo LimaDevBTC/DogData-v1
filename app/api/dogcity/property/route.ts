@@ -2,7 +2,7 @@
  * A PROPRIEDADE UNIDA, OPT-IN (desenho final do fundador, 19/11/2026): "Expand your house".
  *
  *   GET  /api/dogcity/property
- *        -> { tier, lots, properties, options, canExpand, dissolvedNow, cooldownDays, amenitiesByTier }
+ *        -> { tier, lots, properties, options, canExpand, dissolvedNow, cooldownDays, amenitiesByArea }
  *   POST /api/dogcity/property { action: 'merge', lots: [lot_id, ...] }   une os lotes escolhidos (vizinhos, da carteira)
  *   POST /api/dogcity/property { action: 'split', id }                    desfaz por vontade ("Restore separate lots")
  *
