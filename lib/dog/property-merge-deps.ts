@@ -3,6 +3,7 @@
 import { supabase } from '@/lib/supabase'
 import { holderDoMint, lotLicenceStore } from './licence-lot-supabase'
 import { vizinhancaDosLotes } from '@/lib/city/lot-vizinhos'
+import { areasDosLotes } from '@/lib/city/lot-areas'
 import { propertyStore } from './property-merge-supabase'
 import type { PropertyDeps } from './property-merge-service'
 
@@ -13,5 +14,6 @@ export const propertyDeps: PropertyDeps = {
   holder: (a) => holderDoMint(a),
   lotTotals: (lots) => licencas.lotTotals(lots),
   vizinho: () => vizinhancaDosLotes(),
+  areas: () => areasDosLotes(),
   agoraMs: () => Date.now(),
 }

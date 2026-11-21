@@ -1942,6 +1942,16 @@ export default function DogCityDocsPage() {
                 over to the merged deed.
               </P>
 
+              <Sub>What a property builds comes from its area</Sub>
+              <P className="mt-3">
+                The licence sets the use of the property: Personal is residential, Commercial is commercial or mixed, and
+                Patron is a custom build. It also sets the vehicles, the rifle and the boat. It does not set the size of the
+                house or the leisure grounds. Those come from the area of the joined lots, the same for every licence: the
+                pool always comes first, then a basketball court from 2,500 m2, a tennis court from 4,000 m2, a guest house
+                from 6,000 m2, a football pitch from 7,500 m2 and a gym pavilion from 9,000 m2, each only if it fits the shape
+                of the ground. The rest of the ground is garden. From 6,000 m2 the house itself is the large one (36 by 24 m).
+              </P>
+
               <Sub>Not decided yet</Sub>
               <P className="mt-3">
                 The date, the fee, how many lots one merge can take, the tier of the merged lot, what happens to houses

@@ -2,7 +2,7 @@
 
 // A PROPRIEDADE UNIDA, OPT-IN (fundador, 19/11/2026): "Expand your house". Só com a sessão assinada: a rota
 // /api/dogcity/property lê a carteira do cookie. O dono escolhe QUAIS lotes vizinhos entram (pode deixar um solto para
-// vender), vê a prévia do que cabe pelo nível e confirma; a propriedade ativa ganha "Restore separate lots".
+// vender), vê a prévia do que cabe pela ÁREA do terreno unido (a licença não limita o lazer, 20/11) e confirma; a propriedade ativa ganha "Restore separate lots".
 // Só no jogo e de graça. Copy 100% em inglês, sem travessão.
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Check, Home, Loader2 } from "lucide-react"
@@ -10,8 +10,8 @@ import { PlateHead } from "@/components/plot/kit"
 import type { LicenceTier } from "@/lib/dog/licence-btc"
 
 interface LotRow { lot: string; tier: LicenceTier | null }
-interface Option { lots: string[]; licensed: string[]; merged: string[]; cooldownUntil: Record<string, string> }
-interface Prop { id: string; anchor: string; lots: string[]; tier: LicenceTier | null; amenities: string[]; splitAfter: string }
+interface Option { lots: string[]; licensed: string[]; merged: string[]; cooldownUntil: Record<string, string>; areaM2?: Record<string, number> }
+interface Prop { id: string; anchor: string; lots: string[]; tier: LicenceTier | null; amenities: string[]; areaM2?: number | null; splitAfter: string }
 interface View {
   lots: LotRow[]
   properties: Prop[]
@@ -19,7 +19,7 @@ interface View {
   canExpand: boolean
   dissolvedNow: string[]
   cooldownDays: number
-  amenitiesByTier: Record<LicenceTier, string[]>
+  amenitiesByArea: { peca: string; minM2: number }[]
 }
 
 const TIER_LABEL: Record<string, string> = { personal: "Personal", commercial: "Commercial", patron: "Patron" }
@@ -27,9 +27,11 @@ const AMENITY: Record<string, string> = {
   piscina: "Pool with deck", basquete: "Basketball court", tenis: "Tennis court", hospedes: "Guest house",
   futebol: "Football pitch", academia: "Gym pavilion",
 }
-const HOUSE: Record<string, string> = {
-  personal: "A larger house", commercial: "The large house (36 x 24 m)", patron: "Your custom build, across the whole ground",
+// A casa cresce com a ÁREA, nunca com a licença; a licença é o uso (Personal residencial, Commercial comercial ou misto, Patron sob medida).
+const USE: Record<string, string> = {
+  personal: "residential use", commercial: "commercial or mixed use", patron: "your custom build (Patron Build)",
 }
+const houseByArea = (area: number | null) => (area !== null && area >= 6000 ? "The large house (36 x 24 m)" : "A larger house")
 const RANK: Record<string, number> = { personal: 1, commercial: 2, patron: 3 }
 const day = (iso: string) => new Date(iso).toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" })
 
@@ -56,6 +58,19 @@ export function PropertyCard({ verified }: { verified: boolean }) {
     for (const l of pick) { const x = tierOf.get(l) ?? null; if (x && (!t || RANK[x] > RANK[t])) t = x }
     return t
   }, [pick, tierOf])
+
+  // a prévia pela ÁREA: a soma dos lotes escolhidos (são disjuntos); sem a área de algum, so' o minimo da regua (a piscina)
+  const pickArea = useMemo(() => {
+    const areas = new Map<string, number>()
+    for (const o of data?.options ?? []) for (const [l, a] of Object.entries(o.areaM2 ?? {})) areas.set(l, a)
+    let t = 0
+    for (const l of pick) { const a = areas.get(l); if (a === undefined) return null; t += a }
+    return pick.length ? t : null
+  }, [pick, data])
+  const pickAmenities = useMemo(
+    () => (data?.amenitiesByArea ?? []).filter((r) => pickArea !== null && pickArea >= r.minM2 || r.minM2 === 0).map((r) => r.peca),
+    [pickArea, data],
+  )
 
   if (!verified || !data) return null
   if (!data.canExpand && data.properties.length === 0) return null
@@ -105,7 +120,7 @@ export function PropertyCard({ verified }: { verified: boolean }) {
             </p>
             <p className="font-mono text-[11px] text-snow break-all">{p.lots.join(" + ")}</p>
             <p className="text-[12px] text-mist">
-              {p.tier ? HOUSE[p.tier] : "A house"}, {p.amenities.map((a) => AMENITY[a] ?? a).join(", ")}, and gardens on the rest.
+              {houseByArea(p.areaM2 ?? null)}{p.tier ? ` (${USE[p.tier]})` : ""}, {p.amenities.map((a) => AMENITY[a] ?? a).join(", ")}, and gardens on the rest.
             </p>
             {confirm === p.id ? (
               <div className="space-y-2">
@@ -168,8 +183,8 @@ export function PropertyCard({ verified }: { verified: boolean }) {
               {pickTier ? (
                 <>
                   <p className="text-[12px] text-mist">
-                    {TIER_LABEL[pickTier]} property: {HOUSE[pickTier]}, {data.amenitiesByTier[pickTier].map((a) => AMENITY[a] ?? a).join(", ")} when
-                    they fit (the pool always comes first), and gardens on the rest.
+                    {pickArea !== null ? `${Math.round(pickArea).toLocaleString("en-US")} m2 of ground: ` : ""}{houseByArea(pickArea)} ({USE[pickTier]}),{" "}
+                    {pickAmenities.map((a) => AMENITY[a] ?? a).join(", ")} when they fit (the pool always comes first), and gardens on the rest.
                   </p>
                   {confirm === "merge" ? (
                     <div className="space-y-2">

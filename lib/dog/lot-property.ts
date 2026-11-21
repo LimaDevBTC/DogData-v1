@@ -237,3 +237,68 @@ export function agruparPropriedades(lotIds: string[], vizinho: Vizinhanca | null
 /** a propriedade que contém o lote, ou null */
 export const propriedadeDoLote = (props: Propriedade[], lotId: string): Propriedade | null =>
   props.find((p) => p.lots.includes(lotId)) ?? null
+
+// ── a área dos lotes (o lazer vem da ÁREA, 20/11/2026) ──────────────────────
+
+/** a área de um contorno (m2), pela fórmula do cadarço */
+export function areaDoLote(cantos: Cantos): number {
+  let a = 0
+  for (let i = 0; i < cantos.length; i++) {
+    const [x0, z0] = cantos[i]
+    const [x1, z1] = cantos[(i + 1) % cantos.length]
+    a += x0 * z1 - x1 * z0
+  }
+  return Math.abs(a) / 2
+}
+
+/** o arquivo de áreas (data/dogcity_lot_areas.json): por quarteirão, "numero:area" separados por vírgula (m2 inteiros); sem endereço */
+export interface ArquivoAreas {
+  versao: 1
+  fonte: string
+  lotes: number
+  quarteiroes: Record<string, string>
+}
+
+export function arquivoDeAreas(lotes: LoteGeo[], fonte: string): ArquivoAreas {
+  const por = new Map<string, string[]>()
+  let n = 0
+  for (const l of lotes) {
+    const q = quarteiraoDe(l.lotId)
+    const num = numeroDe(l.lotId)
+    if (!q || num === null || !cantosValidos(l.cantos)) continue
+    por.set(q, [...(por.get(q) ?? []), `${num}:${Math.round(areaDoLote(l.cantos))}`])
+    n++
+  }
+  const quarteiroes: Record<string, string> = {}
+  for (const [q, v] of [...por].sort((a, b) => (a[0] < b[0] ? -1 : 1))) quarteiroes[q] = v.join(',')
+  return { versao: 1, fonte, lotes: n, quarteiroes }
+}
+
+/** a área de cada lote, pelo arquivo; null se o lote não está nele */
+export type AreaDe = (lotId: string) => number | null
+
+export function lerAreas(json: unknown): AreaDe | null {
+  if (!json || typeof json !== 'object') return null
+  const j = json as Partial<ArquivoAreas>
+  if (j.versao !== 1 || !j.quarteiroes || typeof j.quarteiroes !== 'object') return null
+  const tabela = j.quarteiroes as Record<string, unknown>
+  const cache = new Map<string, Map<number, number>>()
+  const doQuarteirao = (q: string): Map<number, number> => {
+    let m = cache.get(q)
+    if (m) return m
+    m = new Map()
+    const txt = tabela[q]
+    if (typeof txt === 'string') for (const par of txt.split(',')) {
+      const x = /^(\d+):(\d+)$/.exec(par)
+      if (x) m.set(Number(x[1]), Number(x[2]))
+    }
+    cache.set(q, m)
+    return m
+  }
+  return (lotId) => {
+    const q = quarteiraoDe(lotId)
+    const n = numeroDe(lotId)
+    if (!q || n === null) return null
+    return doQuarteirao(q).get(n) ?? null
+  }
+}

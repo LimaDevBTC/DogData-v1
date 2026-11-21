@@ -14,9 +14,9 @@
 import type { LicenceTier } from './licence-btc'
 import { heldLotsOf, tierOfLot, type MintHolder } from './licence-lot'
 import { SemTabela } from './licence-lot-service'
-import type { Vizinhanca } from './lot-property'
+import type { AreaDe, Vizinhanca } from './lot-property'
 import {
-  FREIO_DIAS, TETO_DO_NIVEL, opcoesDeConsolidacao, publica, quebradas, tierDaPropriedade, validarConsolidacao, validarDesfazer,
+  FREIO_DIAS, REGUA_DO_LAZER, opcoesDeConsolidacao, publica, quebradas, tierDaPropriedade, validarConsolidacao, validarDesfazer,
   type DesfazerErro, type MergeErro, type Opcao, type PropertyPublica, type PropertyRecord,
 } from './property-merge'
 
@@ -37,6 +37,8 @@ export interface PropertyDeps {
   /** o total aplicado em cada lote (licence-lot-supabase lotTotals) */
   lotTotals: (lots: string[]) => Promise<Map<string, number>>
   vizinho: () => Promise<Vizinhanca | null>
+  /** a área de cada lote (data/dogcity_lot_areas.json); null se o arquivo não está ao alcance */
+  areas: () => Promise<AreaDe | null>
   agoraMs: () => number
 }
 
@@ -56,7 +58,8 @@ export interface PropertyView {
   /** as que esta leitura desfez porque um lote saiu da carteira */
   dissolvedNow: string[]
   cooldownDays: number
-  amenitiesByTier: typeof TETO_DO_NIVEL
+  /** a régua do lazer: a peça e a área mínima (a prévia do jogo soma a área dos lotes escolhidos) */
+  amenitiesByArea: typeof REGUA_DO_LAZER
 }
 
 export type Falha = { ok: false; why: 'not_open' | 'unknown' }
@@ -83,7 +86,7 @@ async function desfazerQuebradas(deps: PropertyDeps, wallet: string, held: strin
 
 export async function vistaDaCarteira(deps: PropertyDeps, wallet: string): Promise<PropertyView | Falha> {
   return comFalha(async () => {
-    const [holder, viz] = await Promise.all([deps.holder(wallet).catch(() => null), deps.vizinho().catch(() => null)])
+    const [holder, viz, areaDe] = await Promise.all([deps.holder(wallet).catch(() => null), deps.vizinho().catch(() => null), deps.areas().catch(() => null)])
     if (!holder) return { ok: false, why: 'unknown' } as Falha
     const held = heldLotsOf(holder)
     const doDono = await deps.store.ofWallet(wallet)
@@ -94,14 +97,14 @@ export async function vistaDaCarteira(deps: PropertyDeps, wallet: string): Promi
     const tiers = await tiersDe(deps, held)
     const agora = deps.agoraMs()
     const ativas = registros.filter((r) => r.state === 'active' && r.wallet === wallet)
-    const options = opcoesDeConsolidacao(held, tiers, viz, registros, agora)
+    const options = opcoesDeConsolidacao(held, tiers, viz, registros, agora, areaDe)
     return {
       tier: tierDaPropriedade(held, tiers),
       lots: held.map((lot) => ({ lot, tier: tiers.get(lot) ?? null })),
       properties: ativas.map((r) => {
         const v = validarDesfazer({ id: r.id, wallet, registros, agoraMs: agora })
         return {
-          ...publica(r, tiers), id: r.id, createdAt: r.createdAt,
+          ...publica(r, tiers, areaDe), id: r.id, createdAt: r.createdAt,
           splitAfter: !v.ok && v.why === 'cooldown' && v.until ? v.until : new Date(agora).toISOString(),
         }
       }),
@@ -109,7 +112,7 @@ export async function vistaDaCarteira(deps: PropertyDeps, wallet: string): Promi
       canExpand: options.some((o) => o.lots.filter((l) => !o.merged.includes(l)).length >= 2),
       dissolvedNow: feitas,
       cooldownDays: FREIO_DIAS,
-      amenitiesByTier: TETO_DO_NIVEL,
+      amenitiesByArea: REGUA_DO_LAZER,
     }
   })
 }
@@ -165,6 +168,7 @@ export async function propriedadesPublicas(deps: PropertyDeps, opts: { maxHolder
     }
     const vivas = ativas.filter((r) => !fora.has(r.anchor))
     const tiers = await tiersDe(deps, [...new Set(vivas.flatMap((r) => r.lots))])
-    return vivas.map((r) => publica(r, tiers)).sort((a, b) => (a.anchor < b.anchor ? -1 : 1))
+    const areaDe = await deps.areas().catch(() => null)
+    return vivas.map((r) => publica(r, tiers, areaDe)).sort((a, b) => (a.anchor < b.anchor ? -1 : 1))
   })
 }
