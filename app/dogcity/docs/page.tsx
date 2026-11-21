@@ -239,6 +239,7 @@ const TOC = [
   { id: "dog-motors", n: "", label: "DOG MOTORS" },
   { id: "an7-race", n: "", label: "The AN7 race" },
   { id: "merging-lots", n: "", label: "Merging lots" },
+  { id: "landmarks", n: "", label: "Landmarks" },
   { id: "referrals", n: "", label: "Ambassadors" },
   { id: "not-yet", n: "9", label: "What this is not, yet" },
 ]
@@ -432,6 +433,8 @@ export default function DogCityDocsPage() {
                 R is the city&apos;s DID. The City Charter is the child of R, and every lot deed is a
                 child of the Charter. Only the first valid deed of each lot counts. The ground layer is
                 also a child of the Charter, and so is the mint calendar, inscribed at block 972,421 once B was known.
+                Landmark deeds are children of the Charter too, but a landmark is not a lot: it is not among the
+                lots the Merkle root commits, and it never counts as the deed of a lot (see Landmarks).
               </P>
               <P>
                 The Charter carries the Merkle root <Code>{MERKLE_ROOT}</Code>, which commits the
@@ -466,7 +469,8 @@ export default function DogCityDocsPage() {
               <P className="mt-3">
                 The City Charter&apos;s children page on ordinals.com lists every deed of the city in the order it was
                 inscribed, and new deeds appear there as they are minted. The first three children are not deeds: the
-                surroundings layer, the mint calendar and the founders list.
+                surroundings layer, the mint calendar and the founders list. Landmark deeds also appear there; each one
+                says LANDMARK in its title and is not the deed of a lot.
               </P>
               <div className="mt-4 font-mono text-[11px] tracking-[0.14em]">
                 <a href={CHARTER_CHILDREN_URL} target="_blank" rel="noopener noreferrer" className="text-lava hover:text-lava-light">
@@ -1958,6 +1962,54 @@ export default function DogCityDocsPage() {
                 already on the lots and what happens when one lot of a property is sold before its deeds are merged. This
                 section will state these rules before merging opens. Until then, no merge can be made.
               </P>
+            </Section>
+
+            {/* ═══════════════ LANDMARKS (21/11/2026, decisão do fundador) ═══════════════
+                Um marco é um prédio da cidade em chão cívico, fora dos lotes (a Satoshi Plaza). A Landmark Deed é uma inscrição filha da
+                City Charter; quem guarda a inscrição tem as chaves do marco no jogo. Não é lote: fora da raiz Merkle, do mint, das licenças
+                e da fusão. A primeira é a ADAM WEITSMAN GALLERY. Esta seção é o contrato. */}
+            <Section id="landmarks" n="" eyebrow="LANDMARKS · BUILDINGS ON CIVIC GROUND" title="Landmarks: buildings that are not lots">
+              <P>
+                Some buildings of DOG CITY stand on civic ground, outside the {LOT_COUNT.toLocaleString("en-US")} lots: on
+                Satoshi Plaza and in other civic places of the city. When DOG CITY makes one of these buildings a landmark,
+                it issues a Landmark Deed for it on Bitcoin.
+              </P>
+
+              <Sub>The Landmark Deed</Sub>
+              <P className="mt-3">
+                A Landmark Deed is an inscription, a child of the City Charter, drawn in the same language as a lot deed: a
+                site plan of the landmark&apos;s ground with the building on it, the key plan of the city, the coordinates of
+                its corners and its dimensions. It names the landmark, its number, its place and its ground. Like a lot
+                deed, it draws itself from pieces already on Bitcoin.
+              </P>
+
+              <Sub>Whoever holds it holds the keys</Sub>
+              <P className="mt-3">
+                In the game, the wallet that holds a Landmark Deed holds the keys of that landmark: its private rooms and
+                the vehicles that belong to it. A Landmark Deed is an ordinary inscription. It can be sent or sold, and the
+                keys go with it.
+              </P>
+              <P>
+                A Landmark Deed can carry a dedication, gifted to and gifted by, that records who received it first. The
+                dedication is part of its history; it does not limit who holds it later.
+              </P>
+
+              <Sub>What a landmark is not</Sub>
+              <BulletList
+                items={[
+                  { lead: "Not a lot.", text: "A landmark is not one of the lots, it is not in the Merkle root the City Charter carries and it never counts as the deed of a lot." },
+                  { lead: "Not minted.", text: "Landmarks are not part of the mint. DOG CITY decides which buildings become landmarks and who receives each Landmark Deed." },
+                  { lead: "No lot rules.", text: "Mint phases, building licences and merging are rules of lots. They do not apply to landmarks." },
+                ]}
+              />
+
+              <Sub>The registry</Sub>
+              <Table
+                head={["No", "Landmark", "Place", "Landmark Deed"]}
+                rows={[
+                  ["001", "ADAM WEITSMAN GALLERY", "Satoshi Plaza", "Being inscribed"],
+                ]}
+              />
             </Section>
 
             {/* ═══════════════ EMBAIXADORES (17/11/2026, unificado por @handle em 18/11, decisão do fundador) ═══════════════
