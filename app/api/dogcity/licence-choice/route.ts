@@ -19,6 +19,7 @@
  * dois cliques ao mesmo tempo nunca aplicam o mesmo crédito duas vezes. Sem migração nova.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { enderecoDoMint } from '@/lib/dog/licence-choice-mint'
 import { supabase } from '@/lib/supabase'
 import { getWalletSession } from '@/lib/identity/session'
 import { tooFast } from '@/lib/identity/throttle'
@@ -43,6 +44,8 @@ const erro = (status: number, error: string, extra: Record<string, unknown> = {}
   NextResponse.json({ error, ...extra }, { status, headers: NO_STORE })
 
 async function enderecoDaSessao(req: NextRequest): Promise<string | null> {
+  const doMint = enderecoDoMint(req)
+  if (doMint) return doMint
   const s = await getWalletSession(req).catch(() => null)
   return s ? normalizeAddress(s.address) : null
 }
@@ -84,7 +87,8 @@ export async function POST(req: NextRequest) {
   // cross-site nunca: o cookie é sameSite lax e o corpo tem de ser JSON (força o preflight de CORS)
   if (req.headers.get('sec-fetch-site') === 'cross-site') return erro(403, 'Cross-site request refused.')
   if (!(req.headers.get('content-type') ?? '').toLowerCase().startsWith('application/json')) return erro(415, 'Send JSON.')
-  if (await passouDoTeto(req, 'lchoice', 20)) return respostaFreio()
+  // o freio por IP não vale para o servidor do mint (um IP para todos os jogadores; o mint tem o próprio limite por sessão)
+  if (!enderecoDoMint(req) && await passouDoTeto(req, 'lchoice', 20)) return respostaFreio()
   const address = await enderecoDaSessao(req)
   if (!address) return erro(401, 'Sign with your wallet first.')
   if (await tooFast(`lchoice:${address}`, 3)) return erro(429, 'Slow down, try again in a moment.')
