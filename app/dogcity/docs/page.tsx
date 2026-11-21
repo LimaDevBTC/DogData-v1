@@ -1981,7 +1981,7 @@ export default function DogCityDocsPage() {
 
               <Sub>Ambassador Edition items</Sub>
               <P className="mt-3">
-                Exclusive in-game items, never sold, counted by the lots minted through your link:
+                In-game items, unlocked by the lots minted through your link:
               </P>
               <BulletList
                 items={[
