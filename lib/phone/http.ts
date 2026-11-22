@@ -7,6 +7,7 @@
 //   - mesma origem: `sec-fetch-site: cross-site` é recusado;
 //   - só JSON, com teto em bytes; freio por IP e por conta; nada de cache (dado de uma pessoa).
 import { agirChamada, agirMural, feed, historicoChamadas, sondar } from './extra'
+import { apagarFoto, guardarFoto, lerFoto, LIMITES_FOTO, listarFotos, type Armazem } from './fotos'
 import { agir, buscar, contar, enviar, historico, inicio, ler, SemTabela, type PhoneDeps } from './service'
 
 export type CorpoLido = { ok: true; valor: unknown } | { ok: false; status: 400 | 413 }
@@ -24,7 +25,7 @@ export interface PortaHttp {
 const NO_STORE = { 'Cache-Control': 'no-store' }
 export const TETO_CORPO = 4096
 export const TETO_CORPO_CHAMADA = 24_000
-export const TETOS_IP = { inicio: 60, busca: 20, acao: 30, historico: 60, envio: 60, chamada: 120, mural: 60 } as const
+export const TETOS_IP = { inicio: 60, busca: 20, acao: 30, historico: 60, envio: 60, chamada: 120, mural: 60, fotos: 40, foto: 240 } as const
 
 const json = (corpo: unknown, status = 200, extra: Record<string, string> = {}): Response =>
   Response.json(corpo, { status, headers: { ...NO_STORE, ...extra } })
@@ -52,6 +53,11 @@ export const MSG: Record<string, [number, string]> = {
   busy: [409, 'This player is on another call.'],
   busy_self: [409, 'You are already on a call.'],
   no_handle: [422, 'Choose your @handle before posting.'],
+  not_jpeg: [422, 'This file is not a photo taken in the game.'],
+  too_big: [413, 'This photo is too large.'],
+  bad_size: [422, 'This photo has an invalid size.'],
+  cap_total: [409, 'Your gallery is full. Delete some photos first.'],
+  no_storage: [503, 'Photos are not open yet.'],
 }
 
 function recusa(why: string): Response {
@@ -207,3 +213,61 @@ export function postWall(req: Request, porta: PortaHttp, deps: PhoneDeps): Promi
     return r.ok ? json(r) : recusa(r.why)
   })
 }
+
+// ---------------------------------------------------------------------------------------------------------------------- fotos
+
+/** lê o corpo binário com teto: recusa pelo Content-Length antes de ler e confere de novo depois */
+async function lerBytes(req: Request, teto: number): Promise<Uint8Array | null> {
+  const dito = Number(req.headers.get('content-length') ?? '')
+  if (Number.isFinite(dito) && dito > teto) return null
+  const b = new Uint8Array(await req.arrayBuffer())
+  return b.length > 0 && b.length <= teto ? b : null
+}
+
+/** GET /api/dogcity/phone/photos?before= : a galeria da conta (só os registros; o arquivo sai por /photos/<id>) */
+export function getPhotos(req: Request, porta: PortaHttp, deps: PhoneDeps): Promise<Response> {
+  return protegido(async () => {
+    const conta = await entrada(req, porta, 'fotos')
+    if (typeof conta !== 'string') return conta
+    const r = await listarFotos(deps, conta, new URL(req.url).searchParams.get('before'))
+    return r.ok ? json(r) : recusa(r.why)
+  })
+}
+
+/** POST /api/dogcity/phone/photos : image/jpeg no corpo (?kind=front|selfie) guarda; JSON { action: delete, id } apaga */
+export function postPhotos(req: Request, porta: PortaHttp, deps: PhoneDeps, arm: Armazem | null): Promise<Response> {
+  return protegido(async () => {
+    const conta = await entrada(req, porta, 'fotos')
+    if (typeof conta !== 'string') return conta
+    if (!arm) return recusa('no_storage')
+    if (ehJson(req)) {
+      const corpo = await porta.lerCorpo(req, TETO_CORPO)
+      const b = corpo.ok ? objeto(corpo.valor) : null
+      if (!b || b.action !== 'delete') return erro(corpo.ok ? 422 : corpo.status, 'Invalid request.', 'invalid')
+      const r = await apagarFoto(deps, arm, conta, b.id)
+      return r.ok ? json(r) : recusa(r.why)
+    }
+    if (!(req.headers.get('content-type') ?? '').toLowerCase().startsWith('image/jpeg')) return erro(415, 'Send a JPEG.', 'not_jpeg')
+    if (await porta.freioConta(`phone-photo:${conta}`, 2)) return erro(429, 'Slow down, try again in a moment.', 'slow')
+    const bytes = await lerBytes(req, LIMITES_FOTO.bytes)
+    if (!bytes) return recusa('too_big')
+    const r = await guardarFoto(deps, arm, conta, bytes, new URL(req.url).searchParams.get('kind'))
+    return r.ok ? json(r) : recusa(r.why)
+  })
+}
+
+/** GET /api/dogcity/phone/photos/<id> : o JPEG, só para a dona. Cache privado: a foto de um id nunca muda */
+export function getPhoto(req: Request, porta: PortaHttp, deps: PhoneDeps, arm: Armazem | null, id: string): Promise<Response> {
+  return protegido(async () => {
+    const conta = await entrada(req, porta, 'foto')
+    if (typeof conta !== 'string') return conta
+    if (!arm) return recusa('no_storage')
+    const r = await lerFoto(deps, arm, conta, id)
+    if (!r.ok) return recusa(r.why)
+    return new Response(r.bytes as unknown as BodyInit, {
+      status: 200,
+      headers: { 'Content-Type': 'image/jpeg', 'Content-Length': String(r.bytes.length), 'Cache-Control': 'private, max-age=86400, immutable', 'X-Content-Type-Options': 'nosniff', 'Content-Disposition': 'inline' },
+    })
+  })
+}
+

@@ -30,6 +30,7 @@ export async function abrirBancoLocal(caminhoPglite: string): Promise<BancoLocal
   `)
   await db.exec(readFileSync(join(AQUI, '..', '..', 'supabase', 'migrations', '046_dogcity_phone.sql'), 'utf8'))
   await db.exec(readFileSync(join(AQUI, '..', '..', 'supabase', 'migrations', '047_dogcity_phone_calls_wall.sql'), 'utf8'))
+  await db.exec(readFileSync(join(AQUI, '..', '..', 'supabase', 'migrations', '048_dogcity_phone_photos.sql'), 'utf8'))
   return {
     async rpc(fn, args) {
       if (!/^dogcity_phone_[a-z_]+$/.test(fn)) throw new Error(`rpc: ${fn}`)
