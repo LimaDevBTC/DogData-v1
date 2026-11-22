@@ -47,7 +47,7 @@ import { CAR_MODELS, CAR_MODEL_IDS } from "@/lib/game/cars/catalog"
 import { ECONOMIA } from "@/lib/game/points/ajustes_economia"
 // proveniência on-chain: ids, tamanhos e diagrama vêm de UM módulo, o mesmo da landing
 import {
-  PIECES, ProvenanceDiagram, REHEARSAL_DEED, REHEARSAL_DEED_BYTES, VERIFY_URL,
+  PIECES, ProvenanceDiagram, REHEARSAL_DEED, REHEARSAL_DEED_BYTES, LANDMARK_001, VERIFY_URL,
   MERKLE_ROOT, LOT_COUNT, fmtBytes, shortId, inscriptionUrl,
 } from "../provenance"
 
@@ -2007,7 +2007,7 @@ export default function DogCityDocsPage() {
               <Table
                 head={["No", "Landmark", "Place", "Landmark Deed"]}
                 rows={[
-                  ["001", "ADAM WEITSMAN GALLERY", "Satoshi Plaza", "Being inscribed"],
+                  ["001", "ADAM WEITSMAN GALLERY", "Satoshi Plaza", <ExtLink key="lm001" href={inscriptionUrl(LANDMARK_001)}>{shortId(LANDMARK_001)}</ExtLink>],
                 ]}
               />
             </Section>

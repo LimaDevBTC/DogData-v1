@@ -24,6 +24,8 @@ export const LOT_COUNT = ATLAS_LOTS
 /** a escritura de ensaio em mainnet (pai descartável, não a Charter) */
 export const REHEARSAL_DEED = "737b2771954c2b13560fa0ce1dfbc1e358c8a7f0c3d3ff6e0a69a753e0de83ebi0"
 export const REHEARSAL_DEED_BYTES = 1569
+/** a Landmark Deed 001 (ADAM WEITSMAN GALLERY), filha da City Charter, inscrita em 22/11/2026 (UTC) e enviada ao Adam Weitsman */
+export const LANDMARK_001 = "81d800e20708d547a9fb44e0eef60ee4c11681ca58cc4ccb368eccc4a1c25d11i0"
 
 export type Piece = {
   key: "r" | "charter" | "ground" | "template" | "sans" | "mono"
