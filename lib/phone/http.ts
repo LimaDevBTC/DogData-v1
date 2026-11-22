@@ -188,12 +188,12 @@ export function getWall(req: Request, porta: PortaHttp, deps: PhoneDeps): Promis
     const conta = await entrada(req, porta, 'mural')
     if (typeof conta !== 'string') return conta
     const q = new URL(req.url).searchParams
-    const r = await feed(deps, conta, { before: q.get('before'), author: q.get('author') })
+    const r = await feed(deps, conta, { before: q.get('before'), author: q.get('author'), thread: q.get('thread') })
     return r.ok ? json(r) : recusa(r.why)
   })
 }
 
-/** POST /api/dogcity/phone/wall { action: post, text } | { action: like, id, on } | { action: delete, id } | { action: report, id, reason? } */
+/** POST /api/dogcity/phone/wall { action: post, text, reply? } | { action: like, id, on } | { action: delete, id } | { action: report, id, reason? } */
 export function postWall(req: Request, porta: PortaHttp, deps: PhoneDeps): Promise<Response> {
   return protegido(async () => {
     if (!ehJson(req)) return erro(415, 'Send JSON.', 'not_json')

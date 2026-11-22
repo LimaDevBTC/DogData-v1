@@ -169,3 +169,36 @@ test('mural: publicar, ver com outra conta, curtir, apagar so o proprio, bloquei
   assert.ok((await feed(deps, sem, { before: null, author: null })).ok)
   await db.fechar()
 })
+
+test('mural: responder a um post (um nivel), o feed conta as respostas e o fio as mostra', { skip: pular }, async () => {
+  const { db, deps } = await cenario()
+  const raiz = await agirMural(deps, ANA, { action: 'post', text: 'post da ana' })
+  const idRaiz = raiz.ok ? raiz.id! : 0
+  const r1 = await agirMural(deps, BIA, { action: 'post', text: 'resposta da bia', reply: idRaiz })
+  assert.ok(r1.ok && r1.id)
+  assert.ok((await agirMural(deps, CAIO, { action: 'post', text: 'resposta do caio', reply: idRaiz })).ok)
+  // o feed traz so' o post, com a contagem; as respostas nao aparecem soltas
+  const f = await feed(deps, CAIO, { before: null, author: null })
+  assert.deepEqual(f.ok ? f.posts.map((p) => [p.text, p.replies, p.replyTo]) : [], [['post da ana', 2, null]])
+  // o fio: o post e as respostas a ele
+  const fio = await feed(deps, ANA, { before: null, author: null, thread: idRaiz })
+  assert.deepEqual(fio.ok ? fio.posts.map((p) => [p.text, p.replyTo]).reverse() : [], [['post da ana', null], ['resposta da bia', idRaiz], ['resposta do caio', idRaiz]])
+  // nao ha' resposta de resposta, nem resposta a post que nao existe ou com id torto
+  await db.sql(`update public.dogcity_phone_post set created_at = now() - interval '1 hour'`, [])
+  assert.deepEqual(await agirMural(deps, ANA, { action: 'post', text: 'neta', reply: r1.ok ? r1.id : 0 }), { ok: false, why: 'not_found' })
+  assert.deepEqual(await agirMural(deps, ANA, { action: 'post', text: 'nada', reply: 999999 }), { ok: false, why: 'not_found' })
+  assert.deepEqual(await agirMural(deps, ANA, { action: 'post', text: 'torto', reply: 'x' }), { ok: false, why: 'invalid_id' })
+  // bloqueio: a bia bloqueia o caio; ele nao responde ao post dela, e a ana deixa de... continua vendo as duas respostas
+  const pb = await agirMural(deps, BIA, { action: 'post', text: 'post da bia' })
+  await agir(deps, BIA, { action: 'block', id: (await feed(deps, CAIO, { before: null, author: null }) as { me: { id: string } }).me.id })
+  assert.deepEqual(await agirMural(deps, CAIO, { action: 'post', text: 'oi bia', reply: pb.ok ? pb.id : 0 }), { ok: false, why: 'not_found' })
+  // para a bia, a resposta do caio some do fio e da contagem
+  const fioBia = await feed(deps, BIA, { before: null, author: null, thread: idRaiz })
+  assert.deepEqual(fioBia.ok ? fioBia.posts.map((p) => [p.text, p.replies]).reverse() : [], [['post da ana', 1], ['resposta da bia', 0]])
+  // apagar a resposta: a contagem cai
+  assert.ok((await agirMural(deps, BIA, { action: 'delete', id: r1.ok ? r1.id : 0 })).ok)
+  const fim = await feed(deps, ANA, { before: null, author: null, thread: idRaiz })
+  assert.deepEqual(fim.ok ? fim.posts.map((p) => [p.text, p.replies]).reverse() : [], [['post da ana', 1], ['resposta do caio', 0]])
+  await db.fechar()
+})
+

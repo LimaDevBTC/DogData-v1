@@ -58,9 +58,12 @@ create table if not exists public.dogcity_phone_post (
   author uuid not null references public.dogcity_phone_account (id),
   body text not null check (char_length(body) between 1 and 500),
   created_at timestamptz not null default now(),
-  deleted_at timestamptz
+  deleted_at timestamptz,
+  -- resposta a um post do feed (um nível só: não há resposta de resposta)
+  reply_to bigint references public.dogcity_phone_post (id)
 );
 create index if not exists dogcity_phone_post_feed_idx on public.dogcity_phone_post (id desc) where deleted_at is null;
+create index if not exists dogcity_phone_post_reply_idx on public.dogcity_phone_post (reply_to, id) where reply_to is not null;
 create index if not exists dogcity_phone_post_author_idx on public.dogcity_phone_post (author, id desc);
 
 create table if not exists public.dogcity_phone_post_like (
@@ -251,7 +254,7 @@ $$;
 
 -- ------------------------------------------------------------------------------------------------------------------- mural
 
-create or replace function public.dogcity_phone_post_add(p_me uuid, p_body text, p_cap_day int, p_gap_s int) returns jsonb
+create or replace function public.dogcity_phone_post_add(p_me uuid, p_body text, p_cap_day int, p_gap_s int, p_reply bigint default null) returns jsonb
 language plpgsql as $$
 declare
   v_id bigint;
@@ -267,23 +270,38 @@ begin
   if (select count(*) from public.dogcity_phone_post where author = p_me and created_at > now() - interval '1 day') >= p_cap_day then
     return jsonb_build_object('status', 'cap_day');
   end if;
-  insert into public.dogcity_phone_post (author, body) values (p_me, p_body) returning id into v_id;
+  -- resposta: só a um post vivo do feed (não a outra resposta), e nunca atravessando um bloqueio
+  if p_reply is not null and not exists (
+    select 1 from public.dogcity_phone_post p
+    where p.id = p_reply and p.deleted_at is null and p.reply_to is null
+      and not exists (select 1 from public.dogcity_phone_block k
+                       where (k.blocker = p_me and k.blocked = p.author) or (k.blocker = p.author and k.blocked = p_me))
+  ) then
+    return jsonb_build_object('status', 'not_found');
+  end if;
+  insert into public.dogcity_phone_post (author, body, reply_to) values (p_me, p_body, p_reply) returning id into v_id;
   return jsonb_build_object('status', 'ok', 'id', v_id);
 end;
 $$;
 
--- o feed cronológico (do mais novo para o mais velho), paginado por id; p_author filtra o perfil de uma conta
-create or replace function public.dogcity_phone_feed(p_me uuid, p_author uuid, p_before bigint, p_limit int) returns jsonb
+-- o feed cronológico (do mais novo para o mais velho), paginado por id; p_author filtra o perfil de uma conta.
+-- Sem p_thread vêm só os posts do feed (as respostas não); com p_thread vêm aquele post e as respostas a ele.
+create or replace function public.dogcity_phone_feed(p_me uuid, p_author uuid, p_before bigint, p_limit int, p_thread bigint default null) returns jsonb
 language sql stable as $$
   select coalesce(jsonb_agg(jsonb_build_object(
     'id', x.id, 'text', x.body, 'at', x.created_at, 'mine', x.author = p_me,
     'author', public.dogcity_phone_card(x.author),
+    'reply_to', x.reply_to,
+    'replies', (select count(*) from public.dogcity_phone_post r where r.reply_to = x.id and r.deleted_at is null
+                 and not exists (select 1 from public.dogcity_phone_block k
+                                  where (k.blocker = p_me and k.blocked = r.author) or (k.blocker = r.author and k.blocked = p_me))),
     'likes', (select count(*) from public.dogcity_phone_post_like l where l.post = x.id),
     'liked', exists (select 1 from public.dogcity_phone_post_like l where l.post = x.id and l.account = p_me)
   ) order by x.id desc), '[]'::jsonb)
   from (
-    select p.id, p.body, p.created_at, p.author from public.dogcity_phone_post p
+    select p.id, p.body, p.created_at, p.author, p.reply_to from public.dogcity_phone_post p
     where p.deleted_at is null
+      and (case when p_thread is null then p.reply_to is null else (p.id = p_thread or p.reply_to = p_thread) end)
       and (p_author is null or p.author = p_author)
       and (p_before is null or p.id < p_before)
       and not exists (select 1 from public.dogcity_phone_block k
