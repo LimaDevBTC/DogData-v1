@@ -151,6 +151,10 @@ export interface Post {
   author: Cartao
   likes: number
   liked: boolean
+  /** quantas respostas vivas o post tem */
+  replies: number
+  /** o post a que este responde (null no feed) */
+  replyTo: number | null
 }
 
 function post(v: unknown): Post | null {
@@ -158,17 +162,18 @@ function post(v: unknown): Post | null {
   const id = lerIdMensagem(o?.id)
   const author = cartao(o?.author)
   if (!o || !id || !author || typeof o.text !== 'string') return null
-  return { id, text: o.text, at: String(o.at ?? ''), mine: o.mine === true, author, likes: Math.max(0, Number(o.likes) || 0), liked: o.liked === true }
+  return { id, text: o.text, at: String(o.at ?? ''), mine: o.mine === true, author, likes: Math.max(0, Number(o.likes) || 0), liked: o.liked === true, replies: Math.max(0, Number(o.replies) || 0), replyTo: lerIdMensagem(o.reply_to) }
 }
 
-/** GET /api/dogcity/phone/wall?before=&author= */
-export async function feed(deps: PhoneDeps, address: string, q: { before: unknown; author: unknown }): Promise<{ ok: true; posts: Post[]; more: boolean; me: Cartao | null } | Falha> {
+/** GET /api/dogcity/phone/wall?before=&author=&thread= (thread = um post e as respostas a ele) */
+export async function feed(deps: PhoneDeps, address: string, q: { before: unknown; author: unknown; thread?: unknown }): Promise<{ ok: true; posts: Post[]; more: boolean; me: Cartao | null } | Falha> {
   const me = await contaDe(deps, address)
   const antes = q.before === null || q.before === undefined || q.before === '' ? null : lerIdMensagem(q.before)
   const autor = q.author === null || q.author === undefined || q.author === '' ? null : lerId(q.author)
-  if ((q.before && !antes) || (q.author && !autor)) return { ok: false, why: 'invalid_id' }
+  const fio = q.thread === null || q.thread === undefined || q.thread === '' ? null : lerIdMensagem(q.thread)
+  if ((q.before && !antes) || (q.author && !autor) || (q.thread && !fio)) return { ok: false, why: 'invalid_id' }
   const [r, eu] = await Promise.all([
-    deps.rpc('dogcity_phone_feed', { p_me: me, p_author: autor, p_before: antes, p_limit: LIMITES_EXTRA.pagina + 1 }),
+    deps.rpc('dogcity_phone_feed', { p_me: me, p_author: autor, p_before: antes, p_limit: LIMITES_EXTRA.pagina + 1, p_thread: fio }),
     deps.rpc('dogcity_phone_card', { p_id: me }),
   ])
   const todos = (Array.isArray(r) ? r : []).flatMap((b: unknown) => {
@@ -184,9 +189,12 @@ export async function agirMural(deps: PhoneDeps, address: string, corpo: Record<
   if (corpo.action === 'post') {
     const t = lerTexto(corpo.text)
     if (!t.ok) return { ok: false, why: t.why }
-    const r = obj(await deps.rpc('dogcity_phone_post_add', { p_me: me, p_body: t.texto, p_cap_day: LIMITES_EXTRA.postsDia, p_gap_s: LIMITES_EXTRA.postIntervaloS }))
+    // `reply` = o post do feed a que este responde (opcional)
+    const resposta = corpo.reply === null || corpo.reply === undefined ? null : lerIdMensagem(corpo.reply)
+    if (corpo.reply !== null && corpo.reply !== undefined && !resposta) return { ok: false, why: 'invalid_id' }
+    const r = obj(await deps.rpc('dogcity_phone_post_add', { p_me: me, p_body: t.texto, p_cap_day: LIMITES_EXTRA.postsDia, p_gap_s: LIMITES_EXTRA.postIntervaloS, p_reply: resposta }))
     const id = lerIdMensagem(r?.id)
-    if (r?.status !== 'ok' || !id) return { ok: false, why: r?.status === 'no_handle' || r?.status === 'rate' || r?.status === 'cap_day' ? r.status : 'failed' }
+    if (r?.status !== 'ok' || !id) return { ok: false, why: r?.status === 'no_handle' || r?.status === 'rate' || r?.status === 'cap_day' || r?.status === 'not_found' ? r.status : 'failed' }
     return { ok: true, id }
   }
   const id = lerIdMensagem(corpo.id)
