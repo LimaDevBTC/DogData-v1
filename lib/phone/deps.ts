@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { getWalletSession } from '@/lib/identity/session'
 import { tooFast } from '@/lib/identity/throttle'
 import { lerJsonComTeto, passouDoTeto } from '@/lib/seguranca/freio'
+import { BUCKET_FOTOS, type Armazem } from './fotos'
 import type { PortaHttp } from './http'
 import { SemTabela, type PhoneDeps, type Rpc } from './service'
 
@@ -51,3 +52,22 @@ export const portaHttp: PortaHttp = {
   freioConta: (chave, segundos) => tooFast(chave, segundos),
   lerCorpo: (req, teto) => lerJsonComTeto(req as NextRequest, teto),
 }
+
+// As fotos da Câmera: bucket PRIVADO do Supabase Storage, escrito e lido só daqui (service role). O bucket não é criado por
+// migração: crie `dogcity-phone-photos` no painel (privado, sem política). Enquanto ele não existir, gravar falha e a rota
+// responde 503; nada mais do celular depende dele.
+export const armazemFotos: Armazem = {
+  async gravar(caminho, bytes) {
+    const { error } = await supabase.storage.from(BUCKET_FOTOS).upload(caminho, bytes, { contentType: 'image/jpeg', upsert: false, cacheControl: '86400' })
+    if (error) throw new Error(`fotos.gravar: ${error.message}`)
+  },
+  async ler(caminho) {
+    const { data, error } = await supabase.storage.from(BUCKET_FOTOS).download(caminho)
+    if (error || !data) return null
+    return new Uint8Array(await data.arrayBuffer())
+  },
+  async apagar(caminho) {
+    await supabase.storage.from(BUCKET_FOTOS).remove([caminho])
+  },
+}
+

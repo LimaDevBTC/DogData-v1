@@ -29,3 +29,19 @@ Pendente: aplicar a 046; conta pelo X sem carteira (coluna `x_id` pronta, sem se
 - Mural: posts de texto, curtida, denúncia e apagar o próprio; bloqueio some com os posts nos dois sentidos.
 - `/api/dogcity/phone/runes`: as cinco runes do app (ids fixos) no endereço da sessão, pela UniSat. NÃO testada contra a UniSat.
 - Testes: `PGLITE=... npx tsx --test lib/phone/extra.sql.test.ts` (5, com três contas).
+
+## Fotos da Câmera (migração 048)
+
+A Câmera do DOG Phone tira fotos de quadros do jogo (frente e selfie do $DOG). O registro fica em `dogcity_phone_photo`;
+o arquivo, num bucket **privado** do Supabase Storage, escrito e lido só pelo servidor.
+
+- **Antes de publicar:** aplicar a 048 e criar o bucket `dogcity-phone-photos` no painel do Supabase (privado, sem política
+  pública). Sem o bucket, guardar responde 503 e o jogo mantém a foto só no aparelho; o resto do celular não depende dele.
+- Rotas: `GET /api/dogcity/phone/photos` (a galeria da conta), `POST` com `image/jpeg` no corpo (`?kind=front|selfie`) guarda,
+  `POST` JSON `{ action: "delete", id }` apaga, `GET /api/dogcity/phone/photos/<id>` devolve o arquivo **só para a dona**.
+- O servidor não confia no arquivo (`lib/phone/fotos.ts`): confere a estrutura do JPEG, as medidas (64 a 1600 px) e o
+  tamanho (até 600 KB), remove todo metadado (EXIF, XMP, ICC, comentários) e só então grava. Tetos: 60 fotos por dia e 300
+  guardadas por conta; uma a cada 2 s.
+- Nesta versão a foto é só da própria conta. Publicar no Social City e enviar por mensagem ainda não existem.
+- Testes: `PGLITE=... npx tsx --test lib/phone/fotos.sql.test.ts` (2).
+
