@@ -21,10 +21,23 @@ const rpc: Rpc = async (fn, args) => {
   return data
 }
 
+// As ligações são ponta a ponta. O STUN resolve a maioria das redes de casa; atrás de NAT simétrico (4G, rede de empresa) só
+// fecha com um TURN. Sem estas variáveis fica só o STUN e a chamada nessas redes falha com "could not connect":
+//   PHONE_TURN_URLS="turn:host:3478?transport=udp,turns:host:5349"  PHONE_TURN_USERNAME  PHONE_TURN_CREDENTIAL
+function iceDoAmbiente(): PhoneDeps['ice'] {
+  const lista: NonNullable<PhoneDeps['ice']> = [{ urls: ['stun:stun.cloudflare.com:3478'] }]
+  const urls = (process.env.PHONE_TURN_URLS ?? '').split(',').map((u) => u.trim()).filter((u) => /^turns?:[a-z0-9.-]+(:\d+)?(\?transport=(udp|tcp))?$/i.test(u))
+  if (urls.length && process.env.PHONE_TURN_USERNAME && process.env.PHONE_TURN_CREDENTIAL) {
+    lista.push({ urls, username: process.env.PHONE_TURN_USERNAME, credential: process.env.PHONE_TURN_CREDENTIAL })
+  }
+  return lista
+}
+
 export const phoneDeps: PhoneDeps = {
   rpc,
   // segredo só do servidor e sempre presente: a chave da cutucada não precisa de variável nova
   segredo: process.env.PHONE_NUDGE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'dogphone',
+  ice: iceDoAmbiente(),
 }
 
 export const portaHttp: PortaHttp = {

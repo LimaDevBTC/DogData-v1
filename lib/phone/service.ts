@@ -14,6 +14,8 @@ export interface PhoneDeps {
   rpc: Rpc
   /** segredo só do servidor, para a chave da cutucada */
   segredo: string
+  /** servidores ICE das ligações (STUN, e TURN se o ambiente tiver); sem isto, só o STUN padrão */
+  ice?: Array<{ urls: string[]; username?: string; credential?: string }>
 }
 
 export type Falha = { ok: false; why: string }
@@ -34,7 +36,7 @@ export interface Mensagem {
 const obj = (v: unknown): Record<string, unknown> | null => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null)
 const texto = (v: unknown): string | null => (typeof v === 'string' ? v : null)
 
-function cartao(v: unknown): Cartao | null {
+export function cartao(v: unknown): Cartao | null {
   const o = obj(v)
   const id = lerId(o?.id)
   if (!o || !id) return null
@@ -48,7 +50,7 @@ function mensagem(v: unknown, me: string): Mensagem | null {
   return { id, mine: o.sender === me, text: o.text, at: String(o.at ?? '') }
 }
 
-async function contaDe(deps: PhoneDeps, address: string): Promise<string> {
+export async function contaDe(deps: PhoneDeps, address: string): Promise<string> {
   const id = lerId(await deps.rpc('dogcity_phone_account_of', { p_address: address, p_create: true }))
   if (!id) throw new Error('dogcity_phone_account_of: no account')
   return id

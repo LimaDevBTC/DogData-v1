@@ -19,3 +19,13 @@ Testes: `npx tsx --test lib/phone/phone.test.ts` e, com `PGLITE=<.../@electric-s
 `npx tsx --test lib/phone/phone.sql.test.ts` (12 ao todo; sem `PGLITE` os de SQL são pulados e não valem como aprovados).
 
 Pendente: aplicar a 046; conta pelo X sem carteira (coluna `x_id` pronta, sem sessão); leitura das denúncias.
+
+## Ligações, Mural e Runes (migração 047, NÃO APLICADA)
+
+- `extra.ts` e as rotas `/api/dogcity/phone/calls` e `/wall`: mesma regra da casa (a conta vem da sessão, as regras moram no SQL).
+- Ligações: o servidor só guarda a sinalização do WebRTC (uma oferta e uma resposta por chamada, apagadas no fim) e decide quem
+  liga para quem (amigos, sem bloqueio; não perturbe e silêncio não tocam e não são revelados a quem liga; ocupado). O áudio é
+  ponta a ponta. TURN opcional por `PHONE_TURN_URLS`, `PHONE_TURN_USERNAME`, `PHONE_TURN_CREDENTIAL`.
+- Mural: posts de texto, curtida, denúncia e apagar o próprio; bloqueio some com os posts nos dois sentidos.
+- `/api/dogcity/phone/runes`: as cinco runes do app (ids fixos) no endereço da sessão, pela UniSat. NÃO testada contra a UniSat.
+- Testes: `PGLITE=... npx tsx --test lib/phone/extra.sql.test.ts` (5, com três contas).

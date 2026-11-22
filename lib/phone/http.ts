@@ -6,6 +6,7 @@
 //   - a conta é a da SESSÃO assinada (cookie dg_wallet), nunca a do corpo;
 //   - mesma origem: `sec-fetch-site: cross-site` é recusado;
 //   - só JSON, com teto em bytes; freio por IP e por conta; nada de cache (dado de uma pessoa).
+import { agirChamada, agirMural, feed, historicoChamadas, sondar } from './extra'
 import { agir, buscar, contar, enviar, historico, inicio, ler, SemTabela, type PhoneDeps } from './service'
 
 export type CorpoLido = { ok: true; valor: unknown } | { ok: false; status: 400 | 413 }
@@ -22,7 +23,8 @@ export interface PortaHttp {
 
 const NO_STORE = { 'Cache-Control': 'no-store' }
 export const TETO_CORPO = 4096
-export const TETOS_IP = { inicio: 60, busca: 20, acao: 30, historico: 60, envio: 60 } as const
+export const TETO_CORPO_CHAMADA = 24_000
+export const TETOS_IP = { inicio: 60, busca: 20, acao: 30, historico: 60, envio: 60, chamada: 120, mural: 60 } as const
 
 const json = (corpo: unknown, status = 200, extra: Record<string, string> = {}): Response =>
   Response.json(corpo, { status, headers: { ...NO_STORE, ...extra } })
@@ -46,6 +48,10 @@ export const MSG: Record<string, [number, string]> = {
   too_long: [422, 'Messages can be up to 500 characters.'],
   invalid_text: [422, 'This message has characters that cannot be sent.'],
   invalid: [422, 'Invalid request.'],
+  invalid_sdp: [422, 'Invalid request.'],
+  busy: [409, 'This player is on another call.'],
+  busy_self: [409, 'You are already on a call.'],
+  no_handle: [422, 'Choose your @handle before posting.'],
 }
 
 function recusa(why: string): Response {
@@ -148,5 +154,56 @@ export function postMessages(req: Request, porta: PortaHttp, deps: PhoneDeps): P
     const r = await enviar(deps, conta, b)
     if (!r.ok) return recusa(r.why)
     return json(r)
+  })
+}
+
+/** GET /api/dogcity/phone/calls[?log=1] */
+export function getCalls(req: Request, porta: PortaHttp, deps: PhoneDeps): Promise<Response> {
+  return protegido(async () => {
+    const conta = await entrada(req, porta, 'chamada')
+    if (typeof conta !== 'string') return conta
+    return json(new URL(req.url).searchParams.get('log') === '1' ? await historicoChamadas(deps, conta) : await sondar(deps, conta))
+  })
+}
+
+/** POST /api/dogcity/phone/calls { action: start, to, offer } | { action: answer, id, answer } | { action: end, id, failed? } | { action: dnd, on } */
+export function postCalls(req: Request, porta: PortaHttp, deps: PhoneDeps): Promise<Response> {
+  return protegido(async () => {
+    if (!ehJson(req)) return erro(415, 'Send JSON.', 'not_json')
+    const conta = await entrada(req, porta, 'chamada')
+    if (typeof conta !== 'string') return conta
+    const corpo = await porta.lerCorpo(req, TETO_CORPO_CHAMADA)
+    const b = corpo.ok ? objeto(corpo.valor) : null
+    if (!b) return erro(corpo.ok ? 400 : corpo.status, 'Invalid request.', 'invalid')
+    // ligar e' o gesto caro (toca no outro lado): um a cada 3 s por conta
+    if (b.action === 'start' && (await porta.freioConta(`phone-call:${conta}`, 3))) return erro(429, 'Slow down, try again in a moment.', 'slow')
+    const r = await agirChamada(deps, conta, b)
+    return r.ok ? json(r) : recusa(r.why)
+  })
+}
+
+/** GET /api/dogcity/phone/wall?before=&author= */
+export function getWall(req: Request, porta: PortaHttp, deps: PhoneDeps): Promise<Response> {
+  return protegido(async () => {
+    const conta = await entrada(req, porta, 'mural')
+    if (typeof conta !== 'string') return conta
+    const q = new URL(req.url).searchParams
+    const r = await feed(deps, conta, { before: q.get('before'), author: q.get('author') })
+    return r.ok ? json(r) : recusa(r.why)
+  })
+}
+
+/** POST /api/dogcity/phone/wall { action: post, text } | { action: like, id, on } | { action: delete, id } | { action: report, id, reason? } */
+export function postWall(req: Request, porta: PortaHttp, deps: PhoneDeps): Promise<Response> {
+  return protegido(async () => {
+    if (!ehJson(req)) return erro(415, 'Send JSON.', 'not_json')
+    const conta = await entrada(req, porta, 'mural')
+    if (typeof conta !== 'string') return conta
+    if (await porta.freioConta(`phone-wall:${conta}`, 1)) return erro(429, 'Slow down, try again in a moment.', 'slow')
+    const corpo = await porta.lerCorpo(req, TETO_CORPO)
+    const b = corpo.ok ? objeto(corpo.valor) : null
+    if (!b) return erro(corpo.ok ? 400 : corpo.status, 'Invalid request.', 'invalid')
+    const r = await agirMural(deps, conta, b)
+    return r.ok ? json(r) : recusa(r.why)
   })
 }
