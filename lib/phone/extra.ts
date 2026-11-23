@@ -155,6 +155,8 @@ export interface Post {
   replies: number
   /** o post a que este responde (null no feed) */
   replyTo: number | null
+  /** a foto do post (id para /api/dogcity/phone/photos/<id>), ou null */
+  photo: number | null
 }
 
 function post(v: unknown): Post | null {
@@ -162,7 +164,7 @@ function post(v: unknown): Post | null {
   const id = lerIdMensagem(o?.id)
   const author = cartao(o?.author)
   if (!o || !id || !author || typeof o.text !== 'string') return null
-  return { id, text: o.text, at: String(o.at ?? ''), mine: o.mine === true, author, likes: Math.max(0, Number(o.likes) || 0), liked: o.liked === true, replies: Math.max(0, Number(o.replies) || 0), replyTo: lerIdMensagem(o.reply_to) }
+  return { id, text: o.text, at: String(o.at ?? ''), mine: o.mine === true, author, likes: Math.max(0, Number(o.likes) || 0), liked: o.liked === true, replies: Math.max(0, Number(o.replies) || 0), replyTo: lerIdMensagem(o.reply_to), photo: lerIdMensagem(o.photo) }
 }
 
 /** GET /api/dogcity/phone/wall?before=&author=&thread= (thread = um post e as respostas a ele) */
@@ -187,14 +189,17 @@ export async function feed(deps: PhoneDeps, address: string, q: { before: unknow
 export async function agirMural(deps: PhoneDeps, address: string, corpo: Record<string, unknown>): Promise<{ ok: true; id?: number; likes?: number; liked?: boolean } | Falha> {
   const me = await contaDe(deps, address)
   if (corpo.action === 'post') {
+    // `photo` = uma foto da galeria de quem publica (opcional); com foto, o texto pode vir vazio
+    const foto = corpo.photo === null || corpo.photo === undefined ? null : lerIdMensagem(corpo.photo)
+    if (corpo.photo !== null && corpo.photo !== undefined && !foto) return { ok: false, why: 'invalid_id' }
     const t = lerTexto(corpo.text)
-    if (!t.ok) return { ok: false, why: t.why }
+    if (!t.ok && !(foto && t.why === 'empty')) return { ok: false, why: t.why }
     // `reply` = o post do feed a que este responde (opcional)
     const resposta = corpo.reply === null || corpo.reply === undefined ? null : lerIdMensagem(corpo.reply)
     if (corpo.reply !== null && corpo.reply !== undefined && !resposta) return { ok: false, why: 'invalid_id' }
-    const r = obj(await deps.rpc('dogcity_phone_post_add', { p_me: me, p_body: t.texto, p_cap_day: LIMITES_EXTRA.postsDia, p_gap_s: LIMITES_EXTRA.postIntervaloS, p_reply: resposta }))
+    const r = obj(await deps.rpc('dogcity_phone_post_add', { p_me: me, p_body: t.ok ? t.texto : '', p_cap_day: LIMITES_EXTRA.postsDia, p_gap_s: LIMITES_EXTRA.postIntervaloS, p_reply: resposta, p_photo: foto }))
     const id = lerIdMensagem(r?.id)
-    if (r?.status !== 'ok' || !id) return { ok: false, why: r?.status === 'no_handle' || r?.status === 'rate' || r?.status === 'cap_day' || r?.status === 'not_found' ? r.status : 'failed' }
+    if (r?.status !== 'ok' || !id) return { ok: false, why: r?.status === 'no_handle' || r?.status === 'rate' || r?.status === 'cap_day' || r?.status === 'not_found' || r?.status === 'empty' ? r.status : r?.status === 'no_photo' ? 'not_found' : 'failed' }
     return { ok: true, id }
   }
   const id = lerIdMensagem(corpo.id)

@@ -115,7 +115,7 @@ export async function listarFotos(deps: PhoneDeps, address: string, before: unkn
   return { ok: true, photos: todas.slice(0, LIMITES_FOTO.pagina), more: todas.length > LIMITES_FOTO.pagina }
 }
 
-/** GET /api/dogcity/phone/photos/<id>: os bytes, só para a dona */
+/** GET /api/dogcity/phone/photos/<id>: os bytes, para a dona ou para quem pode ver o post em que a foto está (048) */
 export async function lerFoto(deps: PhoneDeps, arm: Armazem, address: string, id: unknown): Promise<{ ok: true; bytes: Uint8Array } | Falha> {
   const me = await contaDe(deps, address)
   const n = lerIdMensagem(id)

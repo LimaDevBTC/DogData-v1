@@ -4,7 +4,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { apagarFoto, guardarFoto, lerFoto, limparJpeg, LIMITES_FOTO, listarFotos, type Armazem } from './fotos'
-import { inicio, type PhoneDeps } from './service'
+import { agirMural, feed } from './extra'
+import { agir, inicio, type PhoneDeps } from './service'
 import { abrirBancoLocal } from './sql-local'
 
 const PGLITE = process.env.PGLITE
@@ -100,3 +101,56 @@ test('galeria: guardar, listar, ler so a dona, apagar tira o arquivo, teto do di
   assert.equal(arm.arquivos.size, 1)
   await db.fechar()
 })
+
+test('foto em post do Social City: so foto propria, quem ve o post ve a foto, bloqueio e apagar tiram', { skip: pular }, async () => {
+  const db = await abrirBancoLocal(PGLITE!)
+  await db.sql(`insert into public.dogcity_profiles (address, handle) values ($1,'ana'),($2,'bia')`, [ANA, BIA])
+  const deps: PhoneDeps = { rpc: db.rpc, segredo: 'teste' }
+  await inicio(deps, ANA)
+  const idBia = (await inicio(deps, BIA)).me.id
+  const arm = armazem()
+  const f = await guardarFoto(deps, arm, ANA, jpeg(960, 1280), 'selfie')
+  assert.ok(f.ok)
+  if (!f.ok) return
+  const idFoto = f.photo.id
+  // antes de publicar a foto e' so' da ana
+  assert.deepEqual(await lerFoto(deps, arm, BIA, idFoto), { ok: false, why: 'not_found' })
+  // a bia nao publica com a foto da ana; sem texto e sem foto nao ha' post
+  assert.deepEqual(await agirMural(deps, BIA, { action: 'post', text: 'roubada', photo: idFoto }), { ok: false, why: 'not_found' })
+  assert.deepEqual(await agirMural(deps, ANA, { action: 'post', text: '' }), { ok: false, why: 'empty' })
+  assert.deepEqual(await agirMural(deps, ANA, { action: 'post', text: 'x', photo: 'abc' }), { ok: false, why: 'invalid_id' })
+  // a ana publica so' a foto (sem texto)
+  const p = await agirMural(deps, ANA, { action: 'post', text: '', photo: idFoto })
+  assert.ok(p.ok && p.id)
+  const fb = await feed(deps, BIA, { before: null, author: null })
+  assert.deepEqual(fb.ok ? fb.posts.map((x) => [x.text, x.photo, x.author.handle]) : [], [['', idFoto, 'ana']])
+  // agora a bia, que ve o post, baixa a foto
+  const lida = await lerFoto(deps, arm, BIA, idFoto)
+  assert.ok(lida.ok && lida.bytes[0] === 0xff)
+  // a foto continua fora da galeria da bia, e ela nao apaga
+  const galBia = await listarFotos(deps, BIA, null)
+  assert.deepEqual(galBia.ok ? galBia.photos : null, [])
+  assert.deepEqual(await apagarFoto(deps, arm, BIA, idFoto), { ok: false, why: 'not_found' })
+  // bloqueio: a ana bloqueia a bia; a bia perde o post e a foto
+  await agir(deps, ANA, { action: 'block', id: idBia })
+  assert.deepEqual(await lerFoto(deps, arm, BIA, idFoto), { ok: false, why: 'not_found' })
+  await agir(deps, ANA, { action: 'unblock', id: idBia })
+  assert.ok((await lerFoto(deps, arm, BIA, idFoto)).ok)
+  // a ana apaga a foto da galeria: o post fica, sem imagem, e o arquivo some
+  assert.ok((await apagarFoto(deps, arm, ANA, idFoto)).ok)
+  const fb2 = await feed(deps, BIA, { before: null, author: null })
+  assert.deepEqual(fb2.ok ? fb2.posts.map((x) => x.photo) : [], [null])
+  assert.deepEqual(await lerFoto(deps, arm, BIA, idFoto), { ok: false, why: 'not_found' })
+  assert.equal(arm.arquivos.size, 0)
+  // apagar o POST tambem tira o acesso de quem nao e' a dona
+  await db.sql(`update public.dogcity_phone_post set created_at = now() - interval '1 hour'`, [])
+  const f2 = await guardarFoto(deps, arm, ANA, jpeg(960, 1280), 'front')
+  const p2 = await agirMural(deps, ANA, { action: 'post', text: 'com legenda', photo: f2.ok ? f2.photo.id : 0 })
+  assert.ok(f2.ok && p2.ok && (await lerFoto(deps, arm, BIA, f2.photo.id)).ok)
+  if (!f2.ok || !p2.ok) return
+  assert.ok((await agirMural(deps, ANA, { action: 'delete', id: p2.id! })).ok)
+  assert.deepEqual(await lerFoto(deps, arm, BIA, f2.photo.id), { ok: false, why: 'not_found' })
+  assert.ok((await lerFoto(deps, arm, ANA, f2.photo.id)).ok, 'a dona continua com a foto na galeria')
+  await db.fechar()
+})
+
