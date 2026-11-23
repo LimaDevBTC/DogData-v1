@@ -14,7 +14,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { TxRow } from './founders-ledger'
 import { FUND_DOG_ADDRESS, isTier, normalizeAddress, type LicenceTier } from './licence-btc'
 import {
-  normalizeLotId, readMintHolder,
+  lotTakesLicence, normalizeLotId, readMintHolder,
   type Assignment, type AssignmentSource, type CreditedPayment, type LicenceTierCount, type MintHolder,
 } from './licence-lot'
 import { SemTabela, type LotLicenceCronStore } from './licence-lot-service'
@@ -167,6 +167,25 @@ export async function licencasPorLote(db: SupabaseClient): Promise<LicenceTierCo
   } catch {
     return null
   }
+}
+
+/**
+ * TODOS os lotes com licença, um por linha, em ordem de lot_id (22/11/2026): a fonte da entrega automática de casas,
+ * que antes contava por carteira e perdia o lote licenciado de quem não está no placar ou guarda mais de um lote.
+ * Mesma tabela e mesmo filtro do placar (licencasPorLote), então a lista bate com o número da landing. Id fora da
+ * forma e lote do setor 8 (empresa, nunca leva licença) ficam de fora. Lança SemTabela sem a 037 e erro no resto:
+ * quem chama responde 503, nunca uma lista vazia por engano.
+ */
+export async function lotesLicenciados(db: SupabaseClient): Promise<Array<{ lot: string; tier: LicenceTier }>> {
+  const linhas = await paginado<{ lot: string; tier: LicenceTier }>(
+    (a, b) => db.from('dogcity_lot_licence').select('lot_id, tier').not('tier', 'is', null).order('lot_id', { ascending: true }).range(a, b),
+    (r) => {
+      const lot = normalizeLotId(r?.lot_id)
+      return lot && lotTakesLicence(lot) && isTier(r?.tier) ? { lot, tier: r.tier } : null
+    },
+  )
+  const vistos = new Set<string>()
+  return linhas.filter((l) => (vistos.has(l.lot) ? false : (vistos.add(l.lot), true)))
 }
 
 /** o mint: os lotes que o endereço guarda agora. null em qualquer dúvida (rede, prazo, status, forma). */

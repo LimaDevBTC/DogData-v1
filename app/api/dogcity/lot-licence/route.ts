@@ -1,6 +1,7 @@
 /**
  * GET /api/dogcity/lot-licence?lot=<lot_id>          -> { lot, tier, totalDog }
  * GET /api/dogcity/lot-licence?lots=<id>,<id>,...    -> { lots: [{ lot, tier, totalDog }] }   (até 100)
+ * GET /api/dogcity/lot-licence?all=1                  -> { count, lots: [{ lot, tier }] }       (só os lotes COM licença)
  *        tier  personal | commercial | patron | null (null = o lote não tem licença)
  *
  * LICENÇA NO LOTE (12/11, LICENCA_NO_LOTE_CONTRATO.md): a licença de construção pertence ao lote. É esta
@@ -15,7 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { atomsOf, dogOfAtoms, lotTakesLicence, normalizeLotId, tierOfLot, type LotLicence } from '@/lib/dog/licence-lot'
-import { lotLicenceStore } from '@/lib/dog/licence-lot-supabase'
+import { lotLicenceStore, lotesLicenciados } from '@/lib/dog/licence-lot-supabase'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -24,6 +25,7 @@ export const maxDuration = 10
 const MAX_LOTS = 100
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS' }
 const OK_CACHE = { ...CORS, 'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=30' }
+const LIST_CACHE = { ...CORS, 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' }
 const ERR_CACHE = { ...CORS, 'Cache-Control': 'public, s-maxage=5' }
 const store = lotLicenceStore(supabase)
 
@@ -31,6 +33,19 @@ const erro = (error: string, status: number) => NextResponse.json({ error }, { s
 
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams
+  // a lista inteira (22/11/2026): a entrega automática de casas gera uma casa por lote licenciado, e só esta
+  // tabela sabe de todos (quem pagou pode não estar no placar, e uma carteira pode licenciar mais de um lote).
+  // Dado público (a landing já mostra a contagem); cache de um minuto na borda, que o job lê de hora em hora.
+  if (sp.get('all') !== null) {
+    if (sp.get('all') !== '1' || sp.get('lot') !== null || sp.get('lots') !== null) return erro('pass all=1 alone', 400)
+    try {
+      const lots = await lotesLicenciados(supabase)
+      return NextResponse.json({ count: lots.length, lots }, { headers: LIST_CACHE })
+    } catch (e) {
+      console.error('[dogcity/lot-licence] list unavailable:', (e as Error)?.message)
+      return erro('lot licences are not available right now', 503)
+    }
+  }
   const um = sp.get('lot')
   const varios = sp.get('lots')
   if ((um === null) === (varios === null)) return erro('pass lot=<id> or lots=<id,id,...>', 400)
