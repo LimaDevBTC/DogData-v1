@@ -56,7 +56,8 @@ create index if not exists dogcity_phone_call_viva_idx on public.dogcity_phone_c
 create table if not exists public.dogcity_phone_post (
   id bigint generated always as identity primary key,
   author uuid not null references public.dogcity_phone_account (id),
-  body text not null check (char_length(body) between 1 and 500),
+  -- o texto pode vir vazio quando o post leva uma foto (048); a regra "texto ou foto" é da função que publica
+  body text not null check (char_length(body) <= 500),
   created_at timestamptz not null default now(),
   deleted_at timestamptz,
   -- resposta a um post do feed (um nível só: não há resposta de resposta)

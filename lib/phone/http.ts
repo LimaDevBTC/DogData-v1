@@ -256,7 +256,7 @@ export function postPhotos(req: Request, porta: PortaHttp, deps: PhoneDeps, arm:
   })
 }
 
-/** GET /api/dogcity/phone/photos/<id> : o JPEG, só para a dona. Cache privado: a foto de um id nunca muda */
+/** GET /api/dogcity/phone/photos/<id> : o JPEG, para a dona ou para quem vê o post em que a foto está. Cache privado e curto */
 export function getPhoto(req: Request, porta: PortaHttp, deps: PhoneDeps, arm: Armazem | null, id: string): Promise<Response> {
   return protegido(async () => {
     const conta = await entrada(req, porta, 'foto')
@@ -266,7 +266,7 @@ export function getPhoto(req: Request, porta: PortaHttp, deps: PhoneDeps, arm: A
     if (!r.ok) return recusa(r.why)
     return new Response(r.bytes as unknown as BodyInit, {
       status: 200,
-      headers: { 'Content-Type': 'image/jpeg', 'Content-Length': String(r.bytes.length), 'Cache-Control': 'private, max-age=86400, immutable', 'X-Content-Type-Options': 'nosniff', 'Content-Disposition': 'inline' },
+      headers: { 'Content-Type': 'image/jpeg', 'Content-Length': String(r.bytes.length), 'Cache-Control': 'private, max-age=600', 'X-Content-Type-Options': 'nosniff', 'Content-Disposition': 'inline' },
     })
   })
 }
