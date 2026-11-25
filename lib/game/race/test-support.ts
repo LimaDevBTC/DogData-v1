@@ -26,6 +26,10 @@ export interface OpcoesVolta {
   desvioU?: (s: number) => number
   /** as amostras a cada `periodoMs` (200 = 5 Hz) */
   periodoMs?: number
+  /** atraso do relogio do cliente na amostra k (ms): o jogo carimba a amostra com `performance.now()` no meio do quadro, depois da
+   *  fisica e dos modulos de antes, enquanto a fisica anda pelo horario do quadro; o carimbo sai atrasado por um tanto que muda de
+   *  quadro para quadro (a posicao e' a do instante verdadeiro, o `t` gravado e' o verdadeiro mais o atraso) */
+  atrasoRelogioMs?: (k: number) => number
 }
 
 export interface VoltaSimulada {
@@ -89,12 +93,12 @@ export function simularVolta(op: OpcoesVolta): VoltaSimulada {
     }
     n++
   }
-  for (let tMs = 0; ; tMs += periodo) {
+  for (let tMs = 0, k = 0; ; tMs += periodo, k++) {
     const tS = tMs / 1000
     const s = sDe(tS)
     const u = uDoCaminho(op.pista, s) + (op.desvioU?.(s) ?? 0)
     const { x, z } = pontoDoMundo(s, u)
-    gravar(tMs, x, 0, z, vDe(tS))
+    gravar(tMs + (op.atrasoRelogioMs?.(k) ?? 0), x, 0, z, vDe(tS))
     if (tS >= fimS) break
   }
   return {
