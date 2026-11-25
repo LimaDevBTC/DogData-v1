@@ -1909,14 +1909,31 @@ export default function DogCityDocsPage() {
                 viável"), e o mint passa a oferecer o lote vizinho com essa promessa (Grow your land). A promessa cobre lotes
                 vizinhos na MESMA quadra (o mint só oferece esses). Data, taxa e o resto das regras seguem em aberto e entram
                 aqui antes de a fusão abrir. */}
-            <Section id="merging-lots" n="" eyebrow="COMING · MERGING LOTS" title="Merging neighbouring lots">
+            <Section id="merging-lots" n="" eyebrow="MERGING LOTS" title="Merging neighbouring lots">
+              {/* 25/11/2026: a união no jogo está no ar desde 20/11 e a seção ainda dizia "not live yet"; um dono procurou o
+                  merge no mapa do mint. O passo a passo abaixo é o do jogo (cartão do lote, "Merge lots"). */}
               <P>
-                Coming, not live yet: an owner who holds the deeds of neighbouring lots in the same block will be able to
-                merge them into one bigger lot, with one deed inscribed on Bitcoin for the merged plot. This is a commitment
-                of DOG CITY: if you own lots next to each other, you will be able to make them one property.
+                Live in the game: if you own lots side by side in the same block, you can merge them into one property
+                today, and one house spreads across the whole ground. It is free and it only changes the game. On Bitcoin
+                every lot stays its own deed for now; one deed for the merged plot comes later and is described below.
               </P>
 
-              <Sub>How it will work on chain</Sub>
+              <Sub>How to merge your lots</Sub>
+              <NumberedList
+                items={[
+                  { lead: "Open the game.", text: "Merging happens inside DOG CITY, not on the mint map. Connect your wallet and verify it with a signature." },
+                  { lead: "Open one of your lots.", text: "Tap the lot to open its card. When you own a lot next to it, the card shows Merge lots." },
+                  { lead: "Pick the lots.", text: "Tap Merge lots, tick the lots that go into the property and leave out any lot you want to keep apart, for example to sell it." },
+                  { lead: "Confirm.", text: "Tap Merge these lots, then Confirm. The house of the property is redesigned and shows up within the hour." },
+                ]}
+              />
+              <P className="mt-3">
+                The lots must share a boundary inside the same block, and at least one of them needs a building licence.
+                Lots in the Financial District cannot be merged. A property can be merged or restored to separate lots once
+                every 21 days, and selling one of its lots restores them on its own.
+              </P>
+
+              <Sub>Coming: one deed on Bitcoin</Sub>
               <NumberedList
                 items={[
                   { lead: "One transaction.", text: "The owner signs one transaction that spends the deeds being merged. The mint inscribes the new deed in it." },
@@ -1928,8 +1945,8 @@ export default function DogCityDocsPage() {
 
               <Sub>What comes first</Sub>
               <P className="mt-3">
-                Before any on-chain merge, the game will let the owner of neighbouring lots build one house across them,
-                with no change to the deeds.
+                The game came first: the owner of neighbouring lots already builds one house across them, with no change
+                to the deeds. The on-chain merge above follows.
               </P>
 
               <Sub>One licence for the whole property</Sub>
@@ -1956,11 +1973,11 @@ export default function DogCityDocsPage() {
                 of the ground. The rest of the ground is garden. From 6,000 m2 the house itself is the large one (36 by 24 m).
               </P>
 
-              <Sub>Not decided yet</Sub>
+              <Sub>Not decided yet for the deed on Bitcoin</Sub>
               <P className="mt-3">
-                The date, the fee, how many lots one merge can take, the tier of the merged lot, what happens to houses
-                already on the lots and what happens when one lot of a property is sold before its deeds are merged. This
-                section will state these rules before merging opens. Until then, no merge can be made.
+                The date, the fee, how many lots one merged deed can take, the tier of the merged lot and what happens to
+                houses already on the lots. This section will state these rules before the on-chain merge opens. Until
+                then, lots are merged in the game only and every deed stays as it is.
               </P>
             </Section>
 
