@@ -14,16 +14,16 @@ const BASE = "/city/atlas/"
 const PDF = BASE + "dogcity-atlas.pdf"
 const NF = ATLAS_SHEETS.length
 const NP = ATLAS_PLATES.length
-const SECTOR_NAME: Record<string, string> = { "07": "The Spit", "08": "Satoshi Plaza", "09": "Bay Shore" }
+const SECTOR_NAME: Record<string, string> = { "01": "Harbor Canals", "02": "Liberty Row", "03": "Brownstone Heights", "04": "Arroyo", "05": "Timberline", "06": "Atomic Heights", "07": "The Spit", "08": "Financial District", "09": "Bay Shore" }
 const CHAPTER_NOTE: Record<string, string> = {
   "FRONT MATTER": "Title page, contents, introduction, how to read the atlas and the legend.",
   "THE CITY": "The whole city on one plate.",
   "THE GROUND": "Relief, water, and green and public land.",
   "THE FABRIC": "Tiers, streets and places.",
-  "THE REGISTRY": "Every lot, placed by sector, ring and block.",
+  "THE REGISTRY": "Every lot, placed by district, ring and block.",
   "THE CEMETERY": "The headstones of the city.",
   "ON-CHAIN": "A pre-release specimen: the City Charter that will parent every lot, and one lot deed. The mint has not happened and nothing here is inscribed.",
-  REFERENCE: "Indexes by sector, ring, block and place, and the colophon.",
+  REFERENCE: "Indexes by district, ring, block and place, and the colophon.",
 }
 
 type Found = { lot: string; sheet: string; file: string } | { lot: string; missing: true }
@@ -118,18 +118,18 @@ function PlateCard({ p }: { p: (typeof ATLAS_PLATES)[number] }) {
 // as folhas de cadastro: uma lista compacta por setor, em vez de uma grade de miniaturas
 function SheetList({ district }: { district: Distrito | null }) {
   const sheets = ATLAS_PLATES.filter((p) => ATLAS_SHEETS.includes(p.num) && (!district || setorDaFolha(p.title) === district.sector))
-  const bySector = new Map<string, typeof sheets>()
+  const byDistrict = new Map<string, typeof sheets>()
   for (const p of sheets) {
     const sec = /S(\d\d)/.exec(p.title)?.[1] ?? "00"
-    bySector.set(sec, [...(bySector.get(sec) ?? []), p])
+    byDistrict.set(sec, [...(byDistrict.get(sec) ?? []), p])
   }
   return (
     <div className={`mt-6 border ${HAIR} bg-white/[0.02] p-5 md:p-6`}>
       <div className="font-mono text-[10px] md:text-[11px] tracking-[0.3em] text-lava">{district ? `${sheets.length} OF ${NF} REGISTRY SHEETS` : `${NF} REGISTRY SHEETS`}</div>
       <ul className="mt-4 grid gap-y-3 list-none p-0">
-        {[...bySector].map(([sec, list]) => (
+        {[...byDistrict].map(([sec, list]) => (
           <li key={sec} className="m-0 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-            <span className="font-mono text-[12px] text-snow w-44">S{sec}{SECTOR_NAME[sec] ? ` · ${SECTOR_NAME[sec]}` : ""}</span>
+            <span className="font-mono text-[12px] text-snow w-56">S{sec}{SECTOR_NAME[sec] ? ` · ${SECTOR_NAME[sec]}` : ""}</span>
             <span className="flex flex-wrap gap-x-3 gap-y-1 font-mono text-[12px]">
               {list.map((p) => (
                 <a key={p.num} href={`${BASE}${p.file}_2400.webp`} target="_blank" rel="noopener noreferrer" className="text-lava hover:text-lava-light underline underline-offset-4">
