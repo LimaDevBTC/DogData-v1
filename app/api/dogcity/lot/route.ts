@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { escrituras, buscarLotePorId } from '@/lib/city/escrituras'
 import { lotInfo } from '@/lib/city/lot-info'
-import { DISTRITO_DO_SETOR, TIPOLOGIA_DA_FORMA } from '@/app/dogcity/dogcity-data'
+import { TIPOLOGIA_DA_FORMA } from '@/app/dogcity/dogcity-data'
+import { districtOf, setorDoLugar } from '@/app/dogcity/lugar'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // UM LOTE POR ID, SEM ENDEREÇO (landing v3, brief §13 dependência 3).
@@ -37,7 +38,9 @@ export async function GET(req: NextRequest) {
       lot_id: id,
       sector: setor,
       // o nome do distrito nos nove setores (fundador, 28/10/2026)
-      district: DISTRITO_DO_SETOR[setor] ?? null,
+      district: districtOf(id),
+      // o setor onde o lote FICA (sector é o do prefixo do ID, o da escritura)
+      place_sector: setorDoLugar(id),
       area_m2: info?.area_m2 ?? l?.area_m2 ?? null,
       typology: l ? TIPOLOGIA_DA_FORMA[l.forma] ?? null : null,
       tier: info?.tier ? { code: info.tier.code, rung: info.tier.rung, name: info.tier.label } : null,

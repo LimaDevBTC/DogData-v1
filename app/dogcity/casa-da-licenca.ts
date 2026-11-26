@@ -27,6 +27,7 @@
 // Pura, sem rede: testada em casa-da-licenca.test.ts.
 // ═══════════════════════════════════════════════════════════════════════════
 import { TIERS, DISTRITO_DO_SETOR, SETORES_SEM_CATALOGO, SETOR_DAS_EMPRESAS } from "./dogcity-data"
+import { setorDaCasa } from "./lugar"
 
 export type Degrau = "personal" | "commercial" | "patron"
 
@@ -35,7 +36,8 @@ export const isDegrau = (t: unknown): t is Degrau => typeof t === "string" && (D
 
 /** o lote da carteira, como o registro respondeu */
 export type LoteDaCasa =
-  | { lot_id: string; sector: number }
+  /** `sector` é o do prefixo do ID (da escritura, e do corte do setor 8); `place_sector` é onde o lote fica (DISTRICT e catálogo da casa) */
+  | { lot_id: string; sector: number; place_sector?: number }
   /** a carteira TEM lote, mas o índice não respondeu agora: nunca vira "sem lote" */
   | "sem_posicao"
   /** a carteira não tem lote (lápide, ou chegou depois do bloco 966.670) */
@@ -248,7 +250,10 @@ export function casaDaLicenca(
     }
   }
   const comPosicao = typeof lote === "object" && lote !== null
-  const setor = comPosicao && Number.isInteger(lote.sector) ? lote.sector : null
+  // UM distrito por lote (fundador, 26/11): DISTRICT e catálogo usam o setor do LUGAR; o corte do setor 8 acima segue o ID
+  const setor = comPosicao && Number.isInteger(lote.sector)
+    ? (Number.isInteger(lote.place_sector) ? (lote.place_sector as number) : lote.sector)
+    : null
   return {
     caso: "com_lote",
     degrau,
@@ -256,7 +261,8 @@ export function casaDaLicenca(
     rotulo: `YOUR BUILDING · ${licenca.toUpperCase()} LICENCE`,
     loteId: comPosicao ? lote.lot_id : null,
     distrito: setor != null ? DISTRITO_DO_SETOR[setor] ?? null : null,
-    constroi: oQueConstroi(degrau, setor),
+    // a casa segue o lugar, menos na lista fechada de casas entregues antes da regra (lugar.ts, setorDaCasa)
+    constroi: oQueConstroi(degrau, comPosicao && setor != null && typeof lote.lot_id === "string" ? setorDaCasa(lote.lot_id) : setor),
     veiculos: veiculosDe(degrau),
     status: degrau === "patron" ? STATUS_EM_PROJETO : STATUS_EM_PRODUCAO,
     tipo: tipoPelaFrente(frenteM),

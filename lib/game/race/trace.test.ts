@@ -54,6 +54,36 @@ test('a Moto2 a 340 km/h tambem passa com o piso dela', () => {
   if (d.ok) assert.deepEqual(validarTrace(d.amostras, PISTA, v.carimbos, vmaxMs('moto2')), { ok: true })
 })
 
+// 25/11/2026: desde 18/11 todas as voltas completas da AN7 (11 de 12) voltaram anuladas por `trace_salto`. Quem corre de verdade fica
+// colado na Vmax do modelo (o DOG Turbo 75 a 230 de 230 km/h), e o jogo carimba cada amostra com `performance.now()` no meio do
+// quadro, enquanto a fisica anda pelo horario do quadro: num celular, o quadro pesado atrasa o carimbo 20 a 40 ms a mais que o
+// seguinte, e a amostra de 200 ms "encolhe" 10 a 20%. Com a folga antiga (5% da Vmax e 1 m por amostra) isso bastava para anular.
+
+/** o atraso do carimbo do cliente, de 0 a `max` ms, repetivel e mudando de quadro para quadro */
+const atrasoQuadro = (max: number) => (k: number) => ((k * 7919) % 101) / 100 * max
+
+test('colado na Vmax, com o relogio do quadro oscilando ate 40 ms, a volta honesta passa (o DOG Turbo 75 a 230 km/h)', () => {
+  const v = simularVolta({ pista: PISTA, vCruzeiro: kmh(230), aceleracao: 8, atrasoRelogioMs: atrasoQuadro(40) })
+  const d = decodificarTrace(v.trace)
+  assert.equal(d.ok, true)
+  if (d.ok) assert.deepEqual(validarTrace(d.amostras, PISTA, v.carimbos, vmaxMs('c25')), { ok: true })
+})
+
+test('o DOG Centurion a 350 km/h com o quadro oscilando ate 120 ms (um quadro pesado no celular) passa', () => {
+  const v = simularVolta({ pista: PISTA, vCruzeiro: kmh(350), aceleracao: 10, atrasoRelogioMs: atrasoQuadro(120) })
+  const d = decodificarTrace(v.trace)
+  assert.equal(d.ok, true)
+  if (d.ok) assert.deepEqual(validarTrace(d.amostras, PISTA, v.carimbos, vmaxMs('c02')), { ok: true })
+})
+
+test('mas andar mais rapido que a Vmax por mais de alguns segundos segue reprovando, mesmo com a folga do relogio', () => {
+  // 12% acima da Vmax a volta inteira: cada par de amostras cabe na folga do quadro, a janela de 5 s nao
+  const v = simularVolta({ pista: PISTA, vCruzeiro: vmaxMs('c25') * 1.12, aceleracao: 8 })
+  const d = decodificarTrace(v.trace)
+  assert.equal(d.ok, true)
+  if (d.ok) assert.deepEqual(validarTrace(d.amostras.map((a) => ({ ...a, v: Math.min(a.v, vmaxMs('c25')) })), PISTA, v.carimbos, vmaxMs('c25')), { ok: false, motivo: 'trace_salto' })
+})
+
 // ---- os ataques ----
 
 function comAmostra(amostras: AmostraTrace[], idx: number, troca: Partial<AmostraTrace>): AmostraTrace[] {

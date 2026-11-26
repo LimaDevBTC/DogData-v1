@@ -108,7 +108,7 @@ function dataDoBloco(iso: string): string {
 // só existem quando ela achou. `district` é o nome do distrito nos nove setores
 // (28/10/2026); null só para resposta antiga em cache, e a linha SECTOR então
 // tira o nome do mesmo mapa (rotuloDoSetor).
-type Lote = { lot_id: string; sector: number; district: string | null; typology: string | null; map: string }
+type Lote = { lot_id: string; sector: number; place_sector?: number; district: string | null; typology: string | null; map: string }
 type Lapide = { id: string; place: string; map: string }
 // o degrau da licença (null abaixo de Personal); o objeto inteiro null = indisponível agora
 type Licenca = { tier: string | null } | null
@@ -451,7 +451,7 @@ function Documento({ r }: { r: Resultado }) {
   // com licença, o bloco da casa entra logo abaixo da escritura e o CTA da
   // licença sai (quem já pagou não precisa ouvir "get the licence"). Sem
   // posição agora, a carteira AINDA tem lote: "sem_posicao", nunca "sem_lote".
-  const casa = casaDaLicenca(r.licence?.tier, r.lot ? { lot_id: r.lot.lot_id, sector: r.lot.sector } : "sem_posicao")
+  const casa = casaDaLicenca(r.licence?.tier, r.lot ? { lot_id: r.lot.lot_id, sector: r.lot.sector, place_sector: r.lot.place_sector } : "sem_posicao")
   // lote no setor 8 (Financial District, só empresas): a carteira é de custódia,
   // mesmo sem rótulo de identidade. Não ouve "GET THE LICENCE" nem a nota de
   // quem sacou de corretora (fundador, 28/10/2026). O mesmo ehCarteiraDeCustodia
@@ -468,7 +468,7 @@ function Documento({ r }: { r: Resultado }) {
             celular "Lot S07-Q01-B001-L001, Sector 7, The Spit" não cabe na
             coluna da direita sem quebrar no meio do id */}
         {linhaDoc("LOT", r.lot ? r.lot.lot_id : SEM_POSICAO)}
-        {r.lot && linhaDoc("SECTOR", rotuloDoSetor(r.lot.sector, r.lot.district))}
+        {r.lot && linhaDoc("SECTOR", rotuloDoSetor(r.lot.place_sector ?? r.lot.sector, r.lot.district))}
         {r.lot?.typology && linhaDoc("TYPOLOGY", r.lot.typology)}
         {linhaDoc("CURVE TARGET", `${areaExata(Math.round(alvo))} m2`)}
         {linhaDoc(`$DOG AT BLOCK ${r.block.toLocaleString("en-US")}`, dogExato(r.dog))}

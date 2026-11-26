@@ -10,7 +10,10 @@
 //   1. forma: formato, tamanho, inteiros seguros, `q` com 5 numeros por amostra;
 //   2. cada amostra perto da AN7 (faixa e cota) e velocidade informada <= 1,2 x Vmax;
 //   3. tempo estritamente crescente, sem buraco maior que `maxIntervaloMs` (impede "duas amostras e uma volta inteira");
-//   4. SALTO MAXIMO: o deslocamento entre amostras cabe em 1,05 x Vmax x dt (mais 1 m de arredondamento);
+//   4. SALTO MAXIMO: o deslocamento entre amostras cabe em 1,05 x Vmax x (dt + folga do quadro) mais 1 m de arredondamento, e o
+//      caminho de qualquer janela de 5 s cabe em 1,05 x Vmax x (janela + folga do quadro) mais 1 m: o `t` de cada amostra e' o
+//      `performance.now()` do meio do quadro e a fisica anda pelo horario do quadro, entao uma amostra sozinha pode "encolher" ate'
+//      a folga (25/11/2026: 11 de 12 voltas completas anuladas assim, colado na Vmax); a janela impede somar essa folga a volta inteira;
 //   5. a trajetoria cruza TODOS os portoes, em ordem, DENTRO da abertura (mais 2 m de folga);
 //   6. o relogio bate: o tempo entre portoes na trajetoria (relogio do cliente) e o carimbado pelo servidor diferem no maximo
 //      `toleranciaRelogioMs` em cada portao, e a mediana da diferenca fica abaixo de `medianaRelogioMs` (quem SEGURA o POST da largada
@@ -28,6 +31,11 @@ export const REGRAS_TRACE = {
   maxIntervaloMs: 5_000,
   /** deslocamento: arredondamento de 0,1 m por eixo e do relogio (m) */
   folgaDistM: 1.0,
+  /** o quanto o carimbo de UMA amostra pode sair adiantado ou atrasado em relacao a fisica (ms): o `t` e' o `performance.now()` lido
+   *  no meio do quadro, depois da fisica e dos modulos de antes, e a fisica anda pelo horario do quadro, com no maximo 100 ms por quadro */
+  folgaQuadroMs: 250,
+  /** a janela do caminho somado (ms): nela a folga do quadro vale uma vez so', nao por amostra */
+  janelaSaltoMs: 5_000,
   /** folga alem da meia abertura do portao ao conferir a trajetoria (m): a trajetoria tem 5 Hz, o cliente confere por quadro */
   folgaPortaoM: 2.0,
   /** diferenca maxima, por portao, entre o relogio do cliente e o carimbo do servidor (ms): atraso de rede, partida fria da funcao e as 2 repeticoes do cliente (0,8 s + 1,6 s) */
@@ -111,12 +119,22 @@ export function validarTrace(amostras: ReadonlyArray<AmostraTrace>, pista: Pista
   let uPrev = m0.u
   let rumoPrev = m0.rumo
   let k = 0 // proximo portao a cruzar
+  const vTeto = vmax * REGRAS.margemVmax // m/s
+  const cabe = (dist: number, dtMs: number): boolean => dist <= vTeto * ((dtMs + REGRAS_TRACE.folgaQuadroMs) / 1000) + REGRAS_TRACE.folgaDistM
+  // caminho acumulado ate' cada amostra, para a janela de 5 s
+  const caminho: number[] = [0]
+  let ini = 0 // a amostra mais recente que fica a pelo menos `janelaSaltoMs` antes da atual
   for (let idx = 1; idx < amostras.length; idx++) {
     const cur = amostras[idx]!
     const dt = cur.t - prev.t
     if (!(dt > 0) || dt > REGRAS_TRACE.maxIntervaloMs) return { ok: false, motivo: 'trace_tempo' }
     const dist = Math.hypot(cur.x - prev.x, cur.y - prev.y, cur.z - prev.z)
-    if (dist > vmax * REGRAS.margemVmax * (dt / 1000) + REGRAS_TRACE.folgaDistM) return { ok: false, motivo: 'trace_salto' }
+    if (!cabe(dist, dt)) return { ok: false, motivo: 'trace_salto' }
+    caminho[idx] = caminho[idx - 1]! + dist
+    while (ini + 1 < idx && cur.t - amostras[ini + 1]!.t >= REGRAS_TRACE.janelaSaltoMs) ini++
+    if (cur.t - amostras[ini]!.t >= REGRAS_TRACE.janelaSaltoMs && !cabe(caminho[idx]! - caminho[ini]!, cur.t - amostras[ini]!.t)) {
+      return { ok: false, motivo: 'trace_salto' }
+    }
 
     const m1 = medirNoAnel(cur.x, cur.z)
     const sCur = sPrev + difGraus(m1.rumo - rumoPrev) * RAD * R

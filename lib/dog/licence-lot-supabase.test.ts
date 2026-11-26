@@ -7,7 +7,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { SemTabela } from './licence-lot-service'
-import { MINT_ORIGIN, ehSemTabela, holderDoMint, licencasPorLote, lotLicenceStore } from './licence-lot-supabase'
+import { MINT_ORIGIN, ehSemTabela, holderDoMint, licencasPorLote, lotLicenceStore, lotesLicenciados } from './licence-lot-supabase'
 
 const A = 'bc1p' + 'a'.repeat(58)
 const L1 = 'S01-Q00-B0001-L001'
@@ -93,4 +93,18 @@ test('placar: licenças contadas por lote; sem a tabela, null (a landing conta p
   assert.deepEqual(await licencasPorLote(com.db), { personal: 2, commercial: 0, patron: 1 })
   const sem = fakeDb({ table: () => ({ data: null, error: { message: 'relation does not exist', code: '42P01' } }) })
   assert.equal(await licencasPorLote(sem.db), null)
+})
+
+test('lista inteira: um lote por linha, sem setor 8, sem id fora da forma, sem repetido; sem a tabela, lança', async () => {
+  const com = fakeDb({ table: () => ({ data: [
+    { lot_id: L1, tier: 'personal' },
+    { lot_id: 's01-q00-b0001-l002', tier: 'patron' },
+    { lot_id: 'S08-Q00-B0002-L004', tier: 'commercial' },
+    { lot_id: 'lixo', tier: 'personal' },
+    { lot_id: 'S01-Q00-B0001-L003', tier: 'citizen' },
+    { lot_id: L1, tier: 'personal' },
+  ], error: null }) })
+  assert.deepEqual(await lotesLicenciados(com.db), [{ lot: L1, tier: 'personal' }, { lot: 'S01-Q00-B0001-L002', tier: 'patron' }])
+  const sem = fakeDb({ table: () => ({ data: null, error: { message: 'relation does not exist', code: '42P01' } }) })
+  await assert.rejects(lotesLicenciados(sem.db))
 })
