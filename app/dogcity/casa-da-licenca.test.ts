@@ -333,3 +333,19 @@ test('lookup e /profile: sem "LOCK YOUR FOUNDER NUMBER" nem "before the goal", c
   assert.doesNotMatch(perfil, /Fund the city/)
   assert.match(perfil, /!profile\?\.custody && standing\.license/)
 })
+
+// ── UM DISTRITO POR LOTE (26/11/2026): o S09 interno é do distrito onde fica, na linha DISTRICT e no catálogo ──
+test('S09 interno em Timberline: DISTRICT e catálogo dizem Timberline; S09 de orla segue Bay Shore', async () => {
+  const { sectorOf, setorDoLugar } = await import('./lugar')
+  const LUGAR = JSON.parse(readFileSync(new URL('./distrito-lugar.json', import.meta.url), 'utf8')).lotes as Record<string, string>
+  const id = Object.keys(LUGAR).find((k) => LUGAR[k] === 'S05')!
+  assert.equal(sectorOf(id), 'S05')
+  const dentro = casaDaLicenca('personal', { lot_id: id, sector: 9, place_sector: setorDoLugar(id) }) as Extract<CasaDaLicenca, { caso: 'com_lote' }>
+  assert.equal(dentro.distrito, 'Timberline')
+  assert.match(dentro.constroi, /from the Timberline catalogue/)
+  assert.doesNotMatch(dentro.constroi, /Bay Shore/)
+  const orla = casaDaLicenca('personal', { lot_id: 'S09-Q00-B0001-L001', sector: 9, place_sector: setorDoLugar('S09-Q00-B0001-L001') }) as Extract<CasaDaLicenca, { caso: 'com_lote' }>
+  assert.equal(orla.distrito, 'Bay Shore')
+  assert.match(orla.constroi, /from the Bay Shore catalogue/)
+  assert.equal(casaDaLicenca('personal', { lot_id: 'S08-Q00-B0002-L004', sector: 8, place_sector: 8 }), null)
+})

@@ -35,7 +35,7 @@ export const isDegrau = (t: unknown): t is Degrau => typeof t === "string" && (D
 
 /** o lote da carteira, como o registro respondeu */
 export type LoteDaCasa =
-  /** `sector` é o do prefixo do ID (decide o catálogo); `place_sector` é onde o lote fica (só o rótulo DISTRICT) */
+  /** `sector` é o do prefixo do ID (da escritura, e do corte do setor 8); `place_sector` é onde o lote fica (DISTRICT e catálogo da casa) */
   | { lot_id: string; sector: number; place_sector?: number }
   /** a carteira TEM lote, mas o índice não respondeu agora: nunca vira "sem lote" */
   | "sem_posicao"
@@ -249,17 +249,17 @@ export function casaDaLicenca(
     }
   }
   const comPosicao = typeof lote === "object" && lote !== null
-  const setor = comPosicao && Number.isInteger(lote.sector) ? lote.sector : null
+  // UM distrito por lote (fundador, 26/11): DISTRICT e catálogo usam o setor do LUGAR; o corte do setor 8 acima segue o ID
+  const setor = comPosicao && Number.isInteger(lote.sector)
+    ? (Number.isInteger(lote.place_sector) ? (lote.place_sector as number) : lote.sector)
+    : null
   return {
     caso: "com_lote",
     degrau,
     licenca,
     rotulo: `YOUR BUILDING · ${licenca.toUpperCase()} LICENCE`,
     loteId: comPosicao ? lote.lot_id : null,
-    // o RÓTULO diz onde o lote fica; o catálogo (`constroi`) segue o prefixo do ID (decisão de produto pendente)
-    distrito: setor != null
-      ? DISTRITO_DO_SETOR[comPosicao && Number.isInteger(lote.place_sector) ? (lote.place_sector as number) : setor] ?? null
-      : null,
+    distrito: setor != null ? DISTRITO_DO_SETOR[setor] ?? null : null,
     constroi: oQueConstroi(degrau, setor),
     veiculos: veiculosDe(degrau),
     status: degrau === "patron" ? STATUS_EM_PROJETO : STATUS_EM_PRODUCAO,
