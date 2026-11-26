@@ -48,7 +48,7 @@ export const ATLAS_PLATES: { num: string; title: string; file: string; chapter: 
   { num: "11", title: "On-chain \u00b7 Parent and Child", file: "11-on-chain-parent-and-child", chapter: "ON-CHAIN" },
   { num: "11.1", title: "City Charter \u00b7 Sheet 00", file: "11-1-charter-sheet-00", chapter: "ON-CHAIN" },
   { num: "11.2", title: "Lot Deed \u00b7 Specimen", file: "11-2-lot-deed-specimen", chapter: "ON-CHAIN" },
-  { num: "12", title: "Index \u00b7 Sectors, Rings, Avenues", file: "12-index-sectors-rings-avenues", chapter: "REFERENCE" },
+  { num: "12", title: "Index \u00b7 Districts, Rings, Avenues", file: "12-index-sectors-rings-avenues", chapter: "REFERENCE" },
   { num: "12.1", title: "Index \u00b7 Blocks", file: "12-1-index-blocks", chapter: "REFERENCE" },
   { num: "12.2", title: "Index \u00b7 Landmarks", file: "12-2-index-landmarks", chapter: "REFERENCE" },
   { num: "12.3", title: "Colophon", file: "12-3-colophon", chapter: "REFERENCE" },
