@@ -13,7 +13,7 @@ const BASE = "/city/atlas/"
 const PDF = BASE + "dogcity-atlas.pdf"
 const NF = ATLAS_SHEETS.length
 const NP = ATLAS_PLATES.length
-const SECTOR_NAME: Record<string, string> = { "07": "The Spit", "08": "Satoshi Plaza", "09": "Bay Shore" }
+const SECTOR_NAME: Record<string, string> = { "01": "Harbor Canals", "02": "Liberty Row", "03": "Brownstone Heights", "04": "Arroyo", "05": "Timberline", "06": "Atomic Heights", "07": "The Spit", "08": "Financial District", "09": "Bay Shore" }
 const CHAPTER_NOTE: Record<string, string> = {
   "FRONT MATTER": "Title page, contents, introduction, how to read the atlas and the legend.",
   "THE CITY": "The whole city on one plate.",
@@ -128,7 +128,7 @@ function SheetList() {
       <ul className="mt-4 grid gap-y-3 list-none p-0">
         {[...bySector].map(([sec, list]) => (
           <li key={sec} className="m-0 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-            <span className="font-mono text-[12px] text-snow w-44">S{sec}{SECTOR_NAME[sec] ? ` · ${SECTOR_NAME[sec]}` : ""}</span>
+            <span className="font-mono text-[12px] text-snow w-56">S{sec}{SECTOR_NAME[sec] ? ` · ${SECTOR_NAME[sec]}` : ""}</span>
             <span className="flex flex-wrap gap-x-3 gap-y-1 font-mono text-[12px]">
               {list.map((p) => (
                 <a key={p.num} href={`${BASE}${p.file}_2400.webp`} target="_blank" rel="noopener noreferrer" className="text-lava hover:text-lava-light underline underline-offset-4">
