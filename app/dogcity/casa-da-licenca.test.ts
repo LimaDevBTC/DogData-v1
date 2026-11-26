@@ -283,7 +283,7 @@ test('a linha DISTRICT da busca da landing: "Sxx · NOME" nos nove setores, os s
 
 test('a busca da landing usa a linha DISTRICT com nome, e o dado do lote bate com o mapa dos nove setores', () => {
   const busca = lerRepo('app/dogcity/sections/find-your-lot.tsx')
-  assert.match(busca, /rotuloDoDistritoDaBusca\(l\.sector, l\.deed_district\)/)
+  assert.match(busca, /rotuloDoDistritoDaBusca\(l\.place_sector \?\? l\.sector, l\.deed_district\)/)
   assert.doesNotMatch(busca, /if \(l\.deed_district\) return l\.deed_district/)
   // data/dogcity_lot_info.json: nos setores 7 a 9 o texto da escritura é igual ao desta linha
   const info = JSON.parse(lerRepo('data/dogcity_lot_info.json')) as { lote: Record<string, [string, string]> }
@@ -294,10 +294,11 @@ test('a busca da landing usa a linha DISTRICT com nome, e o dado do lote bate co
   }
 })
 
-test('as três rotas devolvem o nome do distrito nos nove setores (DISTRITO_DO_SETOR), não o mapa dos setores 7 a 9', () => {
+test('as três rotas devolvem o nome do distrito nos nove setores pelo LUGAR do lote (districtOf), não o mapa dos setores 7 a 9', () => {
   for (const rota of ['app/api/dogcity/lookup/route.ts', 'app/api/profile/route.ts', 'app/api/dogcity/lot/route.ts']) {
     const src = lerRepo(rota)
-    assert.match(src, /DISTRITO_DO_SETOR\[/, rota)
+    assert.match(src, /districtOf\(/, rota)
+    assert.match(src, /setorDoLugar\(/, rota)
     assert.doesNotMatch(src, /BAIRRO_DO_SETOR/, rota)
   }
 })

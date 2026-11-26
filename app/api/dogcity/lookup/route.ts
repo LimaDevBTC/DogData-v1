@@ -4,11 +4,12 @@ import { isValidAddress } from '@/app/api/holders/tree/_shared'
 import { resolveIdentity } from '@/lib/dog/identity'
 import { escrituras, buscarEscritura } from '@/lib/city/escrituras'
 import { lotInfo } from '@/lib/city/lot-info'
+import { districtOf, setorDoLugar } from '@/app/dogcity/lugar'
 import { licencaDaCarteira } from '@/lib/dog/licence-wallet'
 import { licencaVisivel } from '@/app/dogcity/casa-da-licenca'
 import {
   CORTE_CEMITERIO_DOG, CORTE_CEMITERIO_PUBLICADO, LAPIDES,
-  DISTRITO_DO_SETOR, TIPOLOGIA_DA_FORMA, CEMITERIO_NOME, linkDaCidade,
+  TIPOLOGIA_DA_FORMA, CEMITERIO_NOME, linkDaCidade,
 } from '@/app/dogcity/dogcity-data'
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -268,7 +269,9 @@ export async function GET(req: NextRequest) {
             lot_id: l.lotId,
             sector: l.setor,
             // o nome do distrito nos nove setores (fundador, 28/10/2026): a linha SECTOR da escritura
-            district: DISTRITO_DO_SETOR[l.setor] ?? null,
+            district: districtOf(l.lotId),
+          // o setor onde o lote FICA (sector é o do prefixo do ID, o da escritura; difere só em parte dos S09)
+          place_sector: setorDoLugar(l.lotId),
             typology: TIPOLOGIA_DA_FORMA[l.forma] ?? null,
             form: l.forma,
             dsc: l.dsc,

@@ -35,7 +35,8 @@ export const isDegrau = (t: unknown): t is Degrau => typeof t === "string" && (D
 
 /** o lote da carteira, como o registro respondeu */
 export type LoteDaCasa =
-  | { lot_id: string; sector: number }
+  /** `sector` é o do prefixo do ID (decide o catálogo); `place_sector` é onde o lote fica (só o rótulo DISTRICT) */
+  | { lot_id: string; sector: number; place_sector?: number }
   /** a carteira TEM lote, mas o índice não respondeu agora: nunca vira "sem lote" */
   | "sem_posicao"
   /** a carteira não tem lote (lápide, ou chegou depois do bloco 966.670) */
@@ -255,7 +256,10 @@ export function casaDaLicenca(
     licenca,
     rotulo: `YOUR BUILDING · ${licenca.toUpperCase()} LICENCE`,
     loteId: comPosicao ? lote.lot_id : null,
-    distrito: setor != null ? DISTRITO_DO_SETOR[setor] ?? null : null,
+    // o RÓTULO diz onde o lote fica; o catálogo (`constroi`) segue o prefixo do ID (decisão de produto pendente)
+    distrito: setor != null
+      ? DISTRITO_DO_SETOR[comPosicao && Number.isInteger(lote.place_sector) ? (lote.place_sector as number) : setor] ?? null
+      : null,
     constroi: oQueConstroi(degrau, setor),
     veiculos: veiculosDe(degrau),
     status: degrau === "patron" ? STATUS_EM_PROJETO : STATUS_EM_PRODUCAO,

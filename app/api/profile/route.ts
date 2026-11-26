@@ -5,12 +5,13 @@ import { validateHandle } from '@/lib/identity/handle'
 import { tooFast } from '@/lib/identity/throttle'
 import { comPrazo, falhaPrivada } from '@/lib/api/prazo'
 import { escrituras, buscarEscritura } from '@/lib/city/escrituras'
+import { districtOf, setorDoLugar } from '@/app/dogcity/lugar'
 import { licencaDaCarteira } from '@/lib/dog/licence-wallet'
 import { resolveIdentity } from '@/lib/dog/identity'
 import { ehCarteiraDeCustodia, licencaVisivel } from '@/app/dogcity/casa-da-licenca'
 import {
   CORTE_CEMITERIO_DOG, CORTE_CEMITERIO_PUBLICADO, SNAPSHOT_PROOF,
-  DISTRITO_DO_SETOR, TIPOLOGIA_DA_FORMA, CEMITERIO_NOME, linkDaCidade,
+  TIPOLOGIA_DA_FORMA, CEMITERIO_NOME, linkDaCidade,
 } from '@/app/dogcity/dogcity-data'
 
 export const runtime = 'nodejs'
@@ -86,6 +87,7 @@ type CidadePerfil = {
     lot_id: string
     sector: number
     district: string | null
+    place_sector: number
     typology: string | null
     dsc: boolean
     area_m2: number
@@ -140,7 +142,9 @@ async function cidadeDe(
           lot_id: l.lotId,
           sector: l.setor,
           // o nome do distrito nos nove setores (fundador, 28/10/2026): a linha Sector da escritura
-          district: DISTRITO_DO_SETOR[l.setor] ?? null,
+          district: districtOf(l.lotId),
+          // o setor onde o lote FICA (sector é o do prefixo do ID, o da escritura; difere só em parte dos S09)
+          place_sector: setorDoLugar(l.lotId),
           typology: TIPOLOGIA_DA_FORMA[l.forma] ?? null,
           dsc: l.dsc,
           area_m2: l.area_m2,

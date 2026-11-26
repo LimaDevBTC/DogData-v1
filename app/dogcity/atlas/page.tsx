@@ -4,9 +4,10 @@
 // O capitulo ON-CHAIN e um ESPECIME de pre-lancamento: o mint nao aconteceu, nada la esta inscrito.
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { CityLayout } from "../city-layout"
 import { ATLAS_PLATES, ATLAS_SHEETS, ATLAS_PDF_MB, ATLAS_LOTS } from "./atlas-data"
+import { DISTRITOS, distritoDoSlug, folhasDoDistrito, setorDaFolha, type Distrito } from "./atlas-distritos"
 
 const HAIR = "border-white/10"
 const BASE = "/city/atlas/"
@@ -115,8 +116,8 @@ function PlateCard({ p }: { p: (typeof ATLAS_PLATES)[number] }) {
 }
 
 // as folhas de cadastro: uma lista compacta por setor, em vez de uma grade de miniaturas
-function SheetList() {
-  const sheets = ATLAS_PLATES.filter((p) => ATLAS_SHEETS.includes(p.num))
+function SheetList({ district }: { district: Distrito | null }) {
+  const sheets = ATLAS_PLATES.filter((p) => ATLAS_SHEETS.includes(p.num) && (!district || setorDaFolha(p.title) === district.sector))
   const bySector = new Map<string, typeof sheets>()
   for (const p of sheets) {
     const sec = /S(\d\d)/.exec(p.title)?.[1] ?? "00"
@@ -124,7 +125,7 @@ function SheetList() {
   }
   return (
     <div className={`mt-6 border ${HAIR} bg-white/[0.02] p-5 md:p-6`}>
-      <div className="font-mono text-[10px] md:text-[11px] tracking-[0.3em] text-lava">{NF} REGISTRY SHEETS</div>
+      <div className="font-mono text-[10px] md:text-[11px] tracking-[0.3em] text-lava">{district ? `${sheets.length} OF ${NF} REGISTRY SHEETS` : `${NF} REGISTRY SHEETS`}</div>
       <ul className="mt-4 grid gap-y-3 list-none p-0">
         {[...bySector].map(([sec, list]) => (
           <li key={sec} className="m-0 flex flex-wrap items-baseline gap-x-4 gap-y-1">
@@ -143,7 +144,68 @@ function SheetList() {
   )
 }
 
+
+// o filtro por distrito: nove chips + All, estado em ?district=timberline (link direto). Fileira de arrastar no toque,
+// quebra de linha no mouse (a roda do mouse não rola a fileira escondida); lê a URL no cliente, sem Suspense.
+const CHIP_ROW =
+  "mt-4 flex flex-nowrap gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pb-0.5 " +
+  "[@media(hover:hover)_and_(pointer:fine)]:flex-wrap [@media(hover:hover)_and_(pointer:fine)]:overflow-visible [@media(hover:hover)_and_(pointer:fine)]:pb-0"
+
+function DistrictFilter({ district, onPick }: { district: Distrito | null; onPick: (d: Distrito | null) => void }) {
+  const chip = (on: boolean) =>
+    `shrink-0 whitespace-nowrap font-mono text-[11px] tracking-[0.08em] px-3.5 py-2 border transition-colors ${
+      on ? "border-lava bg-lava text-void" : `${HAIR} text-mist hover:text-snow hover:border-white/30`
+    }`
+  const sheets = district ? folhasDoDistrito(ATLAS_PLATES, ATLAS_SHEETS, district) : []
+  return (
+    <div className={`border ${HAIR} bg-white/[0.02] p-5 md:p-6`}>
+      <div className="font-mono text-[10px] md:text-[11px] tracking-[0.3em] text-lava">FILTER BY DISTRICT</div>
+      <div className={CHIP_ROW} role="group" aria-label="District">
+        <button type="button" onClick={() => onPick(null)} aria-pressed={!district} className={chip(!district)}>All</button>
+        {DISTRITOS.map((d) => (
+          <button key={d.slug} type="button" onClick={() => onPick(d)} aria-pressed={district?.slug === d.slug} className={chip(district?.slug === d.slug)}>
+            {d.name}
+          </button>
+        ))}
+      </div>
+      <div aria-live="polite" className="mt-4 font-mono text-[12px] leading-relaxed text-mist">
+        {district && (
+          <>
+            <div className="text-snow">
+              {district.name} · registry sheets{" "}
+              {sheets.map((n, i) => (
+                <span key={n}>
+                  {i > 0 && ", "}
+                  <a href={`${BASE}${ATLAS_PLATES.find((p) => p.num === n)?.file}_2400.webp`} target="_blank" rel="noopener noreferrer" className="text-lava hover:text-lava-light underline underline-offset-4">{n}</a>
+                </span>
+              ))}
+            </div>
+            <p className="mt-2 max-w-2xl">
+              {district.sector === 9
+                ? "Some Bay Shore ids belong to lots that sit inland, in the other districts. Their sheets are these. Use Find your sheet to place any lot."
+                : district.sector <= 6
+                  ? `A few lots inland here carry a Bay Shore (S09) id. They are on the Bay Shore sheets. Use Find your sheet to place any lot.`
+                  : "The plates of the whole city stay below."}
+            </p>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function DogCityAtlasPage() {
+  const [district, setDistrict] = useState<Distrito | null>(null)
+  useEffect(() => {
+    setDistrict(distritoDoSlug(new URLSearchParams(window.location.search).get("district")))
+  }, [])
+  function pick(d: Distrito | null) {
+    setDistrict(d)
+    const u = new URL(window.location.href)
+    if (d) u.searchParams.set("district", d.slug)
+    else u.searchParams.delete("district")
+    window.history.replaceState(null, "", u.pathname + u.search + u.hash)
+  }
   const [cover, ...rest] = ATLAS_PLATES
   const chapters: string[] = []
   for (const p of rest) if (!chapters.includes(p.chapter)) chapters.push(p.chapter)
@@ -175,6 +237,9 @@ export default function DogCityAtlasPage() {
 
         <div className="max-w-6xl mx-auto px-6 md:px-10 pb-10">
           <FindSheet />
+          <div className="mt-6 max-w-2xl">
+            <DistrictFilter district={district} onPick={pick} />
+          </div>
         </div>
 
         <div className="max-w-6xl mx-auto px-6 md:px-10 pb-20">
@@ -195,7 +260,7 @@ export default function DogCityAtlasPage() {
                 <ul className="mt-5 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 list-none p-0">
                   {cards.map((p) => <PlateCard key={p.file} p={p} />)}
                 </ul>
-                {hasSheets && <SheetList />}
+                {hasSheets && <SheetList district={district} />}
               </section>
             )
           })}
