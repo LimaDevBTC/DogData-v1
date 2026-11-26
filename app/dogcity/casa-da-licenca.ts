@@ -27,6 +27,7 @@
 // Pura, sem rede: testada em casa-da-licenca.test.ts.
 // ═══════════════════════════════════════════════════════════════════════════
 import { TIERS, DISTRITO_DO_SETOR, SETORES_SEM_CATALOGO, SETOR_DAS_EMPRESAS } from "./dogcity-data"
+import { setorDaCasa } from "./lugar"
 
 export type Degrau = "personal" | "commercial" | "patron"
 
@@ -260,7 +261,8 @@ export function casaDaLicenca(
     rotulo: `YOUR BUILDING · ${licenca.toUpperCase()} LICENCE`,
     loteId: comPosicao ? lote.lot_id : null,
     distrito: setor != null ? DISTRITO_DO_SETOR[setor] ?? null : null,
-    constroi: oQueConstroi(degrau, setor),
+    // a casa segue o lugar, menos na lista fechada de casas entregues antes da regra (lugar.ts, setorDaCasa)
+    constroi: oQueConstroi(degrau, comPosicao && setor != null && typeof lote.lot_id === "string" ? setorDaCasa(lote.lot_id) : setor),
     veiculos: veiculosDe(degrau),
     status: degrau === "patron" ? STATUS_EM_PROJETO : STATUS_EM_PRODUCAO,
     tipo: tipoPelaFrente(frenteM),

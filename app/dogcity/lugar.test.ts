@@ -42,3 +42,15 @@ test('o distrito de um lote vem de lugar.ts nas três rotas e na tela, não do p
     assert.match(readFileSync(new URL(f, import.meta.url), 'utf8'), /district: districtOf\(/, f)
   }
 })
+
+test('casa: a lista fechada de casas entregues segue o ID; todo outro S09 interno segue o lugar', async () => {
+  const { setorDaCasa, setorDoLugar } = await import('./lugar')
+  const exc = (await import('./lugar-excecoes.json')).default as { lotes: string[] }
+  assert.equal(exc.lotes.length, 8)
+  for (const id of exc.lotes) {
+    assert.equal(setorDaCasa(id), 9, id)
+    assert.notEqual(setorDoLugar(id), 9, id)
+  }
+  assert.equal(setorDaCasa('S09-Q03-B0264-L001'), 3)
+  assert.equal(setorDaCasa('S05-Q10-B0900-L001'), 5)
+})

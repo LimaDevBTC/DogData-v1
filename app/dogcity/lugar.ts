@@ -2,9 +2,12 @@
 // O planejador do mapa deu o prefixo S09 (Bay Shore) à orla da baía E TAMBÉM a 883 lotes de quadras cortadas por água,
 // que caem no meio da cidade (de Brownstone Heights a Atomic Heights). O ID e a escritura inscrita NÃO mudam; só o RÓTULO
 // de onde o lote fica. `distrito-lugar.json` é cópia idêntica do dogcity-mint (apps/web/app/_lib/distrito-lugar.json).
-// ⚠️ Só rótulo. Regra (catálogo de casa, licença, preço, S08 sem fusão) continua pelo prefixo do ID, por decisão de produto.
+// 26/11 (fundador): UM distrito por lote. O catálogo da casa também segue o lugar, como o gerador do jogo (dogcity-mundo #545).
+// EXCEÇÃO FECHADA: `lugar-excecoes.json` (cópia idêntica de dogcity-mundo scripts/casas/lugar_excecoes.json) lista os lotes S09
+// internos que já tinham casa Bay Shore entregue antes da regra; a casa deles não mudou, então o catálogo deles segue o ID.
 import { DISTRITO_DO_SETOR } from "./dogcity-data"
 import LUGAR from "./distrito-lugar.json"
+import EXCECOES from "./lugar-excecoes.json"
 
 const POR_LUGAR: Readonly<Record<string, string>> = (LUGAR as { lotes: Record<string, string> }).lotes
 
@@ -19,3 +22,8 @@ export const setorDoLugar = (lotId: string): number => Number(sectorOf(lotId).sl
 
 /** o distrito de um lote pelo lugar; null fora dos nove */
 export const districtOf = (lotId: string): string | null => DISTRITO_DO_SETOR[setorDoLugar(lotId)] ?? null
+
+const CASA_PELO_ID: ReadonlySet<string> = new Set((EXCECOES as { lotes: string[] }).lotes)
+
+/** o setor que decide a CASA do lote: o do lugar, menos nos lotes da lista fechada (casa entregue antes da regra), que seguem o ID */
+export const setorDaCasa = (lotId: string): number => (CASA_PELO_ID.has(lotId) ? setorDoId(lotId) : setorDoLugar(lotId))
