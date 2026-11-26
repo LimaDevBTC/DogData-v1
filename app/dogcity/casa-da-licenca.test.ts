@@ -283,7 +283,7 @@ test('a linha DISTRICT da busca da landing: "Sxx · NOME" nos nove setores, os s
 
 test('a busca da landing usa a linha DISTRICT com nome, e o dado do lote bate com o mapa dos nove setores', () => {
   const busca = lerRepo('app/dogcity/sections/find-your-lot.tsx')
-  assert.match(busca, /rotuloDoDistritoDaBusca\(l\.sector, l\.deed_district\)/)
+  assert.match(busca, /rotuloDoDistritoDaBusca\(l\.place_sector \?\? l\.sector, l\.deed_district\)/)
   assert.doesNotMatch(busca, /if \(l\.deed_district\) return l\.deed_district/)
   // data/dogcity_lot_info.json: nos setores 7 a 9 o texto da escritura é igual ao desta linha
   const info = JSON.parse(lerRepo('data/dogcity_lot_info.json')) as { lote: Record<string, [string, string]> }
@@ -294,10 +294,11 @@ test('a busca da landing usa a linha DISTRICT com nome, e o dado do lote bate co
   }
 })
 
-test('as três rotas devolvem o nome do distrito nos nove setores (DISTRITO_DO_SETOR), não o mapa dos setores 7 a 9', () => {
+test('as três rotas devolvem o nome do distrito nos nove setores pelo LUGAR do lote (districtOf), não o mapa dos setores 7 a 9', () => {
   for (const rota of ['app/api/dogcity/lookup/route.ts', 'app/api/profile/route.ts', 'app/api/dogcity/lot/route.ts']) {
     const src = lerRepo(rota)
-    assert.match(src, /DISTRITO_DO_SETOR\[/, rota)
+    assert.match(src, /districtOf\(/, rota)
+    assert.match(src, /setorDoLugar\(/, rota)
     assert.doesNotMatch(src, /BAIRRO_DO_SETOR/, rota)
   }
 })
@@ -331,4 +332,20 @@ test('lookup e /profile: sem "LOCK YOUR FOUNDER NUMBER" nem "before the goal", c
   assert.doesNotMatch(perfil, /Any amount before the goal makes/)
   assert.doesNotMatch(perfil, /Fund the city/)
   assert.match(perfil, /!profile\?\.custody && standing\.license/)
+})
+
+// ── UM DISTRITO POR LOTE (26/11/2026): o S09 interno é do distrito onde fica, na linha DISTRICT e no catálogo ──
+test('S09 interno em Timberline: DISTRICT e catálogo dizem Timberline; S09 de orla segue Bay Shore', async () => {
+  const { sectorOf, setorDoLugar } = await import('./lugar')
+  const LUGAR = JSON.parse(readFileSync(new URL('./distrito-lugar.json', import.meta.url), 'utf8')).lotes as Record<string, string>
+  const id = Object.keys(LUGAR).find((k) => LUGAR[k] === 'S05')!
+  assert.equal(sectorOf(id), 'S05')
+  const dentro = casaDaLicenca('personal', { lot_id: id, sector: 9, place_sector: setorDoLugar(id) }) as Extract<CasaDaLicenca, { caso: 'com_lote' }>
+  assert.equal(dentro.distrito, 'Timberline')
+  assert.match(dentro.constroi, /from the Timberline catalogue/)
+  assert.doesNotMatch(dentro.constroi, /Bay Shore/)
+  const orla = casaDaLicenca('personal', { lot_id: 'S09-Q00-B0001-L001', sector: 9, place_sector: setorDoLugar('S09-Q00-B0001-L001') }) as Extract<CasaDaLicenca, { caso: 'com_lote' }>
+  assert.equal(orla.distrito, 'Bay Shore')
+  assert.match(orla.constroi, /from the Bay Shore catalogue/)
+  assert.equal(casaDaLicenca('personal', { lot_id: 'S08-Q00-B0002-L004', sector: 8, place_sector: 8 }), null)
 })

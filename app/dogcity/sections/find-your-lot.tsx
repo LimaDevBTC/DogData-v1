@@ -39,7 +39,7 @@ interface TierOut { code: string; rung: number | null; name: string }
 /** a licença da carteira (28/10): `{ tier }` com o degrau (null abaixo de Personal); o objeto null = DogData sem resposta agora */
 type Licenca = { tier: string | null } | null
 interface LotFields {
-  lot_id: string; sector: number; district: string | null; typology: string | null; map: string
+  lot_id: string; sector: number; place_sector?: number; district: string | null; typology: string | null; map: string
   x_m?: number; z_m?: number
   tier?: TierOut | null; deed_district?: string | null; district_name?: string | null; deed_area_m2?: number | null
   front_road?: string | null; access?: { road: string; side: string } | null; faces?: string | null
@@ -292,7 +292,7 @@ function streetRows(l: LotFields) {
 // o distrito com o nome nos nove setores, como a escritura imprime ("S05 · TIMBERLINE"); o `deed_district`
 // do dado do lote só traz o nome nos setores 7 a 9 ("S05" sozinho nos outros), então o nome vem do mapa dos nove
 function districtText(l: LotFields): string {
-  return rotuloDoDistritoDaBusca(l.sector, l.deed_district)
+  return rotuloDoDistritoDaBusca(l.place_sector ?? l.sector, l.deed_district)
 }
 
 function PlateHead({ label, tag }: { label: string; tag?: string }) {
