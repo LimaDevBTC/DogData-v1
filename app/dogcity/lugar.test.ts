@@ -43,13 +43,13 @@ test('o distrito de um lote vem de lugar.ts nas três rotas e na tela, não do p
   }
 })
 
-test('casa: a lista fechada de casas entregues segue o ID; todo outro S09 interno segue o lugar', async () => {
+test('casa: a lista fechada ficou vazia em 26/11 (as 8 casas entregues viraram Brownstone); todo S09 interno segue o lugar', async () => {
   const { setorDaCasa, setorDoLugar } = await import('./lugar')
   const exc = (await import('./lugar-excecoes.json')).default as { lotes: string[] }
-  assert.equal(exc.lotes.length, 8)
-  for (const id of exc.lotes) {
-    assert.equal(setorDaCasa(id), 9, id)
-    assert.notEqual(setorDoLugar(id), 9, id)
+  assert.equal(exc.lotes.length, 0)
+  for (const id of ['S09-Q15-B1392-L024', 'S09-Q17-B1716-L015', 'S09-Q17-B1718-L029', 'S09-Q17-B1718-L038']) {
+    assert.equal(setorDaCasa(id), 3, id)
+    assert.equal(setorDoLugar(id), 3, id)
   }
   assert.equal(setorDaCasa('S09-Q03-B0264-L001'), 3)
   assert.equal(setorDaCasa('S05-Q10-B0900-L001'), 5)
