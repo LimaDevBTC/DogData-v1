@@ -19,7 +19,7 @@
 --   dogcity_phone_post_report  denúncia de post
 --
 -- O feed some com os posts de quem a conta bloqueou e de quem a bloqueou. A autoria é a conta da sessão; o perfil mostra só
--- @handle e foto, nunca carteira. Imagem em post fica para depois (não há upload seguro e moderável neste repo).
+-- @handle e foto, nunca carteira. Foto em post entra na 048.
 --
 -- RLS ligada, ZERO políticas, só service role, como a 046. Repo público: nenhum segredo aqui.
 
@@ -361,3 +361,24 @@ $$;
 
 comment on table public.dogcity_phone_call is 'DOG Phone: sinalização de chamadas de voz 1:1 entre amigos. O áudio é ponta a ponta entre os navegadores; nada é gravado.';
 comment on table public.dogcity_phone_post is 'DOG Phone: o Mural (feed de texto do celular). Mural novo, independente de qualquer outro mural do jogo.';
+
+-- Acesso (revisao de 26/11/2026): como 044/045, nada do celular e' chamavel pela chave publica. As funcoes rodam com os direitos de
+-- quem chama (sem security definer) e as tabelas tem RLS sem politica, entao anon/authenticated ja' nao leem nem escrevem; isto
+-- fecha tambem o EXECUTE que o Postgres da' a todo mundo por padrao, para o servidor (service_role) ser o unico caminho.
+-- Condicional ao papel `anon` existir: num Postgres local (PGlite, testes) nao ha' papeis do Supabase e o bloco nao faz nada.
+do $$
+declare r record;
+begin
+  if exists (select 1 from pg_roles where rolname = 'anon') and exists (select 1 from pg_roles where rolname = 'service_role') then
+    for r in select c.oid::regclass as t from pg_class c join pg_namespace n on n.oid = c.relnamespace
+             where n.nspname = 'public' and c.relkind = 'r' and c.relname like 'dogcity\_phone\_%' loop
+      execute format('revoke all on table %s from anon, authenticated', r.t);
+    end loop;
+    for r in select p.oid::regprocedure as f from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+             where n.nspname = 'public' and p.proname like 'dogcity\_phone\_%' loop
+      execute format('revoke all on function %s from public, anon, authenticated', r.f);
+      execute format('grant execute on function %s to service_role', r.f);
+    end loop;
+  end if;
+end;
+$$;
