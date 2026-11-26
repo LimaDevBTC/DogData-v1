@@ -38,10 +38,21 @@ o arquivo, num bucket **privado** do Supabase Storage, escrito e lido só pelo s
 - **Antes de publicar:** aplicar a 048 e criar o bucket `dogcity-phone-photos` no painel do Supabase (privado, sem política
   pública). Sem o bucket, guardar responde 503 e o jogo mantém a foto só no aparelho; o resto do celular não depende dele.
 - Rotas: `GET /api/dogcity/phone/photos` (a galeria da conta), `POST` com `image/jpeg` no corpo (`?kind=front|selfie`) guarda,
-  `POST` JSON `{ action: "delete", id }` apaga, `GET /api/dogcity/phone/photos/<id>` devolve o arquivo **só para a dona**.
+  `POST` JSON `{ action: "delete", id }` apaga, `GET /api/dogcity/phone/photos/<id>` devolve o arquivo à dona, ou a qualquer conta do celular quando a foto está num post vivo do Social City (sem bloqueio entre as duas).
 - O servidor não confia no arquivo (`lib/phone/fotos.ts`): confere a estrutura do JPEG, as medidas (64 a 1600 px) e o
   tamanho (até 600 KB), remove todo metadado (EXIF, XMP, ICC, comentários) e só então grava. Tetos: 60 fotos por dia e 300
   guardadas por conta; uma a cada 2 s.
-- Nesta versão a foto é só da própria conta. Publicar no Social City e enviar por mensagem ainda não existem.
+- A foto pode ir num post do Social City (a 048 acrescenta `photo` ao post). Enviar por mensagem ainda não existe.
 - Testes: `PGLITE=... npx tsx --test lib/phone/fotos.sql.test.ts` (2).
 
+
+## Acesso às tabelas e funções (revisão de 26/11/2026)
+
+O fim de cada migração (046, 047, 048) tira de `anon`, `authenticated` e `public` todo acesso às tabelas e funções `dogcity_phone_*` e dá `execute` só ao `service_role` (como 044/045). O bloco só age quando os papéis do Supabase existem; no PGlite dos testes não faz nada.
+
+## Como aplicar
+
+1. No SQL Editor do Supabase de produção (como as 040 a 045; não há `supabase/config.toml`), rodar `046`, depois `047`, depois `048`, nessa ordem, cada uma numa execução. Todas são aditivas e idempotentes (`if not exists`); a única linha que toca tabela existente é a coluna `avatar_inscription_id` em `dogcity_profiles`, que já existe em produção.
+2. Storage > New bucket: nome `dogcity-phone-photos`, **Public bucket desligado**, sem política.
+3. Publicar este repositório (merge do #97 em `main`). Antes disso as rotas respondem 503 `not_open`, sem quebrar nada.
+4. Só depois publicar o jogo.

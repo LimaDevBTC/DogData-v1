@@ -146,3 +146,24 @@ language sql stable as $$
 $$;
 
 comment on table public.dogcity_phone_photo is 'DOG Phone: registro das fotos da Câmera (quadros do jogo). O arquivo fica no bucket privado dogcity-phone-photos.';
+
+-- Acesso (revisao de 26/11/2026): como 044/045, nada do celular e' chamavel pela chave publica. As funcoes rodam com os direitos de
+-- quem chama (sem security definer) e as tabelas tem RLS sem politica, entao anon/authenticated ja' nao leem nem escrevem; isto
+-- fecha tambem o EXECUTE que o Postgres da' a todo mundo por padrao, para o servidor (service_role) ser o unico caminho.
+-- Condicional ao papel `anon` existir: num Postgres local (PGlite, testes) nao ha' papeis do Supabase e o bloco nao faz nada.
+do $$
+declare r record;
+begin
+  if exists (select 1 from pg_roles where rolname = 'anon') and exists (select 1 from pg_roles where rolname = 'service_role') then
+    for r in select c.oid::regclass as t from pg_class c join pg_namespace n on n.oid = c.relnamespace
+             where n.nspname = 'public' and c.relkind = 'r' and c.relname like 'dogcity\_phone\_%' loop
+      execute format('revoke all on table %s from anon, authenticated', r.t);
+    end loop;
+    for r in select p.oid::regprocedure as f from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+             where n.nspname = 'public' and p.proname like 'dogcity\_phone\_%' loop
+      execute format('revoke all on function %s from public, anon, authenticated', r.f);
+      execute format('grant execute on function %s to service_role', r.f);
+    end loop;
+  end if;
+end;
+$$;
