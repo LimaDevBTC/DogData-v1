@@ -91,3 +91,20 @@ test('storage indisponivel (aba privada) nunca lanca', () => {
   assert.equal(captureRef('?ref=@alice', T0, null), null)
   assert.equal(readStoredRef(T0, null), null)
 })
+
+test('o exemplo das docs ("@handle", com a crase do bloco de codigo) nao e ref: nao guarda e nao toma o lugar do link bom', () => {
+  for (const ruim of ['@handle', 'handle', '@handle`', '`@handle`', '@yourhandle', '@your_handle']) {
+    assert.equal(parseRef(ruim), null, ruim)
+    const st = mem()
+    assert.equal(captureRef(`?ref=${encodeURIComponent(ruim)}`, T0, st), null, ruim)
+    assert.equal(readStoredRef(T0, st), null)
+  }
+  const st = mem()
+  captureRef('?ref=@handle%60', T0, st) // %60 = crase
+  assert.equal(captureRef('?ref=@btcdog', T0 + 1, st), 'btcdog', 'o link bom que vem depois ainda e o primeiro valido')
+})
+
+test('?ref=%40handle (arroba codificado) e lido como @handle', () => {
+  const st = mem()
+  assert.equal(captureRef('?ref=%40alice', T0, st), 'alice')
+})

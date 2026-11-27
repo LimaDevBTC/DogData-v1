@@ -2035,8 +2035,11 @@ export default function DogCityDocsPage() {
                 exclusivos do jogo; nada em BTC ou $DOG. Esta seção é o contrato. */}
             <Section id="referrals" n="" eyebrow="AMBASSADORS · INVITE NEIGHBOURS" title="Invite neighbours, earn in the city">
               <P>
-                Your code is your DogData handle. Share <span className="font-mono">https://dogcity.space/?ref=@handle</span> or{" "}
-                <span className="font-mono">https://mint.dogcity.space/?ref=@handle</span>, with your own handle. When someone mints a lot
+                Your code is your DogData handle. Do not type the link by hand: open your{" "}
+                <a href="/dogcity/profile" className="text-lava hover:text-lava-light underline underline-offset-2">profile</a>, where the
+                ready-made ambassador link is shown with a Copy button. It has the form{" "}
+                <span className="font-mono">dogcity.space/?ref=@<em className="not-italic text-mist">your-handle</em></span>, where the last
+                part is your own handle. The same link works on the mint and in the game. When someone mints a lot
                 through your link, you both earn.
               </P>
 

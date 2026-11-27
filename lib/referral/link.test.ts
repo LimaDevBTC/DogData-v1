@@ -6,10 +6,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { linkOnVerify, type NewLink, type ReferralStore } from './link'
+import { lerPedidoVerify } from '../wallet/desafio'
 
 const ALICE = 'bc1p' + 'a'.repeat(58)
 const BOB = 'bc1p' + 'b'.repeat(58)
 const CARL = 'bc1p' + 'c'.repeat(58)
+// endereco que passa no enderecoValido do verify (bech32 nao tem b, i, o nem 1 no corpo)
+const ZED = 'bc1p' + 'q'.repeat(58)
 const DAN = 'bc1p' + 'd'.repeat(58)
 
 function fakeStore(init: {
@@ -185,4 +188,35 @@ test('sem ref: so registra a carteira (1 chamada ao banco), nao consulta mais na
   const r = await linkOnVerify({ address: BOB, ref: undefined }, s)
   assert.deepEqual(r, { linked: false, reason: 'no_ref' })
   assert.deepEqual(s.calls, ['mark'])
+})
+
+test('o exemplo das docs copiado como esta ("@handle", com ou sem crase) nunca vincula nem consulta o banco', async () => {
+  for (const ref of ['@handle', 'handle', '@handle`', '`@handle`', '@yourhandle', '@your_handle', '%40handle']) {
+    const s = fakeStore({ profiles: { handle: ALICE, yourhandle: ALICE } }) // mesmo que alguem tivesse a conta
+    const r = await linkOnVerify({ address: BOB, ref }, s)
+    assert.deepEqual(r, { linked: false, reason: 'bad_ref' }, ref)
+    assert.equal(s.links.size, 0)
+    assert.ok(!s.calls.includes('referrer'))
+    assert.ok(s.verified.has(BOB), 'a carteira continua registrada como ja verificada')
+  }
+})
+
+test('caminho feliz de ponta a ponta: o ref que o jogo guardou (@handle da URL) chega no corpo e vira vinculo', async () => {
+  const s = fakeStore({ profiles: { btcdog: ALICE } })
+  const corpo = lerPedidoVerify({
+    address: ZED, signature: 'sig', protocol: 'bip322', publicKey: undefined, walletId: 'xverse', ref: '@btcdog',
+  })
+  assert.ok(corpo, 'o corpo do verify e valido')
+  assert.equal(corpo!.ref, '@btcdog', 'o campo ref atravessa a leitura do pedido sem ser tocado')
+  const r = await linkOnVerify({ address: corpo!.address, ref: corpo!.ref, priorSessionAddress: null }, s)
+  assert.deepEqual(r, { linked: true })
+  assert.equal(s.links.get(ZED)!.referrerHandle, 'btcdog')
+})
+
+test('o corpo do verify sem ref segue valido e nao cria vinculo (so registra a carteira)', async () => {
+  const corpo = lerPedidoVerify({ address: ZED, signature: 'sig', protocol: 'bip322', walletId: 'xverse' })
+  assert.ok(corpo)
+  assert.equal(corpo!.ref, undefined)
+  const s = fakeStore({ profiles: { btcdog: ALICE } })
+  assert.deepEqual(await linkOnVerify({ address: corpo!.address, ref: corpo!.ref }, s), { linked: false, reason: 'no_ref' })
 })

@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { Barlow_Condensed } from 'next/font/google'
 import { UnclaimedBanner } from './landing/unclaimed-banner'
+import { SaidaLinks } from './landing/saida-links'
 import { OG_URL, OG_ALT, OG_IMAGE } from '@/lib/og'
 
 // A CONDENSADA DA LANDING v3 (brief §7.2): títulos e o número grande do contador.
@@ -158,6 +159,8 @@ export default async function DogCityLayout({ children }: { children: React.Reac
   return (
     <div className={`${barlowCondensed.variable} relative`}>
       <UnclaimedBanner variant="landing" />
+      {/* 28/11: repasse do ?ref=@handle para mint e jogo + medição do clique de saída, em TODA página da DogCity (landing e moldura) */}
+      <SaidaLinks />
       <script nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: TOPO_ANTES_DA_HIDRATACAO }} />
       {children}
     </div>
