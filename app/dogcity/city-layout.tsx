@@ -1,6 +1,6 @@
 "use client"
 
-// A moldura DOG CITY das paginas secundarias do dogcity.space (docs, support, founders, referrals, atlas, profile).
+// A moldura DOG CITY das paginas secundarias do dogcity.space (docs, support, founders, referrals, ranking, atlas, profile).
 // Antes elas usavam o <Layout> do DogData (menu do explorer, faixa da BitFlow, rodape do DOG DATA). Aqui: o mesmo
 // cromo da landing (tokens, fontes, Footer), sem nada do explorer.
 //
@@ -16,6 +16,7 @@ import { CITY_URL, MINT_URL } from "./landing/mint-state"
 const LINKS = [
   { label: "Docs", href: "/docs" },
   { label: "Referrals", href: "/referrals" },
+  { label: "Ranking", href: "/ranking" },
   { label: "Profile", href: "/profile" },
 ]
 

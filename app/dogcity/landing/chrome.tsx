@@ -252,6 +252,7 @@ export function Footer({ base = "" }: { base?: string } = {}) {
           <FooterCol title="City" links={[
             { label: "Enter the city", href: CITY_URL },
             { label: "Atlas", href: "/dogcity/atlas" },
+            { label: "Ranking", href: "/dogcity/ranking" },
           ]} />
           <FooterCol title="Mint" links={[
             { label: "Calendar", href: `${base}#calendar` },
