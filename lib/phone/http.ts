@@ -251,7 +251,9 @@ export function postPhotos(req: Request, porta: PortaHttp, deps: PhoneDeps, arm:
     if (await porta.freioConta(`phone-photo:${conta}`, 2)) return erro(429, 'Slow down, try again in a moment.', 'slow')
     const bytes = await lerBytes(req, LIMITES_FOTO.bytes)
     if (!bytes) return recusa('too_big')
-    const r = await guardarFoto(deps, arm, conta, bytes, new URL(req.url).searchParams.get('kind'))
+    // 'avatar' so' nasce em POST /avatar: por aqui viraria foto escondida da galeria, sem como apagar, e gastaria o teto
+    const tipo = new URL(req.url).searchParams.get('kind')
+    const r = await guardarFoto(deps, arm, conta, bytes, tipo === 'selfie' ? 'selfie' : 'front')
     return r.ok ? json(r) : recusa(r.why)
   })
 }
