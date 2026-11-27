@@ -144,8 +144,8 @@ test('F: Public a partir de B+4.032; preço sem contagem, contagem quando houver
   assert.equal(s.kind, 'F')
   assert.equal(s.label, 'PUBLIC MINT · OPEN')
   assert.equal(s.number, 'US$2')
-  assert.equal(s.unit, 'AND UP · BY TIER AND SIZE')
-  assert.equal(s.h1, 'Anyone mints any unclaimed lot from US$2, priced by its tier and size. Up to 10 lots in one payment, every 144 blocks.')
+  assert.equal(s.unit, 'AND UP · BY LOCATION AND SIZE')
+  assert.equal(s.h1, 'Anyone mints any unclaimed lot from US$2, priced by its location and size. Up to 10 lots in one payment, every 144 blocks.')
   if (s.rail.mode === 'phases') assert.equal(s.rail.fraction, 1)
   const c = countdownState({ raised: null, B, tip: B + 9000, inscribed: 41_206 })
   assert.equal(c.number, '41,206')
@@ -153,7 +153,7 @@ test('F: Public a partir de B+4.032; preço sem contagem, contagem quando houver
   // 18/11: contagem baixa (a abertura do Public) segue vendendo o preço
   const poucos = countdownState({ raised: null, B, tip: B + 4040, inscribed: 372 })
   assert.equal(poucos.number, 'US$2')
-  assert.equal(poucos.unit, 'AND UP · BY TIER AND SIZE')
+  assert.equal(poucos.unit, 'AND UP · BY LOCATION AND SIZE')
 })
 
 test('a fase é a mesma função do minter (bordas)', () => {

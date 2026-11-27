@@ -506,7 +506,7 @@ function ResultPlate({ r, cd }: { r: Result; cd: CountdownState }) {
         <h3 className="dc-h3 mt-3 text-dc-snow">This wallet held no $DOG at block {BLOCK}, so the city drew no lot for it.</h3>
         <p className="dc-body mt-3 text-dc-mist">
           Lots their owners leave unclaimed go on sale after the Whitelist, first to holders of partner collections at a
-          quarter off, then to anyone, each priced by its tier and size.
+          quarter off, then to anyone, each priced by its location and size.
         </p>
         {cd.kind === "A" && (
           <p className="dc-body mt-3 text-dc-mist">

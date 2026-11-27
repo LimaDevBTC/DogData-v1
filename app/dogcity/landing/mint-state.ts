@@ -355,9 +355,9 @@ function countdownByHeight(input: CountdownInput): CountdownState {
     return {
       ...common, kind: "F", label: "PUBLIC MINT · OPEN",
       number: hasCount ? fmtInt(ins as number) : "US$2",
-      unit: hasCount ? `/ ${fmtInt(TOTAL_LOTS)} DEEDS INSCRIBED` : "AND UP · BY TIER AND SIZE",
+      unit: hasCount ? `/ ${fmtInt(TOTAL_LOTS)} DEEDS INSCRIBED` : "AND UP · BY LOCATION AND SIZE",
       sub: conta ? conta.replace(/ · $/, "") : null,
-      h1: "Anyone mints any unclaimed lot from US$2, priced by its tier and size. Up to 10 lots in one payment, every 144 blocks.",
+      h1: "Anyone mints any unclaimed lot from US$2, priced by its location and size. Up to 10 lots in one payment, every 144 blocks.",
       primary: MINT_AT, secondary: FIND,
       aria: hasCount
         ? `Public mint open, ${fmtInt(ins as number)} of ${fmtInt(TOTAL_LOTS)} deeds inscribed`
@@ -439,7 +439,7 @@ export function calendarRows(B: number | null) {
       text: "Holders of partner collections mint unclaimed lots at a quarter off the public price.",
       startsAt: cal?.partnerStart ?? null },
     { phase: "PUBLIC" as Phase, name: "PUBLIC", span: "From B+4,032", price: "FROM US$2",
-      text: "Anyone mints any unclaimed lot, priced by tier and size, up to 10 per wallet every 144 blocks.",
+      text: "Anyone mints any unclaimed lot, priced by location and size, up to 10 per wallet every 144 blocks.",
       startsAt: cal?.publicStart ?? null },
   ]
 }
