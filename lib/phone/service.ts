@@ -24,6 +24,8 @@ export interface Cartao {
   id: string
   handle: string | null
   avatar: string | null
+  /** a foto de perfil do Social City (id em dogcity_phone_photo, migracao 049), ou null */
+  photo: number | null
 }
 
 export interface Mensagem {
@@ -40,7 +42,8 @@ export function cartao(v: unknown): Cartao | null {
   const o = obj(v)
   const id = lerId(o?.id)
   if (!o || !id) return null
-  return { id, handle: lerHandle(o.handle), avatar: typeof o.avatar === 'string' && /^[0-9a-f]{64}i\d{1,5}$/i.test(o.avatar) ? o.avatar.toLowerCase() : null }
+  const foto = typeof o.photo === 'number' && Number.isSafeInteger(o.photo) && o.photo > 0 ? o.photo : null
+  return { id, handle: lerHandle(o.handle), avatar: typeof o.avatar === 'string' && /^[0-9a-f]{64}i\d{1,5}$/i.test(o.avatar) ? o.avatar.toLowerCase() : null, photo: foto }
 }
 
 function mensagem(v: unknown, me: string): Mensagem | null {
@@ -100,7 +103,7 @@ export async function inicio(deps: PhoneDeps, address: string) {
   const n = obj(numeros)
   const meu = cartao(eu)
   return {
-    me: { id: me, handle: meu?.handle ?? null, avatar: meu?.avatar ?? null, nudge: chaveCutucada(deps.segredo, me) },
+    me: { id: me, handle: meu?.handle ?? null, avatar: meu?.avatar ?? null, photo: meu?.photo ?? null, nudge: chaveCutucada(deps.segredo, me) },
     friends,
     incoming,
     outgoing,

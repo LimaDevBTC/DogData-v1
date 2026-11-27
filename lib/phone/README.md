@@ -43,12 +43,22 @@ o arquivo, num bucket **privado** do Supabase Storage, escrito e lido só pelo s
   tamanho (até 600 KB), remove todo metadado (EXIF, XMP, ICC, comentários) e só então grava. Tetos: 60 fotos por dia e 300
   guardadas por conta; uma a cada 2 s.
 - A foto pode ir num post do Social City (a 048 acrescenta `photo` ao post). Enviar por mensagem ainda não existe.
-- Testes: `PGLITE=... npx tsx --test lib/phone/fotos.sql.test.ts` (2).
+- Testes: `PGLITE=... npx tsx --test lib/phone/fotos.sql.test.ts` (3, com o da foto de perfil).
+
+## Foto de perfil do Social City (migração 049, 27/11/2026)
+
+`POST /api/dogcity/phone/avatar`: `image/jpeg` no corpo troca a foto de perfil; JSON `{ action: "remove" }` tira. O jogo
+recorta a foto do aparelho em quadrado (até 512 px) e manda JPEG; o servidor faz a MESMA limpeza das fotos da Câmera
+(`limparJpeg`), grava no mesmo bucket `dogcity-phone-photos` como `kind = 'avatar'` e aponta em
+`dogcity_phone_account.avatar_photo`. Trocar ou tirar apaga a anterior (registro e arquivo). O cartão (`dogcity_phone_card`)
+passa a levar `photo` (id ou null); o arquivo sai por `/photos/<id>` para a dona e para qualquer conta sem bloqueio com ela.
+A foto de perfil fica fora da galeria e não sai por "apagar da galeria". Freio: uma troca a cada 3 s por conta, 20/min por IP;
+conta nos tetos de fotos por dia (60) e no total (300).
 
 
 ## Acesso às tabelas e funções (revisão de 26/11/2026)
 
-O fim de cada migração (046, 047, 048) tira de `anon`, `authenticated` e `public` todo acesso às tabelas e funções `dogcity_phone_*` e dá `execute` só ao `service_role` (como 044/045). O bloco só age quando os papéis do Supabase existem; no PGlite dos testes não faz nada.
+O fim de cada migração (046, 047, 048, 049) tira de `anon`, `authenticated` e `public` todo acesso às tabelas e funções `dogcity_phone_*` e dá `execute` só ao `service_role` (como 044/045). O bloco só age quando os papéis do Supabase existem; no PGlite dos testes não faz nada.
 
 ## Como aplicar
 
@@ -56,3 +66,7 @@ O fim de cada migração (046, 047, 048) tira de `anon`, `authenticated` e `publ
 2. Storage > New bucket: nome `dogcity-phone-photos`, **Public bucket desligado**, sem política.
 3. Publicar este repositório (merge do #97 em `main`). Antes disso as rotas respondem 503 `not_open`, sem quebrar nada.
 4. Só depois publicar o jogo.
+
+Foto de perfil (049): rodar `049` no SQL Editor (depois da 048; aditiva e idempotente: muda o `check` de `kind` da foto,
+acrescenta `avatar_photo` à conta e refaz cinco funções), publicar este repositório e só depois o jogo. O jogo só mostra o botão
+de trocar a foto quando o cartão já traz o campo `photo`, então ele pode ir antes sem quebrar nada.

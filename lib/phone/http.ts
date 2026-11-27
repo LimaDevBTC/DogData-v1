@@ -7,7 +7,7 @@
 //   - mesma origem: `sec-fetch-site: cross-site` é recusado;
 //   - só JSON, com teto em bytes; freio por IP e por conta; nada de cache (dado de uma pessoa).
 import { agirChamada, agirMural, feed, historicoChamadas, sondar } from './extra'
-import { apagarFoto, guardarFoto, lerFoto, LIMITES_FOTO, listarFotos, type Armazem } from './fotos'
+import { apagarFoto, guardarFoto, lerFoto, LIMITES_FOTO, listarFotos, tirarAvatar, trocarAvatar, type Armazem } from './fotos'
 import { agir, buscar, contar, enviar, historico, inicio, ler, SemTabela, type PhoneDeps } from './service'
 
 export type CorpoLido = { ok: true; valor: unknown } | { ok: false; status: 400 | 413 }
@@ -25,7 +25,7 @@ export interface PortaHttp {
 const NO_STORE = { 'Cache-Control': 'no-store' }
 export const TETO_CORPO = 4096
 export const TETO_CORPO_CHAMADA = 24_000
-export const TETOS_IP = { inicio: 60, busca: 20, acao: 30, historico: 60, envio: 60, chamada: 120, mural: 60, fotos: 40, foto: 240 } as const
+export const TETOS_IP = { inicio: 60, busca: 20, acao: 30, historico: 60, envio: 60, chamada: 120, mural: 60, fotos: 40, foto: 240, avatar: 20 } as const
 
 const json = (corpo: unknown, status = 200, extra: Record<string, string> = {}): Response =>
   Response.json(corpo, { status, headers: { ...NO_STORE, ...extra } })
@@ -271,3 +271,28 @@ export function getPhoto(req: Request, porta: PortaHttp, deps: PhoneDeps, arm: A
   })
 }
 
+
+/**
+ * POST /api/dogcity/phone/avatar : a foto de perfil do Social City (migracao 049). image/jpeg no corpo troca (a anterior sai);
+ * JSON { action: remove } tira. Mesma limpeza e mesmos tetos das fotos da Camera; quem ve e' quem ve o perfil.
+ */
+export function postAvatar(req: Request, porta: PortaHttp, deps: PhoneDeps, arm: Armazem | null): Promise<Response> {
+  return protegido(async () => {
+    const conta = await entrada(req, porta, 'avatar')
+    if (typeof conta !== 'string') return conta
+    if (!arm) return recusa('no_storage')
+    if (await porta.freioConta(`phone-avatar:${conta}`, 3)) return erro(429, 'Slow down, try again in a moment.', 'slow')
+    if (ehJson(req)) {
+      const corpo = await porta.lerCorpo(req, TETO_CORPO)
+      const b = corpo.ok ? objeto(corpo.valor) : null
+      if (!b || b.action !== 'remove') return erro(corpo.ok ? 422 : corpo.status, 'Invalid request.', 'invalid')
+      const r = await tirarAvatar(deps, arm, conta)
+      return r.ok ? json(r) : recusa(r.why)
+    }
+    if (!(req.headers.get('content-type') ?? '').toLowerCase().startsWith('image/jpeg')) return erro(415, 'Send a JPEG.', 'not_jpeg')
+    const bytes = await lerBytes(req, LIMITES_FOTO.bytes)
+    if (!bytes) return recusa('too_big')
+    const r = await trocarAvatar(deps, arm, conta, bytes)
+    return r.ok ? json(r) : recusa(r.why)
+  })
+}
