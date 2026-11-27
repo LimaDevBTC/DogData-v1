@@ -1376,9 +1376,10 @@ export default function DogCityDocsPage() {
 
               <Sub>How a lot is priced</Sub>
               <P className="mt-3">
-                Every lot has its own price, set by two things printed on its deed: its tier and its
-                area. A higher tier pays more, and a bigger lot
-                pays more, though not in the same proportion as its area.
+                Every lot has its own price, set by two things printed on its deed: its location and its
+                area. The location class is the tier the lot got at block 966,670, when the city was laid
+                out: a better class pays more, and a bigger lot pays more, though not in the same
+                proportion as its area.
               </P>
               <p className={`mt-4 border ${HAIR} px-4 py-3 font-mono text-[12px] md:text-[13px] text-snow max-w-3xl leading-relaxed`}>
                 price (US$) = 10 × 1.2<sup>(6 − tier)</sup> × √(area ÷ 1,041 m²), rounded to the dollar, never below US$2
