@@ -23,6 +23,17 @@ export const ITEM_TIERS: ReadonlyArray<{ item: 'quad' | 'jet' | 'm4'; lots: numb
 ])
 export type RefItem = 'quad' | 'jet' | 'm4'
 
+/**
+ * O @handle do pedido `?handle=` da rota referral-items (27/11/2026): com ou sem o @, qualquer caixa, no formato do handle do DogCity
+ * (^[a-z0-9_]{3,15}$, o CHECK da dogcity_profiles). null = pedido inválido (a rota responde 400). A rota por handle NUNCA devolve o
+ * endereço da carteira: o jogo só precisa saber se a pessoa tem o item.
+ */
+export function parseItemsHandle(raw: string | null | undefined): string | null {
+  if (typeof raw !== 'string') return null
+  const h = raw.trim().replace(/^@/, '').toLowerCase()
+  return /^[a-z0-9_]{3,15}$/.test(h) ? h : null
+}
+
 export const LOT_ID_RE = /^S[0-9]{2}-Q[0-9]{2}-B[0-9]{3,5}-L[0-9]{3,5}$/
 
 /** a quadra de um lote: o ID sem o "-Lnnn" */

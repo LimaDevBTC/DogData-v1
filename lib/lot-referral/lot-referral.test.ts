@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { runReferralJob, type CreditArgs, type CreditStatus, type JobDeps } from './job'
 import { parseFeedPage, parseHolders } from './io'
 import {
-  blockOf, decide, referrerHandleOf, fitsDailyCeiling, isFeedItem, isMature, itemsFor, weeklyRanking, type FeedItem,
+  blockOf, decide, parseItemsHandle, referrerHandleOf, fitsDailyCeiling, isFeedItem, isMature, itemsFor, weeklyRanking, type FeedItem,
 } from './rules'
 
 const NOW = Date.parse('2026-11-20T12:00:00Z')
@@ -320,5 +320,19 @@ describe('a migração 043', () => {
   it('aplica toda a mudança numa única transação', () => {
     assert.match(sql, /\nbegin;\n/)
     assert.match(sql, /\ncommit;\s*$/)
+  })
+})
+
+describe('parseItemsHandle (rota referral-items por handle)', () => {
+  it('aceita com ou sem @, em qualquer caixa, e recusa o que não é handle', () => {
+    assert.equal(parseItemsHandle('@JDog'), 'jdog')
+    assert.equal(parseItemsHandle(' jdog '), 'jdog')
+    for (const ruim of [null, undefined, '', 'ab', 'a'.repeat(16), 'j dog', 'jdog;drop', '@@jdog', 'jdog.x']) assert.equal(parseItemsHandle(ruim as string), null, String(ruim))
+  })
+  it('a rota por handle não devolve o endereço', () => {
+    const src = readFileSync(new URL('../../app/api/dogcity/referral-items/route.ts', import.meta.url), 'utf8')
+    const corpo = src.slice(src.indexOf('async function byHandle'), src.indexOf('export async function GET'))
+    assert.ok(!/address:/.test(corpo.replace(/select\('address'\)/, '')), 'nenhuma resposta leva address')
+    assert.ok(/\{ handle, items/.test(corpo))
   })
 })
