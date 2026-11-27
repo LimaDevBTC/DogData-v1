@@ -59,7 +59,7 @@ const PLAY = 'https://play.dogcity.space'
 // do jogo abrem `dogcity.space/?licence=<nivel>&from=game#tiers`. Fora desta lista, desde 22/10 o desvio abaixo os mandava
 // de volta ao jogo (19/11/2026: o comprador era jogado na tela de carga). O jogo nao le nenhum dos dois.
 const CAMPANHA = /^(utm_[a-z_]+|ref|gclid|fbclid|twclid|mc_cid|mc_eid|s|src|licence|from)$/
-const ROTAS_SPACE: Record<string, string> = { '/': '/dogcity', '/docs': '/dogcity/docs', '/founders': '/dogcity/founders', '/support': '/dogcity/support', '/atlas': '/dogcity/atlas', '/referrals': '/dogcity/referrals', '/motors': '/dogcity/motors', '/profile': '/dogcity/profile' }
+const ROTAS_SPACE: Record<string, string> = { '/': '/dogcity', '/docs': '/dogcity/docs', '/founders': '/dogcity/founders', '/support': '/dogcity/support', '/atlas': '/dogcity/atlas', '/referrals': '/dogcity/referrals', '/ranking': '/dogcity/ranking', '/motors': '/dogcity/motors', '/profile': '/dogcity/profile' }
 
 function noDominioDaCidade(req: NextRequest): NextResponse | null {
   const host = (req.headers.get('host') || '').split(':')[0].toLowerCase()
