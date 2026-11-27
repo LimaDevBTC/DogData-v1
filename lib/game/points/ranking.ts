@@ -6,7 +6,8 @@
 // O ranking soma pontos GANHOS, nunca o saldo. A tabela de origens (kind/source) e a regra do Total, dos herdados e da semana
 // estão no cabeçalho da 050. Cada origem, em uma linha:
 //   earn/checkin -> Total, Login | earn/<venda pesca madeira minerio caca cavalo turno missao tutorial verified> -> Total
-//   referral/referral -> Total, Ambassador | migration/save -> Total (só all time) | spend, car, refund -> nunca
+//   referral/referral -> Total, Ambassador | referral/bonus (bônus único do operador, migração 051) -> Total, Ambassador
+//   migration/save -> Total (só all time) | spend, car, refund -> nunca
 //
 // PRIVACIDADE (decisão de 27/11/2026): o JSON público NUNCA leva o endereço inteiro. `wallet` sai abreviado (o mesmo
 // shortAddress do placar de referral) e o caminho interno da página da carteira (`walletPath`) só sai quando a linha NÃO tem
