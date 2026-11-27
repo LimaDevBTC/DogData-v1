@@ -35,6 +35,12 @@ const RESERVED_HANDLES = new Set([
   'dogcity_team',
   'dogdata_team',
   'help',
+  // exemplos de texto de documentação: em 18/11 treze pessoas chegaram com `?ref=@handle` copiado do exemplo das docs. Reservado,
+  // o literal vira ref inválido (não guarda no navegador, não ocupa o lugar do "primeiro link vale"). Quem já tivesse um destes
+  // continuaria com ele, mas o link dele deixaria de valer: conferir no banco (leitura) antes de mesclar.
+  'handle',
+  'yourhandle',
+  'your_handle',
 ])
 
 export function normalizeHandle(raw: string): string {
