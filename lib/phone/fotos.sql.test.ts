@@ -154,3 +154,53 @@ test('foto em post do Social City: so foto propria, quem ve o post ve a foto, bl
   await db.fechar()
 })
 
+
+test('foto de perfil (049): troca, aparece no cartao, quem ve o perfil le, bloqueio tira, galeria nao mostra, tirar apaga', { skip: pular }, async () => {
+  const { tirarAvatar, trocarAvatar } = await import('./fotos')
+  const db = await abrirBancoLocal(PGLITE!)
+  await db.sql(`insert into public.dogcity_profiles (address, handle) values ($1,'ana'),($2,'bia')`, [ANA, BIA])
+  const deps: PhoneDeps = { rpc: db.rpc, segredo: 'teste' }
+  const eu = await inicio(deps, ANA)
+  assert.equal(eu.me.photo, null, 'sem foto: o cartao diz null (e o jogo sabe que o servidor ja tem a 049)')
+  const idBia = (await inicio(deps, BIA)).me.id
+  const arm = armazem()
+  const a1 = await trocarAvatar(deps, arm, ANA, jpeg(512, 512))
+  assert.ok(a1.ok && a1.photo.kind === 'avatar')
+  if (!a1.ok) return
+  // o cartao da ana (para ela e para a bia, no feed e no inicio) leva a foto
+  assert.equal((await inicio(deps, ANA)).me.photo, a1.photo.id)
+  await agirMural(deps, ANA, { action: 'post', text: 'oi' })
+  const fb = await feed(deps, BIA, { before: null, author: null })
+  assert.deepEqual(fb.ok ? fb.posts.map((x) => x.author.photo) : [], [a1.photo.id])
+  // a bia, que ve o perfil, baixa a foto; a foto de perfil nao aparece na galeria da ana e nao sai por "apagar da galeria"
+  assert.ok((await lerFoto(deps, arm, BIA, a1.photo.id)).ok)
+  const gal = await listarFotos(deps, ANA, null)
+  assert.deepEqual(gal.ok ? gal.photos : null, [])
+  assert.deepEqual(await apagarFoto(deps, arm, ANA, a1.photo.id), { ok: false, why: 'not_found' })
+  // bloqueio: a bia perde a foto; desbloqueio devolve
+  await agir(deps, ANA, { action: 'block', id: idBia })
+  assert.deepEqual(await lerFoto(deps, arm, BIA, a1.photo.id), { ok: false, why: 'not_found' })
+  await agir(deps, ANA, { action: 'unblock', id: idBia })
+  assert.ok((await lerFoto(deps, arm, BIA, a1.photo.id)).ok)
+  // trocar: a anterior some do bucket e de quem lia; a bia nao usa a foto da ana como dela
+  const a2 = await trocarAvatar(deps, arm, ANA, jpeg(400, 400))
+  assert.ok(a2.ok)
+  if (!a2.ok) return
+  assert.equal(arm.arquivos.size, 1)
+  assert.deepEqual(await lerFoto(deps, arm, BIA, a1.photo.id), { ok: false, why: 'not_found' })
+  assert.equal((await inicio(deps, ANA)).me.photo, a2.photo.id)
+  assert.equal(((await db.rpc('dogcity_phone_avatar_set', { p_me: idBia, p_photo: a2.photo.id })) as { status: string }).status, 'not_found')
+  // uma foto comum da galeria nao vira foto de perfil por esse caminho
+  const comum = await guardarFoto(deps, arm, ANA, jpeg(960, 1280), 'front')
+  const idAna = (await inicio(deps, ANA)).me.id
+  assert.equal(((await db.rpc('dogcity_phone_avatar_set', { p_me: idAna, p_photo: comum.ok ? comum.photo.id : 0 })) as { status: string }).status, 'not_found')
+  // arquivo que nao e' JPEG: recusado, a foto de perfil continua a mesma
+  assert.deepEqual(await trocarAvatar(deps, arm, ANA, new Uint8Array(300).fill(1)), { ok: false, why: 'not_jpeg' })
+  assert.equal((await inicio(deps, ANA)).me.photo, a2.photo.id)
+  // tirar: volta a null e o arquivo sai
+  assert.deepEqual(await tirarAvatar(deps, arm, ANA), { ok: true })
+  assert.equal((await inicio(deps, ANA)).me.photo, null)
+  assert.deepEqual(await lerFoto(deps, arm, BIA, a2.photo.id), { ok: false, why: 'not_found' })
+  assert.equal(arm.arquivos.size, 1, 'so a foto comum da galeria ficou')
+  await db.fechar()
+})

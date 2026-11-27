@@ -20,7 +20,7 @@ export interface Foto {
   at: string
   w: number
   h: number
-  kind: 'front' | 'selfie'
+  kind: 'front' | 'selfie' | 'avatar'
 }
 
 /**
@@ -80,7 +80,7 @@ function foto(v: unknown): Foto | null {
   const o = obj(v)
   const id = lerIdMensagem(o?.id)
   if (!o || !id) return null
-  return { id, at: String(o.at ?? ''), w: Number(o.w) || 0, h: Number(o.h) || 0, kind: o.kind === 'selfie' ? 'selfie' : 'front' }
+  return { id, at: String(o.at ?? ''), w: Number(o.w) || 0, h: Number(o.h) || 0, kind: o.kind === 'selfie' ? 'selfie' : o.kind === 'avatar' ? 'avatar' : 'front' }
 }
 
 /** POST /api/dogcity/phone/photos (corpo: o JPEG; ?kind=front|selfie) */
@@ -88,7 +88,7 @@ export async function guardarFoto(deps: PhoneDeps, arm: Armazem, address: string
   const me = await contaDe(deps, address)
   const limpo = limparJpeg(bruto)
   if (!limpo.ok) return limpo
-  const tipo = kind === 'selfie' ? 'selfie' : 'front'
+  const tipo = kind === 'selfie' ? 'selfie' : kind === 'avatar' ? 'avatar' : 'front'
   // o caminho não diz nada sobre a carteira: a conta (uuid interno) e um nome sorteado
   const caminho = `${me}/${randomUUID()}.jpg`
   await arm.gravar(caminho, limpo.bytes)
@@ -135,4 +135,34 @@ export async function apagarFoto(deps: PhoneDeps, arm: Armazem, address: string,
   if (typeof caminho !== 'string' || !caminho) return { ok: false, why: 'not_found' }
   await arm.apagar(caminho).catch(() => undefined)
   return { ok: true, id: n }
+}
+
+// ------------------------------------------------------------------------------------------- foto de perfil (migracao 049)
+
+/**
+ * POST /api/dogcity/phone/avatar (corpo: o JPEG): guarda a foto como 'avatar' (mesma limpeza e mesmos tetos das fotos da
+ * Camera) e passa a usa'-la no perfil. A anterior sai do bucket. Se a troca falhar, o arquivo novo sai do bucket e a foto
+ * de perfil antiga continua.
+ */
+export async function trocarAvatar(deps: PhoneDeps, arm: Armazem, address: string, bruto: Uint8Array): Promise<{ ok: true; photo: Foto } | Falha> {
+  const g = await guardarFoto(deps, arm, address, bruto, 'avatar')
+  if (!g.ok) return g
+  const me = await contaDe(deps, address)
+  const r = obj(await deps.rpc('dogcity_phone_avatar_set', { p_me: me, p_photo: g.photo.id }))
+  if (r?.status !== 'ok') {
+    const caminho = await deps.rpc('dogcity_phone_photo_path', { p_me: me, p_id: g.photo.id })
+    if (typeof caminho === 'string' && caminho) await arm.apagar(caminho).catch(() => undefined)
+    return { ok: false, why: 'failed' }
+  }
+  if (typeof r.old_path === 'string' && r.old_path) await arm.apagar(r.old_path).catch(() => undefined)
+  return g
+}
+
+/** POST /api/dogcity/phone/avatar { action: remove }: volta para a inicial do @handle. */
+export async function tirarAvatar(deps: PhoneDeps, arm: Armazem, address: string): Promise<{ ok: true } | Falha> {
+  const me = await contaDe(deps, address)
+  const r = obj(await deps.rpc('dogcity_phone_avatar_set', { p_me: me, p_photo: null }))
+  if (r?.status !== 'ok') return { ok: false, why: 'failed' }
+  if (typeof r.old_path === 'string' && r.old_path) await arm.apagar(r.old_path).catch(() => undefined)
+  return { ok: true }
 }
