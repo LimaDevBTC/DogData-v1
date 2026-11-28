@@ -26,6 +26,14 @@ create index if not exists idx_page_events_painel
            vital_name, vital_value, vital_rating, device_type, language, viewport_w)
   where is_bot = false;
 
+-- Idiomas e telas (analytics_traffic) leem todos os tipos de evento, sem
+-- filtro de event_type, e não aproveitam o índice acima. Sem este, cada uma
+-- levava 4,5 s em 30 dias e o tráfego de 30 dias estourava os 8 s; com ele,
+-- 0,66 s. Também criado CONCURRENTLY à parte.
+create index if not exists idx_page_events_idioma_tela
+  on public.page_events (created_at) include (session_id, language, viewport_w)
+  where is_bot = false;
+
 create table if not exists public.analytics_report_cache (
   fn            text        not null,
   dias          int         not null,
